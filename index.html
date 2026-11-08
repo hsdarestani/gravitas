@@ -147,7 +147,7 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
      always shows at the edge. Layout: assets/topic-rail.css. Behaviour:
      assets/topic-rail.js. The poster and the cast are drawn from the final
      paper-cast artwork. -->
-<section class="g-section g-section--deep lp-chap trail" id="start" data-rail aria-labelledby="trail-h">
+<section class="g-section g-section--deep lp-chap trail" id="start" data-public-featured-topic="topic-answer-that-looked-right.html" data-rail aria-labelledby="trail-h">
   <div class="g-container">
     <header class="lp-chap__head rv">
       <span class="lp-chap__n">01 &middot; The Topic</span>
@@ -246,7 +246,7 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
       <article class="trail__panel" aria-label="04 of 08: The essay">
         <div class="trail__side">
           <p class="trail__n">04 &middot; The essay</p>
-          <h3>Reading a number is not evidence</h3>
+          <h3 data-topic-essay-title data-public-context-essay="overview">Reading a number is not evidence</h3>
           <p class="trail__say">One essay that reads two ways. Overview or In depth: neither is a teaser, both are the whole case.</p>
           <div class="trail__act">
             <a class="g-btn g-btn--secondary" href="topic-answer-that-looked-right.html#essay">Read the Essay</a>
@@ -255,7 +255,7 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
         <div class="trail__body">
           <div class="trail__essay">
             <p class="trail__depth" aria-label="Two depths"><span class="g-tag">Overview</span><span class="g-tag">In depth</span></p>
-            <blockquote class="trail__open"><p>The dangerous answer from an AI assistant is not the obviously wrong one. It is the one that looks right: the expected format, a plausible number, a calm tone, and nothing on its surface to say whether anyone checked it.</p></blockquote>
+            <blockquote class="trail__open" data-public-context-essay="overview"><p data-topic-essay-excerpt>The dangerous answer from an AI assistant is not the obviously wrong one. It is the one that looks right: the expected format, a plausible number, a calm tone, and nothing on its surface to say whether anyone checked it.</p></blockquote>
             <div class="trail__short">
               <p class="trail__short-k">The short answer</p>
               <p>Trust it the way you would trust a capable new colleague: enough to ask, never enough to skip the check on anything that compares, carries a unit, or cites something you did not give it.</p>
@@ -452,7 +452,7 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
               <ul class="lp-ws__rows">
                 <li><button type="button" data-ws-go="research"><b>Protein stability screen</b><span>Research &middot; Personal project</span></button></li>
                 <li><button type="button" data-ws-go="knowledge"><b>Reading notes: can you trust an answer that looks right?</b><span>Knowledge &middot; Notes</span></button></li>
-                <li><button type="button" data-ws-go="library"><b>Reading a number is not evidence</b><span>Library &middot; Topic 01</span></button></li>
+                <li><button type="button" data-ws-go="library"><b data-topic-essay-title data-public-context-essay="overview">Reading a number is not evidence</b><span>Library &middot; Topic 01</span></button></li>
               </ul>
             </div>
             <div class="lp-ws__view is-on" role="tabpanel" id="lp-ws-p-research" aria-labelledby="lp-ws-t-research">
@@ -480,7 +480,7 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
               <h3>Kept from the site</h3>
               <ul class="lp-ws__rows">
                 <li><div><b>The Answer That Looked Right</b><span>Topic 01 &middot; Video and transcript</span></div></li>
-                <li><div><b>Reading a number is not evidence</b><span>Topic 01 &middot; Essay, in depth</span></div></li>
+                <li><div><b data-topic-essay-deep-title data-public-context-essay="deep">Reading a number is not evidence</b><span>Topic 01 &middot; Essay, in depth</span></div></li>
                 <li><div><b>Highly accurate protein structure prediction with AlphaFold</b><span>Jumper et al. 2021 &middot; Primary source</span></div></li>
               </ul>
             </div>
@@ -586,8 +586,9 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
 <script src="assets/site.js?v=20261108-forum1"></script>
 <script src="assets/hero.js?v=20261105-stars1"></script>
 <script src="assets/landing.js?v=20261108-lab1" defer></script>
+<script src="assets/topic-01-essay.js?v=20261109-essay1" defer></script>
 <script src="assets/topic-rail.js?v=20261108-reel2" defer></script>
-<script src="assets/chat.js?v=20261102-lab1" defer></script>
+<script src="assets/chat.js?v=20261109-essay1" defer></script>
 <script src="assets/production-bridge.js?v=20261108-forum1" defer></script>
 <script src="/assets/forum-live.js?v=20261108-forum2" defer></script>
 </body>

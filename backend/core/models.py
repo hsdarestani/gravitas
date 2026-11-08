@@ -925,3 +925,24 @@ class PulsarResourceEmbedding(models.Model):
 from .lab_knowledge_models import LabKnowledgeDocument, LabScenario, LabRunSnapshot, LabCoachTrial, LabConversation  # noqa: E402,F401
 from .lab_usage_models import LabUsageVisit, LabUsageEvent  # noqa: E402,F401
 from .forum_models import ForumDiscussion, ForumLogout  # noqa: E402,F401
+
+
+class PublicPageSnapshot(models.Model):
+    path = models.CharField(max_length=180, primary_key=True)
+    content = models.JSONField()
+
+
+class TopicEssayPublication(models.Model):
+    class Depth(models.TextChoices):
+        OVERVIEW = 'overview', 'Overview'
+        DEEP = 'deep', 'In depth'
+
+    # Only Topic 01 uses this editorial workflow. The project and the file
+    # path identify the private source; the Markdown is the public snapshot.
+    depth = models.CharField(max_length=12, choices=Depth.choices, unique=True)
+    project = models.ForeignKey(ResearchProject, on_delete=models.SET_NULL, null=True)
+    source_path = models.CharField(max_length=800)
+    source_etag = models.CharField(max_length=255)
+    markdown = models.TextField()
+    published_at = models.DateTimeField()
+    published_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True)

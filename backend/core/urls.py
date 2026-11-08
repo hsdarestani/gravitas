@@ -1,4 +1,5 @@
 from core.canonical_api import project_files, project_file_content, project_file_revisions
+from core.topic_essay_api import project_topic_essays, public_topic_essays
 from core.work_reports import reports_api, report_decision_api, report_overview_api
 from django.urls import path
 
@@ -262,6 +263,8 @@ urlpatterns = [
     path('labs/<slug:slug>/usage/', lab_usage),
     path('labs/<slug:slug>/conversation/', lab_conversation),
     path('labs/<slug:slug>/scenarios/compare/', lab_scenario_comparison),
+    path('platform/projects/<int:project_id>/topic-essays/', project_topic_essays),
+    path('topics/answer-that-looked-right/essays/', public_topic_essays),
     path('platform/projects/<int:project_id>/structure/', project_files),
     path('platform/projects/<int:project_id>/file-content/', project_file_content),
     path('platform/projects/<int:project_id>/file-revisions/', project_file_revisions),

@@ -610,6 +610,7 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           message: q, history: history, page: location.pathname,
+          section: location.hash.slice(1),
           page_context: publicPageContext(), topic_catalog: catalog
         })
       });
