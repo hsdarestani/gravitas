@@ -9,9 +9,9 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         completed = failed = 0
-        for row in ForumLogout.objects.select_related('user').order_by('requested_at')[:100]:
+        for row in ForumLogout.objects.order_by('requested_at')[:100]:
             try:
-                revoke_forum_sessions(row.user)
+                revoke_forum_sessions(row.external_id)
             except ForumUnavailable:
                 ForumLogout.objects.filter(pk=row.pk).update(attempts=F('attempts') + 1)
                 failed += 1

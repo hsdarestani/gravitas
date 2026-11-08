@@ -35,8 +35,7 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
 <link rel="stylesheet" href="assets/forum.css?v=20261108-fm10">
 <link rel="stylesheet" href="assets/chat.css?v=20261010-pulsar8">
 <link rel="stylesheet" href="assets/production-overrides.css?v=up-f706806e3a02-g1df6ff09-rl3">
-<link rel="stylesheet" href="/assets/community-forum.css?v=20261108-forum1">
-<link rel="stylesheet" href="/assets/forum-live.css?v=20261108-forum1">
+<link rel="stylesheet" href="/assets/forum-live.css?v=20261108-forum2">
 </head>
 <body class="is-overview">
 <a class="g-skip-link" href="#main">Skip to content</a>
@@ -530,7 +529,10 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
       <h2 id="ch-forum">Every Topic Has a Room</h2>
       <p class="g-lead">Read any thread without an account; sign in to reply, like or start one. A moderator reads every post before it appears.</p>
     </header>
-    <ul class="rd-list lp-forum__list rv" data-forum-peek aria-label="Recent public discussions"><li>Loading public discussions…</li></ul>
+    <div class="fm-list lp-forum__list rv">
+        <div class="fm-row fm-row--head" aria-hidden="true"><span>Thread</span><span class="fm-c-who"></span><span class="fm-c-n">Replies</span><span class="fm-c-n fm-c-views">Views</span><span class="fm-c-n">Activity</span></div>
+        <ol class="fm-rows" data-forum-peek data-forum-layout="table" aria-label="Recent public discussions"><li>Loading public discussions…</li></ol>
+    </div>
     <div class="lp-chap__act rv">
       <a class="g-btn g-btn--primary" href="forum.html">Enter the Forum</a>
       <a class="g-btn g-btn--secondary" href="community.html">How the Community Works</a>
@@ -587,6 +589,6 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
 <script src="assets/topic-rail.js?v=20261108-reel2" defer></script>
 <script src="assets/chat.js?v=20261102-lab1" defer></script>
 <script src="assets/production-bridge.js?v=20261108-forum1" defer></script>
-<script src="/assets/forum-live.js?v=20261108-forum1" defer></script>
+<script src="/assets/forum-live.js?v=20261108-forum2" defer></script>
 </body>
 </html>

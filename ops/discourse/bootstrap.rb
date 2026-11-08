@@ -8,7 +8,7 @@ system_user = Discourse.system_user
 
 SiteSetting.title = "GraviQuest Forum"
 SiteSetting.site_description = "Good questions pull people together."
-SiteSetting.navigation_menu = "sidebar"
+SiteSetting.navigation_menu = "header dropdown"
 SiteSetting.discourse_connect_url = "https://graviquest.com/api/forum/sso/"
 SiteSetting.discourse_connect_secret = settings_file.fetch("GRAVITAS_DISCOURSE_CONNECT_SECRET")
 SiteSetting.enable_discourse_connect = true
@@ -77,6 +77,7 @@ rooms = {}
 [
   ["The Open Question", "open-question"],
   ["Topic 01 · AI in Research", "ai-in-research"],
+  ["Topic 03 · Discovery", "discovery"],
   ["Topic 04 · Computable universe", "computable-universe"],
   ["Corrections", "corrections"], ["Propose a Topic", "propose-a-topic"],
   ["Lab results", "lab-results"], ["Introductions", "introductions"],
@@ -124,14 +125,20 @@ File.write("#{root}/links.json", JSON.pretty_generate(links: links))
 
 scheme = ColorScheme.find_by(name: "GraviQuest") || ColorScheme.create_from_base(
   name: "GraviQuest", base_scheme_id: -2, colors: {
-    primary: "f1efec", secondary: "00131d", tertiary: "d4c9be", quaternary: "9ec4da",
-    header_background: "001a28", header_primary: "f1efec", highlight: "003049",
+    primary: "f1efec", secondary: "00141f", tertiary: "7fb6dc", quaternary: "9ec4da",
+    header_background: "00263a", header_primary: "f1efec", highlight: "003049",
     selected: "003049", hover: "013a58", danger: "c9705f", success: "6f9c8f", love: "d4c9be",
   })
+{secondary: "00141f", tertiary: "7fb6dc", header_background: "00263a"}.each do |name, hex|
+  scheme.color_scheme_colors.find_by!(name: name.to_s).update!(hex: hex)
+end
+scheme.clear_colors_cache
+scheme.save!
 theme = RemoteTheme.import_theme_from_directory("#{root}/theme", theme_id: Theme.find_by(name: "GraviQuest Community")&.id)
 raise "Theme validation failed" unless theme.persisted? && theme.errors.empty?
 theme.update!(color_scheme_id: scheme.id, user_selectable: true)
 theme.update_setting(:next_topic_poll_id, poll.id)
+theme.update_setting(:open_question_topic_id, question.id)
 theme.update_javascript_cache!
 theme.theme_fields.each(&:ensure_baked!)
 raise "Theme compilation failed" if theme.theme_fields.where.not(error: [nil, ""]).exists?

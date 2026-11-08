@@ -1,6 +1,11 @@
 # Community and Discourse operations
 
-The public Community page uses the supplied redesign. The forum runs official
+The public Community page uses the supplied redesign. The Forum keeps the live
+`forum.html` table, room chips, overlapping avatars and replies/views/activity
+columns, following the latest product direction. Its native Discourse theme
+uses the same palette, type and hairline rows. Home uses the same live table
+renderer. Every row opens its own native permalink; unknown metrics are not
+invented. The forum runs official
 Discourse stable 2026.7.4, pinned by commit in `ops/discourse/render_config.py`.
 Its theme uses supported GJS plugin outlets and the native poll component.
 No Discourse core files are modified. Existing Django comments and poll votes
@@ -61,7 +66,9 @@ require native moderation approval. Staff can publish directly.
 
 GraviQuest logout revokes mapped native forum sessions. A network failure
 retains a durable outbox entry retried every minute. Account suspension and
-removal from managed groups revoke sessions after the access change commits.
+removal from managed groups or admin authority revoke sessions after the access
+change commits. Account deletion preserves a retryable external-identity outbox
+even when the Django user row no longer exists.
 Native Forum logout ends its own session and opens a CSRF-protected GraviQuest
 sign-out form. Finishing that form ends the workspace session too; this is a
 two-step flow and must not be described as atomic single-click logout.
@@ -102,7 +109,9 @@ Never run an unattended major upgrade or delete the shared storage directory.
 content ID, Discourse topic/category IDs, public flag and source version hash.
 Discourse owns posts, reply relationships, upload permissions, polls and votes.
 No invented source, member count, vote or research result is seeded. Initial
-threads are labelled official and link only to published CMS material.
+threads are labelled official and link only to published CMS material or the
+existing Topic 01 static page when it is explicitly linked from the deployed
+landing page. Preview topics and sample forum members are never imported.
 
 These independent workflows are **not implemented** by the forum theme:
 
@@ -118,3 +127,15 @@ Discourse has native reply-to relationships and maintained post-voting modes;
 it does not reproduce an unlimited Reddit-style nested thread tree. The theme
 shows real likes, native polls and native voting where available. These are
 intentional differences from the preview's arbitrary local up/down counters.
+
+## Acceptance boundaries
+
+The native acceptance runner uses recorded reserved-domain QA identities, then
+removes only its own IDs and votes. It checks native SSO, member moderation,
+replies/editing/deletion permissions, real uploads, polls/likes, search/tags,
+private text ACLs, notifications and persistence after restarting only the forum
+container. Chromium then renders the actual native application through an SSH
+loopback bridge at desktop and mobile widths, retaining the HTTPS origin and
+production CSP. This is not a public-browser Django SSO or email delivery test.
+Real Android Chrome, iOS Safari, external email delivery, and off-host backup
+restore remain launch acceptance requirements until tested explicitly.

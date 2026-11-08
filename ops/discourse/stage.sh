@@ -64,6 +64,7 @@ for attempt in $(seq 1 60); do
 done
 test "$ready" = true
 docker exec -u discourse -w /var/www/discourse graviquest bundle exec rails runner /shared/graviquest-integration/bootstrap.rb
+docker exec -e GQ_CLEANUP_INTERRUPTED_ACCEPTANCE=1 -u discourse -w /var/www/discourse graviquest bundle exec rails runner /shared/graviquest-integration/verify_native.rb
 docker exec -u discourse -w /var/www/discourse graviquest bundle exec rails runner /shared/graviquest-integration/verify_native.rb
 docker exec -u discourse -w /var/www/discourse graviquest discourse backup > /var/log/graviquest-discourse-backup.log 2>&1
 # Restart only this new forum container; prove its own data survives.

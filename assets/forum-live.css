@@ -1,4 +1,13 @@
 /* Live-data states added to the supplied Community/Forum visual system. */
+.fm-live-tools{display:flex;align-items:center;justify-content:space-between;gap:1rem;margin-block:.75rem 1.5rem}
+.fm-live-tools .result-count{white-space:nowrap}
+.fm-bar .fm-steps{flex:1 1 34rem;max-width:100%;padding-block:.2rem}
+.fm-bar .fm-find{margin:0;flex-basis:20rem}
+.fm-rows{min-width:0}.fm-row__title{overflow-wrap:anywhere}.fm-row__tags{flex-wrap:wrap}
+.fm-list>[data-forum-status]:empty{margin:0}
+.fm-steps .chip.fm-step{min-height:44px;align-items:center}
+.fm-c-who .fm-av{object-fit:cover}
+@media(max-width:760px){.fm-bar .fm-find{flex-basis:100%}.fm-live-tools{gap:.5rem}.fm-live-tools .fm-steps{max-width:100%}.fm-live-tools .result-count{font-size:.75rem}}
 .rd-thread .gq-likes{display:grid;align-content:start;justify-items:center;gap:.3rem;flex:0 0 2.4rem;color:var(--g-accent);font:500 .95rem var(--g-font-mono)}
 .rd-thread .gq-likes>span:first-child{font-size:1.5rem;line-height:1}
 .rd-thread__foot time{margin-left:auto}.rd-room.gq-subroom{padding-left:1.5rem;font-size:.85rem}

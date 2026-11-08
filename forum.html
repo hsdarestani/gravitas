@@ -14,26 +14,25 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
 }catch(e){document.documentElement.setAttribute('data-theme','dark');}})();
 </script>
 <title>Forum · GraviQuest</title>
-<meta name="description" content="The Forum: a room for every Topic, with voting, replies and a moderator. Open to every field.">
-<meta name="theme-color" content="#00263a">
+<meta name="description" content="The GraviQuest Forum: a room for each Topic and one for the open question. Read every thread without an account; sign in to reply.">
 <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
 <link rel="mask-icon" href="assets/logos/Logo_White.svg" color="#003049">
+<meta name="theme-color" content="#00263a">
 <link rel="stylesheet" href="assets/local-fonts.css?v=up-f706806e3a02-g1df6ff09-lit1">
 <link rel="stylesheet" href="assets/gravitas.css?v=up-f706806e3a02-g1df6ff09-lit1">
 <link rel="stylesheet" href="assets/site.css?v=up-f706806e3a02-g1df6ff09-ds10">
-<link rel="stylesheet" href="assets/hero.css?v=20261105-stars1">
 <link rel="stylesheet" href="assets/landing.css?v=20261108-lp14">
+<link rel="stylesheet" href="assets/forum.css?v=20261108-fm10">
 <link rel="stylesheet" href="assets/chat.css?v=20261010-pulsar8">
 <link rel="stylesheet" href="assets/production-overrides.css?v=up-f706806e3a02-g1df6ff09-rl3">
-<link rel="stylesheet" href="/assets/community-layout.css?v=20261108-forum1">
-<link rel="stylesheet" href="/assets/community-forum.css?v=20261108-forum1">
-<link rel="stylesheet" href="/assets/forum-live.css?v=20261108-forum1"></head>
-<body class="is-overview" data-forum-landing>
+<link rel="stylesheet" href="/assets/forum-live.css?v=20261108-forum2">
+</head>
+<body>
 <a class="g-skip-link" href="#main">Skip to content</a>
 <header class="g-header">
   <div class="g-container g-header__inner">
     <a class="g-logo" href="index.html" aria-label="GraviQuest home"><span class="g-mark g-mark--logotype" aria-hidden="true"></span></a>
-    <nav class="g-nav" aria-label="Primary"><a class="g-nav__link" href="topics.html"><svg class="g-ic g-nav__ic" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><g transform="translate(2.282 2.283) scale(1.0407)" stroke-width="1.634"><rect x=".75" y=".75" width="17.2" height="17.2" rx="3.4" ry="3.4"/><path d="M.85,7.95c3.5,1.5,6,2.3,8.5,2.3s5-.8,8.5-2.3"/><path d="M7.95.85c1.5,3.5,2.3,6,2.3,8.5s-.8,5-2.3,8.5"/></g></svg>Topics</a><a class="g-nav__link" href="lab.html"><svg class="g-ic g-nav__ic" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><g transform="translate(4.844 0.9) scale(0.972826)" stroke-width="1.747"><path d="M4.7.75h5.2"/><path d="M5.9.75c0,8.29.39,6.94-4.03,13.95l-.79,1.25c-.89,1.41.12,3.2,1.8,3.2h9.04c1.68,0,2.69-1.79,1.8-3.2l-.79-1.25c-4.42-7.01-4.03-5.66-4.03-13.95"/><circle cx="7.3" cy="14.8" r="1.593" fill="currentColor" stroke="none"/></g></svg>Lab</a><a class="g-nav__link" href="learn.html"><svg class="g-ic g-nav__ic" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><g transform="translate(2.353 2.45) scale(0.962366)" stroke-width="1.766"><path d="M4.45,17.15c3-.8,3.2-5.8,5.6-7.2"/><path d="M10.05,9.95c2.4-1.4,2.6-6.4,5.6-7.2"/><circle cx="2.35" cy="17.55" r="1.6"/><circle cx="17.75" cy="2.35" r="1.6"/><circle cx="10.05" cy="9.95" r="1.611" fill="currentColor" stroke="none"/></g></svg>Learn</a><a class="g-nav__link" href="/forum.html"><svg class="g-ic g-nav__ic" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><g stroke-width="1.7"><path d="M20.5 12a7.5 7.5 0 0 1-10.9 6.7L4 20l1.2-4.4A7.5 7.5 0 1 1 20.5 12z"/></g></svg>Forum</a><a class="g-nav__link" href="/community"><svg class="g-ic g-nav__ic" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><g transform="translate(2.252 1.167) scale(1.09681)" stroke-width="1.55"><circle cx="8.91" cy="2.5" r="1.75"/><circle cx="15.32" cy="13.6" r="1.75"/><circle cx="2.5" cy="13.6" r="1.75"/><circle cx="8.91" cy="9.9" r="1.413" fill="currentColor" stroke="none"/></g></svg>Community</a><span class="g-nav__sep" aria-hidden="true"></span><a class="g-btn g-btn--primary g-btn--sm g-btn--lead gh-nav-join" href="/signup" aria-label="Create your free workspace" data-workspace-link><svg class="g-btn__icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><g transform="translate(2.7 2.349) scale(0.967568)" stroke-width="1.757"><path d="M6.55.75h4.75c1.6,0,2.9,1.3,2.9,2.9v12.7c0,1.6-1.3,2.9-2.9,2.9h-4.75"/><path d="M3.55,10h5.4"/><path d="M6.55,7.3l2.7,2.7-2.7,2.7"/><circle cx="0.77" cy="10" r="1.602" fill="currentColor" stroke="none"/></g></svg><span>Workspace</span></a></nav>
+    <nav class="g-nav" aria-label="Primary"><a class="g-nav__link" href="topics.html"><svg class="g-ic g-nav__ic" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><g transform="translate(2.282 2.283) scale(1.0407)" stroke-width="1.634"><rect x=".75" y=".75" width="17.2" height="17.2" rx="3.4" ry="3.4"/><path d="M.85,7.95c3.5,1.5,6,2.3,8.5,2.3s5-.8,8.5-2.3"/><path d="M7.95.85c1.5,3.5,2.3,6,2.3,8.5s-.8,5-2.3,8.5"/></g></svg>Topics</a><a class="g-nav__link" href="lab.html"><svg class="g-ic g-nav__ic" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><g transform="translate(4.844 0.9) scale(0.972826)" stroke-width="1.747"><path d="M4.7.75h5.2"/><path d="M5.9.75c0,8.29.39,6.94-4.03,13.95l-.79,1.25c-.89,1.41.12,3.2,1.8,3.2h9.04c1.68,0,2.69-1.79,1.8-3.2l-.79-1.25c-4.42-7.01-4.03-5.66-4.03-13.95"/><circle cx="7.3" cy="14.8" r="1.593" fill="currentColor" stroke="none"/></g></svg>Lab</a><a class="g-nav__link" href="learn.html"><svg class="g-ic g-nav__ic" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><g transform="translate(2.353 2.45) scale(0.962366)" stroke-width="1.766"><path d="M4.45,17.15c3-.8,3.2-5.8,5.6-7.2"/><path d="M10.05,9.95c2.4-1.4,2.6-6.4,5.6-7.2"/><circle cx="2.35" cy="17.55" r="1.6"/><circle cx="17.75" cy="2.35" r="1.6"/><circle cx="10.05" cy="9.95" r="1.611" fill="currentColor" stroke="none"/></g></svg>Learn</a><a class="g-nav__link" aria-current="page" href="community.html"><svg class="g-ic g-nav__ic" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><g transform="translate(2.252 1.167) scale(1.09681)" stroke-width="1.55"><circle cx="8.91" cy="2.5" r="1.75"/><circle cx="15.32" cy="13.6" r="1.75"/><circle cx="2.5" cy="13.6" r="1.75"/><circle cx="8.91" cy="9.9" r="1.413" fill="currentColor" stroke="none"/></g></svg>Community</a><span class="g-nav__sep" aria-hidden="true"></span><a class="g-btn g-btn--primary g-btn--sm g-btn--lead gh-nav-join" href="/signup" aria-label="Create your free workspace" data-workspace-link><svg class="g-btn__icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><g transform="translate(2.7 2.349) scale(0.967568)" stroke-width="1.757"><path d="M6.55.75h4.75c1.6,0,2.9,1.3,2.9,2.9v12.7c0,1.6-1.3,2.9-2.9,2.9h-4.75"/><path d="M3.55,10h5.4"/><path d="M6.55,7.3l2.7,2.7-2.7,2.7"/><circle cx="0.77" cy="10" r="1.602" fill="currentColor" stroke="none"/></g></svg><span>Workspace</span></a></nav>
     <div class="gh-actions">
       <!-- One account control, and it names where you are going rather than
            what you are signing up for. Signed out it opens the create-account
@@ -56,50 +55,57 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
   </div>
 </header>
 <main id="main">
-<section class="g-hero lp-hero cm-hero" id="top">
-  <canvas class="lp-grid" id="lp-grid" aria-hidden="true"></canvas>
-  <div class="g-starfield" aria-hidden="true"></div>
-  <canvas class="lp-comet" id="lp-comet" aria-hidden="true"></canvas>
-  <div class="g-container g-hero__inner" style="width:100%"><div class="lp-hero__grid">
-    <div class="lp-hero__col"><p class="g-eyebrow">Forum &middot; A Room for Every Topic</p>
-      <h1 class="g-display lp-hero__title">Where the argument <em>happens</em>.</h1>
-      <p class="g-lead lp-hero__lede">Like useful replies, answer back, and keep the strongest objection in view. Read freely; a free account lets you post.</p>
-      <div class="g-cluster g-mt-lg"><a class="g-btn g-btn--primary g-btn--lg g-btn--lead" href="#rd-forum">Enter the rooms</a><a class="g-btn g-btn--secondary g-btn--lg" href="/signup">Join Us</a></div>
-      <p class="lp-hero__fine">Free account. No field or degree required.</p></div>
-    <div class="lp-orbit"><svg class="rd-fhero-art" viewBox="0 0 420 320" role="img" aria-label="A network of rooms around the Forum: Open Question, Topic 01, Topic 04, Corrections, Propose a Topic, Lab results"><g><line class="link" x1="210" y1="160" x2="210" y2="45"/><circle class="node" cx="210" cy="45" r="7"/><circle class="pulse" r="2.5"><animateMotion dur="4s" repeatCount="indefinite" path="M210 160 L210 45"/></circle><text x="210" y="29" text-anchor="middle">Open Question</text><line class="link" x1="210" y1="160" x2="359" y2="102"/><circle class="node" cx="359" cy="102" r="7"/><circle class="pulse" r="2.5"><animateMotion dur="5s" repeatCount="indefinite" path="M210 160 L359 102"/></circle><text x="359" y="86" text-anchor="middle">Topic 01</text><line class="link" x1="210" y1="160" x2="359" y2="217"/><circle class="node" cx="359" cy="217" r="7"/><circle class="pulse" r="2.5"><animateMotion dur="6s" repeatCount="indefinite" path="M210 160 L359 217"/></circle><text x="359" y="241" text-anchor="middle">Topic 04</text><line class="link" x1="210" y1="160" x2="210" y2="275"/><circle class="node" cx="210" cy="275" r="7"/><circle class="pulse" r="2.5"><animateMotion dur="7s" repeatCount="indefinite" path="M210 160 L210 275"/></circle><text x="210" y="299" text-anchor="middle">Corrections</text><line class="link" x1="210" y1="160" x2="61" y2="218"/><circle class="node" cx="61" cy="218" r="7"/><circle class="pulse" r="2.5"><animateMotion dur="8s" repeatCount="indefinite" path="M210 160 L61 218"/></circle><text x="61" y="242" text-anchor="middle">Propose a Topic</text><line class="link" x1="210" y1="160" x2="61" y2="102"/><circle class="node" cx="61" cy="102" r="7"/><circle class="pulse" r="2.5"><animateMotion dur="9s" repeatCount="indefinite" path="M210 160 L61 102"/></circle><text x="61" y="86" text-anchor="middle">Lab results</text><circle class="node" cx="210" cy="160" r="22" style="fill:var(--g-accent)"/><text x="210" y="164" text-anchor="middle" style="fill:#00131d;font-weight:700">Forum</text></g></svg><p class="lp-orbit__cap">Every room, one rule: commit to something, then say why</p></div>
-  </div></div></section>
-<section class="g-section lp-gridded" style="padding-block:var(--g-space-xl)"><div class="g-container">
- <div class="rd-forum" id="rd-forum">
-  <aside class="rd-rooms" id="rd-rooms" aria-label="Rooms"><h2>Rooms</h2><p role="status">Loading rooms…</p></aside>
-  <div id="rd-main">
- <form class="rd-bar" data-forum-search role="search"><label class="g-visually-hidden" for="forum-search">Search discussions</label><input id="forum-search" class="rd-search" name="q" type="search" placeholder="Search discussions" required maxlength="200"><button class="g-btn g-btn--secondary g-btn--sm">Search</button></form>
- <div class="rd-bar"><div class="rd-seg" role="group" aria-label="Sort discussions"><button type="button" data-forum-sort="latest" aria-pressed="true">New</button><button type="button" data-forum-sort="top" aria-pressed="false">Top</button><button type="button" data-forum-sort="unanswered" aria-pressed="false">Needs an answer</button></div><a class="g-btn g-btn--primary g-btn--sm" href="/api/forum/resume/" data-forum-new>Start a discussion</a></div>
- <div data-forum-status role="status">Loading discussions…</div><ul class="rd-list" data-forum-feed></ul><button class="g-btn g-btn--secondary" data-forum-more type="button" hidden>More discussions</button>
- </div>
-  <aside class="rd-side" aria-label="Forum sidebar">
-   <div class="rd-roomcard"><h2>Vote on the next Topic</h2><div class="rd-poll" id="rd-poll" data-forum-discussion="next-topic-poll"><p role="status">Loading the current poll…</p></div></div>
-   <div class="rd-roomcard"><h2>One community, one account</h2><p>Use your GraviQuest account to join the conversation.</p><a href="/api/forum/resume/">Open your Forum profile</a></div>
-   <div class="rd-roomcard"><h2>House rules</h2><ol class="rd-rules"><li>Commit to a position, then say why.</li><li>Cite it, or say you cannot.</li><li>A moderator reads every post before it appears.</li></ol></div>
-  </aside></div></div></section>
-<section class="rd-seat lp-gridded" id="join" aria-labelledby="ch-join"><div class="g-container"><div class="rd-seat__card rv">
-<div>
-<span class="rd-kicker"><i></i>Free · No field or degree required</span>
-<h2 id="ch-join">Pull up a chair.</h2>
-<p class="rd-seat__lede">Every Topic is an open table. Read freely. With a free account you vote, answer back and decide what we take on next.</p>
-<ul class="rd-seat__perks">
-<li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 15l6-6 6 6"/></svg><span><b>Like</b> useful replies and vote on the next Topic. Your vote counts the moment you join.</span></li>
-<li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/></svg><span><b>Answer back</b> in a room. A moderator reads before it appears.</span></li>
-<li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v18M3 12h18"/></svg><span><b>Propose or correct.</b> Pitch a Topic, or flag where a claim outruns its source.</span></li></ul>
-<div class="rd-seat__act"><a class="g-btn g-btn--primary g-btn--lg" href="/signup">Take a seat, free</a><a class="g-btn g-btn--secondary g-btn--lg" href="/forum.html">See the Forum first</a></div>
-<p class="rd-seat__fine">No payment, no tiers. Already a member? <a href="account.html#in">Sign in</a>.</p>
-</div>
-<div class="rd-seat__art"><svg class="rd-table" viewBox="0 0 300 300" role="img" aria-label="An illustration of an open table with a seat for you"><circle class="top" cx="150" cy="150" r="72"/><text class="cap" x="150" y="146">Every Topic</text><text class="cap" x="150" y="162">is an open table</text><g class="seat" transform="translate(150.0 38.0)"><circle r="19" fill="#9ec4da" fill-opacity=".28" stroke="#9ec4da"/><text>·</text></g><g class="seat" transform="translate(229.2 70.8)"><circle r="19" fill="#d4c9be" fill-opacity=".28" stroke="#d4c9be"/><text>·</text></g><g class="seat" transform="translate(262.0 150.0)"><circle r="19" fill="#6fa3c2" fill-opacity=".28" stroke="#6fa3c2"/><text>·</text></g><g class="seat" transform="translate(229.2 229.2)"><circle r="19" fill="#e3c9a8" fill-opacity=".28" stroke="#e3c9a8"/><text>·</text></g><g class="seat" transform="translate(150.0 262.0)"><circle r="19" fill="#c9dde8" fill-opacity=".28" stroke="#c9dde8"/><text>·</text></g><g class="seat" transform="translate(70.8 229.2)"><circle r="19" fill="#9ec4da" fill-opacity=".28" stroke="#9ec4da"/><text>·</text></g><g class="seat" transform="translate(38.0 150.0)"><circle r="19" fill="#d4c9be" fill-opacity=".28" stroke="#d4c9be"/><text>·</text></g><g class="seat you" transform="translate(70.8 70.8)"><circle r="21"/><text>You</text></g></svg>
-</div>
-<div class="rd-seat__paths">
-<a href="topic-answer-that-looked-right.html#test"><small>New to the field</small><b>Try five answers that look right</b><span>No account. Twenty minutes.</span></a>
-<a href="path-ai-in-research.html"><small>Using AI in research</small><b>Take the eight-step path</b><span>Pick up where you stopped.</span></a>
-<a href="/forum.html?room=fix"><small>You check sources for a living</small><b>Open the Corrections room</b><span>Paper and paragraph, or it does not stand.</span></a></div>
-</div></div></section></main>
+<!-- Existing GraviQuest forum layout; conversations are loaded from Discourse. -->
+<section class="g-section fm-sec"><div class="g-container">
+  <header class="fm-top">
+    <div>
+      <span class="lp-chap__n">Community &middot; Forum</span>
+      <h1 class="fm-h1">The Forum</h1>
+      <p class="g-lead fm-lead">Every Topic has a room. Read any thread without an account; sign in to reply, like or start one.</p>
+    </div>
+    <a class="g-btn g-btn--primary" href="/api/forum/start/" data-forum-new>Start a Thread</a>
+  </header>
+
+
+  <div class="callout lp-argue__q fm-pinned">
+    <div>
+      <h3>This Week&rsquo;s Question</h3>
+      <p>A model predicts a material&rsquo;s behaviour correctly, repeatedly, and nobody, including its authors, can say why. Has science been done?</p>
+    </div>
+    <a class="g-btn g-btn--secondary" href="/api/forum/open/weekly-thought-experiment/">Join the Thread</a>
+  </div>
+
+  <div class="fm-bar">
+    <div class="fm-steps" id="rd-rooms" role="group" aria-label="Rooms"><span class="g-muted">Loading rooms…</span></div>
+    <form class="fm-find" data-forum-search role="search">
+      <input class="search" type="search" name="q" placeholder="Search threads" aria-label="Search threads" required maxlength="200">
+      <button class="g-btn g-btn--secondary g-btn--sm" type="submit">Search</button>
+    </form>
+  </div>
+  <div class="fm-live-tools">
+    <div class="fm-steps" role="group" aria-label="Sort discussions">
+      <button class="chip fm-step" type="button" data-forum-sort="latest" aria-pressed="true">Latest</button>
+      <button class="chip fm-step" type="button" data-forum-sort="top" aria-pressed="false">Top</button>
+      <button class="chip fm-step" type="button" data-forum-sort="unanswered" aria-pressed="false">Unanswered</button>
+    </div>
+    <span class="result-count" data-forum-count aria-live="polite"></span>
+  </div>
+
+  <div class="fm-list">
+    <div class="fm-row fm-row--head" aria-hidden="true"><span>Thread</span><span class="fm-c-who"></span><span class="fm-c-n">Replies</span><span class="fm-c-n fm-c-views">Views</span><span class="fm-c-n">Activity</span></div>
+    <ol class="fm-rows" data-forum-feed data-forum-layout="table" aria-label="Public discussions" aria-busy="true"></ol>
+    <div data-forum-status role="status"><p>Loading discussions…</p></div>
+    <button class="g-btn g-btn--secondary" type="button" data-forum-more hidden>Load more discussions</button>
+    <noscript><p>Enable JavaScript to load the discussion list. <a href="/api/forum/start/">Open the Forum</a>.</p></noscript>
+  </div>
+
+  <div class="callout g-mt-xl">
+    <h4>House Rules</h4>
+    <p>Commit to a position, then say why. Cite it, or say you cannot. A moderator reads every post before it appears.</p>
+  </div>
+</div></section>
+</main>
+
 <footer class="g-footer">
   <div class="g-container">
     <div class="g-footer__grid">
@@ -111,7 +117,7 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
       <div><h5 class="g-footer__heading">Explore</h5>
         <div class="g-stack g-stack--xs g-stack--ic"><a href="topics.html"><svg class="g-ic g-ic--sm" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><g transform="translate(2.282 2.283) scale(1.0407)" stroke-width="1.634"><rect x=".75" y=".75" width="17.2" height="17.2" rx="3.4" ry="3.4"/><path d="M.85,7.95c3.5,1.5,6,2.3,8.5,2.3s5-.8,8.5-2.3"/><path d="M7.95.85c1.5,3.5,2.3,6,2.3,8.5s-.8,5-2.3,8.5"/></g></svg><span>Topics</span></a><a href="lab.html"><svg class="g-ic g-ic--sm" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><g transform="translate(4.844 0.9) scale(0.972826)" stroke-width="1.747"><path d="M4.7.75h5.2"/><path d="M5.9.75c0,8.29.39,6.94-4.03,13.95l-.79,1.25c-.89,1.41.12,3.2,1.8,3.2h9.04c1.68,0,2.69-1.79,1.8-3.2l-.79-1.25c-4.42-7.01-4.03-5.66-4.03-13.95"/><circle cx="7.3" cy="14.8" r="1.593" fill="currentColor" stroke="none"/></g></svg><span>Interactive Lab</span></a><span class="g-foot-soon" aria-disabled="true"><svg class="g-ic g-ic--sm" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><g transform="translate(2.353 2.45) scale(0.962366)" stroke-width="1.766"><path d="M4.45,17.15c3-.8,3.2-5.8,5.6-7.2"/><path d="M10.05,9.95c2.4-1.4,2.6-6.4,5.6-7.2"/><circle cx="2.35" cy="17.55" r="1.6"/><circle cx="17.75" cy="2.35" r="1.6"/><circle cx="10.05" cy="9.95" r="1.611" fill="currentColor" stroke="none"/></g></svg><span>Learning Paths</span><span class="g-soon">Soon</span></span></div></div>
       <div><h5 class="g-footer__heading">Join in</h5>
-        <div class="g-stack g-stack--xs g-stack--ic"><a href="/community"><svg class="g-ic g-ic--sm" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><g transform="translate(2.252 1.167) scale(1.09681)" stroke-width="1.55"><circle cx="8.91" cy="2.5" r="1.75"/><circle cx="15.32" cy="13.6" r="1.75"/><circle cx="2.5" cy="13.6" r="1.75"/><circle cx="8.91" cy="9.9" r="1.413" fill="currentColor" stroke="none"/></g></svg><span>Community</span></a><span class="g-foot-soon" aria-disabled="true"><svg class="g-ic g-ic--sm" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><g transform="translate(2.332 4.76) scale(0.994444)" stroke-width="1.709"><path d="M1.98,2.26c2.88,5.22,5.41,7.83,7.77,7.83s4.89-2.61,7.77-7.83"/><path d="M18.39,3.84c.47,2.28.48,4.67,0,7.03-.29,1.44-1.47,2.53-2.92,2.73-3.8.51-7.66.51-11.46,0-1.45-.19-2.62-1.27-2.91-2.7-.47-2.28-.48-4.67,0-7.03.29-1.44,1.47-2.53,2.92-2.73,3.8-.51,7.66-.51,11.46,0,1.45.19,2.62,1.27,2.91,2.7Z"/><circle cx="9.75" cy="7.11" r="1.559" fill="currentColor" stroke="none"/></g></svg><span>Newsletter</span><span class="g-soon">Soon</span></span></div></div>
+        <div class="g-stack g-stack--xs g-stack--ic"><a href="community.html"><svg class="g-ic g-ic--sm" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><g transform="translate(2.252 1.167) scale(1.09681)" stroke-width="1.55"><circle cx="8.91" cy="2.5" r="1.75"/><circle cx="15.32" cy="13.6" r="1.75"/><circle cx="2.5" cy="13.6" r="1.75"/><circle cx="8.91" cy="9.9" r="1.413" fill="currentColor" stroke="none"/></g></svg><span>Community</span></a><span class="g-foot-soon" aria-disabled="true"><svg class="g-ic g-ic--sm" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><g transform="translate(2.332 4.76) scale(0.994444)" stroke-width="1.709"><path d="M1.98,2.26c2.88,5.22,5.41,7.83,7.77,7.83s4.89-2.61,7.77-7.83"/><path d="M18.39,3.84c.47,2.28.48,4.67,0,7.03-.29,1.44-1.47,2.53-2.92,2.73-3.8.51-7.66.51-11.46,0-1.45-.19-2.62-1.27-2.91-2.7-.47-2.28-.48-4.67,0-7.03.29-1.44,1.47-2.53,2.92-2.73,3.8-.51,7.66-.51,11.46,0,1.45.19,2.62,1.27,2.91,2.7Z"/><circle cx="9.75" cy="7.11" r="1.559" fill="currentColor" stroke="none"/></g></svg><span>Newsletter</span><span class="g-soon">Soon</span></span></div></div>
       <div><h5 class="g-footer__heading">Follow</h5><ul class="lp-social"><li><a class="lp-social__link" href="https://www.youtube.com/@GraviQuest" target="_blank" rel="noopener" aria-label="YouTube"><svg viewBox="0 0 24 24" shape-rendering="geometricPrecision" fill="none" stroke="currentColor" stroke-width="1.7"><g transform="translate(1.083 1.066) scale(0.9133)" stroke-width="1.861"><rect x="2.2" y="5.2" width="19.6" height="13.6" rx="4.2"/><path d="M10.3 9.4v5.2l4.5-2.6z" fill="currentColor" stroke="none"/></g></svg></a></li><li><a class="lp-social__link" href="https://www.linkedin.com/company/graviquest/" target="_blank" rel="noopener" aria-label="LinkedIn"><svg viewBox="0 0 24 24" shape-rendering="geometricPrecision" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><g transform="translate(0.207 -0.239) scale(0.9944)" stroke-width="1.709"><rect x="3" y="3" width="18" height="18" rx="4"/><path d="M7.6 10.6V17"/><circle cx="7.6" cy="7.5" r="1.05" fill="currentColor" stroke="none"/><path d="M11.4 17v-3.6a2.6 2.6 0 0 1 5.2 0V17"/><path d="M11.4 17v-6.4"/></g></svg></a></li><li><a class="lp-social__link" href="https://www.instagram.com/graviquest" target="_blank" rel="noopener" aria-label="Instagram"><svg viewBox="0 0 24 24" shape-rendering="geometricPrecision" fill="none" stroke="currentColor" stroke-width="1.7"><g transform="translate(-0.043 0.227) scale(0.9944)" stroke-width="1.709"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4.1"/><circle cx="17.1" cy="6.9" r="1.15" fill="currentColor" stroke="none"/></g></svg></a></li></ul></div>
     </div>
     <div class="g-footer__legal">
@@ -120,9 +126,9 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
     </div>
   </div>
 </footer>
-<script src="/assets/site.js?v=20261108-forum1" defer></script>
-<script src="/assets/hero.js?v=20261105-stars1" defer></script>
-<script src="/assets/chat.js?v=20261102-lab1" defer></script>
-<script src="/assets/production-bridge.js?v=20261108-forum1" defer></script>
-<script src="/assets/forum-live.js?v=20261108-forum1" defer></script></body>
+<script src="assets/site.js?v=20261108-forum1"></script>
+<script src="assets/chat.js?v=20261102-lab1" defer></script>
+<script src="assets/production-bridge.js?v=20261108-forum1" defer></script>
+<script src="/assets/forum-live.js?v=20261108-forum2" defer></script>
+</body>
 </html>

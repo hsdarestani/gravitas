@@ -3,15 +3,14 @@
 No sample research or invented participation is seeded. The importer creates
 links only, preserving every existing comment, poll vote and account.
 """
-import hashlib
 import json
 from pathlib import Path
-from urllib.parse import quote
 
 from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 from core.forum_models import ForumDiscussion
+from core.forum_content import STATIC_TOPICS, published_manifest
 from core.models import ContentItem
 
 
@@ -25,14 +24,9 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         if options['output']:
-            items = []
-            for item in ContentItem.objects.filter(status=ContentItem.Status.PUBLISHED, kind__in=['topic', 'dossier']):
-                canonical = json.dumps({'body':item.body,'data':item.topic_data}, sort_keys=True)
-                items.append({'id':item.id,'key':item.slug,'title':item.title,
-                              'url':settings.PUBLIC_BASE_URL.rstrip('/') + '/topic.html?slug=' + quote(item.slug),
-                              'version':'sha256:' + hashlib.sha256(canonical.encode()).hexdigest()})
-            Path(options['output']).write_text(json.dumps({'published_content':items}, indent=2))
-            self.stdout.write(f'Exported {len(items)} published content records.')
+            manifest = published_manifest()
+            Path(options['output']).write_text(json.dumps(manifest, indent=2))
+            self.stdout.write(f'Exported {len(manifest["published_content"])} published content records.')
             return
         try:
             data = json.loads(Path(options['import_links']).read_text())
@@ -41,7 +35,7 @@ class Command(BaseCommand):
                     key = link['key']; content = None
                     if link.get('content_id'):
                         content = ContentItem.objects.get(pk=link['content_id'], slug=key, status=ContentItem.Status.PUBLISHED)
-                    elif key not in ('weekly-thought-experiment', 'next-topic-poll'):
+                    elif key not in ('weekly-thought-experiment', 'next-topic-poll') and not (key in STATIC_TOPICS and link.get('source') == 'static'):
                         raise ValueError('Unexpected non-content link')
                     topic_id, category_id = int(link['topic_id']), int(link['category_id'])
                     if topic_id < 1 or category_id < 1:

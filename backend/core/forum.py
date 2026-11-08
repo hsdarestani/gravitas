@@ -21,7 +21,7 @@ from django.dispatch import receiver
 from django.core import signing
 from django.core.cache import cache
 from django.db import transaction
-from django.db.models.signals import m2m_changed, post_save
+from django.db.models.signals import m2m_changed, post_save, pre_save, pre_delete
 from django.http import HttpResponse, HttpResponseRedirect, JsonResponse
 from django.utils.html import strip_tags
 from django.views.decorators.cache import never_cache
@@ -86,7 +86,11 @@ def _public_categories():
     return [c for c in categories if not c.get('read_restricted')]
 
 
-def _topic_summary(topic, categories):
+def _count(value, offset=0):
+    return max(0, value + offset) if isinstance(value, int) and not isinstance(value, bool) else None
+
+
+def _topic_summary(topic, categories, users=None):
     category = categories.get(topic.get('category_id'))
     if not category or topic.get('visible') is False:
         return None
@@ -96,12 +100,28 @@ def _topic_summary(topic, categories):
             'url': f'{forum_url()}/t/{topic_id}',
             'excerpt': strip_tags(str(topic.get('excerpt', '')))[:500],
             'category_id': category['id'], 'category': category['name'],
-            'reply_count': max(0, int(topic.get('posts_count', 1)) - 1),
-            'like_count': max(0, int(topic.get('like_count', 0))),
+            'reply_count': _count(topic.get('posts_count'), -1),
+            'like_count': _count(topic.get('like_count')),
+            'view_count': _count(topic.get('views')),
+            'participants': [{'username': str(user.get('username', '')),
+                              'name': str(user.get('name') or user.get('username', '')),
+                              'avatar_url': _avatar_url(user.get('avatar_template', ''))}
+                             for poster in topic.get('posters', [])[:5]
+                             if (user := (users or {}).get(poster.get('user_id')))],
             'last_posted_at': topic.get('last_posted_at'),
             'tags': [str(t.get('name', '') if isinstance(t, dict) else t)
                      for t in topic.get('tags', [])][:12],
             'pinned': bool(topic.get('pinned'))}
+
+
+def _avatar_url(template):
+    # Native local avatar routes only. External image URLs are not an open
+    # tracking/redirect surface on the public GraviQuest list.
+    path = str(template).replace('{size}', '48')
+    parsed = urlsplit(path)
+    if not path.startswith(('/user_avatar/', '/letter_avatar_proxy/', '/uploads/')) or '\\' in path or parsed.netloc or parsed.query or parsed.fragment:
+        return None
+    return forum_url() + path
 
 
 @require_GET
@@ -113,6 +133,27 @@ def forum_config(request):
         return _unavailable()
     return _response({'ok': True, 'url': base, 'login_url': base + '/session/sso',
                       'search_url': base + '/search', 'new_topic_url': base + '/new-topic'})
+
+
+@require_GET
+@never_cache
+def forum_start(request):
+    try:
+        return HttpResponseRedirect(forum_url() + '/new-topic')
+    except ForumUnavailable:
+        return _unavailable()
+
+
+@require_GET
+@never_cache
+def forum_open(request, content_key):
+    link = _public_link(content_key)
+    if not link:
+        return _response({'ok': False, 'error': 'discussion_not_found'}, 404)
+    try:
+        return HttpResponseRedirect(forum_url() + f'/t/{link.discourse_topic_id}')
+    except ForumUnavailable:
+        return _unavailable()
 
 
 @require_GET
@@ -141,7 +182,8 @@ def forum_feed(request):
             params['max_posts'] = 1
         data = _get('/top.json' if sort == 'top' else '/latest.json', params)
         topics = data.get('topic_list', {}).get('topics', [])
-        summaries = [s for t in topics if (s := _topic_summary(t, categories))]
+        users = {u['id']: u for u in data.get('users', [])}
+        summaries = [s for t in topics if (s := _topic_summary(t, categories, users))]
         return _response({'ok': True, 'url': forum_url(), 'topics': summaries,
             'categories': [{'id': c['id'], 'name': c['name'], 'slug': c['slug'],
                             'parent_category_id': c.get('parent_category_id'),
@@ -287,8 +329,8 @@ def forum_avatar(request, token):
 
 
 def queue_logout(user):
-    if user and user.is_authenticated and settings.GRAVITAS_FORUM_URL:
-        pending, _ = ForumLogout.objects.update_or_create(user=user, defaults={'attempts': 0})
+    if user and user.pk and user.is_authenticated and settings.GRAVITAS_FORUM_URL:
+        pending, _ = ForumLogout.objects.update_or_create(external_id=external_id(user), defaults={'user': user, 'attempts': 0})
         return pending
 
 
@@ -300,8 +342,11 @@ def revoke_forum_sessions(user):
         raise ForumUnavailable()
     headers = {'Api-Key': key, 'Api-Username': settings.GRAVITAS_DISCOURSE_API_USERNAME,
                'Accept': 'application/json'}
+    identity = user if isinstance(user, str) else external_id(user)
+    if not re.fullmatch(r'graviquest:[0-9]{1,20}', identity):
+        raise ForumUnavailable()
     try:
-        response = requests.get(forum_url() + '/u/by-external/' + quote(external_id(user), safe='') + '.json',
+        response = requests.get(forum_url() + '/u/by-external/' + quote(identity, safe='') + '.json',
                                 headers=headers, timeout=(2, 3), allow_redirects=False)
         if response.status_code == 404:
             return
@@ -317,7 +362,7 @@ def revoke_forum_sessions(user):
 
 @receiver(user_logged_out, dispatch_uid='graviquest_forum_logout')
 def _on_logout(sender, request, user, **kwargs):
-    if not user or not settings.GRAVITAS_FORUM_URL:
+    if not user or not user.pk or not settings.GRAVITAS_FORUM_URL:
         return
     pending = queue_logout(user)
     try:
@@ -327,6 +372,24 @@ def _on_logout(sender, request, user, **kwargs):
     ForumLogout.objects.filter(pk=pending.pk, requested_at=pending.requested_at).delete()
 
 
+@receiver(pre_delete, sender=get_user_model(), dispatch_uid='graviquest_forum_deleted_identity')
+def _deleted_identity(sender, instance, **kwargs):
+    if not settings.GRAVITAS_FORUM_URL:
+        return
+    identity = external_id(instance)
+    # Keep the external ID after the Django account disappears, including when
+    # Discourse is offline during an already authorized account deletion.
+    pending, _ = ForumLogout.objects.update_or_create(external_id=identity,
+                                                     defaults={'user': None, 'attempts': 0})
+    def revoke_after_commit():
+        try:
+            revoke_forum_sessions(identity)
+        except ForumUnavailable:
+            return
+        ForumLogout.objects.filter(pk=pending.pk, requested_at=pending.requested_at).delete()
+    transaction.on_commit(revoke_after_commit)
+
+
 def _schedule_revocation(user):
     # Wait for the GraviQuest access change to commit before revoking native
     # sessions. A later SSO refresh applies the now-authoritative group mapping.
@@ -334,9 +397,18 @@ def _schedule_revocation(user):
         transaction.on_commit(lambda: _on_logout(None, None, user))
 
 
+@receiver(pre_save, sender=get_user_model(), dispatch_uid='graviquest_forum_previous_admin')
+def _previous_admin(sender, instance, update_fields=None, **kwargs):
+    if settings.GRAVITAS_FORUM_URL and instance.pk and (update_fields is None or 'is_superuser' in update_fields):
+        instance._forum_was_admin = sender.objects.filter(pk=instance.pk).values_list('is_superuser', flat=True).first()
+
+
 @receiver(post_save, sender=get_user_model(), dispatch_uid='graviquest_forum_inactive_user')
 def _inactive_user(sender, instance, **kwargs):
-    if not instance.is_active:
+    was_admin = getattr(instance, '_forum_was_admin', False)
+    if hasattr(instance, '_forum_was_admin'):
+        del instance._forum_was_admin
+    if not instance.is_active or (was_admin and not instance.is_superuser):
         _schedule_revocation(instance)
 
 

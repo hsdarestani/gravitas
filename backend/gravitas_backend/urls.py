@@ -84,6 +84,8 @@ from core.workspace_pages_api import workspace_page_detail, workspace_pages
 
 urlpatterns = [
     path('api/forum/config/', forum.forum_config),
+    path('api/forum/start/', forum.forum_start),
+    path('api/forum/open/<slug:content_key>/', forum.forum_open),
     path('api/forum/feed/', forum.forum_feed),
     path('api/forum/discussions/<slug:content_key>/', forum.forum_discussion),
     path('api/forum/sso/', forum.forum_sso),

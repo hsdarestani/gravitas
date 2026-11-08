@@ -60,10 +60,39 @@ def csrf_headers(s)
 end
 
 def approve_latest(user, admin)
-  queued = ReviewableQueuedPost.pending.where(created_by_id: user.id).order(id: :desc).first
+  queued = ReviewableQueuedPost.pending.where(target_created_by_id: user.id).order(id: :desc).first
   assert!(queued, "member submission entered moderation")
   result = queued.perform(admin, :approve_post)
   assert!(result.success?, "moderator approved the submission")
+end
+
+def cleanup_acceptance(state)
+  token = state.fetch("token")
+  assert!(token.match?(/\A[0-9a-f]{6}\z/), "cleanup token is a recorded acceptance run")
+  state.fetch("topic_ids").each do |id|
+    topic = Topic.with_deleted.find_by(id: id)
+    next unless topic
+    assert!(topic.title.include?(token), "cleanup topic belongs to the recorded run")
+    TopicDestroyer.new(Discourse.system_user, topic).destroy
+  end
+  state.fetch("user_ids").each do |id|
+    record = SingleSignOnRecord.find_by(user_id: id, external_id: "graviquest-acceptance:#{token}:#{state.fetch('roles').fetch(id.to_s)}")
+    assert!(record, "cleanup is limited to recorded acceptance identities")
+    user = record.user
+    user.update!(admin: false, moderator: false)
+    UserDestroyer.new(Discourse.system_user).destroy(user, delete_posts: true)
+    assert!(!User.exists?(id), "acceptance identity was removed")
+  end
+end
+
+if ENV["GQ_CLEANUP_INTERRUPTED_ACCEPTANCE"] == "1"
+  if File.exist?(state_path)
+    cleanup_acceptance(JSON.parse(File.read(state_path)))
+    File.delete(state_path)
+    File.delete(results_path) if File.exist?(results_path)
+    puts "Removed only the interrupted run's recorded acceptance fixtures."
+  end
+  exit
 end
 
 if ENV["GQ_VERIFY_AFTER_RESTART"] == "1"
@@ -80,19 +109,7 @@ if ENV["GQ_VERIFY_AFTER_RESTART"] == "1"
   assert!([200,204].include?(s.response.status), "member can delete their own reply")
   # Remove only this recorded acceptance run. No production identity is selected
   # by name, email, trust level, role, or broad age-based query.
-  state.fetch("topic_ids").each do |id|
-    topic = Topic.with_deleted.find_by(id: id)
-    next unless topic && topic.title.include?(state.fetch("token"))
-    TopicDestroyer.new(Discourse.system_user, topic).destroy
-  end
-  state.fetch("user_ids").each do |id|
-    record = SingleSignOnRecord.find_by(user_id: id, external_id: "graviquest-acceptance:#{state.fetch('token')}:#{state.fetch('roles').fetch(id.to_s)}")
-    assert!(record, "cleanup is limited to recorded acceptance identities")
-    user = record.user
-    user.update!(admin: false, moderator: false)
-    UserDestroyer.new(Discourse.system_user).destroy(user, delete_posts: true)
-    assert!(!User.exists?(id), "acceptance identity was removed")
-  end
+  cleanup_acceptance(state)
   assert!(!PollVote.exists?(user_id:state.fetch("member_id")), "acceptance votes were removed")
   File.delete(state_path)
   results = JSON.parse(File.read(results_path))

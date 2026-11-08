@@ -20,7 +20,8 @@ class ForumDiscussion(models.Model):
 
 class ForumLogout(models.Model):
     """Retryable logout outbox. No credential or session token is stored here."""
-    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    external_id = models.CharField(max_length=80, unique=True)
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL)
     requested_at = models.DateTimeField(auto_now=True)
     attempts = models.PositiveIntegerField(default=0)
 

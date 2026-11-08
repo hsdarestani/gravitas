@@ -1,6 +1,9 @@
 import base64
 import hashlib
 import hmac
+import json
+import tempfile
+from pathlib import Path
 from unittest.mock import Mock, patch
 from urllib.parse import parse_qs, urlencode, urlsplit
 
@@ -96,6 +99,13 @@ class ForumIdentityTests(TestCase):
             group.user_set.remove(self.user)
         revoke.assert_called_once_with(self.user)
 
+    @patch('core.forum.revoke_forum_sessions')
+    def test_removing_admin_authority_revokes_native_sessions(self, revoke):
+        self.user.is_superuser = True; self.user.save(update_fields=['is_superuser'])
+        with self.captureOnCommitCallbacks(execute=True):
+            self.user.is_superuser = False; self.user.save(update_fields=['is_superuser'])
+        revoke.assert_called_once_with(self.user)
+
     def test_bad_signature_rejected_before_login(self):
         data = signed(); data['sig'] = '0' * 64
         self.assertEqual(self.client.get('/api/forum/sso/', data).status_code, 400)
@@ -148,6 +158,18 @@ class ForumIdentityTests(TestCase):
         self.assertNotIn('_auth_user_id', self.client.session)
         self.assertTrue(ForumLogout.objects.filter(user=self.user).exists())
 
+    @patch('core.forum.requests.get', side_effect=requests.ConnectionError)
+    @override_settings(GRAVITAS_DISCOURSE_API_KEY='test-only')
+    def test_account_deletion_keeps_retryable_native_session_revocation(self, get):
+        self.sign_in()
+        identity = f'graviquest:{self.user.pk}'
+        with self.captureOnCommitCallbacks(execute=True):
+            response = self.client.post('/api/auth/delete/',
+                {'password':'existing-password', 'confirmation':'delete'}, content_type='application/json')
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.json()['deleted'])
+        self.assertTrue(ForumLogout.objects.filter(external_id=identity, user__isnull=True).exists())
+
 
 @override_settings(GRAVITAS_FORUM_URL=BASE, GRAVITAS_DISCOURSE_API_KEY='must-never-be-in-public-reads')
 class ForumPublicDataTests(TestCase):
@@ -175,6 +197,29 @@ class ForumPublicDataTests(TestCase):
     def test_bounded_filters_reject_arbitrary_upstream_paths(self):
         for query in ['sort=../../admin/users','page=-1','page=101','category=private','page=invalid']:
             self.assertEqual(self.client.get('/api/forum/feed/?' + query).status_code, 400)
+
+    @patch('core.forum.requests.get')
+    def test_table_metadata_is_native_and_unknown_counts_are_not_invented(self, get):
+        topic = {**self.topic, 'views':12, 'posters':[{'user_id':10}, {'user_id':11}]}
+        get.side_effect = [upstream(self.categories), upstream({'users':[
+            {'id':10,'username':'actual','name':'Actual member','avatar_template':'/user_avatar/forum.graviquest.com/actual/{size}/1.png'},
+            {'id':11,'username':'another','avatar_template':'//tracking.example/image.png'},
+        ],'topic_list':{'topics':[topic, {'id':6,'category_id':1}]}})]
+        first, second = self.client.get('/api/forum/feed/').json()['topics']
+        self.assertEqual(first['view_count'],12)
+        self.assertEqual(first['participants'][0]['avatar_url'],BASE + '/user_avatar/forum.graviquest.com/actual/48/1.png')
+        self.assertIsNone(first['participants'][1]['avatar_url'])
+        self.assertIsNone(second['reply_count'])
+        self.assertIsNone(second['view_count'])
+        self.assertEqual(second['participants'],[])
+
+    def test_permanent_links_only_use_configured_origin_and_published_mappings(self):
+        self.assertEqual(self.client.get('/api/forum/start/?next=https://evil.example').url,BASE + '/new-topic')
+        self.assertEqual(self.client.get('/api/forum/open/missing/').status_code,404)
+        link = ForumDiscussion.objects.create(content_key='published',discourse_topic_id=5,discourse_category_id=1,is_public=True)
+        self.assertEqual(self.client.get('/api/forum/open/published/?url=https://evil.example').url,BASE + '/t/5')
+        link.is_public=False; link.save()
+        self.assertEqual(self.client.get('/api/forum/open/published/').status_code,404)
 
     @patch('core.forum.requests.get')
     def test_private_category_filter_is_not_found(self, get):
@@ -230,3 +275,34 @@ class ForumPublicDataTests(TestCase):
         for value in ['http://forum.example','https://user:password@forum.example','https://forum.example/admin?x=1']:
             with override_settings(GRAVITAS_FORUM_URL=value):
                 self.assertEqual(self.client.get('/api/forum/config/').status_code,503)
+
+
+class ForumPublishedSourceTests(TestCase):
+    @override_settings(PUBLIC_BASE_URL='https://graviquest.com')
+    def test_only_published_cms_and_explicitly_linked_static_topic_are_exported(self):
+        from core.forum_content import published_manifest
+        ContentItem.objects.create(slug='published-science',title='Published science',kind='topic',status='published')
+        ContentItem.objects.create(slug='draft-science',title='Draft',kind='topic',status='draft')
+        with tempfile.TemporaryDirectory() as folder:
+            root=Path(folder)
+            page=root/'topic-answer-that-looked-right.html'
+            page.write_text('<main><h1>The <em>Answer</em> That Looked Right</h1><p>Published material</p></main>')
+            self.assertNotIn('answer-that-looked-right',{x['key'] for x in published_manifest(root)['published_content']})
+            (root/'index.html').write_text('<a href="topic-answer-that-looked-right.html">Topic 01</a>')
+            exported=published_manifest(root)['published_content']
+            keys={x['key'] for x in exported}
+            self.assertTrue({'published-science','answer-that-looked-right'}.issubset(keys))
+            self.assertNotIn('draft-science',keys)
+            static=next(x for x in exported if x['source']=='static')
+            self.assertEqual(static['title'],'The Answer That Looked Right')
+            self.assertIsNone(static['id'])
+            self.assertTrue(static['version'].startswith('sha256:'))
+
+    def test_static_manifest_cannot_create_arbitrary_topic_mappings(self):
+        from django.core.management import call_command, CommandError
+        with tempfile.TemporaryDirectory() as folder:
+            path=Path(folder)/'links.json'
+            path.write_text(json.dumps({'links':[{'key':'invented-science','source':'static','topic_id':5,'category_id':1}]}))
+            with self.assertRaises(CommandError):
+                call_command('forum_content_manifest',import_links=str(path))
+        self.assertFalse(ForumDiscussion.objects.exists())

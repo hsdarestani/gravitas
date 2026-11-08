@@ -1,21 +1,21 @@
-/* Semantic tokens are copied from the supplied GraviQuest redesign and brand
+/* Semantic tokens match the current forum.html table and GraviQuest brand
    system. No core templates are overridden; the native controls remain intact. */
 @font-face{font-family:"DM Sans";src:url($gq_dm_sans) format("truetype");font-weight:100 1000;font-display:swap}
 @font-face{font-family:"DM Mono";src:url($gq_dm_mono) format("truetype");font-weight:400;font-display:swap}
 @font-face{font-family:Literata;src:url($gq_literata) format("woff2");font-weight:200 900;font-display:swap}
 :root{
- --g-bg:#00131d;--g-surface:#002132;--g-surface-raised:#003049;--g-text:#f1efec;--g-text-muted:#a9bcc6;--g-text-subtle:#9aa8ac;--g-accent:#d4c9be;--g-hairline:#f1efec29;--g-border:#f1efec4d;--g-radius:12px;
- --font-family:"DM Sans",system-ui,sans-serif;--heading-font-family:var(--font-family);--d-border-radius:12px;--d-button-border-radius:999px;--d-input-border-radius:8px;--d-sidebar-width:15rem;--d-max-width:90rem;
+ --g-bg:#00141f;--g-surface:#00263a;--g-surface-raised:#003049;--g-text:#f1efec;--g-text-muted:#d4c9be;--g-text-subtle:#9aa8ac;--g-accent:#7fb6dc;--g-hairline:#d4c9be29;--g-border:#f1efec4d;--g-radius:12px;
+ --font-family:"DM Sans",system-ui,sans-serif;--heading-font-family:var(--font-family);--d-border-radius:12px;--d-button-border-radius:999px;--d-input-border-radius:8px;--d-sidebar-width:15rem;--d-max-width:1200px;
 }
 html,body{font-family:var(--font-family);background:var(--g-bg);color:var(--g-text)}
 body{line-height:1.5}a{color:var(--g-accent)}a:hover{color:var(--g-text)}
-.d-header{background:#001a28;border-bottom:1px solid var(--g-hairline);box-shadow:none;height:72px}
-.d-header .title img{max-height:32px;width:auto}.d-header .wrap{max-width:90rem;gap:1rem}
+.d-header{background:#00263ab8;border-bottom:1px solid var(--g-hairline);box-shadow:none;height:72px}
+.d-header .title img{max-height:32px;width:auto}.d-header .wrap{max-width:1200px;gap:1rem}
 .d-header .home-logo-wrapper-outlet{flex:0 0 auto}.d-header .before-header-panel-outlet{flex:1;min-width:0;display:flex;justify-content:center}
-.gq-site-nav{display:flex;gap:.15rem;align-items:center;margin-inline:auto;padding:.25rem;border:1px solid var(--g-hairline);border-radius:99px;font-size:.84rem;font-weight:500}
-.gq-site-nav a{padding:.5rem .8rem;color:var(--g-text-muted);white-space:nowrap}.gq-site-nav a:hover,.gq-site-nav [aria-current]{color:var(--g-text);background:#d4c9be1f;border-radius:99px}
-.gq-site-nav .gq-workspace{background:var(--g-accent);color:var(--g-bg);border-radius:99px;font-weight:600}
-.btn{border-radius:99px;min-height:40px;font-weight:600}.btn-primary,.btn-primary:visited{background:var(--g-accent);color:var(--g-bg)}
+.gq-site-nav{display:flex;gap:1rem;align-items:center;margin-inline:auto;font-size:.875rem;font-weight:500}
+.gq-site-nav a{display:inline-flex;align-items:center;gap:.4rem;padding:.5rem .2rem;color:var(--g-text-muted);white-space:nowrap}.gq-site-nav a:hover,.gq-site-nav [aria-current]{color:var(--g-accent)}
+.gq-site-nav svg{width:1.2rem;height:1.2rem}.gq-site-nav .gq-workspace{padding:.55rem 1rem;background:#d4c9be;color:var(--g-bg);border-radius:99px;font-weight:600}
+.btn{border-radius:99px;min-height:40px;font-weight:600}.btn-primary,.btn-primary:visited{background:#d4c9be;color:var(--g-bg)}
 .btn-primary:hover,.btn-primary:focus{background:var(--g-text);color:var(--g-bg)}
 input,textarea,.select-kit .select-kit-header{background:var(--g-bg);border:1px solid var(--g-hairline);border-radius:8px;color:var(--g-text)}
 :focus-visible{outline:2px solid var(--g-accent);outline-offset:3px}
@@ -25,17 +25,14 @@ input,textarea,.select-kit .select-kit-header{background:var(--g-bg);border:1px 
 .sidebar-section-link-wrapper .sidebar-section-link:hover{background:#d4c9be19;color:var(--g-text)}
 .navigation-container{margin-block:1.5rem}.nav-pills{gap:.2rem}.nav-pills>li>a{border-radius:99px;font-size:.85rem;padding:.5rem .9rem}
 .nav-pills>li>a.active{background:var(--g-accent);color:var(--g-bg)}
-.topic-list{border-collapse:separate;border-spacing:0 .75rem;table-layout:auto;width:100%}.topic-list thead{font:.72rem "DM Mono",monospace;color:var(--g-text-subtle)}
-.topic-list tbody{border:0}.topic-list .topic-list-item{background:var(--g-surface);border:0;transition:background .15s}
-.topic-list .topic-list-item:hover{background:#002b40}.topic-list .topic-list-item td{border-top:1px solid var(--g-hairline);border-bottom:1px solid var(--g-hairline);padding-block:1.4rem}
-.topic-list .topic-list-item td:first-child{border-left:1px solid var(--g-hairline);border-radius:12px 0 0 12px}
-.topic-list .topic-list-item td:last-child{border-right:1px solid var(--g-hairline);border-radius:0 12px 12px 0}
-.topic-list .main-link{position:relative;padding-left:4rem;min-width:0}.topic-list .main-link a.title{font-size:1.05rem;line-height:1.3;font-weight:600;color:var(--g-text);overflow-wrap:anywhere}
-.gq-topic-likes{position:absolute;left:1.2rem;top:1.4rem;display:grid;justify-items:center;gap:.25rem;color:var(--g-accent);font:500 .95rem "DM Mono",monospace}.gq-topic-likes>span:first-child{font-size:1.4rem;line-height:1}
-.topic-list .link-bottom-line{margin-block:.4rem}.badge-category__wrapper,.discourse-tag{font-size:.72rem;color:var(--g-text-muted)!important}.topic-list .topic-excerpt{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;color:var(--g-text-muted);font-size:.9rem;margin-block:.4rem}
-.gq-discussion-meta{margin-top:.65rem;font-size:.78rem;color:var(--g-text-subtle)}.gq-discussion-meta a{display:flex;align-items:center;gap:.5rem;color:inherit}.gq-discussion-meta .avatar{width:24px;height:24px}
-.topic-list .num{font-family:"DM Mono",monospace;font-size:.78rem;color:var(--g-text-subtle)}
-.gq-community-sidebar{display:grid;gap:1.5rem}.gq-roomcard{padding:1.5rem;border:1px solid var(--g-hairline);border-radius:12px;background:var(--g-surface);font-size:.86rem;overflow-wrap:anywhere}
+.topic-list{border-collapse:collapse;border-spacing:0;table-layout:auto;width:100%}.topic-list thead{font:.8125rem "DM Mono",monospace;color:var(--g-text-subtle)}
+.topic-list tbody{border:0}.topic-list .topic-list-item{background:transparent;border-bottom:1px solid var(--g-hairline);transition:background .15s}.topic-list .topic-list-item:hover{background:var(--g-surface)}
+.topic-list .topic-list-item td{border:0;padding-block:1.5rem}.topic-list .main-link{min-width:0;padding-left:.4rem}.topic-list .main-link a.title{font-size:1.15rem;line-height:1.3;font-weight:600;color:var(--g-text);overflow-wrap:anywhere}.topic-list .main-link a.title:hover{color:var(--g-accent)}
+.topic-list .link-bottom-line{margin-top:.3rem}.badge-category__wrapper,.discourse-tag{font-size:.8125rem;color:var(--g-accent)!important}.topic-list .topic-excerpt{color:var(--g-text-muted);font-size:.9rem}
+.topic-list .num{font-family:"DM Mono",monospace;font-size:.875rem;color:var(--g-text-muted)}.topic-list .posters img{width:28px;height:28px;border-radius:50%}
+.gq-forum-heading{padding-top:2rem;margin-bottom:2rem}.gq-forum-heading .gq-chapter{font:.8125rem "DM Mono",monospace;color:var(--g-accent)}.gq-forum-heading h1{font-size:clamp(2.1rem,1.5rem + 2.6vw,3.25rem);line-height:1.15;margin:.5rem 0 1rem;letter-spacing:-.025em}.gq-forum-heading p{max-width:46rem;font-size:1.125rem;color:var(--g-text-muted)}
+.gq-pinned-question{display:flex;align-items:center;justify-content:space-between;gap:1.5rem;margin-top:2rem;padding:1.5rem 2rem;background:var(--g-surface);border:1px solid var(--g-hairline);border-radius:12px}.gq-pinned-question h2{font-size:1.15rem;margin:0 0 .5rem}.gq-pinned-question p{font:1rem/1.7 Literata,Georgia,serif;max-width:60ch;margin:0}.gq-pinned-question a{flex:none}
+.gq-community-sidebar{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1.5rem;margin-top:3rem}.gq-roomcard{padding:1.5rem;border:1px solid var(--g-hairline);border-radius:12px;background:var(--g-surface);font-size:.86rem;overflow-wrap:anywhere}
 .gq-roomcard h2{font:500 .72rem "DM Mono",monospace;letter-spacing:.09em;text-transform:uppercase;color:var(--g-text-subtle);margin:0 0 .8rem}.gq-roomcard p,.gq-roomcard ol{color:var(--g-text-muted);margin:0 0 .75rem}.gq-roomcard ol{padding-left:1.2rem}.gq-roomcard li+li{margin-top:.4rem}
 .gq-community-poll .poll{border:0;background:transparent;max-width:100%;margin:0}.gq-community-poll .poll-container{padding:0}.gq-community-poll .poll-option{border:1px solid var(--g-hairline);border-radius:.6rem;padding:.65rem;margin-bottom:.5rem}
 .topic-post{border:1px solid var(--g-hairline);border-radius:12px;background:var(--g-surface);margin-bottom:1rem}.topic-body{border:0}.cooked{font-family:Literata,Georgia,serif;line-height:1.75;overflow-wrap:anywhere}.cooked a{color:var(--g-accent);text-decoration:underline;text-underline-offset:.15em}
