@@ -18,6 +18,13 @@ try:
 except socket.gaierror:
     dns = False
 docker = shutil.which('docker')
+backend_env = pathlib.Path('/etc/gravitas/backend.env')
+backend_keys = {}
+if backend_env.exists():
+    for line in backend_env.read_text().splitlines():
+        if '=' in line and not line.startswith('#'):
+            k, v = line.split('=', 1)
+            backend_keys[k.strip()] = bool(v.strip().strip('\"\''))
 containers = run(['docker', 'ps', '--format', '{{.Names}}'])[1].splitlines() if docker else []
 print(json.dumps({
     'cpu_count': os.cpu_count(),
@@ -29,6 +36,8 @@ print(json.dumps({
     'forum_dns_resolves': dns,
     'forum_install_exists': pathlib.Path('/var/discourse/containers/graviquest.yml').exists(),
     'forum_env_exists': config.exists(),
+    'existing_mail_credential_configured': backend_keys.get('EMAIL_HOST_PASSWORD', False),
+    'loopback_port_18880_available': run(['bash', '-c', 'test -z "$(ss -lntH sport = :18880)"'])[0] == 0,
     'forum_env_key_presence': {k: k in keys for k in [
         'GRAVITAS_FORUM_URL', 'GRAVITAS_DISCOURSE_CONNECT_SECRET',
         'GRAVITAS_DISCOURSE_API_KEY', 'DISCOURSE_SMTP_ADDRESS',
