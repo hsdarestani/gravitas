@@ -128,3 +128,5 @@
 .ta-essay-chart meter::-moz-meter-bar { background: var(--g-accent); }
 .ta-essay-ref { scroll-margin-top: 8rem; }
 .ta-essay-credit { margin: var(--g-space-xs) 0 0; color: var(--g-text-muted); font-size: var(--g-fs-caption); }
+
+[data-topic-essay-reader] { overflow-wrap: anywhere; }
