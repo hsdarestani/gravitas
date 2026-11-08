@@ -80,12 +80,20 @@ try{
   phase='real GraviQuest logins';
   const member=await login(browser,'member'),moderator=await login(browser,'moderator'),researcher=await login(browser,'researcher');
   await denied(member.context,'/review.json','Ordinary members cannot moderate');
-  const file=await upload(member.context,'launch-acceptance-'+token+'.png');
   phase='native composer and moderation';
   await member.page.goto(FORUM+`/c/introductions/${native.public_category_id}`,{waitUntil:'domcontentloaded'});
   await member.page.locator('#create-topic').click();
   await member.page.locator('#reply-title').fill('Automated launch acceptance '+token);
-  await member.page.locator('#reply-control textarea.d-editor-input').fill(`Automated launch acceptance ${token}. This is a temporary operational check, not research content. @${moderator.user.username}\n\n![Acceptance attachment](${file.url})`);
+  const body=`Automated launch acceptance ${token}. This is a temporary operational check, not research content. @${moderator.user.username}`;
+  const markdown=member.page.locator('#reply-control textarea.d-editor-input');
+  if(await markdown.isVisible())await markdown.fill(body);
+  else await member.page.locator('#reply-control .ProseMirror[contenteditable=true]').fill(body);
+  await member.page.locator('#file-uploader').setInputFiles({name:'launch-acceptance-'+token+'.png',mimeType:'image/png',buffer:png()});
+  await member.page.waitForFunction(()=>{
+    const editor=document.querySelector('#reply-control');
+    const text=editor?.querySelector('textarea.d-editor-input')?.value||'';
+    return /!\[[^\]]*\]\((?:upload:\/\/|https?:|\/secure)/.test(text)||[...editor.querySelectorAll('.ProseMirror img')].some(img=>/(?:secure-media-uploads|\/original\/|upload:\/\/)/.test(img.getAttribute('data-original-src')||img.src));
+  },undefined,{timeout:60000});
   const pending=member.page.waitForResponse(response=>new URL(response.url()).pathname==='/posts.json'&&response.request().method()==='POST');
   await member.page.locator('#reply-control button.create').click();
   const created=await json(await pending,'Native composer submit');assert.equal(created.action,'enqueued');

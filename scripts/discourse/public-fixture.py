@@ -45,6 +45,11 @@ def main(mode):
                 if role!='member':
                     group_name='graviquest-forum-'+('moderators' if role=='moderator' else 'researchers')
                     group,_=Group.objects.get_or_create(name=group_name);user.groups.add(group)
+                if role=='moderator':
+                    # Reviewing private research needs explicit research ACLs
+                    # as well as moderation authority. Only this QA identity
+                    # receives that composition; no real group's ACL changes.
+                    group,_=Group.objects.get_or_create(name='graviquest-forum-researchers');user.groups.add(group)
                 state['users'][role]={'id':user.pk,'email':email,'password':password}
             # Save the exact IDs before committing database creation. A failed
             # write rolls back; an interrupted commit leaves only recorded IDs.

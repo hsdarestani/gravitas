@@ -28,7 +28,7 @@ elsif mode=="verify"
     user=records.first.user
     raise "Wrong mapped identity" unless user.email==data.fetch("email") && !user.admin?
     raise "Wrong moderator authority" unless user.moderator? == (role=="moderator")
-    raise "Wrong private group authority" unless user.groups.exists?(name:"researchers") == (role=="researcher")
+    raise "Wrong private group authority" unless user.groups.exists?(name:"researchers") == (%w[moderator researcher].include?(role))
   end
   member=SingleSignOnRecord.find_by!(external_id:"graviquest:#{state['users']['member']['id']}").user
   topic=Topic.find(results.fetch("topic_id"))

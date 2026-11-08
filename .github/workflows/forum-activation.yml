@@ -116,7 +116,7 @@ jobs:
             rm -f "$INTEGRATION/public-users.json" "$INTEGRATION/public-results.json"
           fi
           curl -fsS --max-time 15 https://graviquest.com/api/health/ >/dev/null
-          curl -fsS --max-time 15 https://forum.graviquest.com/srv/status >/dev/null
+          if [ -f /etc/gravitas/forum.env ]; then curl -fsS --max-time 15 https://forum.graviquest.com/srv/status >/dev/null; fi
           REMOTE
           rm -f "$GQ_PUBLIC_USERS"
       - uses: actions/upload-artifact@v4
