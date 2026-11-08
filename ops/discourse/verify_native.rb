@@ -7,7 +7,9 @@ require "json"
 require "base64"
 require "openssl"
 require "uri"
+require "net/http"
 require "tempfile"
+require "zlib"
 require "rack/test"
 require "action_dispatch/testing/integration"
 
@@ -16,6 +18,7 @@ def assert!(condition, message)
 end
 
 state_path = "/shared/graviquest-integration/acceptance-state.json"
+results_path = "/shared/graviquest-integration/acceptance-results.json"
 root = "/shared/graviquest-integration"
 links = JSON.parse(File.read("#{root}/links.json")).fetch("links")
 assert!(SiteSetting.enable_discourse_connect, "SSO is required")
@@ -73,6 +76,8 @@ if ENV["GQ_VERIFY_AFTER_RESTART"] == "1"
   assert!(member.id == state.fetch("member_id"), "repeat SSO maps the same account")
   s.get "/t/#{state.fetch('topic_id')}.json"
   assert!(s.response.status == 200, "discussion reloads after restart")
+  s.delete "/posts/#{state.fetch('reply_id')}.json", headers:csrf_headers(s), as: :json
+  assert!([200,204].include?(s.response.status), "member can delete their own reply")
   # Remove only this recorded acceptance run. No production identity is selected
   # by name, email, trust level, role, or broad age-based query.
   state.fetch("topic_ids").each do |id|
@@ -86,8 +91,14 @@ if ENV["GQ_VERIFY_AFTER_RESTART"] == "1"
     user = record.user
     user.update!(admin: false, moderator: false)
     UserDestroyer.new(Discourse.system_user).destroy(user, delete_posts: true)
+    assert!(!User.exists?(id), "acceptance identity was removed")
   end
+  assert!(!PollVote.exists?(user_id:state.fetch("member_id")), "acceptance votes were removed")
   File.delete(state_path)
+  results = JSON.parse(File.read(results_path))
+  results["restart_persistence_verified"] = true
+  results["acceptance_cleanup_complete"] = true
+  File.write(results_path, JSON.pretty_generate(results))
   puts "Native Discourse restart persistence and scoped acceptance cleanup passed."
   exit
 end
@@ -132,7 +143,12 @@ assert!(research_session.response.status == 200, "research group can access its 
 
 image = Tempfile.new(["graviquest-acceptance", ".png"])
 image.binmode
-image.write(Base64.strict_decode64("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aG3cAAAAASUVORK5CYII=")); image.flush
+def png_bytes(rgb)
+  chunk = ->(type, data) { [data.bytesize].pack("N") + type + data + [Zlib.crc32(type + data)].pack("N") }
+  "\x89PNG\r\n\x1a\n".b + chunk.call("IHDR", [1,1,8,6,0,0,0].pack("NNCCCCC")) +
+    chunk.call("IDAT", Zlib::Deflate.deflate([0,*rgb,255].pack("C*"))) + chunk.call("IEND", "".b)
+end
+image.write(png_bytes([10,20,30])); image.flush
 upload_file = Rack::Test::UploadedFile.new(image.path, "image/png")
 member_session.post "/uploads.json", params: {type:"composer",file:upload_file}, headers:csrf_headers(member_session)
 assert!(member_session.response.status == 200, "member can attach an actual image")
@@ -157,6 +173,8 @@ option = poll.poll_options.first
 member_session.put "/polls/vote", params:{post_id:poll_post.id,poll_name:poll.name,options:[option.digest]}, headers:csrf_headers(member_session), as: :json
 assert!(member_session.response.status == 200, "native poll vote succeeds")
 assert!(PollVote.exists?(poll_id:poll.id,user_id:member.id), "native poll vote is committed")
+member_session.delete "/posts/#{poll_post.id}.json", headers:csrf_headers(member_session), as: :json
+assert!([403,404].include?(member_session.response.status), "members cannot delete another author's post")
 member_session.post "/post_actions", params:{id:poll_post.id,post_action_type_id:2}, headers:csrf_headers(member_session), as: :json
 assert!([200,201].include?(member_session.response.status), "native like succeeds")
 
@@ -171,5 +189,46 @@ assert!(member_session.response.status == 200, "real discussion reloads")
   sleep 1
 end
 assert!(Notification.exists?(user_id:admin.id,topic_id:post.topic_id), "native mention notification is persisted")
+private_upload_verified = false
+if SiteSetting.enable_s3_uploads && SiteSetting.secure_uploads
+  private_image = Tempfile.new(["graviquest-private-acceptance", ".png"])
+  private_image.binmode; private_image.write(png_bytes([40,50,60])); private_image.flush
+  research_session.post "/uploads.json", params:{type:"composer",file:Rack::Test::UploadedFile.new(private_image.path,"image/png")}, headers:csrf_headers(research_session)
+  assert!(research_session.response.status == 200, "researcher can upload a private attachment")
+  private_upload = JSON.parse(research_session.response.body)
+  attachment_post = PostCreator.create!(admin, topic_id:private_post.topic_id,
+    raw:"Automated private attachment acceptance #{token}.\n\n![private acceptance](#{private_upload.fetch('url')})")
+  20.times do
+    break if Upload.find(private_upload.fetch("id")).secure?
+    sleep 1
+  end
+  assert!(Upload.find(private_upload.fetch("id")).secure?, "private attachment is marked secure")
+  object_uri = URI.parse(private_upload.fetch("url"))
+  object_uri.scheme ||= "https" if object_uri.host
+  assert!(object_uri.scheme == "https" && object_uri.host.present?, "private upload uses verified HTTPS object storage")
+  object_uri.query = nil
+  object_response = Net::HTTP.start(object_uri.host, object_uri.port, use_ssl:true,
+    verify_mode:OpenSSL::SSL::VERIFY_PEER, open_timeout:5, read_timeout:10) do |http|
+    http.get(object_uri.request_uri)
+  end
+  assert!([403,404].include?(object_response.code.to_i), "private object is not publicly downloadable from storage")
+  attachment_post.reload
+  src = Nokogiri::HTML.fragment(attachment_post.cooked).at_css("img")&.[]("src")
+  assert!(src.present?, "private attachment is rendered")
+  uri = URI.parse(src)
+  path = uri.path + (uri.query ? "?#{uri.query}" : "")
+  [guest, member_session].each do |session|
+    session.get path
+    assert!([403,404].include?(session.response.status), "private file is denied to an outsider")
+  end
+  research_session.get path
+  assert!([200,302].include?(research_session.response.status), "authorized researcher can open the private file")
+  private_upload_verified = true
+end
 File.write(state_path, JSON.pretty_generate(state))
-puts "Native SSO, moderation, replies, editing, attachments, polls, likes, search, tags, private ACLs and in-app notifications passed. Email delivery and real GraviQuest browser SSO still require public DNS/HTTPS."
+File.write(results_path, JSON.pretty_generate({
+  native_workflows_verified:true, private_category_permissions_verified:true,
+  private_uploads_verified:private_upload_verified, restart_persistence_verified:false,
+  acceptance_cleanup_complete:false, browser_sso_verified:false, email_delivery_verified:false,
+}))
+puts "Native SSO, moderation, replies, editing, public attachments, polls, likes, search, tags, private category ACLs and in-app notifications passed. Secure private attachments verified=#{private_upload_verified}. Email delivery and real GraviQuest browser SSO still require public DNS/HTTPS."

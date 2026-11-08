@@ -27,6 +27,17 @@ Required DNS: `forum.graviquest.com` must point to the same web server serving
 `graviquest.com`. No DNS management connection is supplied by this repository.
 Internal staging is not a public deployment or proof of browser SSO.
 
+Public activation also requires native Secure Uploads. Local Discourse upload
+URLs alone do not protect private research attachments. Add the operator's
+private S3-compatible bucket configuration to the root-only `forum.json`:
+`DISCOURSE_S3_ACCESS_KEY_ID`, `DISCOURSE_S3_SECRET_ACCESS_KEY`,
+`DISCOURSE_S3_REGION`, `DISCOURSE_S3_UPLOAD_BUCKET`, and, for a compatible
+provider, `DISCOURSE_S3_ENDPOINT`. The bucket must not grant public bucket-wide
+read access. Re-run the configuration and verify actual private-file denial
+for guests and unrelated members before activation. The launch script fails
+closed when Secure Uploads are missing. No storage provider account or budget
+is assumed or provisioned by these scripts.
+
 ## Identity and permissions
 
 DiscourseConnect external ID is `graviquest:<Django user primary key>`.

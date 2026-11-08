@@ -1,8 +1,8 @@
 /* Semantic tokens are copied from the supplied GraviQuest redesign and brand
    system. No core templates are overridden; the native controls remain intact. */
-@font-face{font-family:"DM Sans";src:url("https://graviquest.com/assets/fonts/DMSans.ttf") format("truetype");font-weight:100 1000;font-display:swap}
-@font-face{font-family:"DM Mono";src:url("https://graviquest.com/assets/fonts/DMMono-Regular.ttf") format("truetype");font-weight:400;font-display:swap}
-@font-face{font-family:Literata;src:url("https://graviquest.com/assets/fonts/Literata-latin.woff2") format("woff2");font-weight:200 900;font-display:swap}
+@font-face{font-family:"DM Sans";src:url($gq_dm_sans) format("truetype");font-weight:100 1000;font-display:swap}
+@font-face{font-family:"DM Mono";src:url($gq_dm_mono) format("truetype");font-weight:400;font-display:swap}
+@font-face{font-family:Literata;src:url($gq_literata) format("woff2");font-weight:200 900;font-display:swap}
 :root{
  --g-bg:#00131d;--g-surface:#002132;--g-surface-raised:#003049;--g-text:#f1efec;--g-text-muted:#a9bcc6;--g-text-subtle:#9aa8ac;--g-accent:#d4c9be;--g-hairline:#f1efec29;--g-border:#f1efec4d;--g-radius:12px;
  --font-family:"DM Sans",system-ui,sans-serif;--heading-font-family:var(--font-family);--d-border-radius:12px;--d-button-border-radius:999px;--d-input-border-radius:8px;--d-sidebar-width:15rem;--d-max-width:90rem;
@@ -11,6 +11,7 @@ html,body{font-family:var(--font-family);background:var(--g-bg);color:var(--g-te
 body{line-height:1.5}a{color:var(--g-accent)}a:hover{color:var(--g-text)}
 .d-header{background:#001a28;border-bottom:1px solid var(--g-hairline);box-shadow:none;height:72px}
 .d-header .title img{max-height:32px;width:auto}.d-header .wrap{max-width:90rem;gap:1rem}
+.d-header .home-logo-wrapper-outlet{flex:0 0 auto}.d-header .before-header-panel-outlet{flex:1;min-width:0;display:flex;justify-content:center}
 .gq-site-nav{display:flex;gap:.15rem;align-items:center;margin-inline:auto;padding:.25rem;border:1px solid var(--g-hairline);border-radius:99px;font-size:.84rem;font-weight:500}
 .gq-site-nav a{padding:.5rem .8rem;color:var(--g-text-muted);white-space:nowrap}.gq-site-nav a:hover,.gq-site-nav [aria-current]{color:var(--g-text);background:#d4c9be1f;border-radius:99px}
 .gq-site-nav .gq-workspace{background:var(--g-accent);color:var(--g-bg);border-radius:99px;font-weight:600}

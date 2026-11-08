@@ -27,10 +27,28 @@ SiteSetting.maximum_backups = 14
 SiteSetting.backup_with_uploads = true
 SiteSetting.force_https = true
 SiteSetting.tagging_enabled = true
+SiteSetting.tag_topic_allowed_groups = "1|2|10"
 SiteSetting.poll_enabled = true
+SiteSetting.poll_create_allowed_groups = "1|2|10"
 SiteSetting.post_voting_enabled = true
 SiteSetting.topic_voting_enabled = true
 SiteSetting.notification_email = settings_file.fetch("DISCOURSE_NOTIFICATION_EMAIL")
+
+# Native secure uploads require private S3-compatible storage. Local uploads
+# remain suitable for this loopback staging installation, but launch.sh refuses
+# public activation until the private attachment path can enforce its ACLs.
+s3_fields = {
+  "s3_access_key_id" => "DISCOURSE_S3_ACCESS_KEY_ID",
+  "s3_secret_access_key" => "DISCOURSE_S3_SECRET_ACCESS_KEY",
+  "s3_region" => "DISCOURSE_S3_REGION",
+  "s3_upload_bucket" => "DISCOURSE_S3_UPLOAD_BUCKET",
+}
+if s3_fields.values.all? { |key| settings_file[key].present? }
+  s3_fields.each { |setting, key| SiteSetting.public_send("#{setting}=", settings_file.fetch(key)) }
+  SiteSetting.s3_endpoint = settings_file["DISCOURSE_S3_ENDPOINT"] if settings_file["DISCOURSE_S3_ENDPOINT"].present?
+  SiteSetting.enable_s3_uploads = true
+  SiteSetting.secure_uploads = true
+end
 
 %w[researchers reviewers].each do |name|
   Group.find_or_create_by!(name: name) do |g|
@@ -43,10 +61,9 @@ def category(name, slug, permissions, parent: nil)
   existing = Category.find_by(slug: slug)
   if existing
     # Fail rather than silently changing an existing category's security.
-    expected = permissions.keys.sort
-    actual = existing.groups.pluck(:name).sort
-    actual << "everyone" unless existing.read_restricted
-    raise "Category ACL differs: #{slug}" unless actual.uniq.sort == expected
+    expected = permissions.transform_values(&:to_i)
+    actual = existing.permissions_params.transform_values(&:to_i)
+    raise "Category ACL differs: #{slug}" unless actual == expected
     return existing
   end
   Category.create!(name: name, slug: slug, user: Discourse.system_user,
@@ -62,6 +79,10 @@ rooms = {}
   ["Corrections", "corrections"], ["Propose a Topic", "propose-a-topic"],
   ["Lab results", "lab-results"], ["Introductions", "introductions"],
 ].each { |name, slug| rooms[slug] = category(name, slug, {"everyone" => 1}) }
+proposal_room = rooms.fetch("propose-a-topic")
+proposal_room.custom_fields[DiscourseTopicVoting::ENABLE_TOPIC_VOTING_SETTING] = true
+proposal_room.save_custom_fields
+%w[official for-the-reading against not-sure].each { |name| Tag.find_or_create_by!(name: name) }
 private_room = category("Research discussions", "research-discussions", {"researchers" => 1, "reviewers" => 1})
 category("Peer review", "peer-review", {"reviewers" => 1}, parent: private_room)
 SiteSetting.default_navigation_menu_categories = rooms.values.map(&:id).join("|")
@@ -111,13 +132,13 @@ theme.update_setting(:next_topic_poll_id, poll.id)
 theme.update_javascript_cache!
 theme.theme_fields.each(&:ensure_baked!)
 raise "Theme compilation failed" if theme.theme_fields.where.not(error: [nil, ""]).exists?
-%i[common desktop mobile].each { |target| Stylesheet::Manager.new(theme_id: theme.id).stylesheet_data(target) }
+%i[common_theme desktop_theme mobile_theme].each { |target| Stylesheet::Manager.new(theme_id: theme.id).stylesheet_data(target) }
 SiteSetting.default_theme_id = theme.id
 logo_file = File.open("#{root}/logos/Logotype_White.svg")
 logo = UploadCreator.new(logo_file, "GraviQuest.svg", type: "branding").create_for(system_user.id)
 raise "Brand logo validation failed" unless logo.persisted?
-SiteSetting.logo = logo
-SiteSetting.mobile_logo = logo
+SiteSetting.logo = logo.id
+SiteSetting.mobile_logo = logo.id
 
 # This key can look up the mapped account and revoke its sessions, and nothing
 # else. It never enters the theme, a public endpoint, or the browser.

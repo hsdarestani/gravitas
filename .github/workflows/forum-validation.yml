@@ -63,6 +63,6 @@ jobs:
           if ! ssh "${OPTS[@]}" "$LOGIN@$SSH_HOST" true; then LOGIN=root; fi
           REMOTE="/tmp/graviquest-forum-$GITHUB_SHA"
           ssh "${OPTS[@]}" "$LOGIN@$SSH_HOST" "mkdir -p '$REMOTE'"
-          tar -czf "$RUNNER_TEMP/forum.tgz" ops/discourse discourse/theme assets/logos
+          tar -czf "$RUNNER_TEMP/forum.tgz" ops/discourse discourse/theme assets/logos assets/fonts/DMSans.ttf assets/fonts/DMMono-Regular.ttf assets/fonts/Literata-latin.woff2
           scp -i ~/.ssh/forum -P "$PORT" "$RUNNER_TEMP/forum.tgz" "$LOGIN@$SSH_HOST:$REMOTE/source.tgz"
           ssh "${OPTS[@]}" "$LOGIN@$SSH_HOST" "tar -xzf '$REMOTE/source.tgz' -C '$REMOTE' && sudo bash '$REMOTE/ops/discourse/stage.sh' '$REMOTE'"

@@ -59,13 +59,22 @@
     var host = document.querySelector('[data-forum-feed]'); if (!host) return;
     var rooms = document.getElementById('rd-rooms'), status = document.querySelector('[data-forum-status]');
     var more = document.querySelector('[data-forum-more]'), search = document.querySelector('[data-forum-search]');
-    var page = 0, category = 0, sort = 'latest', controller, requestId = 0, categories, failedPage = false;
+    var page = 0, category = 0, sort = 'latest', controller, requestId = 0, categories, failedPage = false, roomSignature = '';
     var args = new URLSearchParams(location.search), roomAliases = {open:'open-question', t1:'ai-in-research', t4:'computable-universe', fix:'corrections', next:'propose-a-topic', lab:'lab-results', hi:'introductions'};
     var requestedRoom = roomAliases[args.get('room')] || args.get('room');
     function drawRooms() {
+      var signature = JSON.stringify(categories);
+      if (roomSignature === signature && rooms.querySelector('button')) {
+        rooms.querySelectorAll('[data-category-id]').forEach(function (button) {
+          button.setAttribute('aria-pressed', String(Number(button.dataset.categoryId) === category));
+        });
+        return;
+      }
+      roomSignature = signature;
       rooms.replaceChildren(el('h2', '', 'Rooms'));
       [{id:0, name:'All rooms'}].concat(categories).forEach(function (c) {
         var b = el('button', 'rd-room', c.name); b.type = 'button';
+        b.dataset.categoryId = c.id;
         b.setAttribute('aria-pressed', String(category === c.id));
         if (c.parent_category_id) b.classList.add('gq-subroom');
         b.addEventListener('click', function () { category = c.id; page = 0; drawRooms(); load(false); });
@@ -183,11 +192,13 @@
     form.addEventListener('submit', function (e) {
       e.preventDefault();
       var stance = form.querySelector('[name="stance"]:checked'), body = form.elements.body.value.trim();
-      if (!stance || body.length < 10) { note.textContent = 'Choose a position and add your reasoning (at least 10 characters).'; return; }
+      if (!stance || body.length < 20 || body.length > 1000) { note.textContent = 'Choose a position and add 20–1,000 characters of reasoning.'; return; }
       config().then(function (c) {
         var params = new URLSearchParams({title:body.slice(0, 100), category:'open-question',
           body:'Position: ' + stance.value + '\n\n' + body + '\n\n[The Open Question](https://graviquest.com/community#this-week)'});
-        location.assign(forumURL(c.new_topic_url) + '?' + params);
+        var target = forumURL(c.new_topic_url) + '?' + params;
+        if (target.length > 7500) { note.textContent = 'Please shorten this reply, or open the Forum to write a longer post. Your reasoning is still here.'; return; }
+        location.assign(target);
       }).catch(function () { configJob = null; note.textContent = 'The Forum is temporarily unavailable. Your draft is still here; please try again.'; });
     });
   }

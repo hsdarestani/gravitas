@@ -30,7 +30,7 @@ git -C /var/discourse checkout --detach 1309ec425ab697996a33b931e309df95c1fbd981
 install -d -m 700 /var/discourse/shared/graviquest/graviquest-integration
 INTEGRATION=/var/discourse/shared/graviquest/graviquest-integration
 cp /etc/gravitas/forum.json "$INTEGRATION/environment.json"
-cp -R "$SOURCE/discourse/theme" "$INTEGRATION/"
+python3 "$SOURCE/ops/discourse/assemble_theme.py" "$SOURCE" "$INTEGRATION/theme"
 cp -R "$SOURCE/assets/logos" "$INTEGRATION/"
 cp "$SOURCE/ops/discourse/bootstrap.rb" "$SOURCE/ops/discourse/verify_native.rb" "$INTEGRATION/"
 # Read the published CMS content in the existing runtime; no schema writes.

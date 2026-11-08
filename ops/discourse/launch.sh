@@ -13,6 +13,10 @@ test -f /opt/gravitas-backend/core/forum.py || {
   echo 'BLOCKED: deploy the reviewed GraviQuest forum feature release before activation.' >&2; exit 78;
 }
 test "$(docker inspect -f '{{.State.Running}}' graviquest)" = true
+docker exec -u discourse -w /var/www/discourse graviquest bundle exec rails runner \
+  'abort "BLOCKED: configure and verify native secure S3 uploads before enabling public research discussions." unless SiteSetting.enable_s3_uploads && SiteSetting.secure_uploads'
+docker exec -u discourse -w /var/www/discourse graviquest bundle exec rails runner \
+  'r=JSON.parse(File.read("/shared/graviquest-integration/acceptance-results.json")); abort "BLOCKED: native private-file, restart and cleanup acceptance must pass first." unless r["private_uploads_verified"] && r["restart_persistence_verified"] && r["acceptance_cleanup_complete"]'
 curl -fsS --max-time 8 -H 'Host: forum.graviquest.com' -H 'X-Forwarded-Proto: https' http://127.0.0.1:18880/srv/status >/dev/null
 set -a; . /etc/gravitas/backend.env; set +a
 export PYTHONPATH=/opt/gravitas-backend DJANGO_SETTINGS_MODULE=gravitas_backend.settings
