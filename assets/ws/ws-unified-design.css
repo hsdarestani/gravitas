@@ -1004,35 +1004,52 @@ html .au-modal {
 }
 /* One index for all four workspaces. Research and Core draw theirs with
    ws-app's tree rows, Dashboard, Learning and Platform Admin with the
-   five-layer nav links, and the two used to look like two products: tinted
-   marks against bare glyphs, 38px rows against 30px ones, a series-coloured
-   bar against an accent one. Both now share the row below.
+   five-layer nav links; both share the row below, so the index reads as one
+   component whichever workspace drew it.
 
-   The mark is a circle. It was a 25px square with 8px corners, but ws.css
-   sizes the icon slot with `flex: 0 0 16px`, which won over the width and
-   squeezed it to 16×25 — a capsule. The flex basis is set here as well, so
-   the slot is the size it says. */
+   What it replaced (2026-11-08): each mark sat on a tinted disc in one of
+   four rotating series colours, and the lit row was a raised card with a
+   2px bar down its left edge. That is the stock sidebar of every generated
+   dashboard, and the rotating colours were a decorative palette the brand
+   book rules out — the colour said "fourth row", nothing about the section.
+
+   The index now follows the brand book's own contents rail (brand.css,
+   .bk-toc): rows are type, not boxes. Glyphs are bare line icons in a
+   neutral tone. The lit row gets no fill and no bar; its glyph is set in
+   orbit instead — a hairline ring with one small body on it, the dot the
+   brand rail already uses for the section being read, and the same point
+   mass every GraviQuest icon carries. The body swings a quarter turn on the
+   orbit easing when a section becomes current, and stays still afterwards.
+
+   `data-series` is still written by both renderers (tests and other screens
+   read it); it simply no longer picks a colour here.
+
+   The mark slot keeps an explicit flex basis: ws.css sizes the icon slot
+   with `flex: 0 0 16px`, which otherwise wins over the width. */
 #ws-index-body :is(.ws-node__row, .fl-index-link)[data-series] :is(.ws-node__icon, .fl-index-link__icon) {
+  position: relative;
   display: grid;
   place-items: center;
-  flex: 0 0 26px;
-  width: 26px;
-  height: 26px;
+  flex: 0 0 28px;
+  width: 28px;
+  height: 28px;
   border-radius: 50%;
-  background: color-mix(in srgb, var(--wc-series, var(--g-accent)) 16%, transparent);
-  color: var(--wc-series, var(--g-accent));
+  background: none;
+  box-shadow: inset 0 0 0 1px transparent;
+  color: var(--g-text-subtle);
   opacity: 1;
+  transition: color var(--g-dur) var(--g-ease-orbit),
+              box-shadow var(--g-dur) var(--g-ease-orbit);
 }
 #ws-index-body :is(.ws-node__row, .fl-index-link)[data-series] :is(.ws-node__icon, .fl-index-link__icon) svg {
-  width: 14px;
-  height: 14px;
-}
-#ws-index-body :is(.ws-node__row, .fl-index-link)[data-series][aria-current="page"] :is(.ws-node__icon, .fl-index-link__icon) {
-  background: color-mix(in srgb, var(--wc-series, var(--g-accent)) 26%, transparent);
+  width: 16px;
+  height: 16px;
 }
 #ws-index-body :is(.ws-node__row, .fl-index-link)[data-series] {
   min-height: 38px;
   gap: 10px;
+  background: none;
+  box-shadow: none;
 }
 /* The tree rows keep 24px on the left for the expand twist; the nav links
    have no twist but take the same inset, so the marks sit in one column
@@ -1045,38 +1062,72 @@ html .au-modal {
   color: var(--g-text-muted);
   font-size: var(--ws-fs);
 }
+/* Hover previews the orbit in a neutral hairline rather than filling the
+   row: the reader sees where the ring would go before committing. */
 @media (hover: hover) and (pointer: fine) {
-  #ws-index-body .fl-index-link[data-series]:hover { color: var(--g-text); }
+  #ws-index-body :is(.ws-node__row, .fl-index-link)[data-series]:hover {
+    background: none;
+    color: var(--g-text);
+  }
+  #ws-index-body :is(.ws-node__row, .fl-index-link)[data-series]:hover :is(.ws-node__icon, .fl-index-link__icon) {
+    color: var(--g-text-muted);
+    box-shadow: inset 0 0 0 1px var(--g-hairline);
+  }
+}
+#ws-index-body :is(.ws-node__row, .fl-index-link)[data-series]:focus-visible {
+  outline: 2px solid var(--g-accent);
+  outline-offset: -2px;
 }
 #ws-index-body :is(.ws-node__row, .fl-index-link)[data-series][aria-current="page"] {
-  background: var(--g-surface-raised);
+  background: none;
+  box-shadow: none;
   color: var(--g-text);
-  font-weight: var(--g-w-medium);
-  box-shadow: inset 2px 0 var(--wc-series, var(--g-accent));
+  font-weight: var(--g-w-semibold);
+}
+#ws-index-body :is(.ws-node__row, .fl-index-link)[data-series][aria-current="page"] :is(.ws-node__icon, .fl-index-link__icon) {
+  color: var(--g-accent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--g-accent) 50%, transparent);
+}
+/* The body on the orbit: a 6px dot drawn at the top of a ring-sized layer,
+   which is then rotated to sit on the upper right of the ring. */
+#ws-index-body :is(.ws-node__row, .fl-index-link)[data-series][aria-current="page"] :is(.ws-node__icon, .fl-index-link__icon)::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: radial-gradient(circle at 50% 0.5px, var(--g-accent) 3px, transparent 3.5px);
+  transform: rotate(45deg);
+  animation: ws-index-orbit .6s var(--g-ease-orbit);
+  pointer-events: none;
+}
+@keyframes ws-index-orbit {
+  from { transform: rotate(-45deg); }
+  to   { transform: rotate(45deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  #ws-index-body :is(.ws-node__row, .fl-index-link)[data-series][aria-current="page"] :is(.ws-node__icon, .fl-index-link__icon)::after {
+    animation: none;
+  }
 }
 /* A section with a hint: the name, and under it one quiet line saying what
    the section holds. Both index kinds draw it the same way, a two-row grid
-   with the round mark centred across both rows. The name keeps its weight
-   and colour from the rules above; the hint stays subtle even on the lit
-   row, so the eye still reads a column of names first and the sentences
-   only when it goes looking. The hint wraps rather than truncating: half a
-   sentence explains less than none. */
+   with the mark centred across both rows. The hint stays subtle on idle
+   rows and lifts one step on the lit one, so the eye still reads a column
+   of names first. It wraps rather than truncating: half a sentence explains
+   less than none. */
 #ws-index-body :is(.ws-node[data-hinted] > .ws-node__row, .fl-index-link[data-hinted]) {
   display: grid;
   grid-template-columns: 32px minmax(0, 1fr);
   grid-template-rows: auto auto;
   align-items: center;
   column-gap: 10px;
-  row-gap: 0;
+  row-gap: 1px;
   height: auto;
   min-height: 46px;
   padding-top: 6px;
   padding-bottom: 6px;
   line-height: 1.2;
 }
-/* Two lines of text beside the 26px mark made it read as a bullet rather
-   than as the row's mark. On a hinted row it grows to roughly the height of
-   the text block it stands beside; one-line rows keep 26px. */
 #ws-index-body :is(.ws-node[data-hinted] > .ws-node__row, .fl-index-link[data-hinted]) :is(.ws-node__icon, .fl-index-link__icon) {
   grid-row: 1 / span 2;
   grid-column: 1;
@@ -1086,8 +1137,8 @@ html .au-modal {
   height: 32px;
 }
 #ws-index-body :is(.ws-node[data-hinted] > .ws-node__row, .fl-index-link[data-hinted]) :is(.ws-node__icon, .fl-index-link__icon) svg {
-  width: 16px;
-  height: 16px;
+  width: 17px;
+  height: 17px;
 }
 #ws-index-body .ws-node[data-hinted] > .ws-node__row .ws-node__label {
   grid-column: 2;
@@ -1100,6 +1151,9 @@ html .au-modal {
   font-weight: var(--g-w-regular, 400);
   line-height: 1.3;
   white-space: normal;
+}
+#ws-index-body [aria-current="page"] :is(.ws-node__hint, .fl-index-link__hint) {
+  color: var(--g-text-muted);
 }
 /* The expand twist is a sibling positioned over the row's left end; on a
    taller row it has to grow with it or it sits high beside the name. */
