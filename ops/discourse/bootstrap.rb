@@ -50,6 +50,7 @@ if s3_fields.values.all? { |key| settings_file[key].present? }
     SiteSetting.s3_cdn_url = settings_file.fetch("DISCOURSE_S3_CDN_URL")
     SiteSetting.s3_use_cdn_url_for_all_uploads = true
   end
+  SiteSetting.include_s3_uploads_in_backups = true
   SiteSetting.enable_s3_uploads = true
   SiteSetting.secure_uploads = true
 end

@@ -251,6 +251,11 @@ def provision():
         except ClientError as exc:
             if exc.response['ResponseMetadata']['HTTPStatusCode']!=404: raise
             client.create_bucket(Bucket=bucket,ACL='private')
+        # Discourse changes ACLs on its own uploads. Explicit ObjectWriter
+        # ownership keeps each new object's owner equal to the scoped app
+        # identity, rather than silently assigning it to the provisioner.
+        client.put_bucket_ownership_controls(Bucket=bucket,OwnershipControls={
+            'Rules':[{'ObjectOwnership':'ObjectWriter'}]})
         client.put_bucket_cors(Bucket=bucket,CORSConfiguration={'CORSRules':[{
             'AllowedOrigins':['https://forum.graviquest.com','https://graviquest.com'],
             'AllowedMethods':['GET','HEAD','PUT','POST','DELETE'],'AllowedHeaders':['*'],
@@ -270,6 +275,7 @@ def verify():
         else: raise AssertionError(label)
     try:
         for bucket in BUCKETS:
+            print('Verifying signed writes, private denial and signed downloads in '+bucket+'.',flush=True)
             client.put_object(Bucket=bucket,Key=prefix+'private',Body=body,ACL='private')
             denied(lambda:anonymous.get_object(Bucket=bucket,Key=prefix+'private'),'Private object must deny anonymous reads')
             denied(lambda:anonymous.list_objects_v2(Bucket=bucket),'Bucket listing must deny anonymous reads')
@@ -277,6 +283,7 @@ def verify():
             signed=client.generate_presigned_url('get_object',Params={'Bucket':bucket,'Key':prefix+'private'},ExpiresIn=60)
             with urllib.request.urlopen(signed,timeout=15) as response:
                 assert hashlib.sha256(response.read()).digest()==hashlib.sha256(body).digest()
+        print('Verifying public-to-private object ACL changes.',flush=True)
         client.put_object(Bucket=BUCKETS[0],Key=prefix+'public',Body=body,ACL='public-read')
         assert anonymous.get_object(Bucket=BUCKETS[0],Key=prefix+'public')['Body'].read()==body
         client.put_object_acl(Bucket=BUCKETS[0],Key=prefix+'public',ACL='private')
@@ -318,7 +325,7 @@ if __name__=='__main__':
         if isinstance(exc,(AssertionError,RuntimeError)):
             print(str(exc),file=sys.stderr)
         elif hasattr(exc,'response'):
-            print('S3 '+mode+' failed: '+str(exc.response.get('Error',{}).get('Code','unknown')),file=sys.stderr)
+            print('S3 '+mode+' failed in '+getattr(exc,'operation_name','unknown operation')+': '+str(exc.response.get('Error',{}).get('Code','unknown')),file=sys.stderr)
         else:
             print('Storage '+mode+' failed: '+type(exc).__name__,file=sys.stderr)
         raise SystemExit(1)
