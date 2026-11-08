@@ -61,9 +61,11 @@ def category(name, slug, permissions, parent: nil)
   existing = Category.find_by(slug: slug)
   if existing
     # Fail rather than silently changing an existing category's security.
-    expected = permissions.transform_values(&:to_i)
-    actual = existing.permissions_params.transform_values(&:to_i)
-    raise "Category ACL differs: #{slug}" unless actual == expected
+    # Discourse deliberately stores public/full access as an empty ACL rather
+    # than an everyone row. Compare the core's normalized representation.
+    restricted, expected = Category.resolve_permissions(permissions)
+    actual = existing.category_groups.pluck(:group_id, :permission_type)
+    raise "Category ACL differs: #{slug}" unless existing.read_restricted == restricted && actual.sort == expected.sort
     return existing
   end
   Category.create!(name: name, slug: slug, user: Discourse.system_user,
@@ -115,6 +117,7 @@ manifest.fetch("published_content").each do |item|
   topic = official_topic(item.fetch("key"), "Discuss: #{item.fetch('title')}",
     "**Official discussion of a published GraviQuest Topic**\n\n[Read the published material](#{item.fetch('url')}).\n\nWhich claim needs a stronger source? What is the strongest objection to the reading? Bring a reference or say what remains uncertain.\n\nContent version at discussion creation: `#{item.fetch('version')}`. Later edits do not silently change this version marker.", room, version: item.fetch("version"))
   links << {key: item.fetch("key"), content_id: item.fetch("id"), topic_id: topic.id,
+            source: item.fetch("source", "cms"),
             category_id: topic.category_id, version: TopicCustomField.find_by(topic_id: topic.id, name: "graviquest_content_version")&.value || item.fetch("version")}
 end
 File.write("#{root}/links.json", JSON.pretty_generate(links: links))
