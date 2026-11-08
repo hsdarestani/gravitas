@@ -23,7 +23,8 @@ jobs:
           assert hashlib.sha256(patch).hexdigest() == '7040225502335be34e2dc309de9d30f2e5ed4732e81d1e9e7fe5b17e04600285'
           subprocess.run(['git','apply','--check','-'],input=patch,check=True)
           subprocess.run(['git','apply','--index','-'],input=patch,check=True)
-          subprocess.run(['git','rm','-r','.github/forum-delivery','.github/workflows/forum-delivery.yml'],check=True)
+          subprocess.run(['git','restore','--source=HEAD','--staged','--worktree','.github/workflows'],check=True)
+          subprocess.run(['git','rm','-r','.github/forum-delivery'],check=True)
           PY
           git config user.name Codex
           git config user.email codex@openai.com
