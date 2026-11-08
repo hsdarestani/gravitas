@@ -66,7 +66,7 @@ require native moderation approval. Staff can publish directly.
 
 GraviQuest logout revokes mapped native forum sessions. A network failure
 retains a durable outbox entry retried every minute. Account suspension and
-removal from managed groups or admin authority revoke sessions after the access
+removal from managed groups, managed-group rename/deletion, or admin authority revoke sessions after the access
 change commits. Account deletion preserves a retryable external-identity outbox
 even when the Django user row no longer exists.
 Native Forum logout ends its own session and opens a CSRF-protected GraviQuest
@@ -139,3 +139,13 @@ loopback bridge at desktop and mobile widths, retaining the HTTPS origin and
 production CSP. This is not a public-browser Django SSO or email delivery test.
 Real Android Chrome, iOS Safari, external email delivery, and off-host backup
 restore remain launch acceptance requirements until tested explicitly.
+
+## Verified internal installation
+
+Native acceptance and Chromium screenshots passed in [Actions run 42499308538](https://github.com/hsdarestani/gravitas/actions/runs/42499308538), using theme/service source from commit `3dc193e0a7e04927a0d54a1d270e6c78fad8df2f`. Actual moderation approval uses the authenticated native review API. The runner verifies persisted image bytes by checksum after restart, as well as discussions, replies, polls, ACLs and notifications, then removes only recorded QA users, posts and votes.
+
+Both desktop 1440px and Android emulation at 390px rendered the native poll, loaded the bundled DM Sans font, opened a native discussion, and had zero horizontal page overflow or uncaught JavaScript errors. These are browser emulations, not tests on physical Android or iOS devices.
+
+The new service remains loopback-only on the GraviQuest host. The production `forum.html` has not been switched to this feature branch. Public activation is blocked by the missing forum DNS record and unconfigured secure S3-compatible storage; native private-file acceptance, public GraviQuest browser SSO, email delivery and off-host restore must still pass before describing this as a production launch.
+
+Final Django validation after managed-group lifecycle hardening: 1,156 tests passed with 3 skips. The focused Forum/account suite passed 46 tests. These checks preserve existing Workspace, Pulsar, Labs and account behavior; they do not replace the pending public SSO and email delivery checks.

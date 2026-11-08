@@ -15,8 +15,17 @@ if config.exists():
 try:
     socket.getaddrinfo('forum.graviquest.com', 443)
     dns = True
-except socket.gaierror:
+    dns_error = None
+except socket.gaierror as exc:
     dns = False
+    dns_error = exc.errno
+environment_path = pathlib.Path('/etc/gravitas/forum.json')
+environment = json.loads(environment_path.read_text()) if environment_path.exists() else {}
+acceptance_path = pathlib.Path('/var/discourse/shared/graviquest/graviquest-integration/acceptance-results.json')
+acceptance = json.loads(acceptance_path.read_text()) if acceptance_path.exists() else {}
+acceptance_keys = ['native_workflows_verified', 'private_category_permissions_verified',
+                   'private_uploads_verified', 'restart_persistence_verified',
+                   'acceptance_cleanup_complete', 'browser_sso_verified', 'email_delivery_verified']
 docker = shutil.which('docker')
 backend_env = pathlib.Path('/etc/gravitas/backend.env')
 backend_keys = {}
@@ -34,7 +43,15 @@ print(json.dumps({
     'docker_available': bool(docker),
     'running_container_names': containers,
     'forum_dns_resolves': dns,
+    'forum_dns_error_code': dns_error,
     'forum_install_exists': pathlib.Path('/var/discourse/containers/graviquest.yml').exists(),
+    'reviewed_django_forum_feature_deployed': pathlib.Path('/opt/gravitas-backend/core/forum.py').exists(),
+    'private_s3_configuration_present': all(environment.get(k) for k in [
+        'DISCOURSE_S3_ACCESS_KEY_ID', 'DISCOURSE_S3_SECRET_ACCESS_KEY',
+        'DISCOURSE_S3_REGION', 'DISCOURSE_S3_UPLOAD_BUCKET']),
+    'native_acceptance': {k:bool(acceptance.get(k)) for k in acceptance_keys},
+    'forum_internal_http_healthy': run(['curl', '-fsS', '--max-time', '8', '-H', 'Host: forum.graviquest.com',
+                                      '-H', 'X-Forwarded-Proto: https', 'http://127.0.0.1:18880/srv/status'])[0] == 0,
     'forum_env_exists': config.exists(),
     'existing_mail_credential_configured': backend_keys.get('EMAIL_HOST_PASSWORD', False),
     'loopback_port_18880_available': run(['bash', '-c', 'test -z "$(ss -lntH sport = :18880)"'])[0] == 0,

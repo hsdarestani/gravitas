@@ -100,6 +100,22 @@ class ForumIdentityTests(TestCase):
         revoke.assert_called_once_with(self.user)
 
     @patch('core.forum.revoke_forum_sessions')
+    def test_deleting_managed_group_revokes_its_existing_native_sessions(self, revoke):
+        group = Group.objects.create(name='graviquest-forum-reviewers')
+        self.user.groups.add(group)
+        with self.captureOnCommitCallbacks(execute=True):
+            group.delete()
+        revoke.assert_called_once_with(self.user)
+
+    @patch('core.forum.revoke_forum_sessions')
+    def test_renaming_managed_group_revokes_its_existing_native_sessions(self, revoke):
+        group = Group.objects.create(name='graviquest-forum-reviewers')
+        self.user.groups.add(group)
+        with self.captureOnCommitCallbacks(execute=True):
+            group.name='retired-reviewers'; group.save(update_fields=['name'])
+        revoke.assert_called_once_with(self.user)
+
+    @patch('core.forum.revoke_forum_sessions')
     def test_removing_admin_authority_revokes_native_sessions(self, revoke):
         self.user.is_superuser = True; self.user.save(update_fields=['is_superuser'])
         with self.captureOnCommitCallbacks(execute=True):

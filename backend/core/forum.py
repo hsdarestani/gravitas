@@ -16,6 +16,7 @@ from urllib.parse import parse_qs, urlencode, urlsplit
 import requests
 from django.conf import settings
 from django.contrib.auth import get_user_model, logout
+from django.contrib.auth.models import Group
 from django.contrib.auth.signals import user_logged_out
 from django.dispatch import receiver
 from django.core import signing
@@ -35,6 +36,9 @@ from .models import ContentItem
 
 class ForumUnavailable(Exception):
     pass
+
+
+MANAGED_GROUPS = ('graviquest-forum-researchers', 'graviquest-forum-reviewers', 'graviquest-forum-moderators')
 
 
 def forum_url():
@@ -435,7 +439,7 @@ def _suspended_profile(sender, instance, **kwargs):
 
 @receiver(m2m_changed, sender=get_user_model().groups.through, dispatch_uid='graviquest_forum_group_revocation')
 def _forum_group_change(sender, instance, action, reverse, pk_set, **kwargs):
-    names = ['graviquest-forum-researchers', 'graviquest-forum-reviewers', 'graviquest-forum-moderators']
+    names = MANAGED_GROUPS
     if reverse:
         if instance.name in names and action in ('pre_clear', 'post_remove'):
             users = instance.user_set.all() if action == 'pre_clear' else get_user_model().objects.filter(pk__in=pk_set or [])
@@ -443,9 +447,32 @@ def _forum_group_change(sender, instance, action, reverse, pk_set, **kwargs):
                 _schedule_revocation(user)
         return
     if action == 'pre_clear' or action == 'post_remove':
-        from django.contrib.auth.models import Group
         if action == 'pre_clear' or Group.objects.filter(pk__in=pk_set or [], name__in=names).exists():
             _schedule_revocation(instance)
+
+
+@receiver(pre_delete, sender=Group, dispatch_uid='graviquest_forum_deleted_group')
+def _deleted_managed_group(sender, instance, **kwargs):
+    # Django's group cascade does not emit m2m_changed for removed memberships.
+    if settings.GRAVITAS_FORUM_URL and instance.name in MANAGED_GROUPS:
+        for user in instance.user_set.iterator():
+            _schedule_revocation(user)
+
+
+@receiver(pre_save, sender=Group, dispatch_uid='graviquest_forum_previous_group_name')
+def _previous_group_name(sender, instance, update_fields=None, **kwargs):
+    if settings.GRAVITAS_FORUM_URL and instance.pk and (update_fields is None or 'name' in update_fields):
+        instance._forum_previous_name = sender.objects.filter(pk=instance.pk).values_list('name', flat=True).first()
+
+
+@receiver(post_save, sender=Group, dispatch_uid='graviquest_forum_renamed_group')
+def _renamed_managed_group(sender, instance, **kwargs):
+    previous = getattr(instance, '_forum_previous_name', None)
+    if hasattr(instance, '_forum_previous_name'):
+        del instance._forum_previous_name
+    if previous in MANAGED_GROUPS and previous != instance.name:
+        for user in instance.user_set.iterator():
+            _schedule_revocation(user)
 
 
 @require_GET
