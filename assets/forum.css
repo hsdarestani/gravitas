@@ -26,14 +26,6 @@
 .fm-lead { margin: 0; max-width: 46rem; }
 @media (max-width: 640px) { .fm-top { grid-template-columns: minmax(0, 1fr); } .fm-top .g-btn { justify-self: start; } }
 
-/* Front-end-only features say so on screen (brand book, Honesty in the
-   Interface). One quiet line, the system's own Planned-style chip. */
-.fm-preview {
-  display: flex; align-items: center; gap: var(--g-space-xs); flex-wrap: wrap;
-  margin: 0 0 var(--g-space-lg); font-size: var(--g-fs-small); color: var(--g-text-subtle);
-}
-.fm-preview .g-soon { align-self: center; }
-
 .fm-pinned { margin-bottom: var(--g-space-xl); }
 .fm-pinned p { max-width: 60ch; }
 
