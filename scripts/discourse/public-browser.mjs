@@ -22,16 +22,34 @@ function png(){
 }
 async function json(response,label){assert(response.ok(),`${label}: HTTP ${response.status()}`);return response.json();}
 async function headers(context){const value=await json(await context.request.get(FORUM+'/session/csrf.json'),'Native CSRF');return{'X-CSRF-Token':value.csrf,'X-Requested-With':'XMLHttpRequest',Origin:FORUM};}
-async function post(context,path,data){return json(await context.request.post(FORUM+path,{data,headers:await headers(context)}),path);}
+async function post(context,path,data){
+  // Keep native anti-flood checks enabled. A fast automated reply can arrive
+  // sooner than a human types; honor the server's explicit pre-write rejection.
+  for(let attempt=0;attempt<3;attempt++){
+    const response=await context.request.post(FORUM+path,{data,headers:await headers(context)});
+    if(response.status()!==429)return json(response,path);
+    const delay=Math.min(30,Math.max(1,Number(response.headers()['retry-after'])||5));
+    await new Promise(resolve=>setTimeout(resolve,delay*1000));
+  }
+  throw Error('Native posting rate limit remained active');
+}
 async function login(browser,role){
   const context=await browser.newContext();contexts.push(context);
   const page=await context.newPage();
+  const scriptErrors=[];page.on('pageerror',error=>scriptErrors.push(error.name+': '+error.message.slice(0,160)));
   await page.goto(FORUM+'/session/sso',{waitUntil:'domcontentloaded'});
   await page.waitForURL(url=>url.origin===SITE&&url.pathname==='/login',{timeout:45000});
+  await page.waitForFunction(()=>performance.getEntriesByType('resource').some(entry=>entry.name.includes('/assets/production-bridge-core.js')));
   await page.locator('#in-mail').fill(fixture.users[role].email);
   await page.locator('#in-pass').fill(fixture.users[role].password);
+  const authResponse=page.waitForResponse(response=>new URL(response.url()).pathname==='/api/auth/login/'&&response.request().method()==='POST',{timeout:30000});
   await page.locator('#p-in button[type=submit]').click();
-  await page.waitForURL(url=>url.origin===FORUM,{timeout:60000});
+  let auth;
+  try{auth=await authResponse;}catch{const location=new URL(page.url());throw Error(`Login request was not submitted for ${role}; page=${location.origin+location.pathname}; script errors=${scriptErrors.join(';')}`);}
+  const authData=await auth.json().catch(()=>({}));
+  console.log(JSON.stringify({phase:'GraviQuest login',role,status:auth.status(),error:authData.error||null,scriptErrors}));
+  assert(auth.ok(),`GraviQuest login rejected for ${role}: ${authData.error||auth.status()}`);
+  try{await page.waitForURL(url=>url.origin===FORUM,{timeout:60000});}catch{const location=new URL(page.url());const intent=(await context.cookies(SITE)).some(cookie=>cookie.name==='gq_forum_continue');throw Error(`Forum continuation stalled for ${role} at ${location.origin+location.pathname}; intent cookie=${intent}; script errors=${scriptErrors.join(';')}`);}
   const session=await json(await context.request.get(FORUM+'/session/current.json'),'Native signed-in session');
   assert(session.current_user?.id,'Real GraviQuest login establishes a native forum session');
   assert.equal(Boolean(session.current_user.admin),false,'No acceptance identity becomes an administrator');
