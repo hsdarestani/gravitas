@@ -9,7 +9,6 @@ system_user = Discourse.system_user
 SiteSetting.title = "GraviQuest Forum"
 SiteSetting.site_description = "Good questions pull people together."
 SiteSetting.navigation_menu = "header dropdown"
-SiteSetting.enable_welcome_banner = false
 SiteSetting.discourse_connect_url = "https://graviquest.com/api/forum/sso/"
 SiteSetting.discourse_connect_secret = settings_file.fetch("GRAVITAS_DISCOURSE_CONNECT_SECRET")
 SiteSetting.enable_discourse_connect = true

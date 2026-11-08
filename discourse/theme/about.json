@@ -6,6 +6,9 @@
   "minimum_discourse_version": "2026.7.0",
   "authors": "GraviQuest",
   "theme_version": "1.0.0",
+  "theme_site_settings": {
+    "enable_welcome_banner": false
+  },
   "assets": {
     "gq_dm_sans": "assets/DMSans.ttf",
     "gq_dm_mono": "assets/DMMono-Regular.ttf",
