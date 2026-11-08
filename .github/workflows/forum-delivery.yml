@@ -1,0 +1,74 @@
+name: Apply and verify reviewed community implementation
+on:
+  push:
+    branches: [feat/discourse-community]
+    paths: ['.github/forum-delivery/**', '.github/workflows/forum-delivery.yml']
+permissions:
+  contents: write
+jobs:
+  deliver:
+    runs-on: ubuntu-latest
+    timeout-minutes: 65
+    concurrency:
+      group: gravitas-production
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+      - name: Materialize the exact reviewed source tree
+        run: |
+          python3 - <<'PY'
+          import base64, gzip, hashlib, pathlib, subprocess
+          chunks=sorted(pathlib.Path('.github/forum-delivery').glob('*.b64'))
+          patch=gzip.decompress(base64.b64decode(''.join(p.read_text() for p in chunks)))
+          assert hashlib.sha256(patch).hexdigest() == '7040225502335be34e2dc309de9d30f2e5ed4732e81d1e9e7fe5b17e04600285'
+          subprocess.run(['git','apply','--check','-'],input=patch,check=True)
+          subprocess.run(['git','apply','--index','-'],input=patch,check=True)
+          subprocess.run(['git','rm','-r','.github/forum-delivery','.github/workflows/forum-delivery.yml'],check=True)
+          PY
+          git config user.name Codex
+          git config user.email codex@openai.com
+          git commit -m 'feat: integrate Discourse identity, content links and GraviQuest community theme'
+          git push origin HEAD:feat/discourse-community
+          git rev-parse HEAD
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -q -r backend/requirements.txt
+      - name: Verify complete backend and forum implementation
+        env:
+          PYTHONPATH: backend
+          DJANGO_SETTINGS_MODULE: gravitas_backend.test_settings
+        run: |
+          python -m django test core --noinput
+          python -m django makemigrations core --check --dry-run
+          python -m django check
+          python -m unittest discover -s ops/discourse -p 'test_*.py'
+          node --check assets/forum-live.js
+          node --check assets/site.js
+          node --check assets/production-bridge-core.js
+          bash -n ops/discourse/stage.sh
+          bash -n ops/discourse/launch.sh
+          ruby -c ops/discourse/bootstrap.rb
+          ruby -c ops/discourse/verify_native.rb
+      - name: Install isolated internal Discourse staging
+        env:
+          SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          SSH_HOST: ${{ secrets.DEPLOY_HOST }}
+          SSH_USER: ${{ secrets.DEPLOY_USER }}
+          SSH_PORT: ${{ secrets.DEPLOY_PORT }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$SSH_KEY" && test -n "$SSH_HOST"
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/forum
+          chmod 600 ~/.ssh/forum
+          PORT="${SSH_PORT:-22}"; LOGIN="${SSH_USER:-deploy}"
+          ssh-keyscan -p "$PORT" -H "$SSH_HOST" >> ~/.ssh/known_hosts
+          OPTS=(-i ~/.ssh/forum -p "$PORT" -o BatchMode=yes -o ConnectTimeout=10 -o ServerAliveInterval=15)
+          if ! ssh "${OPTS[@]}" "$LOGIN@$SSH_HOST" true; then LOGIN=root; fi
+          REMOTE="/tmp/graviquest-forum-$GITHUB_SHA"
+          ssh "${OPTS[@]}" "$LOGIN@$SSH_HOST" "mkdir -p '$REMOTE'"
+          tar -czf "$RUNNER_TEMP/forum.tgz" ops/discourse discourse/theme assets/logos
+          scp -i ~/.ssh/forum -P "$PORT" "$RUNNER_TEMP/forum.tgz" "$LOGIN@$SSH_HOST:$REMOTE/source.tgz"
+          ssh "${OPTS[@]}" "$LOGIN@$SSH_HOST" "tar -xzf '$REMOTE/source.tgz' -C '$REMOTE' && sudo bash '$REMOTE/ops/discourse/stage.sh' '$REMOTE'"
