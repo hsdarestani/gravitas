@@ -7,6 +7,7 @@
 .gq-poll-option small{color:var(--g-text-subtle);font-family:var(--g-font-mono)}
 [data-forum-status]{margin-block:.5rem 1rem}[data-forum-more]{margin-top:1.5rem}
 [data-forum-status] button,[data-forum-discussion] button{min-height:44px}
+[data-forum-more][hidden]{display:none!important}
 [data-forum-search] .rd-search{min-width:0;flex:1;max-width:none}
 .rd-side p{font-size:.86rem;color:var(--g-text-muted)}
 .rd-list,.rd-thread,.rd-thread__main,.rd-roomcard{min-width:0;overflow-wrap:anywhere}

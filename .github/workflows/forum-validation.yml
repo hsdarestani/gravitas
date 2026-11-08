@@ -1,57 +1,50 @@
-name: Apply and verify reviewed community implementation
+name: Community and Discourse validation
 on:
   push:
     branches: [feat/discourse-community]
-    paths: ['.github/forum-delivery/**', '.github/workflows/forum-delivery.yml']
+    paths: ['backend/**', 'discourse/**', 'ops/discourse/**', 'assets/forum-live.*', '.github/workflows/forum-validation.yml']
+  pull_request:
+    paths: ['backend/core/forum*', 'backend/core/test_forum.py', 'discourse/**', 'ops/discourse/**', 'assets/forum-live.*', '.github/workflows/forum-validation.yml']
+  workflow_dispatch:
 permissions:
-  contents: write
+  contents: read
 jobs:
-  deliver:
+  tests:
     runs-on: ubuntu-latest
-    timeout-minutes: 65
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -q -r backend/requirements.txt
+      - name: Check integration and existing account workflows
+        env:
+          PYTHONPATH: backend
+          DJANGO_SETTINGS_MODULE: gravitas_backend.test_settings
+        run: |
+          python -m django test core.test_forum core.test_auth_account_flows core.test_auth_logout_flow core.test_email_verification core.test_oidc_sso --noinput
+          python -m django makemigrations core --check --dry-run
+          python -m django check
+          node --check assets/forum-live.js
+          node --check assets/production-bridge-core.js
+          node --check assets/site.js
+          bash -n ops/discourse/stage.sh
+          bash -n ops/discourse/launch.sh
+          ruby -c ops/discourse/bootstrap.rb
+          ruby -c ops/discourse/verify_native.rb
+          python -m unittest discover -s ops/discourse -p 'test_*.py'
+  internal-staging:
+    if: github.event_name == 'push' && contains(github.event.head_commit.message, '[stage-discourse]')
+    needs: tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
     concurrency:
       group: gravitas-production
       cancel-in-progress: false
     steps:
       - uses: actions/checkout@v4
-      - name: Materialize the exact reviewed source tree
-        run: |
-          python3 - <<'PY'
-          import base64, gzip, hashlib, pathlib, subprocess
-          chunks=sorted(pathlib.Path('.github/forum-delivery').glob('*.b64'))
-          patch=gzip.decompress(base64.b64decode(''.join(p.read_text() for p in chunks)))
-          assert hashlib.sha256(patch).hexdigest() == '7040225502335be34e2dc309de9d30f2e5ed4732e81d1e9e7fe5b17e04600285'
-          subprocess.run(['git','apply','--check','-'],input=patch,check=True)
-          subprocess.run(['git','apply','--index','-'],input=patch,check=True)
-          subprocess.run(['git','restore','--source=HEAD','--staged','--worktree','.github/workflows'],check=True)
-          subprocess.run(['git','rm','-r','.github/forum-delivery'],check=True)
-          PY
-          git config user.name Codex
-          git config user.email codex@openai.com
-          git commit -m 'feat: integrate Discourse identity, content links and GraviQuest community theme'
-          git push origin HEAD:feat/discourse-community
-          git rev-parse HEAD
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-      - run: pip install -q -r backend/requirements.txt
-      - name: Verify complete backend and forum implementation
-        env:
-          PYTHONPATH: backend
-          DJANGO_SETTINGS_MODULE: gravitas_backend.test_settings
-        run: |
-          python -m django test core --noinput
-          python -m django makemigrations core --check --dry-run
-          python -m django check
-          python -m unittest discover -s ops/discourse -p 'test_*.py'
-          node --check assets/forum-live.js
-          node --check assets/site.js
-          node --check assets/production-bridge-core.js
-          bash -n ops/discourse/stage.sh
-          bash -n ops/discourse/launch.sh
-          ruby -c ops/discourse/bootstrap.rb
-          ruby -c ops/discourse/verify_native.rb
-      - name: Install isolated internal Discourse staging
+      - name: Install isolated loopback-only Discourse after capacity checks
         env:
           SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
           SSH_HOST: ${{ secrets.DEPLOY_HOST }}

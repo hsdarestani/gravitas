@@ -56,6 +56,7 @@ class ForumIdentityTests(TestCase):
         self.assertEqual(fields['email'], [self.user.email])
         self.assertEqual(fields['admin'], ['false'])
         self.assertEqual(fields['moderator'], ['false'])
+        self.assertNotIn('@', fields['name'][0])
         self.assertIn('researchers', fields['remove_groups'][0])
         self.assertEqual(response['Referrer-Policy'], 'no-referrer')
         self.assertEqual(get_user_model().objects.filter(email=self.user.email).count(), 1)
@@ -78,6 +79,22 @@ class ForumIdentityTests(TestCase):
         profile = self.user.gravitas_community_profile
         profile.status = 'suspended'; profile.save()
         self.assertEqual(self.client.get('/api/forum/sso/', signed()).status_code, 403)
+
+    @patch('core.forum.revoke_forum_sessions')
+    def test_suspension_revokes_existing_native_sessions_after_commit(self, revoke):
+        self.sign_in()
+        with self.captureOnCommitCallbacks(execute=True):
+            profile = self.user.gravitas_community_profile
+            profile.status = 'suspended'; profile.save()
+        revoke.assert_called_once_with(self.user)
+
+    @patch('core.forum.revoke_forum_sessions')
+    def test_removing_private_group_revokes_native_sessions(self, revoke):
+        group = Group.objects.create(name='graviquest-forum-researchers')
+        self.user.groups.add(group)
+        with self.captureOnCommitCallbacks(execute=True):
+            group.user_set.remove(self.user)
+        revoke.assert_called_once_with(self.user)
 
     def test_bad_signature_rejected_before_login(self):
         data = signed(); data['sig'] = '0' * 64

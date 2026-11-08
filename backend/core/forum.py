@@ -29,6 +29,7 @@ from django.views.decorators.http import require_GET, require_POST
 
 from .email_verification import is_email_verified
 from .forum_models import ForumDiscussion, ForumLogout
+from .layer_models import CommunityProfile
 from .models import ContentItem
 
 
@@ -232,7 +233,7 @@ def forum_sso(request):
              'reviewers': 'graviquest-forum-reviewers'}
     fields = {'nonce': nonce[0], 'external_id': external_id(request.user),
               'email': request.user.email, 'username': f'gq_{request.user.pk}',
-              'name': request.user.get_full_name() or request.user.username,
+              'name': request.user.get_full_name() or f'Member {request.user.pk}',
               'require_activation': 'false',
               'admin': str(request.user.is_superuser).lower(),
               'moderator': str('graviquest-forum-moderators' in groups).lower(),
@@ -287,7 +288,8 @@ def forum_avatar(request, token):
 
 def queue_logout(user):
     if user and user.is_authenticated and settings.GRAVITAS_FORUM_URL:
-        ForumLogout.objects.update_or_create(user=user, defaults={'attempts': 0})
+        pending, _ = ForumLogout.objects.update_or_create(user=user, defaults={'attempts': 0})
+        return pending
 
 
 def revoke_forum_sessions(user):
@@ -317,12 +319,12 @@ def revoke_forum_sessions(user):
 def _on_logout(sender, request, user, **kwargs):
     if not user or not settings.GRAVITAS_FORUM_URL:
         return
-    queue_logout(user)
+    pending = queue_logout(user)
     try:
         revoke_forum_sessions(user)
     except ForumUnavailable:
         return  # The outbox worker retries without blocking the workspace.
-    ForumLogout.objects.filter(user=user).delete()
+    ForumLogout.objects.filter(pk=pending.pk, requested_at=pending.requested_at).delete()
 
 
 def _schedule_revocation(user):
@@ -338,13 +340,23 @@ def _inactive_user(sender, instance, **kwargs):
         _schedule_revocation(instance)
 
 
+@receiver(post_save, sender=CommunityProfile, dispatch_uid='graviquest_forum_suspended_profile')
+def _suspended_profile(sender, instance, **kwargs):
+    if instance.status != CommunityProfile.Status.ACTIVE:
+        _schedule_revocation(instance.user)
+
+
 @receiver(m2m_changed, sender=get_user_model().groups.through, dispatch_uid='graviquest_forum_group_revocation')
 def _forum_group_change(sender, instance, action, reverse, pk_set, **kwargs):
+    names = ['graviquest-forum-researchers', 'graviquest-forum-reviewers', 'graviquest-forum-moderators']
     if reverse:
+        if instance.name in names and action in ('pre_clear', 'post_remove'):
+            users = instance.user_set.all() if action == 'pre_clear' else get_user_model().objects.filter(pk__in=pk_set or [])
+            for user in users:
+                _schedule_revocation(user)
         return
     if action == 'pre_clear' or action == 'post_remove':
         from django.contrib.auth.models import Group
-        names = ['graviquest-forum-researchers', 'graviquest-forum-reviewers', 'graviquest-forum-moderators']
         if action == 'pre_clear' or Group.objects.filter(pk__in=pk_set or [], name__in=names).exists():
             _schedule_revocation(instance)
 
@@ -368,6 +380,5 @@ def forum_logout_landing(request):
 @require_POST
 @never_cache
 def forum_logout(request):
-    queue_logout(request.user)
     logout(request)
     return HttpResponseRedirect('/community')

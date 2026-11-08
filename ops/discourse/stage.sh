@@ -38,7 +38,7 @@ set -a
 . /etc/gravitas/backend.env
 set +a
 export PYTHONPATH=/opt/gravitas-backend DJANGO_SETTINGS_MODULE=gravitas_backend.settings
-/opt/gravitas-backend/.venv/bin/python "$SOURCE/ops/discourse/export_published.py" > "$INTEGRATION/content.json"
+runuser -u gravitas -- /opt/gravitas-backend/.venv/bin/python "$SOURCE/ops/discourse/export_published.py" > "$INTEGRATION/content.json"
 chown -R 1000:1000 "$INTEGRATION"
 chmod 700 "$INTEGRATION"
 chmod 600 "$INTEGRATION/environment.json"

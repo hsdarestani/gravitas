@@ -66,13 +66,14 @@ private_room = category("Research discussions", "research-discussions", {"resear
 category("Peer review", "peer-review", {"reviewers" => 1}, parent: private_room)
 SiteSetting.default_navigation_menu_categories = rooms.values.map(&:id).join("|")
 
-def official_topic(key, title, raw, room)
+def official_topic(key, title, raw, room, version: nil)
   record = TopicCustomField.find_by(name: "graviquest_content_key", value: key)
   return Topic.find(record.topic_id) if record
   ActiveRecord::Base.transaction do
     post = PostCreator.create!(Discourse.system_user, title: title, raw: raw, category: room.id,
                               tags: ["official"], skip_jobs: false)
     TopicCustomField.create!(topic_id: post.topic_id, name: "graviquest_content_key", value: key)
+    TopicCustomField.create!(topic_id: post.topic_id, name: "graviquest_content_version", value: version) if version
     post.topic
   end
 end
@@ -91,9 +92,9 @@ manifest.fetch("published_content").each do |item|
          else rooms.fetch("open-question")
          end
   topic = official_topic(item.fetch("key"), "Discuss: #{item.fetch('title')}",
-    "**Official discussion of a published GraviQuest Topic**\n\n[Read the published material](#{item.fetch('url')}).\n\nWhich claim needs a stronger source? What is the strongest objection to the reading? Bring a reference or say what remains uncertain.\n\nContent version at discussion creation: `#{item.fetch('version')}`. Later edits do not silently change this version marker.", room)
+    "**Official discussion of a published GraviQuest Topic**\n\n[Read the published material](#{item.fetch('url')}).\n\nWhich claim needs a stronger source? What is the strongest objection to the reading? Bring a reference or say what remains uncertain.\n\nContent version at discussion creation: `#{item.fetch('version')}`. Later edits do not silently change this version marker.", room, version: item.fetch("version"))
   links << {key: item.fetch("key"), content_id: item.fetch("id"), topic_id: topic.id,
-            category_id: topic.category_id, version: item.fetch("version")}
+            category_id: topic.category_id, version: TopicCustomField.find_by(topic_id: topic.id, name: "graviquest_content_version")&.value || item.fetch("version")}
 end
 File.write("#{root}/links.json", JSON.pretty_generate(links: links))
 

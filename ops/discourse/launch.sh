@@ -17,7 +17,7 @@ curl -fsS --max-time 8 -H 'Host: forum.graviquest.com' -H 'X-Forwarded-Proto: ht
 set -a; . /etc/gravitas/backend.env; set +a
 export PYTHONPATH=/opt/gravitas-backend DJANGO_SETTINGS_MODULE=gravitas_backend.settings
 PYTHON=/opt/gravitas-backend/.venv/bin/python
-"$PYTHON" -m django showmigrations core | grep -q '\[X\] 0092_discourse_content_links'
+runuser -u gravitas -- "$PYTHON" -m django showmigrations core | grep -q '\[X\] 0092_discourse_content_links'
 VHOST=/etc/nginx/sites-available/graviquest-forum
 if [ -f "$VHOST" ]; then grep -q '^# Managed GraviQuest Discourse$' "$VHOST"; fi
 install -d -m 755 /var/www/gravitas-forum-acme/.well-known/acme-challenge
@@ -83,7 +83,9 @@ os.chmod(target, 0o640)
 PY
 chown root:gravitas /etc/gravitas/forum.env
 set -a; . /etc/gravitas/forum.env; set +a
-"$PYTHON" -m django forum_content_manifest --import-links /var/discourse/shared/graviquest/graviquest-integration/links.json
+install -d -m 750 -o root -g gravitas /var/lib/graviquest-forum
+install -m 640 -o root -g gravitas /var/discourse/shared/graviquest/graviquest-integration/links.json /var/lib/graviquest-forum/links.json
+runuser -u gravitas -- "$PYTHON" -m django forum_content_manifest --import-links /var/lib/graviquest-forum/links.json
 install -d /etc/systemd/system/gravitas-backend.service.d
 cat > /etc/systemd/system/gravitas-backend.service.d/forum.conf <<'UNIT'
 [Service]

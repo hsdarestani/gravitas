@@ -3,6 +3,8 @@ import json
 import os
 import secrets
 import shlex
+import subprocess
+import sys
 from email.utils import parseaddr
 from pathlib import Path
 
@@ -46,10 +48,12 @@ def prepare(path, backend_path, admin_emails):
 
 
 if __name__ == '__main__':
-    import django
-    django.setup()
-    from django.contrib.auth import get_user_model
-    admins = list(get_user_model().objects.filter(is_superuser=True, is_active=True).exclude(email='').values_list('email', flat=True))
+    # The existing database uses PostgreSQL peer authentication. Query as the
+    # existing backend service account, while only root writes the secret file.
+    query = "import django,json; django.setup(); from django.contrib.auth import get_user_model; print(json.dumps(list(get_user_model().objects.filter(is_superuser=True,is_active=True).exclude(email='').values_list('email',flat=True))))"
+    result = subprocess.run(['runuser','-u','gravitas','--',sys.executable,'-c',query],
+                            check=True, capture_output=True, text=True)
+    admins = json.loads(result.stdout)
     if not admins:
         raise ValueError('No existing active GraviQuest administrator email is configured.')
     prepare(Path('/etc/gravitas/forum.json'), Path('/etc/gravitas/backend.env'), admins)

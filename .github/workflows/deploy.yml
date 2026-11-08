@@ -536,6 +536,7 @@ jobs:
 
               location = /account.html { return 301 /login; }
               location = /workspace.html { return 301 /workspace; }
+              location = /community { try_files /community.html =404; }
               location = /login { try_files /account.html =404; }
               location = /signup { try_files /account.html =404; }
               location = /workspace { try_files /workspace.html =404; }
@@ -623,6 +624,7 @@ jobs:
 
               location = /account.html { return 301 /login; }
               location = /workspace.html { return 301 /workspace; }
+              location = /community { try_files /community.html =404; }
               location = /login { try_files /account.html =404; }
               location = /signup { try_files /account.html =404; }
               location = /workspace { try_files /workspace.html =404; }
