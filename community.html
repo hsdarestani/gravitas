@@ -22,7 +22,7 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
 <link rel="stylesheet" href="assets/gravitas.css?v=up-f706806e3a02-g1df6ff09-lit1">
 <link rel="stylesheet" href="assets/site.css?v=up-f706806e3a02-g1df6ff09-ds10">
 <link rel="stylesheet" href="assets/hero.css?v=20261105-stars1">
-<link rel="stylesheet" href="assets/landing.css?v=20261105-lp9">
+<link rel="stylesheet" href="assets/landing.css?v=20261108-fm1">
 <link rel="stylesheet" href="assets/chat.css?v=20261010-pulsar8">
 <link rel="stylesheet" href="assets/production-overrides.css?v=up-f706806e3a02-g1df6ff09-rl3">
 </head>
@@ -76,9 +76,9 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
           <a class="g-btn g-btn--primary g-btn--lg g-btn--lead" href="#join">
             <svg class="g-btn__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
             Join Us</a>
-          <a class="g-btn g-btn--secondary g-btn--lg" href="#this-week">The Open Question</a>
+          <a class="g-btn g-btn--secondary g-btn--lg" href="forum.html">Open the Forum</a>
         </div>
-        <p class="lp-hero__fine">Free account. No field or degree required.</p>
+        <p class="lp-hero__fine">Free account. No field or degree required. Reading the Forum needs none.</p>
       </div>
       <div class="lp-orbit cm-swarm">
         <div class="lp-orbit__stage">
@@ -92,7 +92,8 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
   </div>
 </section>
 <!-- 01 · The open question ---------------------------------------------------
-     The hero's second button lands here, so it comes first. It used to be a
+     The week's question, so it comes first (the hero's second button opens
+     the Forum since 2026-11-08). It used to be a
      split with three positions that looked like buttons and did nothing, a
      form under them, and a lone "What Counts" note in a column of its own
      beside a lot of empty page. Now it is the home page's Topic layout: the
@@ -129,7 +130,34 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
   </div>
 </section>
 
-<!-- 02 · Take part --------------------------------------------------------------
+<!-- 02 · The Forum -----------------------------------------------------------
+     The Forum is a public page of its own (forum.html), shaped like the
+     community forums people already know: categories, a list of topics, a
+     thread read top to bottom. Reading needs no account; replying, liking and
+     starting a topic ask for one. It was briefly built inside the workspace
+     and moved out again on 2026-11-08. forum.html is a UI demo for now, with
+     sample threads and no backend; the four cards are its four categories. -->
+<section class="g-section g-section--deep lp-chap lp-gridded" id="forum" aria-labelledby="ch-forum">
+  <div class="g-container">
+    <header class="lp-chap__head rv">
+      <span class="lp-chap__n">02 &middot; The Forum</span>
+      <h2 id="ch-forum">Every Topic Has a Room</h2>
+      <p class="g-lead">A room for each Topic and one for the open question. Read every thread without an account; sign in to answer back, start a topic or like what moves the argument. A moderator reads every post before it appears.</p>
+    </header>
+    <ul class="cm-rooms rv" aria-label="Forum rooms">
+      <li><a class="g-card g-card--interactive" href="forum.html"><span class="g-card__meta"><span>The Open Question</span></span><strong class="g-card__title">Has science been done?</strong></a></li>
+      <li><a class="g-card g-card--interactive" href="forum.html"><span class="g-card__meta"><span>Topic 01</span><span>AI in Research</span></span><strong class="g-card__title">Can you trust an answer that looks right?</strong></a></li>
+      <li><a class="g-card g-card--interactive" href="forum.html"><span class="g-card__meta"><span>Topic 03</span><span>Discovery</span></span><strong class="g-card__title">Can a machine form a hypothesis?</strong></a></li>
+      <li><a class="g-card g-card--interactive" href="forum.html"><span class="g-card__meta"><span>Topic 04</span><span>Computation</span></span><strong class="g-card__title">Is the universe computable?</strong></a></li>
+    </ul>
+    <div class="g-cluster g-mt-lg rv">
+      <a class="g-btn g-btn--primary" href="forum.html">Open the Forum</a>
+      <span class="g-hint">Reading needs no account.</span>
+    </div>
+  </div>
+</section>
+
+<!-- 03 · Take part --------------------------------------------------------------
      This page used to describe the community four times over: six roles, a
      list of nine ways to take part that restated them, an events list for
      study groups and panels that were not running yet, and the same six roles
@@ -137,10 +165,10 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
      today, in the home page's numbered list, beside the planned Topics that
      the deciding is about. Open Topic votes, when there are any, are listed
      under it by public-integrations.js; until then that list stays hidden. -->
-<section class="g-section g-section--deep lp-chap lp-gridded" id="take-part" aria-labelledby="ch-do">
+<section class="g-section lp-chap lp-gridded" id="take-part" aria-labelledby="ch-do">
   <div class="g-container">
     <header class="lp-chap__head rv">
-      <span class="lp-chap__n">02 &middot; Take Part</span>
+      <span class="lp-chap__n">03 &middot; Take Part</span>
       <h2 id="ch-do">Three Things Members Do</h2>
       <p class="g-lead">Each one changes what gets published.</p>
     </header>

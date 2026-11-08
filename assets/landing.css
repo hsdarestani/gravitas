@@ -323,6 +323,15 @@ body:has(#lab-experiences[data-lab-slug]:not([data-lab-slug="directory"])) .lab-
    site.js). They are a real choice now, one radio per position, so the
    reasoning arrives saying which side it argues. */
 .cm-q { min-width: 0; }
+/* The Forum's four rooms, each a card that opens its category on forum.html.
+   Four across on a wide screen, two on a tablet, one on a phone. */
+.cm-rooms {
+  list-style: none; margin: 0; padding: 0;
+  display: grid; gap: var(--g-space-md);
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 15rem), 1fr));
+}
+.cm-rooms .g-card { display: flex; flex-direction: column; gap: var(--g-space-2xs); height: 100%; }
+.cm-rooms .g-card__title { margin: 0; text-wrap: balance; }
 .cm-stance { border: 0; margin: 0 0 var(--g-space-md); padding: 0; display: grid; gap: .5rem; min-width: 0; }
 .cm-stance legend { padding: 0; margin-bottom: var(--g-space-xs); }
 .cm-stance__opt {
