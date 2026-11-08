@@ -222,6 +222,11 @@ jobs:
           $SUDO fail2ban-client reload
 
           $SUDO mkdir -p "$DEPLOY_PATH" "$BACKEND_PATH" /etc/gravitas /var/lib/gravitas/topic-media /var/lib/gravitas/core-uploads /var/lib/gravitas/lms-media /var/lib/gravitas/lms-media
+          # Service-owned commands read backend.env as gravitas. Keep the
+          # directory traversable by that group; root-only secret files retain
+          # their own 0600 modes.
+          $SUDO chown root:gravitas /etc/gravitas
+          $SUDO chmod 750 /etc/gravitas
           $SUDO chown -R "$(id -un):$(id -gn)" "$DEPLOY_PATH"
           $SUDO chown -R gravitas:gravitas "$BACKEND_PATH" /var/lib/gravitas/topic-media /var/lib/gravitas/core-uploads
 
@@ -792,13 +797,17 @@ jobs:
           ' || true
 
           if [ ! -f /etc/gravitas/admin-credentials ]; then
-            ADMIN_PASS="$(openssl rand -base64 24 | tr -d '\n')"
-            sudo -u gravitas env "${DJANGO_ENV[@]}" \
-              DJANGO_SUPERUSER_PASSWORD="$ADMIN_PASS" \
-              DJANGO_SUPERUSER_EMAIL="admin@gravitasplus.com" \
-              "$BACKEND_PATH/.venv/bin/django-admin" createsuperuser --noinput --username gravitasadmin
-            printf 'username=gravitasadmin\npassword=%s\n' "$ADMIN_PASS" | sudo tee /etc/gravitas/admin-credentials >/dev/null
-            sudo chmod 600 /etc/gravitas/admin-credentials
+            if sudo -u gravitas env "${DJANGO_ENV[@]}" "$BACKEND_PATH/.venv/bin/python" -c 'import django; django.setup(); from django.contrib.auth import get_user_model; raise SystemExit(0 if get_user_model().objects.filter(username="gravitasadmin").exists() else 1)'; then
+              echo 'Existing administrator identity and password preserved; no bootstrap account created.'
+            else
+              ADMIN_PASS="$(openssl rand -base64 24 | tr -d '\n')"
+              sudo -u gravitas env "${DJANGO_ENV[@]}" \
+                DJANGO_SUPERUSER_PASSWORD="$ADMIN_PASS" \
+                DJANGO_SUPERUSER_EMAIL="admin@gravitasplus.com" \
+                "$BACKEND_PATH/.venv/bin/django-admin" createsuperuser --noinput --username gravitasadmin
+              printf 'username=gravitasadmin\npassword=%s\n' "$ADMIN_PASS" | sudo tee /etc/gravitas/admin-credentials >/dev/null
+              sudo chmod 600 /etc/gravitas/admin-credentials
+            fi
           fi
 
           # Install Science Universe ONLY as a private, idempotent Lab Studio draft.

@@ -1,0 +1,128 @@
+name: Activate and verify public GraviQuest Forum
+on:
+  push:
+    branches: [feat/discourse-community]
+    paths: ['scripts/discourse/**', '.github/workflows/forum-activation.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          python3 -m py_compile scripts/discourse/public-fixture.py
+          node --check scripts/discourse/public-browser.mjs
+          ruby -c scripts/discourse/public-verify.rb
+          bash -n ops/discourse/launch.sh
+  activate:
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[activate-discourse]')
+    needs: validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    concurrency:
+      group: gravitas-production
+      cancel-in-progress: false
+    env:
+      SSH_HOST: ${{ secrets.DEPLOY_HOST }}
+      SSH_USER: ${{ secrets.DEPLOY_USER }}
+      SSH_PORT: ${{ secrets.DEPLOY_PORT }}
+      GQ_PUBLIC_USERS: ${{ runner.temp }}/forum-users.json
+      GQ_PUBLIC_OUTPUT: ${{ runner.temp }}/forum-public-output
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Prepare SSH and require the verified production feature release
+        env:
+          SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          umask 077
+          test -n "$SSH_KEY" && test -n "$SSH_HOST"
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/forum-public
+          PORT="${SSH_PORT:-22}"; LOGIN="${SSH_USER:-deploy}"
+          ssh-keyscan -p "$PORT" -H "$SSH_HOST" >> ~/.ssh/known_hosts
+          OPTS=(-i ~/.ssh/forum-public -p "$PORT" -o BatchMode=yes -o ConnectTimeout=10 -o ServerAliveInterval=15)
+          if ! ssh "${OPTS[@]}" "$LOGIN@$SSH_HOST" true; then LOGIN=root; fi
+          echo "GQ_SSH_LOGIN=$LOGIN" >> "$GITHUB_ENV"
+          echo "GQ_SSH_PORT=$PORT" >> "$GITHUB_ENV"
+          DEPLOYED="$(ssh "${OPTS[@]}" "$LOGIN@$SSH_HOST" 'sudo cat /etc/gravitas/last-successful-deploy-sha')"
+          [[ "$DEPLOYED" =~ ^[0-9a-f]{40}$ ]]
+          git merge-base --is-ancestor 58892a735fce84703721bd0d479a792fbe43681d "$DEPLOYED"
+          EXPECTED="$(sha256sum backend/core/forum.py | cut -d' ' -f1)"
+          ACTUAL="$(ssh "${OPTS[@]}" "$LOGIN@$SSH_HOST" 'sudo sha256sum /opt/gravitas-backend/core/forum.py' | cut -d' ' -f1)"
+          test "$EXPECTED" = "$ACTUAL"
+      - name: Activate HTTPS, mappings and the optional Django integration
+        run: |
+          set -euo pipefail
+          REMOTE="/tmp/graviquest-public-$GITHUB_SHA"
+          OPTS=(-i ~/.ssh/forum-public -p "$GQ_SSH_PORT" -o BatchMode=yes -o ServerAliveInterval=15)
+          ssh "${OPTS[@]}" "$GQ_SSH_LOGIN@$SSH_HOST" "mkdir -p '$REMOTE'"
+          tar -czf "$RUNNER_TEMP/forum-public-source.tgz" scripts/discourse ops/discourse/launch.sh
+          scp -i ~/.ssh/forum-public -P "$GQ_SSH_PORT" "$RUNNER_TEMP/forum-public-source.tgz" "$GQ_SSH_LOGIN@$SSH_HOST:$REMOTE/source.tgz"
+          ssh "${OPTS[@]}" "$GQ_SSH_LOGIN@$SSH_HOST" "tar -xzf '$REMOTE/source.tgz' -C '$REMOTE' && sudo bash '$REMOTE/ops/discourse/launch.sh'"
+      - name: Prepare recorded temporary identities without exposing credentials
+        run: |
+          set -euo pipefail
+          umask 077
+          ssh -i ~/.ssh/forum-public -p "$GQ_SSH_PORT" "$GQ_SSH_LOGIN@$SSH_HOST" sudo bash -s -- "/tmp/graviquest-public-$GITHUB_SHA" <<'REMOTE'
+          set -euo pipefail
+          SOURCE="$1"
+          INTEGRATION=/var/discourse/shared/graviquest/graviquest-integration
+          install -d -m 700 -o gravitas -g gravitas /var/lib/graviquest-forum/acceptance
+          install -m 644 "$SOURCE/scripts/discourse/public-verify.rb" "$INTEGRATION/public-verify.rb"
+          if [ -f "$INTEGRATION/public-users.json" ]; then
+            docker exec -e GQ_PUBLIC_MODE=cleanup -u discourse -w /var/www/discourse graviquest bundle exec rails runner /shared/graviquest-integration/public-verify.rb
+          fi
+          set -a; . /etc/gravitas/backend.env; . /etc/gravitas/forum.env; set +a
+          export PYTHONPATH=/opt/gravitas-backend DJANGO_SETTINGS_MODULE=gravitas_backend.settings
+          runuser -u gravitas -- /opt/gravitas-backend/.venv/bin/python "$SOURCE/scripts/discourse/public-fixture.py" cleanup
+          runuser -u gravitas -- /opt/gravitas-backend/.venv/bin/python "$SOURCE/scripts/discourse/public-fixture.py" prepare
+          install -m 600 -o 1000 -g 1000 /var/lib/graviquest-forum/acceptance/users.json "$INTEGRATION/public-users.json"
+          docker exec -e GQ_PUBLIC_MODE=metadata -u discourse -w /var/www/discourse graviquest bundle exec rails runner /shared/graviquest-integration/public-verify.rb
+          REMOTE
+          ssh -i ~/.ssh/forum-public -p "$GQ_SSH_PORT" "$GQ_SSH_LOGIN@$SSH_HOST" 'sudo cat /var/discourse/shared/graviquest/graviquest-integration/public-users.json' > "$GQ_PUBLIC_USERS"
+      - name: Install public browser acceptance dependencies
+        run: |
+          npm install --prefix "$RUNNER_TEMP/public-browser" --no-audit --no-fund playwright@1.65.0
+          "$RUNNER_TEMP/public-browser/node_modules/.bin/playwright" install --with-deps chromium webkit
+          echo "PLAYWRIGHT_MODULE=$RUNNER_TEMP/public-browser/node_modules/playwright/index.mjs" >> "$GITHUB_ENV"
+      - name: Verify public identity, discussions, moderation, files, voting and logout
+        run: node scripts/discourse/public-browser.mjs
+      - name: Check persisted native identity mappings and real activity
+        run: |
+          set -euo pipefail
+          scp -i ~/.ssh/forum-public -P "$GQ_SSH_PORT" "$GQ_PUBLIC_OUTPUT/public-results.json" "$GQ_SSH_LOGIN@$SSH_HOST:/tmp/graviquest-public-$GITHUB_SHA/results.json"
+          ssh -i ~/.ssh/forum-public -p "$GQ_SSH_PORT" "$GQ_SSH_LOGIN@$SSH_HOST" "sudo install -m 600 -o 1000 -g 1000 '/tmp/graviquest-public-$GITHUB_SHA/results.json' /var/discourse/shared/graviquest/graviquest-integration/public-results.json && sudo docker exec -e GQ_PUBLIC_MODE=verify -u discourse -w /var/www/discourse graviquest bundle exec rails runner /shared/graviquest-integration/public-verify.rb"
+      - name: Remove only recorded acceptance accounts and activity
+        if: always()
+        run: |
+          set -euo pipefail
+          test -f ~/.ssh/forum-public && test -n "${GQ_SSH_LOGIN:-}" || exit 0
+          ssh -i ~/.ssh/forum-public -p "$GQ_SSH_PORT" "$GQ_SSH_LOGIN@$SSH_HOST" sudo bash -s -- "/tmp/graviquest-public-$GITHUB_SHA" <<'REMOTE'
+          set -euo pipefail
+          SOURCE="$1"
+          INTEGRATION=/var/discourse/shared/graviquest/graviquest-integration
+          if [ -f "$INTEGRATION/public-users.json" ] && [ -f "$INTEGRATION/public-verify.rb" ]; then
+            docker exec -e GQ_PUBLIC_MODE=cleanup -u discourse -w /var/www/discourse graviquest bundle exec rails runner /shared/graviquest-integration/public-verify.rb
+          fi
+          if [ -f "$SOURCE/scripts/discourse/public-fixture.py" ] && [ -f /etc/gravitas/forum.env ]; then
+            set -a; . /etc/gravitas/backend.env; . /etc/gravitas/forum.env; set +a
+            export PYTHONPATH=/opt/gravitas-backend DJANGO_SETTINGS_MODULE=gravitas_backend.settings
+            runuser -u gravitas -- /opt/gravitas-backend/.venv/bin/python "$SOURCE/scripts/discourse/public-fixture.py" cleanup
+            rm -f "$INTEGRATION/public-users.json" "$INTEGRATION/public-results.json"
+          fi
+          curl -fsS --max-time 15 https://graviquest.com/api/health/ >/dev/null
+          if [ -f /etc/gravitas/forum.env ]; then curl -fsS --max-time 15 https://forum.graviquest.com/srv/status >/dev/null; fi
+          REMOTE
+          rm -f "$GQ_PUBLIC_USERS"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: public-forum-anonymous-screenshots
+          path: ${{ runner.temp }}/forum-public-output
+          if-no-files-found: ignore
+          retention-days: 14

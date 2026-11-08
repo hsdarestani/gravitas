@@ -18,7 +18,7 @@ minimum = 2500 if running else 4500
 assert memory['MemAvailable'] >= minimum*1024, 'Insufficient free memory for this installation; existing apps left unchanged.'
 assert shutil.disk_usage('/var').free >= 25*1024**3, 'Less than 25 GiB free; shared host left unchanged.'
 PY
-install -d -m 750 /etc/gravitas
+install -d -m 750 -o root -g gravitas /etc/gravitas
 set -a
 . /etc/gravitas/backend.env
 set +a
