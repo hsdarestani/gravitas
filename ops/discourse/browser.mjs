@@ -28,6 +28,7 @@ try {
     });
     const page=await context.newPage();
     page.on('pageerror',error=>errors.push(error.message));
+    try {
     await page.goto('https://forum.graviquest.com/latest', {waitUntil:'domcontentloaded'});
     await page.locator('.gq-forum-heading h1').waitFor({timeout:60000});
     await page.locator('.topic-list .topic-list-item').first().waitFor({timeout:60000});
@@ -57,6 +58,13 @@ try {
     await page.locator('.topic-post').first().waitFor({timeout:30000});
     assert(new URL(page.url()).pathname.startsWith('/t/'),'Discussion opens real native permalink');
     await page.screenshot({path:`${out}/topic-${viewport.width}.png`,fullPage:false});
+    } catch (error) {
+      console.log('Native UI diagnostic: '+JSON.stringify({errors, url:page.url(), text:(await page.locator('body').innerText()).slice(0,3000)}));
+      await page.screenshot({path:`${out}/failure-${viewport.width}.png`,fullPage:true});
+      const failure=await page.screenshot({type:'jpeg',quality:35,fullPage:false});
+      console.log(`GQ_PUBLIC_FAILURE_${viewport.width}:`+failure.toString('base64'));
+      throw error;
+    }
     await context.close();
   }
 } finally { await browser.close(); await api.dispose(); }
