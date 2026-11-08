@@ -59,11 +59,11 @@ def csrf_headers(s)
   {"X-CSRF-Token" => JSON.parse(s.response.body).fetch("csrf"), "X-Requested-With" => "XMLHttpRequest"}
 end
 
-def approve_latest(user, admin)
+def approve_latest(user, admin_session)
   queued = ReviewableQueuedPost.pending.where(target_created_by_id: user.id).order(id: :desc).first
   assert!(queued, "member submission entered moderation")
-  result = queued.perform(admin, :approve_post)
-  assert!(result.success?, "moderator approved the submission")
+  admin_session.put "/review/#{queued.id}/perform/approve_post.json", params:{version:queued.version}, headers:csrf_headers(admin_session), as: :json
+  assert!(admin_session.response.status == 200 && queued.reload.approved?, "moderator approved through the authenticated native API")
 end
 
 def cleanup_acceptance(state)
@@ -140,7 +140,7 @@ raw = "Automated acceptance #{token}. This verifies real moderated discussion pe
 member_session.post "/posts.json", params: {title:"Automated forum acceptance #{token}",raw:raw,category:room.id}, headers:csrf_headers(member_session), as: :json
 assert!(member_session.response.status == 200, "member can submit a discussion")
 assert!(!Post.exists?(user_id:member.id,raw:raw), "member topic is not public before approval")
-approve_latest(member, admin)
+approve_latest(member, admin_session)
 post = Post.find_by!(user_id:member.id,raw:raw)
 state[:topic_id] = post.topic_id; state[:topic_ids] << post.topic_id
 File.write(state_path, JSON.pretty_generate(state))
@@ -175,13 +175,14 @@ File.write(state_path, JSON.pretty_generate(state))
 reply_raw = "Acceptance reply #{token}, with a reference to @#{admin.username} and an actual upload.\n\n![acceptance image](#{uploaded.fetch('url')})"
 member_session.post "/posts.json", params: {topic_id:post.topic_id,raw:reply_raw,reply_to_post_number:1}, headers:csrf_headers(member_session), as: :json
 assert!(member_session.response.status == 200, "member can submit a reply")
-approve_latest(member, admin)
+approve_latest(member, admin_session)
 reply = Post.find_by!(user_id:member.id,raw:reply_raw)
 assert!(reply.reply_to_post_number == 1, "native reply relationship persists")
 state[:reply_id] = reply.id
 File.write(state_path, JSON.pretty_generate(state))
 member_session.put "/posts/#{reply.id}.json", params:{post:{raw:reply_raw + "\n\nAn edited clarification."}}, headers:csrf_headers(member_session), as: :json
 assert!(member_session.response.status == 200, "member can edit their reply")
+assert!(reply.reload.raw.end_with?("An edited clarification."), "member edit is committed")
 
 poll_link = links.find { |x| x["key"] == "next-topic-poll" }
 poll_post = Topic.find(poll_link.fetch("topic_id")).first_post

@@ -66,7 +66,22 @@ test "$ready" = true
 docker exec -u discourse -w /var/www/discourse graviquest bundle exec rails runner /shared/graviquest-integration/bootstrap.rb
 docker exec -e GQ_CLEANUP_INTERRUPTED_ACCEPTANCE=1 -u discourse -w /var/www/discourse graviquest bundle exec rails runner /shared/graviquest-integration/verify_native.rb
 docker exec -u discourse -w /var/www/discourse graviquest bundle exec rails runner /shared/graviquest-integration/verify_native.rb
-docker exec -u discourse -w /var/www/discourse graviquest discourse backup > /var/log/graviquest-discourse-backup.log 2>&1
+# The system wrapper invokes sudo and is intended for root. Run the official
+# CLI directly as its service account, matching the wrapper's production env.
+if ! docker exec -e RAILS_ENV=production -u discourse -w /var/www/discourse graviquest bundle exec ruby script/discourse backup > /var/log/graviquest-discourse-backup.log 2>&1; then
+  python3 - <<'PY'
+import json, re
+from pathlib import Path
+log=Path('/var/log/graviquest-discourse-backup.log').read_text()[-6000:]
+env=json.loads(Path('/etc/gravitas/forum.json').read_text())
+for value in env.values():
+    if isinstance(value,str) and len(value)>4:
+        log=log.replace(value,'[redacted]')
+log=re.sub(r'postgres(?:ql)?://\S+','[redacted database URL]',log)
+print('Native backup diagnostic: '+log[-2500:])
+PY
+  exit 1
+fi
 # Restart only this new forum container; prove its own data survives.
 docker restart graviquest >/dev/null
 sleep 10
