@@ -66,7 +66,7 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
       </div>
 
       <!-- create -->
-      <form class="auth__form" id="p-up" role="tabpanel" aria-labelledby="t-up">
+      <form class="auth__form" id="p-up" method="post" role="tabpanel" aria-labelledby="t-up">
         <h1 class="auth__h">Create your research workspace.</h1>
         <p class="auth__lede">One account for your learning, library, research workspace and connected project work.</p>
 
@@ -91,14 +91,14 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
         <label class="auth__check"><input type="checkbox" name="news">
           <span>Send me the newsletter: one edition, every other week.</span></label>
 
-        <button class="g-btn g-btn--primary g-btn--lg g-full" type="submit">Create account</button>
+        <button class="g-btn g-btn--primary g-btn--lg g-full" type="submit" data-auth-submit disabled>Create account</button>
         <p class="auth__legal">Your details are used to run your account, as set out in the
           <a href="privacy.html">Privacy Policy</a>.</p>
         <p class="auth__alt">Already have one? <button class="linkish" type="button" data-tab="in">Sign in instead</button></p>
       </form>
 
       <!-- sign in -->
-      <form class="auth__form" id="p-in" role="tabpanel" aria-labelledby="t-in" hidden>
+      <form class="auth__form" id="p-in" method="post" role="tabpanel" aria-labelledby="t-in" hidden>
         <h1 class="auth__h">Welcome back.</h1>
         <p class="auth__lede">Return to your connected GraviQuest workspace.</p>
 
@@ -118,12 +118,12 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
           <a class="auth__forgot" href="#reset" data-tab="reset">Forgotten password?</a>
         </div>
 
-        <button class="g-btn g-btn--primary g-btn--lg g-full" type="submit">Sign in</button>
+        <button class="g-btn g-btn--primary g-btn--lg g-full" type="submit" data-auth-submit disabled>Sign in</button>
         <p class="auth__alt">New here? <button class="linkish" type="button" data-tab="up">Create an account</button></p>
       </form>
 
       <!-- reset: a sub-flow of signing in, not a third tab -->
-      <form class="auth__form" id="p-reset" hidden>
+      <form class="auth__form" id="p-reset" method="post" hidden>
         <button class="auth__back" type="button" data-tab="in">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>
@@ -135,10 +135,11 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
         <label class="g-field"><span class="g-label" for="rs-mail">Email</span>
           <input class="g-input" id="rs-mail" name="email" type="email" autocomplete="email" required></label>
 
-        <button class="g-btn g-btn--primary g-btn--lg g-full" type="submit">Send the link</button>
+        <button class="g-btn g-btn--primary g-btn--lg g-full" type="submit" data-auth-submit disabled>Send the link</button>
         <p class="auth__alt">Remembered it? <button class="linkish" type="button" data-tab="in">Sign in instead</button></p>
       </form>
 
+      <noscript><p class="auth__note">Enable JavaScript to use email sign-in, or continue with Google.</p></noscript>
       <div class="callout auth__status" id="auth-status" hidden style="margin-top:1rem"></div>
       <p class="auth__note" data-form-note>Your workspace is private and provisioned automatically.</p>
     </div>
@@ -239,6 +240,6 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
 })();
 </script>
 <script src="assets/chat.js?v=20261102-lab1" defer></script>
-<script src="assets/production-bridge.js?v=20261108-forum1" defer></script>
+<script src="assets/production-bridge.js?v=20261108-forum2" defer></script>
 </body>
 </html>

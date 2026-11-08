@@ -1,4 +1,5 @@
 name: Activate and verify public GraviQuest Forum
+run-name: Public Forum activation and acceptance
 on:
   push:
     branches: [feat/discourse-community]
@@ -15,6 +16,7 @@ jobs:
           python3 -m py_compile scripts/discourse/public-fixture.py
           node --check scripts/discourse/public-browser.mjs
           ruby -c scripts/discourse/public-verify.rb
+          bash -n scripts/discourse/restore-backup.sh
           bash -n ops/discourse/launch.sh
   activate:
     if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[activate-discourse]')
@@ -28,8 +30,6 @@ jobs:
       SSH_HOST: ${{ secrets.DEPLOY_HOST }}
       SSH_USER: ${{ secrets.DEPLOY_USER }}
       SSH_PORT: ${{ secrets.DEPLOY_PORT }}
-      GQ_PUBLIC_USERS: ${{ runner.temp }}/forum-users.json
-      GQ_PUBLIC_OUTPUT: ${{ runner.temp }}/forum-public-output
     steps:
       - uses: actions/checkout@v4
         with:
@@ -40,6 +40,8 @@ jobs:
         run: |
           set -euo pipefail
           umask 077
+          echo "GQ_PUBLIC_USERS=$RUNNER_TEMP/forum-users.json" >> "$GITHUB_ENV"
+          echo "GQ_PUBLIC_OUTPUT=$RUNNER_TEMP/forum-public-output" >> "$GITHUB_ENV"
           test -n "$SSH_KEY" && test -n "$SSH_HOST"
           install -d -m 700 ~/.ssh
           printf '%s\n' "$SSH_KEY" > ~/.ssh/forum-public
@@ -63,7 +65,10 @@ jobs:
           ssh "${OPTS[@]}" "$GQ_SSH_LOGIN@$SSH_HOST" "mkdir -p '$REMOTE'"
           tar -czf "$RUNNER_TEMP/forum-public-source.tgz" scripts/discourse ops/discourse/launch.sh
           scp -i ~/.ssh/forum-public -P "$GQ_SSH_PORT" "$RUNNER_TEMP/forum-public-source.tgz" "$GQ_SSH_LOGIN@$SSH_HOST:$REMOTE/source.tgz"
-          ssh "${OPTS[@]}" "$GQ_SSH_LOGIN@$SSH_HOST" "tar -xzf '$REMOTE/source.tgz' -C '$REMOTE' && sudo bash '$REMOTE/ops/discourse/launch.sh'"
+          ssh "${OPTS[@]}" "$GQ_SSH_LOGIN@$SSH_HOST" "tar -xzf '$REMOTE/source.tgz' -C '$REMOTE' && if sudo test -f /etc/gravitas/forum.env && curl -fsS --max-time 10 https://forum.graviquest.com/srv/status >/dev/null && curl -fsS --max-time 10 https://graviquest.com/api/forum/feed/ >/dev/null; then echo 'Public Forum already healthy; no repeat backend restart needed.'; else sudo bash '$REMOTE/ops/discourse/launch.sh'; fi"
+      - name: Rehearse native backup recovery without restoring production
+        run: |
+          ssh -i ~/.ssh/forum-public -p "$GQ_SSH_PORT" "$GQ_SSH_LOGIN@$SSH_HOST" "sudo bash '/tmp/graviquest-public-$GITHUB_SHA/scripts/discourse/restore-backup.sh'"
       - name: Prepare recorded temporary identities without exposing credentials
         run: |
           set -euo pipefail

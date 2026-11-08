@@ -44,7 +44,7 @@ hard quota. Installation requires 3 GiB available RAM and 50 GiB free disk.
 
 Only `https://graviquest.com/graviquest-uploads/` and
 `https://graviquest.com/graviquest-backups/` proxy to S3. The existing apex TLS
-certificate avoids dependency on the currently incorrect forum DNS. All
+certificate protects the isolated storage endpoints independently of forum TLS. All
 pre-existing nginx routes remain intact; invalid additions roll back. The
 deployment template preserves this isolated snippet. Both buckets remain
 private, without a public bucket policy. A separate application key has rights
@@ -111,10 +111,11 @@ do not use it. SMTP certificate verification remains `peer`.
 
 Native daily backups include local and S3 uploads, retaining 14 backups. The
 second bucket is reserved for storage/backup workflows; native backups remain
-in the forum's local persistent backup directory. Before public
-launch, configure an independent off-host destination and test restoring a
-backup into a separate disposable Discourse installation. Local backups and
-container restart checks do not establish disaster recovery. Do not restore
+in the forum's local persistent backup directory. The acceptance workflow restores a native archive into an isolated temporary
+database, verifies the brand, discussions and an original S3 attachment digest,
+then removes that temporary database. An independent off-host destination is
+still unconfigured. Local backups, same-host recovery and container restart
+checks do not establish recovery after loss of this entire server. Do not restore
 over a running production forum. Keep a root-only copy of the configuration
 and record the pinned Discourse and launcher commits alongside backups.
 
@@ -159,8 +160,9 @@ private text ACLs, notifications and persistence after restarting only the forum
 container. Chromium then renders the actual native application through an SSH
 loopback bridge at desktop and mobile widths, retaining the HTTPS origin and
 production CSP. This is not a public-browser Django SSO or email delivery test.
-Real Android Chrome, iOS Safari, external email delivery, and off-host backup
-restore remain launch acceptance requirements until tested explicitly.
+Physical Android and iOS devices, delivered email, external alert delivery and
+off-host recovery remain unverified. Public HTTPS browser acceptance is recorded
+separately below; it does not substitute for those checks.
 
 ## Verified internal installation
 
@@ -168,8 +170,57 @@ Native acceptance, private S3 files, backup and three browser projects passed in
 
 Desktop Chromium at 1440px, Android Chrome emulation at 390px and iPhone WebKit emulation at 390px rendered the native poll, loaded the bundled DM Sans font and visible brand logo, opened a native discussion, and had zero horizontal page overflow or uncaught JavaScript errors. These are browser emulations, not physical Android or iOS device tests. Extra native login/search/filter controls and the native reply/composer model retain Discourse behavior within the GraviQuest table design; this is not a pixel-identical replacement for every native screen.
 
-The native forum remains loopback-only. Production `forum.html` has not been switched to the feature branch. Public S3 uses two isolated paths on the existing verified apex HTTPS host; uploads have an opaque document sandbox, MIME protection and no forwarded application cookies. The existing site and backend health checks pass. Storage availability, authenticated HTTPS and disk headroom are monitored every five minutes; external alert delivery and off-host restore are not established by this.
+## Verified public launch — 8 November 2026
 
-Forum DNS currently resolves to `217.160.0.226` and `2001:8d8:100f:f000::200`, a different host. ACME therefore cannot validate the domain. Set an explicit `forum` CNAME to `graviquest.com`, removing only conflicting A/AAAA records for that exact name. Do not remove unrelated wildcard, mail or application records. Public activation rejects mismatched A/AAAA before service changes. The reviewed Django feature release still needs production deployment after the DNS prerequisite is available, followed by `launch.sh`, real GraviQuest browser SSO and delivered-email acceptance. Off-host backup destination/restore and physical-device checks remain unverified. This is verified internal staging plus live S3, not a completed public forum launch.
+The public forum is live at <https://forum.graviquest.com>. The existing table at
+<https://graviquest.com/forum.html> reads real anonymous Discourse data, and
+<https://graviquest.com/community> and published scientific Topic routes connect
+to their actual discussion IDs. The user updated `forum` to a CNAME of
+`graviquest.com`; both address families matched before activation. A dedicated
+nginx virtual host proxies only the native loopback port. Let's Encrypt issued
+a valid certificate with the existing renewal mechanism. Migration 0092 and
+four official content mappings are installed. The optional Django environment,
+logout retry worker and forum health timer are active.
 
-Final Django validation after managed-group lifecycle hardening: 1,156 tests passed with 3 skips. The focused Forum/account suite passed 46 tests. These checks preserve existing Workspace, Pulsar, Labs and account behavior; they do not replace the pending public SSO and email delivery checks.
+Main deployment `924b48d38879d7804d6d4f6505edb4259b5bba05` passed in
+[run 42530889002](https://github.com/hsdarestani/gravitas/actions/runs/42530889002).
+The later concurrent Topic 01/Pulsar deployment
+`aebb8c5ab1344b298499398809b92e178c91b7c4` also passed; its published essay and
+Pulsar changes are preserved. Deployment now retains an existing administrator
+instead of trying to recreate it when a credential-export file is absent.
+
+[Public acceptance run 42533631566](https://github.com/hsdarestani/gravitas/actions/runs/42533631566),
+source `c3a35e06d356039731ff118a7ffe14af51fe0e71`, passed real HTTPS without
+TLS bypasses, request mocks or browser administrator keys:
+
+- Existing GraviQuest password login and DiscourseConnect for three recorded
+  ordinary-member, moderator and researcher identities; stable repeat login.
+- Native composer creation with an actual file selection/upload, moderation
+  approval, replies, own-post editing, persistent poll voting and search.
+- In-app mention notification, private research membership and private file
+  access allowed only for the authorized researcher.
+- GraviQuest logout revoked the native Forum session.
+- Actual server-side identity, group, post, attachment and vote records checked
+  after browser reload, followed by exact-ID cleanup of all temporary QA data.
+- The public table, filters and scientific Topic mapping, plus desktop Chromium,
+  Android Chrome emulation and iPhone WebKit emulation; no mobile page overflow.
+- Native backup restoration into a separate temporary database, including
+  original S3 attachment byte verification, followed by temporary database
+  removal. Production was never restored over.
+
+The storage service remains isolated on loopback. Public S3 uses two paths on
+the verified apex HTTPS host; uploaded documents have a sandbox, MIME protection
+and no forwarded application cookies. Native process, feed, backup age, storage
+availability and disk headroom have periodic local health checks. Existing site
+and backend health checks still pass. Credentials remain in root/service-only
+files and never enter screenshot artifacts or frontend responses.
+
+Remaining operational actions are an independent off-host backup destination
+and external alert recipient/channel. Delivered SMTP mail and physical-device
+checks have not been verified. Advanced version/timestamp research reviews and
+permission-aware Pulsar summaries remain the separate service work described
+above. The native composer/search/profile controls retain supported Discourse
+behavior and differ from the original preview's custom widgets. No synthetic
+engagement remains in the public feed.
+
+Final Django validation after managed-group lifecycle hardening: 1,156 tests passed with 3 skips. The focused Forum/account suite passed 46 tests. These checks preserve existing Workspace, Pulsar, Labs and account behavior; they do not replace the separate email delivery and off-host recovery checks.
