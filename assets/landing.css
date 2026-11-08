@@ -384,18 +384,9 @@ body:has(#lab-experiences[data-lab-slug]:not([data-lab-slug="directory"])) .lab-
 @media (max-width: 900px) { .lp-path { grid-template-columns: minmax(0, 1fr); } }
 @media (max-width: 600px) { .lp-steps { grid-template-columns: minmax(0, 1fr); } }
 
-/* 05 · The Forum: rooms and what members do beside the Forum's own threads.
-   The rows are forum.css's .fm-row; here, in a narrower column, the views
-   column steps out so the title keeps its width. */
-.lp-forum { display: grid; grid-template-columns: minmax(0, .75fr) minmax(0, 1.25fr); gap: clamp(1.5rem, 5vw, 4.5rem); align-items: start; }
-.lp-forum__rooms { list-style: none; margin: 0 0 var(--g-space-md); padding: 0; display: flex; flex-wrap: wrap; gap: var(--g-space-2xs); }
-.lp-forum__rooms .chip { display: inline-block; text-decoration: none; }
-.lp-forum__say { margin: 0; color: var(--g-text-muted); max-width: 30rem; }
+/* 05 · The Forum: a preview of the Forum's own threads at full width, so the
+   rows are forum.css's .fm-row with its own columns and breakpoints. */
 .lp-forum__list .fm-row--head { padding-top: 0; }
-.lp-forum__list .fm-row { grid-template-columns: minmax(0, 1fr) 5.5rem 3.5rem 4.5rem; }
-.lp-forum__list .fm-c-views { display: none; }
-@media (max-width: 900px) { .lp-forum { grid-template-columns: minmax(0, 1fr); } }
-@media (max-width: 760px) { .lp-forum__list .fm-row { grid-template-columns: minmax(0, 1fr) 3.5rem 4.5rem; } }
 
 /* The three Lab steps, laid out the way the proof strip lays out the method
    marks: a mark from the brand set at 2rem in the accent, in its own column
