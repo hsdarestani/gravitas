@@ -93,9 +93,10 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
   <div class="split">
     <div>
       <!-- No href until the video is public: a play button that goes nowhere
-           is a promise the page cannot keep. site.js finds the poster at
-           assets/thumbnails/topic-answer-that-looked-right.jpg. -->
-      <a class="video is-flat" aria-label="The Answer That Looked Right, video poster" aria-disabled="true">
+           is a promise the page cannot keep. data-thumb points site.js at
+           assets/thumbnails/topic-01-video.webp, the same poster the home
+           page trail uses. -->
+      <a class="video is-flat" data-thumb="topic-01-video" aria-label="The Answer That Looked Right, video poster" aria-disabled="true">
         <span class="video__play"><svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg></span>
       </a>
     </div>
@@ -123,11 +124,11 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
   </div>
 
   <ul class="ta-cast" aria-label="Who is in it">
-    <li><img src="assets/img/topic-01/hulse.png?v=2" alt="Hulse, a round red-brown paper cut-out with rectangular glasses and thin arms and legs" width="480" height="480" loading="lazy" decoding="async">
+    <li><img src="assets/img/topic-01/cast/hulse.webp" alt="Hulse, a round brick-red paper cut-out with thick black glasses and half-lowered lids" width="480" height="480" loading="lazy" decoding="async">
       <div><h3>Hulse</h3><p>Thirty years on proteins. Has heard every promise that a new technology will transform science, and checked most of them.</p></div></li>
-    <li><img src="assets/img/topic-01/taylor.png?v=2" alt="Taylor, a sandy, patched paper cut-out with round eyes and a smile" width="480" height="480" loading="lazy" decoding="async">
+    <li><img src="assets/img/topic-01/cast/taylor.webp" alt="Taylor, a lumpy peach paper cut-out with round black eyes and a small smile" width="480" height="480" loading="lazy" decoding="async">
       <div><h3>Taylor</h3><p>Fast, good at patterns, uses an AI assistant every day. &ldquo;I trust it enough to ask questions.&rdquo;</p></div></li>
-    <li><span class="ta-cast__mark" aria-hidden="true"><span></span></span>
+    <li><img src="assets/img/topic-01/cast/pulsar.webp" alt="Pulsar, four paper quarter-rings on a Cosmos Blue tile with a dot in the middle" width="480" height="480" loading="lazy" decoding="async">
       <div><h3>Pulsar</h3><p>The assistant. Answers from the files it is given, and agrees that reading a number is not evidence of reliability.</p></div></li>
   </ul>
 
