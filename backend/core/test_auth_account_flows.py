@@ -1,6 +1,9 @@
+import base64
+import hashlib
+import hmac
 import json
 from unittest.mock import Mock, patch
-from urllib.parse import parse_qs, urlparse
+from urllib.parse import parse_qs, urlencode, urlparse
 
 from django.contrib.auth import authenticate, get_user_model
 from django.core import mail
@@ -160,6 +163,42 @@ class PasswordResetEmailTests(TestCase):
     PUBLIC_BASE_URL='https://graviquest.com',
 )
 class GoogleOAuthFlowTests(TestCase):
+    @override_settings(
+        GRAVITAS_FORUM_URL='https://forum.graviquest.com',
+        GRAVITAS_DISCOURSE_CONNECT_SECRET='test-only-google-forum-continuation-secret',
+    )
+    @patch('core.views.requests.get')
+    @patch('core.views.requests.post')
+    def test_google_login_resumes_signed_forum_request_with_same_account(self, token_post, userinfo_get):
+        user = User.objects.create_user(
+            username='google-forum@gravitas.test', email='google-forum@gravitas.test',
+            password='Existing-secure-password-123!',
+        )
+        token_post.return_value = Mock(json=Mock(return_value={'access_token': 'google-access-token'}))
+        userinfo_get.return_value = Mock(json=Mock(return_value={
+            'email': user.email, 'email_verified': True, 'name': 'Existing member',
+        }))
+        payload = base64.b64encode(urlencode({
+            'nonce': 'native-one-time-nonce',
+            'return_sso_url': 'https://forum.graviquest.com/session/sso_login',
+        }).encode()).decode()
+        signature = hmac.new(b'test-only-google-forum-continuation-secret', payload.encode(), hashlib.sha256).hexdigest()
+        pending = self.client.get('/api/forum/sso/', {'sso': payload, 'sig': signature})
+        self.assertEqual(pending['Location'], '/login?continue=forum')
+        started = self.client.get('/api/auth/google/start/')
+        state = parse_qs(urlparse(started['Location']).query)['state'][0]
+        callback = self.client.get('/api/auth/google/callback/', {
+            'code': 'authorization-code', 'state': state, 'next': 'https://evil.example',
+        })
+        self.assertEqual(callback['Location'], '/api/forum/resume/')
+        resumed = self.client.get(callback['Location'])
+        accepted = self.client.get(resumed['Location'])
+        self.assertEqual(urlparse(accepted['Location']).netloc, 'forum.graviquest.com')
+        fields = parse_qs(base64.b64decode(parse_qs(urlparse(accepted['Location']).query)['sso'][0]).decode())
+        self.assertEqual(fields['external_id'], [f'graviquest:{user.pk}'])
+        self.assertEqual(User.objects.filter(email=user.email).count(), 1)
+        self.assertNotIn('forum_pending_sso', self.client.session)
+
     def test_google_start_uses_configured_client_and_secure_state(self):
         response = self.client.get('/api/auth/google/start/')
         self.assertEqual(response.status_code, 302)

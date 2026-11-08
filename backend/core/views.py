@@ -393,6 +393,10 @@ def auth_google_callback(request):
     mark_email_verified(user)
     ResearcherProfile.objects.get_or_create(user=user)
     login(request, user)
+    if request.session.get('forum_pending_sso'):
+        # The signed request was stored by the Forum endpoint before Google
+        # login. Resume it on our own server; never use a visitor's next URL.
+        return HttpResponseRedirect('/api/forum/resume/')
     return HttpResponseRedirect(f'{settings.PUBLIC_BASE_URL}/workspace')
 
 

@@ -320,6 +320,13 @@
     });
   }, true);
 
+  // A fast submit must wait for this real handler. The HTML also uses POST
+  // so credentials cannot fall back to a query string if the script fails.
+  document.querySelectorAll('[data-auth-submit]').forEach(function (button) {
+    button.disabled = false;
+    if (button.form) button.form.dataset.authReady = 'true';
+  });
+
   fetch('/api/auth/me/', {
     credentials: 'same-origin',
     headers: { 'Accept': 'application/json' }

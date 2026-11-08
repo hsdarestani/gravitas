@@ -32,7 +32,7 @@ class PublicHeaderAuthAssetTests(SimpleTestCase):
 
     def test_public_auth_bridge_loader_is_cache_busted(self):
         source = LOADER.read_text(encoding='utf-8')
-        self.assertIn('/assets/production-bridge-core.js?v=20261108-forum1', source)
+        self.assertIn('/assets/production-bridge-core.js?v=20261108-forum2', source)
 
 
     def test_public_pages_reference_current_auth_loader_version(self):
@@ -43,7 +43,7 @@ class PublicHeaderAuthAssetTests(SimpleTestCase):
             if 'production-bridge.js' not in source:
                 continue
             referenced.append(path.name)
-            if 'production-bridge.js?v=20261108-forum1' not in source:
+            if 'production-bridge.js?v=20261108-forum2' not in source:
                 stale.append(path.name)
 
         self.assertTrue(referenced)
