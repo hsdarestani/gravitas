@@ -284,10 +284,18 @@
 .gchat__msg a { color: var(--g-text); text-decoration-color: var(--g-accent); }
 
 /* Links the assistant offers are destinations, so they look like the site's
-   own controls rather than blue text inside a chat bubble. */
-.gchat__links { display: flex; flex-wrap: wrap; gap: .35rem; margin-top: .6rem; }
+   own controls rather than blue text inside a chat bubble.
+   A source is labelled with its title, and in the workspace a title is
+   whatever someone typed for a task or a key result, often a full sentence
+   ("Prioritize Revenue experiments and record Continue / Change / Stop
+   decisions"). Allowed to wrap, that sentence filled a pill radius three
+   lines tall and became a lumpy oval. A pill is one line, so the label is
+   held to one line and cut with an ellipsis; chat.js puts the whole title
+   in the tooltip. */
+.gchat__links { display: flex; flex-wrap: wrap; gap: .35rem; margin-top: .6rem; min-width: 0; }
 .gchat__link {
-  display: inline-flex; align-items: center; gap: .3rem;
+  display: inline-block; max-width: 100%; box-sizing: border-box;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   font-size: var(--g-fs-caption); font-weight: var(--g-w-medium);
   color: var(--g-text); text-decoration: none;
   border: 1px solid var(--g-border); border-radius: var(--g-radius-pill);

@@ -478,6 +478,9 @@
         a.className = 'gchat__link';
         a.href = l.href;
         a.textContent = l.label;
+        // The pill cuts a long title to one line (chat.css); the whole of
+        // it stays one hover away.
+        a.title = l.label;
         row.appendChild(a);
       });
       actions.forEach(function (act) {
