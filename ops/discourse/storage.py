@@ -288,7 +288,10 @@ def verify():
         assert anonymous.get_object(Bucket=BUCKETS[0],Key=prefix+'public')['Body'].read()==body
         client.put_object_acl(Bucket=BUCKETS[0],Key=prefix+'public',ACL='private')
         denied(lambda:anonymous.get_object(Bucket=BUCKETS[0],Key=prefix+'public'),'Changing public object to private must remove anonymous access')
-        denied(lambda:client.create_bucket(Bucket='graviquest-unrelated-'+token),'Application key must not create unrelated buckets')
+        # Exercise IAM on loopback: the public nginx endpoint exposes only our
+        # two bucket paths and would reject an unrelated PUT before S3 sees it.
+        scoped_local=sdk('http://127.0.0.1:18890')
+        denied(lambda:scoped_local.create_bucket(Bucket='graviquest-unrelated-'+token),'Application key must not create unrelated buckets')
         command(['systemctl','restart',SERVICE]); time.sleep(3)
         for bucket in BUCKETS:
             assert client.get_object(Bucket=bucket,Key=prefix+'private')['Body'].read()==body

@@ -16,8 +16,9 @@ remain intact; they are not imported as fabricated forum participation.
 `stage.sh` creates only the `graviquest` Docker container and
 `/var/discourse/shared/graviquest`. PostgreSQL and Redis are internal to that
 container. Only `127.0.0.1:18880` is exposed. The container has a 3 GB memory
-limit and a 2 CPU quota. Capacity checks require 4.5 GB available RAM and 25 GB
-free storage before installation. Existing containers and PostgreSQL databases
+limit and a 2 CPU quota. Initial capacity checks require 4.5 GB available RAM
+and 25 GB free storage (2.5 GB available for an already running forum).
+Existing containers and PostgreSQL databases
 are not restarted, replaced, or reused.
 
 The production deployment must include migration
@@ -32,16 +33,32 @@ Required DNS: `forum.graviquest.com` must point to the same web server serving
 `graviquest.com`. No DNS management connection is supplied by this repository.
 Internal staging is not a public deployment or proof of browser SSO.
 
-Public activation also requires native Secure Uploads. Local Discourse upload
-URLs alone do not protect private research attachments. Add the operator's
-private S3-compatible bucket configuration to the root-only `forum.json`:
-`DISCOURSE_S3_ACCESS_KEY_ID`, `DISCOURSE_S3_SECRET_ACCESS_KEY`,
-`DISCOURSE_S3_REGION`, `DISCOURSE_S3_UPLOAD_BUCKET`, and, for a compatible
-provider, `DISCOURSE_S3_ENDPOINT`. The bucket must not grant public bucket-wide
-read access. Re-run the configuration and verify actual private-file denial
-for guests and unrelated members before activation. The launch script fails
-closed when Secure Uploads are missing. No storage provider account or budget
-is assumed or provisioned by these scripts.
+Public activation requires native Secure Uploads. The user authorized an
+isolated self-hosted S3 installation; `storage.sh` installs SeaweedFS 4.52 from
+the official checksum-verified release. It runs as `graviquest-objectstore`,
+with persistent data in `/var/lib/graviquest-objectstore`, credentials in
+`/etc/graviquest-objectstore` and only loopback service/admin listeners. Its
+limits are 512 MiB RAM, 0.5 CPU and 128 tasks. Sixty-four 256 MiB volume slots
+bound nominal volume capacity to 16 GiB plus metadata; this is not a filesystem
+hard quota. Installation requires 3 GiB available RAM and 50 GiB free disk.
+
+Only `https://graviquest.com/graviquest-uploads/` and
+`https://graviquest.com/graviquest-backups/` proxy to S3. The existing apex TLS
+certificate avoids dependency on the currently incorrect forum DNS. All
+pre-existing nginx routes remain intact; invalid additions roll back. The
+deployment template preserves this isolated snippet. Both buckets remain
+private, without a public bucket policy. A separate application key has rights
+only to those buckets; explicit ObjectWriter ownership supports Discourse's
+per-object public/private ACL changes. The tiny server plugin sets the AWS
+SDK's supported `force_path_style` option; native CDN settings produce the
+canonical HTTPS path without core patches or rewritten signed requests.
+
+`storage.sh` verifies actual HTTPS writes, denied anonymous listing/writes and
+private reads, presigned byte checksums, public-to-private ACL changes, scoped
+keys and persistence after restarting only the storage service. It connects
+the root-only `forum.json` only after these checks pass. Native acceptance then
+tests private attachments through Discourse; public launch fails closed until
+that passes. Existing local brand uploads are not destructively migrated.
 
 ## Identity and permissions
 
@@ -89,7 +106,9 @@ generated once. The Django session-revocation key has only `users/show` and
 `users/log_out` granular scopes. It is never sent to a browser. Public reads
 do not use it. SMTP certificate verification remains `peer`.
 
-Native daily backups include uploads, retaining 14 backups. Before public
+Native daily backups include local and S3 uploads, retaining 14 backups. The
+second bucket is reserved for storage/backup workflows; native backups remain
+in the forum's local persistent backup directory. Before public
 launch, configure an independent off-host destination and test restoring a
 backup into a separate disposable Discourse installation. Local backups and
 container restart checks do not establish disaster recovery. Do not restore

@@ -5,9 +5,17 @@ set -Eeuo pipefail
 test "$(id -u)" = 0
 exec 9>/run/graviquest-discourse-install.lock
 flock -n 9
-getent ahostsv4 forum.graviquest.com >/dev/null || {
-  echo 'BLOCKED: create forum.graviquest.com DNS pointing to the GraviQuest web server.' >&2; exit 78;
-}
+python3 - <<'PY'
+import socket
+def addresses(host):
+    return {entry[4][0] for entry in socket.getaddrinfo(host,443,type=socket.SOCK_STREAM)}
+try:
+    actual=addresses('forum.graviquest.com');expected=addresses('graviquest.com')
+except socket.gaierror:
+    raise SystemExit('BLOCKED: Forum DNS is missing. Point forum.graviquest.com to the GraviQuest web server.')
+if not actual or not actual.issubset(expected):
+    raise SystemExit('BLOCKED: Forum A/AAAA resolve to a different server. Set forum CNAME to graviquest.com and remove only conflicting records for forum.')
+PY
 test -f /etc/gravitas/forum.json
 test -f /opt/gravitas-backend/core/forum.py || {
   echo 'BLOCKED: deploy the reviewed GraviQuest forum feature release before activation.' >&2; exit 78;
