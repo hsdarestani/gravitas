@@ -1,4 +1,4 @@
-import { renderProjectStructure } from './ws-project-files.js?v=20261109-essay1';
+import { renderProjectStructure } from './ws-project-files.js?v=20261016-task1&patch=20261109essay1';
 import { renderProjectManagement } from './ws-project-pm.js?v=20261016-task1&patch=20261102execution1';
 import * as P from './ws-platform.js?v=20261016-task1&patch=20261027reliability1';
 import { projectIntegrationPicker } from './ws-project-integrations.js?v=20261016-task1';
