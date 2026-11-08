@@ -138,7 +138,7 @@ Policy controls replace the right-side summary panels in a nonmodal dock; the ma
 
 ## Guided comparisons and public access
 
-The public title is **Science Ecosystem**. The four colored groups are abstract subcommunities, labelled Community 01–04. These labels do not describe real disciplines. Legacy engine domain IDs, seeded initialization and hypothetical group priors are retained so existing executed scenarios remain reproducible; renaming a group does not change any numerical rule.
+The public title is **Science Ecosystem**. The four colored groups are abstract subcommunities, named Helix, Stratus, Axiom and Lattice. These labels do not describe real disciplines. Legacy engine domain IDs, seeded initialization and hypothetical group priors are retained so existing executed scenarios remain reproducible; renaming a group does not change any numerical rule.
 
 Exploration starts with a matched A/B comparison. Both worlds advance together even when the comparison table is collapsed or only one world is visible. The default playback is one model day per wall-clock second; the Step button advances one model day. The process tiles report actual cumulative ideas, current studies in progress, current review queue, live papers and completed repeat tests, with the stock/total distinction labelled. Community regions on the map are display grouping only.
 

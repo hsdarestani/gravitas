@@ -23,6 +23,8 @@
     seed:Number.isInteger(raw.seed)?raw.seed:null,playing:raw.playing===true,hasFork:raw.hasFork===true,
     policies:{},metrics:{},delta:{},design:{},graph:{},interval:{},focusEvent:null,policyEditing:raw.policyEditing===true,events:[],changes:[],lab:null,paper:null};
   c.comparison=null;c.lesson=null;
+  if(['simple','medium'].includes(raw.level))c.level=raw.level;
+  if(['reviewBacklog','falsePublished','replicated'].includes(raw.focusedMetric))c.focusedMetric=raw.focusedMetric;
   if(raw.comparison&&typeof raw.comparison==='object'){c.comparison={a:{},b:{}};for(const side of ['a','b'])for(const [key,value] of Object.entries(raw.comparison[side]||{}).slice(0,40))if(typeof value==='number'&&Number.isFinite(value))c.comparison[side][key]=value;}
   if(raw.lesson&&typeof raw.lesson.policy==='string')c.lesson={policy:raw.lesson.policy.slice(0,30),observed:raw.lesson.observed===true};
   for(var key of ['policies','metrics','delta','design','graph','interval']){
@@ -59,24 +61,27 @@
    return 'Select a lab, tap a published claim under “Latest published claims”, then choose “Request independent replication”. Advance model days to see another synthetic experiment. A successful repeat is not proof of truth.';
   return '';
  }
- function mount(body,form,submit){
+ function mount(body,anchor,submit){
   var panel=document.createElement('details');panel.className='lab-chat-scenarios';
   var summary=document.createElement('summary');summary.textContent='Try a guided experiment';
   summary.className='lab-chat-scenario-title';
   var content=document.createElement('div');content.className='lab-chat-scenario-content';
+  var first=document.createElement('button');first.type='button';first.className='lab-chat-scenario-button';first.textContent='Start with one change';
+  first.addEventListener('click',function(){panel.open=false;submit(null);});
+  content.append(first);
   SCENARIOS.forEach(function(item){
    var block=document.createElement('div');block.className='lab-chat-scenario-item';
    var button=document.createElement('button');button.type='button';
    button.className='lab-chat-scenario-button';button.textContent=item.title;
    button.addEventListener('click',function(){
     if(pending)return;
-    pending=item.id;panel.open=false;submit(item);
+    panel.open=false;if(submit(item))pending=item.id;
    });
    var p=document.createElement('p');p.className='lab-chat-scenario-hint';
-   p.textContent=item.description+'. Demonstration only; no empirical calibration.';
+   p.textContent=item.description;
    block.append(button,p);content.append(block);
   });
-  panel.append(summary,content);body.insertBefore(panel,form);
+  panel.append(summary,content);body.insertBefore(panel,anchor);
  }
  function result(payload){
   if(!payload||!SCENARIOS.some(x=>x.id===payload.id)||payload.id!==pending)return null;

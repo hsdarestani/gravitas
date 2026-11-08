@@ -4,6 +4,7 @@ Do not create a second Lab, replace unrelated author files, or overwrite
 an unpublished editor draft. Upgrade only a reviewed published source; preserve independently edited drafts without altering them.
 """
 import hashlib
+import json
 from pathlib import Path
 
 from django.core.management.base import BaseCommand, CommandError
@@ -20,12 +21,14 @@ ROOT = DEPLOYED_SOURCE if DEPLOYED_SOURCE.is_dir() else REPO_SOURCE
 # arbitrary author edit. v1 → v2 → rationale-aware v3; fail closed otherwise.
 EXPECTED = {
     'engine.js': (
+        '5a27fcd646924012f741e78294160cef828ed049',
         'f2627ceecdd1428bf051a939da9d26d7716bd113',
         '2b6d9971ef8062ed090e59453145467853e1b449',
         '043cab64a70c8289959388faf2530c8b911abb6b',
         '5a2fdf34fe6c2597d505542db3b85aa967a20e47',
     ),
     'index.html': (
+        'e66a0cb0ed6775b4755469c7df6b85ad765c1739',
         'd91fbaeee14f21237436243ca54449d0cc41c409',
         '89096637e4815d6a49418637b567536bbaa386a4',
         '5038d45dd17f0f7b98ffa6abed8610d91e661262',
@@ -36,6 +39,7 @@ EXPECTED = {
         'bf9d933fc18d7f75fdbe6b4addc7a86b71f54d91',
     ),
     'app.js': (
+        '2654ebdb6151f94eba575baf1b4eea684366b18f',
         '1a9c9660dd90059808bf7065f2bca9d25515ae4a',
         'acce9e10746b7e41975b2768fb9c9a78d33fa01b',
         'c1f5d73a0918e5507f54894126f10f42c1d22111',
@@ -49,6 +53,7 @@ EXPECTED = {
         '95278896f9c111774c051e9193c76ee7b1d1e8a3',
     ),
     'styles.css': (
+        '519d741558a4d57ef6116bc7f445e09bda52f84e',
         '70f556635f4927634cc17e3a8119b1ad47f1d261',
         'cdb4ff31fd508e36c0854653f366e5aae26e60e6',
         '304cad34e042a3c1ac11e284117fc24f70640799',
@@ -66,6 +71,10 @@ EXPECTED = {
     ),
 }
 NAMES = tuple(EXPECTED)
+PREVIOUS_SUMMARY = (
+    'Explore an evolving research ecosystem. Change funding, AI adoption, peer review and '
+    'replication; intervene in individual laboratories and compare parallel worlds.'
+)
 
 
 def blob_sha(content):
@@ -106,11 +115,12 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         try:
+            manifest = json.loads((ROOT / 'manifest.json').read_text(encoding='utf-8'))
             replacements = {
                 name: (ROOT / name).read_text(encoding='utf-8')
                 for name in NAMES
             }
-        except OSError as exc:
+        except (OSError, ValueError) as exc:
             raise CommandError('Missing science model source: ' + str(exc)) from exc
         if 'SCIENCE-MODEL v2' not in replacements['engine.js']:
             raise CommandError('Source is not the reviewed science engine')
@@ -146,9 +156,14 @@ class Command(BaseCommand):
                 self.stdout.write(self.style.WARNING(
                     'Independent author draft detected and preserved without changes: ' + str(exc)
                 ))
+            metadata = {}
+            if lab.summary == PREVIOUS_SUMMARY:
+                metadata['summary'] = manifest['summary']
+            if lab.duration_text == '15–25 min':
+                metadata['duration_text'] = manifest['duration_text']
             same_published = updated_published == lab.published_files
             same_draft = updated_draft == lab.files
-            if same_published and same_draft:
+            if same_published and same_draft and not metadata:
                 self.stdout.write('Science Universe v2 already installed. No changes.')
                 return
             if not options['apply']:
@@ -165,7 +180,9 @@ class Command(BaseCommand):
             lab.published_version = next_version
             if lab.title in ('Science Universe', 'Science Universe — The Discovery Engine'):
                 lab.title = 'Science Ecosystem'
-            lab.save(update_fields=['files','published_files','version','published_version','title','updated_at'])
+            for field, value in metadata.items():
+                setattr(lab, field, value)
+            lab.save(update_fields=['files', 'published_files', 'version', 'published_version', 'title', 'updated_at', *metadata])
             if preserved_draft:
                 self.stdout.write(self.style.WARNING(
                     'The public Lab is updated; author draft remains different. '

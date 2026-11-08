@@ -8,13 +8,48 @@
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <div class="universe" id="universe-app">
-    <nav class="workspace-nav" aria-label="Breadcrumb"><button id="back-labs" class="crumb-link" type="button">Lab</button><span aria-hidden="true">/</span><span aria-current="page">Science Ecosystem</span></nav>
+  <div class="universe" id="universe-app" data-level="simple">
+    <nav class="level-nav" aria-label="Lab navigation">
+      <a id="back-labs" class="crumb-link" href="/lab.html">‹ Labs</a>
+      <div class="level-picker" role="group" aria-label="Simulation complexity">
+        <button class="pill active" type="button" data-level-choice="simple" aria-pressed="true">Simple</button>
+        <button class="pill" type="button" data-level-choice="medium" aria-pressed="false">Medium</button>
+        <button class="pill" type="button" data-level-choice="advanced" aria-pressed="false">Advanced</button>
+      </div>
+    </nav>
+    <main id="focused-model" class="focused-model" aria-labelledby="focus-title">
+      <div class="focus-heading">
+        <div><span class="eyebrow">Live research model</span><h1 id="focus-title">Can peer review keep up?</h1></div>
+        <span id="focus-day" class="focus-duration">45 model days</span>
+      </div>
+      <p id="focus-description">Set the review capacity, run the model, then watch how many studies are still waiting.</p>
+      <div class="focus-stage">
+        <div class="focus-readout" aria-live="polite">
+          <span id="focus-metric">Studies waiting for review</span>
+          <div id="focus-results"><strong id="focus-result">—</strong></div>
+        </div>
+        <svg id="focus-chart" viewBox="0 0 640 180" preserveAspectRatio="none" aria-hidden="true">
+          <defs><linearGradient id="focus-fill" x1="0" x2="0" y1="0" y2="100%" gradientUnits="objectBoundingBox"><stop stop-color="currentColor" stop-opacity=".27"/><stop offset="1" stop-color="currentColor" stop-opacity="0"/></linearGradient></defs>
+          <path class="focus-chart-grid" d="M0 40H640 M0 80H640 M0 120H640 M0 160H640 M128 0V180 M256 0V180 M384 0V180 M512 0V180"/>
+          <path id="focus-area" fill="url(#focus-fill)"/>
+          <polyline id="focus-line-a" class="focus-line-a"/>
+          <polyline id="focus-line-b" class="focus-line-b"/>
+          <circle id="focus-point-a" r="4" hidden/>
+          <circle id="focus-point-b" r="4" hidden/>
+        </svg>
+        <div class="focus-axis" aria-hidden="true"><span>Day 0</span><span>Day 45</span></div>
+      </div>
+      <div class="focus-controls">
+        <label class="focus-slider" for="focus-setting"><span id="focus-setting-label">Peer review capacity</span><output id="focus-setting-value" for="focus-setting">5 / 10</output><input id="focus-setting" type="range" min="1" max="10" value="5"></label>
+        <button id="focus-run" class="btn primary" type="button">Run simulation</button>
+      </div>
+      <p id="focus-status" class="focus-status" role="status">A seeded teaching model. Try a different setting and run it again.</p>
+    </main>
     <header class="app-header">
       <div class="title-stack">
         <div class="kicker">Interactive model <span class="subtle">· Synthetic research ecosystem</span></div>
         <h1>Science Ecosystem</h1>
-        <p class="description">Change a research policy. Follow the mechanism. Compare the evidence.</p>
+        <p class="description">Explore how teams, research policies and published claims interact.</p>
       </div>
       <div class="app-utility"><button id="guided-tour" class="btn" type="button">Guided tour</button><button id="fullscreen" class="icon-btn" type="button" title="Fill the screen" aria-label="Toggle fullscreen"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path stroke-width="1.7" d="M4 9V5.6A1.6 1.6 0 0 1 5.6 4H9M15 4h3.4A1.6 1.6 0 0 1 20 5.6V9M20 15v3.4a1.6 1.6 0 0 1-1.6 1.6H15M9 20H5.6A1.6 1.6 0 0 1 4 18.4V15"/></svg></button></div>
       <div class="header-actions">
@@ -60,7 +95,6 @@
         </div>
         <p class="map-explanation" id="map-explanation">Laboratories shows the teams doing research. Circle size follows studies in progress; lines are modeled collaboration opportunities.</p>
         <div id="claim-focusbar" class="claim-focusbar" hidden><label>Inspect a claim <select id="claim-select" aria-label="Select a published claim"><option value="">Choose a claim…</option></select></label><span class="claim-color-key"><i class="dot gold"></i> Not repeated <i class="dot passed"></i> Passed <i class="dot failed"></i> Failed</span></div>
-        <div class="model-pipeline" id="model-pipeline" aria-label="Research process measurements"></div>
         <div class="canvases" id="canvases">
           <div class="canvas-col active" id="canvas-holder-a">
             <canvas id="network-a" role="img" aria-label="Interactive map of laboratories; select a node to inspect and intervene"></canvas>
@@ -78,10 +112,10 @@
         <div class="stage-footer">
           <div class="legend" aria-label="Research communities">
             <button type="button" class="field-chip active" data-domain="all" aria-pressed="true">All communities</button>
-            <button type="button" class="field-chip" data-domain="0" aria-pressed="false"><i class="dot bio"></i> Community 01</button>
-            <button type="button" class="field-chip" data-domain="1" aria-pressed="false"><i class="dot climate"></i> Community 02</button>
-            <button type="button" class="field-chip" data-domain="2" aria-pressed="false"><i class="dot physics"></i> Community 03</button>
-            <button type="button" class="field-chip" data-domain="3" aria-pressed="false"><i class="dot material"></i> Community 04</button>
+            <button type="button" class="field-chip" data-domain="0" aria-pressed="false"><i class="dot bio"></i> Helix</button>
+            <button type="button" class="field-chip" data-domain="1" aria-pressed="false"><i class="dot climate"></i> Stratus</button>
+            <button type="button" class="field-chip" data-domain="2" aria-pressed="false"><i class="dot physics"></i> Axiom</button>
+            <button type="button" class="field-chip" data-domain="3" aria-pressed="false"><i class="dot material"></i> Lattice</button>
           </div>
           <div class="layer-chips" role="group" aria-label="Visual layers">
             <label><input id="layer-links" type="checkbox" checked> <span id="links-label">Connections</span></label>
@@ -89,14 +123,13 @@
             <label><input id="layer-labels" type="checkbox" checked> Labels</label>
           </div>
         </div>
-        <p class="map-counts" id="map-counts" role="status"></p>
+        <div class="model-pipeline" id="model-pipeline" aria-label="Research process measurements"></div>
         <div class="map-key"><button id="map-help" class="text-btn" type="button">Visual guide</button><span id="map-key-summary">Select a laboratory for its exact measurements.</span></div>
       </section>
       <aside class="inspector panel" id="inspector" aria-label="Selected laboratory">
         <div class="inspector-start" id="inspector-start">
           <div class="eyebrow">FIELD NOTES</div><h2>A closer look</h2>
           <p>Select a laboratory on the map. Its team, current work and resources appear here.</p>
-          <div class="method-chip">28 teams · 4 communities · independent research agents</div>
           <button id="inspector-map-help" class="text-btn" type="button">How to read the map</button>
         </div>
         <div class="inspector-content" id="inspector-content" hidden>
@@ -108,14 +141,13 @@
             <div><span>Methods quality</span><strong id="selected-methods">–</strong></div>
             <div><span>Studies in progress</span><strong id="selected-active">–</strong></div>
           </div>
-          <p class="small-print" id="selected-summary"></p>
           <button class="text-btn" id="inspector-more" type="button" aria-haspopup="dialog">See more · team, papers & actions</button>
         </div>
       </aside>
     </main>
     <dialog id="inspector-dialog" class="method-dialog inspector-dialog" aria-labelledby="inspector-dialog-title">
       <div class="modal-head"><div><span class="eyebrow">LABORATORY DETAILS</span><h2 id="inspector-dialog-title">Explore this laboratory</h2></div><button id="close-inspector" class="icon-btn" type="button" aria-label="Close laboratory details"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><g transform="translate(-3.700 -3.704) scale(1.313744)" stroke-width="1.294"><path d="m5.2 5.2 13.6 13.6"/><path d="m18.8 5.2-13.6 13.6"/></g></svg></button></div>
-      <div class="network-kpis"><span>Connections <strong id="selected-links">–</strong></span><span>Across fields <strong id="selected-cross-links">–</strong></span></div>
+      <div class="network-kpis"><span>Connections <strong id="selected-links">–</strong></span><span>Across communities <strong id="selected-cross-links">–</strong></span></div>
           <p class="small-print" id="selected-network"></p>
           <div class="inspector-section">
             <h3>Intervene in this laboratory</h3>

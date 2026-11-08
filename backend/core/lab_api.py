@@ -32,8 +32,7 @@ COMPONENTS = frozenset(('stage', 'controls', 'metrics', 'timeline', 'compare', '
 ATLAS_TUTOR = (
     'You are Pulsar, a warm scientific tutor. Answer the visitor question directly in its language. '
     'Use the server-verified selected atlas comparison as evidence; it is separate from the browser experiment. '
-    'For an interpretation, write four short, distinct sentences: (1) the concrete A/B contrast and matched seed count; '
-    '(2) the plausible mechanism from server_model_facts; (3) the uncertainty or trade-off; (4) one next check. '
+    'For an interpretation, give the concrete A/B contrast and matched seed count, then the mechanism and uncertainty. '
     'Round means to one decimal place. A higher COUNT does not establish a higher probability or rate. '
     'If false-claim seed differences have mixed signs, explicitly state that the mean increase is inconclusive, '
     'rather than agreeing with a question that assumes an increased probability. '
@@ -220,7 +219,7 @@ def _serve_file(files, target):
     content_type = mimetypes.guess_type(target)[0] or 'text/plain'
     source = row.get('content') or ''
     if target == 'index.html':
-        bridge = '<script src="/assets/lab-bridge.js?v=20261103-welcome1"></script>'
+        bridge = '<script src="/assets/lab-bridge.js?v=progressive1"></script>'
         if re.search(r'<head(?:\s[^>]*)?>', source, re.IGNORECASE):
             source = re.sub(r'(<head(?:\s[^>]*)?>)', lambda match: match.group(1) + bridge,
                             source, count=1, flags=re.IGNORECASE)
@@ -477,12 +476,16 @@ def public_lab_coach(request, slug):
         return JsonResponse({'ok': False, 'error': 'invalid_event'}, status=400)
     question = str(data.get('question') or '').strip()[:450]
     reply_locale = answer_locale(question, data.get('locale'))
+    detailed = bool(question) and (
+        data.get('reply_detail') == 'detailed'
+        or bool(re.search(r'\b(?:in detail|more detail|detailed explanation|step by step|elaborate)\b|جزئیات|مفصل|گام.به.گام', question, re.IGNORECASE))
+    )
     if key == 'ask' and not question:
         return JsonResponse({'ok': False, 'error': 'question_required'}, status=400)
     # Visitor chat history is optional device-local context, never trusted evidence.
     supplied = data.get('history') if isinstance(data.get('history'), list) else []
     history = [
-        {'role': m['role'], 'text': m['text'][:210]}
+        {'role': m['role'], 'text': m['text'][:(480 if detailed else 210)]}
         for m in supplied[-8:]
         if isinstance(m, dict) and m.get('role') in ('user', 'pulsar')
         and isinstance(m.get('text'), str)
@@ -549,22 +552,25 @@ def public_lab_coach(request, slug):
                 'False-claim differences have opposite signs across the matched seeds: '
                 f"{false['delta_min']} to {false['delta_max']}. The small mean count increase "
                 'does not establish that this policy consistently increases false claims or their probability.')
+    reply_length = (
+        'The visitor requested more detail. Explain the reasoning in up to 200 words, without repetition. '
+        if detailed else 'Answer in two short sentences, at most 55 words. Lead with the answer. '
+    )
     try:
         result = run_text(
-            system=(ATLAS_TUTOR + ('تمام پاسخ را در چهار جملهٔ کوتاه و متفاوت به فارسی بنویس؛ تفاوتِ تعداد با احتمال و نامشخص‌بودنِ اثر در اجراهای خلاف‌جهت را صریح بگو. ' if reply_locale.startswith('fa') else '') if focused_atlas else (
+            system=reply_length + (ATLAS_TUTOR + ('به فارسی روان بنویس و تفاوت تعداد با احتمال و جهت‌های متفاوت بین اجراها را توضیح بده. ' if reply_locale.startswith('fa') else '') if focused_atlas else (
                 'You are Pulsar, the in-simulation educator for GraviQuest. Reply in the visitor language. '
                 + ('تمام توضیح را به فارسی روان بنویس. اصطلاح علمی را ساده توضیح بده و نام خاص و شناسهٔ منبع را حفظ کن. ' if reply_locale.startswith('fa') else '')
                 +
-                'For proactive events use 2–3 short conversational sentences: explain what this means, why it can happen in this model, and one useful next observation or action. Use at most 70 words. '
-                'For questions answer directly in up to 6 concise sentences; general scientific questions are welcome. '
+                'Explain the mechanism in everyday language. General scientific questions are welcome. '
                 'Use the question language when it differs from the page locale. '
                 'Speak like a thoughtful lab tutor. Lead with interpretation, not a log entry or a list of counters. '
                 'Do not repeat the same point in different words. '
                 'When explaining an atlas selection, server_selected_atlas_comparison is the authoritative summary, separate from the browser run. '
-                'Start with one concrete A/B numerical contrast and the number of matched seeds. Then explain the trade-off, a plausible mechanism from server_model_facts, and one useful next check in at most four short sentences. '
+                'When asked about the atlas, give an A/B contrast and the matched seed count. '
                 'An increased false-claim COUNT does not establish a higher false-claim PROBABILITY or RATE. If seed differences have mixed signs, explicitly say the small mean difference is inconclusive; never say the policy consistently increases it. '
                 'Observed numbers and event names are client-reported, not independently validated. '
-                'In Science Ecosystem (legacy slug science-universe), the colored clusters are abstract research communities named Community 01–04, not Biology/Climate/Physics/Materials. Existing internal field IDs preserve reproducible assumptions; do not infer real disciplines. Lead all hands-on learning with a matched A/B comparison. Use the current guided lesson and atlas comparison when supplied. A visitor can select a paper dot in Knowledge flow, or select a LAB then a PAPER '
+                'In Science Ecosystem (legacy slug science-universe), the colored clusters are abstract research communities named Helix, Stratus, Axiom and Lattice. The Simple level exposes one review capacity slider and studies waiting for review after 45 model days. Medium uses matched worlds and one varied policy; Advanced exposes the full model. Use the browser-reported level and focusedMetric to stay within the current task. When lesson.observed is false, invite the visitor to run the model before interpreting its output. A visitor can select a paper dot in Knowledge flow, or select a LAB then a PAPER '
                 'from Latest published claims in the inspector. The live_papers metric is ONLY '
                 'an aggregate count; it is never a list of addressable papers. '
                 'Only mention a missing paper selection when the visitor asks about a particular selected paper or asks to act on it. '
@@ -627,14 +633,14 @@ def public_lab_coach(request, slug):
                 'server_model_facts': facts,
                 'current_question': question,
             }, ensure_ascii=False),
-            max_tokens=400 if key == 'ask' else 200,
+            max_tokens=500 if detailed else 185,
             surface='public', skill='public', operation='answer',
             locale=reply_locale,
             metadata={'page': '/lab.html', 'lab_slug': slug},
         )
         if result.provider == 'fallback':
             raise PulsarError('fallback')
-        reply = result.text[:(1800 if key == 'ask' else 900)]
+        reply = result.text[:(1800 if detailed else 700)]
         if reply_locale.startswith('fa'):
             reply = normalize_persian_prose(reply, question)
         if reply_locale.startswith('fa') and needs_persian_edit(reply):
@@ -644,7 +650,7 @@ def public_lab_coach(request, slug):
             try:
                 edited = run_text(
                     system='ویراستار فارسی هستی. فقط متن ویرایش‌شده را برگردان. همهٔ واژه‌های غیرضروری زبان‌های دیگر را به فارسی روان تبدیل کن. معنا و ادعاها را عوض نکن؛ هیچ نکته یا عددی اضافه نکن. نشانه‌های داخل ⟦ ⟧ را دقیقاً با همان شکل حفظ کن.',
-                    user=draft, max_tokens=400, surface='public', skill='public', operation='answer',
+                    user=draft, max_tokens=500 if detailed else 185, surface='public', skill='public', operation='answer',
                     locale='fa', metadata={'page': '/lab.html', 'lab_slug': slug, 'phase': 'language_edit'},
                 )
                 corrected = restore_evidence(normalize_persian_prose(edited.text, question), protected) if edited.provider != 'fallback' else None

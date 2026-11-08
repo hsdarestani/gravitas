@@ -23,7 +23,6 @@ let host=null,guide=null,guideIndex=-1,lessonState=null,atlas=null,atlasSequence
 let config=null,authOwner=null,accessReady=false,notice=null,saveRequested=false;
 let lessonPolicies=POLICIES,guideDays=20,firstComplete=false;
 const GUIDE_KEY='graviquest:science-ecosystem:guide:v2';
-function guideSeen(){try{return localStorage.getItem(GUIDE_KEY)==='done';}catch(_){return false;}}
 function prepare(){if(guide&&!guide.hidden&&guideIndex<0)config.tell('lab:lesson',{action:'welcome'});}
 function startGuide(){guideIndex=-1;firstComplete=false;guide.hidden=false;renderGuide();prepare();config.openChat();host.dataset.mode='guide';}
 function rememberGuide(){try{localStorage.setItem(GUIDE_KEY,'done');}catch(_){}}
@@ -127,10 +126,11 @@ function mountAtlas(content){
 function mount(options){
  config=options;access=null;accessReady=false;saveRequested=false;authOwner=null;canSync=false;atlas=null;firstComplete=false;clearTimeout(syncTimer);
  const settings=options.settings||{};guideDays=Number.isInteger(settings.lesson_days)&&settings.lesson_days>=1&&settings.lesson_days<=120?settings.lesson_days:20;lessonPolicies=POLICIES.map(p=>{const custom=settings.lessons?.[p[0]]||{};return [p[0],custom.title||p[1],custom.question||p[2],custom.watch||p[3]];});
- const auto= settings.auto_start_guide!==false&&!guideSeen();host=options.assistant;host.dataset.mode=auto?'guide':'chat';const tabs=el('div','learning-mobile-tabs');tabs.append(button('Pulsar guide',()=>{host.dataset.mode='guide';if(guide.hidden)startGuide();}),button('Ask Pulsar',()=>{host.dataset.mode='chat';config.openChat();}));host.prepend(tabs);guide=el('section','lab-learning-guide');guide.hidden=!auto;guideIndex=-1;lessonState=null;tabs.after(guide);renderGuide();
+ host=options.assistant;host.dataset.mode='chat';const tabs=el('div','learning-mobile-tabs');tabs.append(button('Pulsar guide',()=>{host.dataset.mode='guide';if(guide.hidden)startGuide();}),button('Ask Pulsar',()=>{host.dataset.mode='chat';config.openChat();}));host.prepend(tabs);guide=el('section','lab-learning-guide');guide.hidden=true;guideIndex=-1;lessonState=null;tabs.after(guide);renderGuide();
  notice=el('section','lab-access-strip');notice.setAttribute('aria-label','Pulsar guest access');options.body.insertBefore(notice,options.form);
- refreshAccess();return {startGuide,welcome:auto};
+ refreshAccess();
 }
 window.addEventListener('focus',()=>{if(config&&root.document.querySelector('#lab-experiences[data-lab-slug="science-universe"]'))refreshAccess();});
-root.GraviLabLearning={POLICIES,METRICS,mount,startGuide,prepare,updateLesson,mountAtlas,atlasContext,updateAccess,mayAsk,sync,refreshAccess,replyActions,requestSave:()=>{saveRequested=true;renderAccess();config.openChat();},access:()=>access};
+function hideGuide(){if(guide&&!guide.hidden){guide.hidden=true;host.dataset.mode='chat';}}
+root.GraviLabLearning={hideGuide,POLICIES,METRICS,mount,startGuide,prepare,updateLesson,mountAtlas,atlasContext,updateAccess,mayAsk,sync,refreshAccess,replyActions,requestSave:()=>{saveRequested=true;renderAccess();config.openChat();},access:()=>access};
 })(window);
