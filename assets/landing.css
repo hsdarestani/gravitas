@@ -112,18 +112,6 @@
   transition: transform var(--g-dur) var(--g-ease-orbit), color var(--g-dur) var(--g-ease-orbit); }
 .lp-layer a:hover .lp-layer__go { transform: translateX(3px); color: var(--g-text); }
 
-/* Since the Start Here rail returned above chapter 01 (2026-11-06) the list
-   holds only the six layers under the video, so it reads as a grid of three
-   columns: the same rows, hairlines on every side instead of only between. */
-.lp-layers--grid {
-  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));
-  border-top: 0; border-left: 1px solid var(--g-hairline);
-}
-.lp-layers--grid .lp-layer { border-top: 1px solid var(--g-hairline); border-right: 1px solid var(--g-hairline); }
-.lp-layers--grid .lp-layer a { height: 100%; padding: var(--g-space-md); grid-template-columns: 2.25rem minmax(0, 1fr) auto; }
-@media (max-width: 960px) { .lp-layers--grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-@media (max-width: 600px) { .lp-layers--grid { grid-template-columns: minmax(0, 1fr); } }
-.lp-topic__foot { margin: var(--g-space-lg) 0 0; }
 
 /* The four pictures the Topic keeps returning to: the material, not a mood. */
 .lp-gal {
