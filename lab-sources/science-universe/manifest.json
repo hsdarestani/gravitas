@@ -1,9 +1,9 @@
 {
   "slug": "science-universe",
   "title": "Science Ecosystem",
-  "summary": "Explore an evolving research ecosystem. Change funding, AI adoption, peer review and replication; intervene in individual laboratories and compare parallel worlds.",
+  "summary": "Can peer review keep up with faster research? Test one setting with Pulsar, then compare two worlds and explore the full research network.",
   "description": "Science Ecosystem is one interactive, seeded agent-based teaching system for evaluating assumptions about AI-assisted research. Its known-variance Z testing is mathematically grounded; its population, community priors, research incentives, review probabilities, citation weights, funding and policy mappings are explicitly uncalibrated model choices. Original Lab design rationales and alternatives are inspectable in the Model assumptions decision register. Population and prior sensitivity experiments are available. Independent scientific review is required for empirical claims.",
-  "duration_text": "15–25 min",
+  "duration_text": "Start in 2 min",
   "topic_slug": "",
   "config": {
     "components": [

@@ -27,6 +27,7 @@ const server=http.createServer((req,res)=>{
     page.on('pageerror',e=>errors.push(e.message));
     const address='http://127.0.0.1:'+server.address().port+'/lab-sources/science-universe/index.html';
     await page.goto(address,{waitUntil:'networkidle'});
+    await page.getByRole('button',{name:'Advanced',exact:true}).click();
     await page.locator('#agents').waitFor();
     assert.equal(await page.locator('.tiny-metric').count(),6);
     assert.equal(await page.locator('#policy-drawer').isHidden(),true);
@@ -119,7 +120,7 @@ const server=http.createServer((req,res)=>{
     await page.evaluate(()=>getSelection().removeAllRanges());
     await page.locator('#play').click();
     await page.locator('#map-help').click();
-    assert.equal(await page.locator('#map-key-content svg').count(),1,'a visual legend explains the map');
+    assert.equal(await page.locator('#map-key-content svg').count(),3,'a visual legend explains the map');
     await page.locator('#close-map-help').click();
     await page.locator('#more-events').click();
     assert.ok(await page.locator('#event-history .feed-event').count()>3,'full event history is available on demand');

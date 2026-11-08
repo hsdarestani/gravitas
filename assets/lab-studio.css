@@ -390,3 +390,56 @@ body:has(#lab-experiences[data-lab-slug="science-universe"]) :is(.page-head,.g-f
  .lab-welcome-mark,.lab-welcome-mark::before,.lab-welcome-mark::after{animation:none}
  .is-docking .lab-welcome-card>*{transition:none}
 }
+
+/* The entry gallery is independent from the live model and opens on its cover. */
+.lab-preview-gallery figure {margin:0}
+.lab-gallery-main {overflow:hidden;display:grid;place-items:center;border:1px solid var(--g-hairline);border-radius:var(--g-radius);background:var(--g-bg)}
+.lab-gallery-main img {display:block;width:100%;height:clamp(140px,34dvh,290px);object-fit:contain}
+.lab-preview-gallery figcaption {margin:5px 0 8px;font-size:12px;color:var(--g-text-muted)}
+.lab-gallery-rail {display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:6px}
+.lab-gallery-thumb {padding:2px;border:1px solid var(--g-border);border-radius:7px;background:var(--g-bg);cursor:pointer;min-width:0}
+.lab-gallery-thumb[aria-pressed="true"] {border-color:var(--g-accent);box-shadow:0 0 0 1px var(--g-accent)}
+.lab-gallery-thumb img {display:block;width:100%;height:auto;aspect-ratio:16/9;object-fit:cover;border-radius:4px}
+.lab-gallery-scenario[hidden] {display:none}
+#lab-experiences.learning-split .lab-runtime-grid {grid-template-columns:minmax(0,1fr) clamp(252px,23vw,340px)}
+#lab-experiences.learning-split .lab-chat-head {height:47px;min-height:47px;padding:5px 12px}
+#lab-experiences.learning-split .lab-chat-avatar {width:31px;height:31px}
+#lab-experiences.learning-split .lab-chat-scenarios {display:block;flex:none;margin:0;padding:0;max-height:150px;border-bottom:1px solid var(--g-hairline)}
+#lab-experiences.learning-split .lab-chat-scenario-title {padding:7px 12px;color:var(--g-accent);font-size:12px}
+#lab-experiences.learning-split .lab-chat-scenario-content {padding:4px 10px 8px}
+#lab-experiences.learning-split .lab-chat-scenario-item {padding:5px}
+#lab-experiences.learning-split .lab-chat-scenario-hint {font-size:10px;margin:3px 2px}
+.lab-mission {flex:none;padding:9px 12px;border-bottom:1px solid var(--g-hairline)}
+.lab-mission[hidden],.lab-mission-feedback:empty {display:none}
+.lab-mission-step {font:10px var(--g-font-mono);letter-spacing:.06em;color:var(--g-accent)}
+.lab-mission p {margin:3px 0;font-size:12px;line-height:1.4}
+.lab-mission-options {display:flex;flex-wrap:wrap;gap:4px;margin-top:5px}
+.lab-mission .g-btn {font-size:10px;min-height:28px;padding:3px 8px}
+.lab-mission-next {margin-top:5px}
+.lab-mission-trials,.lab-mission-feedback {display:block;font-size:10px;color:var(--g-text-muted)}
+.lab-mission-trials {margin-top:3px}
+#lab-experiences.learning-split .lab-chat-status {display:none}
+#lab-experiences.learning-split:not([data-level="advanced"]) :is(.learning-mobile-tabs,.lab-chat-tools,.lab-access-strip:not(.is-exhausted):not(:has(a,button))) {display:none}
+#lab-experiences.learning-split:not([data-level="advanced"]) .lab-chat-log {padding:7px 10px;min-height:28px}
+#lab-experiences.learning-split .lab-chat-compose {padding:6px 10px}
+#lab-experiences.learning-split .lab-usage-choice {padding-block:2px;margin-block:0;font-size:9px}
+@media(max-width:900px) {
+ #lab-experiences.learning-split .lab-runtime-grid {grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(0,1fr) minmax(195px,35dvh)}
+ #lab-experiences.learning-split .lab-chat-head {height:37px;min-height:37px}
+ #lab-experiences.learning-split .lab-chat-log {min-height:0;padding:5px 10px}
+ #lab-experiences.learning-split .lab-chat-starters:not([hidden]) {display:flex;padding:3px 10px}
+ #lab-experiences.learning-split .lab-chat-starters .g-btn {min-height:27px;padding:2px 7px}
+ #lab-experiences.learning-split .lab-chat-scenarios {max-height:94px}
+ .lab-mission {padding:4px 10px}
+ .lab-mission p {margin:1px 0}
+ #lab-experiences.learning-split .lab-chat-bubble p {font-size:11px}
+ #lab-experiences.learning-split .lab-usage-choice {font-size:9px}
+}
+@media(max-width:540px) {
+ .lab-preview-facts {gap:6px}
+ .lab-preview-facts dd {font-size:12px}
+}
+@media(max-width:900px) {
+ #lab-experiences.learning-split.companion-collapsed:not([data-level="advanced"]) .lab-runtime-grid {grid-template-rows:minmax(0,1fr) 38px}
+ #lab-experiences.learning-split .lab-chat-body:not([hidden]) {overflow-y:auto}
+}

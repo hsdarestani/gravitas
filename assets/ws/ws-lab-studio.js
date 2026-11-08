@@ -119,7 +119,7 @@ export async function renderLabStudio(host) {
     const workspace=config.learning_workspace||{},special=lab?.slug==='science-universe';
     const guestLimit=K.input(String(workspace.guest_question_limit||25),'number');guestLimit.min='1';guestLimit.max='1000';guestLimit.step='1';
     const lessonDays=K.input(String(workspace.lesson_days||20),'number');lessonDays.min='1';lessonDays.max='120';lessonDays.step='1';
-    const guideAuto=K.toggle(workspace.auto_start_guide!==false,'Offer the guide on the first visit','Visitors can skip it. The Guided tour button can reopen it later.');
+    const guideAuto=K.toggle(workspace.auto_start_guide!==false,'Offer the guide on the first visit','Show the first mission in Pulsar automatically. Visitors can always choose Try a guided experiment.');
     const lessonEditors=new Map(),guided=el('div','ls-guided-editor');
     if(special){for(const [key,lesson] of Object.entries(workspace.lessons||{})){const entry=el('details','ls-guided-control');entry.append(el('summary',null,lesson.title));const title=K.input(lesson.title,'text'),question=K.textarea(lesson.question,2),watch=K.textarea(lesson.watch,2);entry.append(K.field('Guide heading',title),K.field('Question to explore',question),K.field('What to watch',watch));guided.append(entry);lessonEditors.set(key,{title,question,watch});}}
 

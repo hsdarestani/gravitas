@@ -522,3 +522,82 @@ th{position:sticky;top:0;background:var(--raised);font-family:var(--font);font-w
 @media(max-width:580px){.comparison-setup{padding:16px}.comparison-setup h2{font-size:23px}.comparison-setup-controls{gap:12px}.comparison-setup-controls label:first-child{flex:1 1 100%}.workspace-side{grid-template-columns:1fr;grid-template-rows:260px 280px}.world-stage{height:660px}.model-pipeline{padding:0 10px 10px;gap:4px}.pipeline-stage{padding:7px 5px}.pipeline-stage>strong{font-size:16px}.pipeline-stage>span{font-size:9px}.pipeline-stage>small{font-size:8px}}
 
 @media(min-width:1121px){.workspace-side{height:clamp(680px,92vh,880px)}}
+
+/* Guided levels share the model engine with the full research workspace. */
+.universe[data-level]:not([data-level="advanced"]) > :not(.level-nav,.focused-model,dialog),
+.universe[data-level="advanced"] > .focused-model {display:none}
+.universe[data-level]:not([data-level="advanced"]) {
+  height:100dvh;min-height:360px;display:flex;flex-direction:column;max-width:1160px;
+  padding:clamp(12px,2.8vw,34px);
+}
+.level-nav {display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:16px}
+.level-nav .crumb-link {text-decoration:none;white-space:nowrap}
+.level-picker {display:flex;gap:2px;padding:3px;border:1px solid var(--hairline);border-radius:var(--pill);background:var(--sunken)}
+.level-picker .pill {min-height:34px;padding:4px clamp(9px,2vw,17px);font-size:12px}
+.level-picker .pill[aria-pressed="true"] {background:var(--solid-bg);color:var(--solid-fg)}
+.focused-model {display:flex;flex:1;flex-direction:column;gap:12px;min-height:0}
+.focus-heading {display:flex;align-items:end;justify-content:space-between;gap:8px}
+.focus-heading h1 {font-size:clamp(24px,4vw,45px);line-height:1.06;letter-spacing:-.045em;margin:4px 0 0}
+.focus-heading .eyebrow {color:var(--accent)}
+.focus-duration,.focus-axis {font:11px var(--font-mono);color:var(--subtle);white-space:nowrap}
+.focused-model > p {margin:0;color:var(--muted);font-size:13px}
+.focus-stage {position:relative;isolation:isolate;overflow:hidden;display:flex;flex-direction:column;
+  min-height:180px;flex:1;border:1px solid var(--border);border-radius:var(--radius-lg);
+  background:radial-gradient(ellipse at 25% 8%,color-mix(in srgb,var(--accent) 15%,transparent),transparent 63%),var(--map-bg)}
+.focus-readout {position:relative;z-index:1;padding:clamp(14px,3vw,32px) clamp(15px,4vw,36px) 0}
+.focus-readout > span {font-size:13px;font-weight:600;color:var(--muted)}
+#focus-results {display:flex;align-items:end;gap:clamp(18px,6vw,60px)}
+#focus-results > strong,.focus-world-value strong {display:block;font:500 clamp(30px,6vw,67px)/1.12 var(--font-mono);letter-spacing:-.08em}
+.focus-world-value {color:var(--world-a)}
+.focus-world-value + .focus-world-value {color:var(--world-b)}
+.focus-world-value small {display:block;font:11px var(--font-mono)}
+#focus-chart {display:block;flex:1;min-height:72px;width:100%;height:0;margin-top:4px;color:var(--world-a);overflow:visible}
+.focus-chart-grid {stroke:var(--map-grid);fill:none;vector-effect:non-scaling-stroke}
+#focus-chart polyline {stroke-width:2.5;fill:none;vector-effect:non-scaling-stroke;stroke-linecap:round;stroke-linejoin:round}
+.focus-line-a {stroke:var(--world-a)}
+.focus-line-b {stroke:var(--world-b);stroke-dasharray:5 4}
+#focus-point-a {fill:var(--world-a)}
+#focus-point-b {fill:var(--world-b)}
+.focus-axis {display:flex;justify-content:space-between;padding:5px 14px 9px}
+.focus-controls {display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:18px}
+.focus-slider {display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:5px;font-weight:600}
+.focus-slider output {font:12px var(--font-mono);color:var(--accent)}
+.focus-slider input {grid-column:1/-1;width:100%;margin:0;min-height:22px;accent-color:var(--accent)}
+.focus-controls .btn {min-height:40px;white-space:nowrap}
+.focused-model .focus-status {font-size:11px;color:var(--subtle);min-height:1.5em}
+.universe[data-level="advanced"] .comparison-setup {margin-block:10px}
+.universe[data-level="advanced"] .world-stage .map-key {padding-block:4px}
+@media(max-width:540px) {
+  .level-nav {margin-bottom:8px}
+  .level-picker .pill {min-height:28px;font-size:11px}
+  .focused-model {gap:7px}
+  .focus-stage {min-height:145px}
+  .focus-heading h1 {font-size:23px}
+  .focus-duration {display:none}
+  .focused-model > p {font-size:11px}
+  .focus-controls {gap:9px}
+  .focus-slider {font-size:11px}
+  .focus-controls .btn {min-height:36px;padding-inline:9px;font-size:11px}
+  .focus-readout {padding-top:8px}
+  #focus-chart {min-height:52px}
+}
+#focus-chart [hidden] {display:none}
+.map-guide-tiles {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:8px 0 16px}
+.map-guide-tile {margin:0;min-width:0}
+.map-guide-art {border:1px solid var(--hairline);border-radius:var(--radius);background:var(--map-bg)}
+.map-guide-art svg {display:block;width:100%;height:auto}
+.map-guide-tile figcaption {display:grid;gap:3px;padding:7px 2px;font-size:12px;color:var(--muted)}
+.map-guide-tile figcaption strong {color:var(--text)}
+.guide-grid,.guide-link,.guide-ring,.guide-ring-other {stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
+.guide-grid {stroke:var(--subtle);fill:none}
+.guide-link {stroke:var(--map-cross-solid);fill:none}
+.guide-ring,.guide-ring-other {stroke:var(--domain-0);fill:var(--map-node)}
+.guide-ring-other {stroke:var(--domain-2)}
+@media(max-width:460px) {
+ .map-guide-tiles {grid-template-columns:1fr}
+ .map-guide-tile {display:grid;grid-template-columns:100px 1fr;align-items:center;gap:8px}
+}
+.universe[data-level="advanced"] .level-nav {position:sticky;top:0;z-index:4;background:var(--bg);padding-block:4px}
+.universe[data-level="advanced"] .app-header {margin-bottom:10px}
+.universe[data-level="advanced"] .title-stack h1 {font-size:clamp(20px,3vw,28px)}
+.universe[data-level="advanced"] .stage-header {min-height:56px;padding-block:10px}

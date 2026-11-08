@@ -20,9 +20,10 @@ function readInk(){
     'agent-ai','agent-human','world-a','world-b','hairline','subtle','muted'])ink[key]=v(key);
 }
 readInk();
-const domainNames=['Community 01','Community 02','Community 03','Community 04'];
+const domainNames=['Helix','Stratus','Axiom','Lattice'];
 const G=window.GraviLab||{register:()=>{},emit:()=>{},onControl:()=>{},onCommand:()=>{},onLayer:()=>{},onSection:()=>{},onExperiment:()=>{},context:()=>{},experimentResult:()=>{}};
-const worlds=[E.make(20261029),null],selected=[null,null],selectedPaper=[null,null],eventSeen=[new Set(),new Set()];
+const FOCUS_SEED=20261029,FOCUS_DAYS=45;
+const worlds=[E.make(FOCUS_SEED),null],selected=[null,null],selectedPaper=[null,null],eventSeen=[new Set(),new Set()];
 let active=0,playing=false,compareMode=false,view='labs',plot='published',speed=1;
 let show={links:true,flows:true,labels:true},drag=null,lastSimulation=performance.now(),raf=0;
 let eventLimit=40,fieldFilter=null,mapKeyView='',inspectorListKey='',feedKey='',historyKey='';
@@ -223,6 +224,7 @@ function publishContext(force=false){
   const now=performance.now();
   if(!force&&now-lastStateSent<1600)return;
   lastStateSent=now;
+  if(level!=='advanced'){publishFocusedContext();return;}
   const s=nowWorld(),m=E.summary(s),labId=selected[active];
   const lab=Number.isInteger(labId)?s.labs[labId]:null;
   const paperId=selectedPaper[active],paper=paperId===null?null:
@@ -351,7 +353,7 @@ function mountWorkspace(){
  const side=make('div','workspace-side'),layout=document.querySelector('.world-layout');
  side.append($('inspector'),document.querySelector('.activity'));layout.append(side);
  const dock=make('div','pulsar-anchor');dock.id='pulsar-anchor';dock.setAttribute('aria-hidden','true');side.append(dock);
- const workspace=make('div','model-and-policies');layout.before(workspace);workspace.append(layout);side.append($('policy-drawer'));
+ const workspace=make('div','model-and-policies');layout.before(workspace);workspace.append(layout);workspace.after($('comparison-setup'));side.append($('policy-drawer'));
  // The companion is hosted outside the opaque-origin iframe. Only bounded viewport geometry crosses the bridge.
  let geometryPending=false,lastGeometry='';
  function reportGeometry(){geometryPending=false;const r=side.getBoundingClientRect(),d=dock.getBoundingClientRect();
@@ -442,7 +444,6 @@ function inspector(){
   $('selected-cross-links').textContent=network.selectedCrossLinks;
   text('inspector-dialog-title',l.name+' · World '+(active?'B':'A'));
   text('inspector-more',selectedPaper[active]!==null?'See paper #'+selectedPaper[active]+' · details & actions':'See more · team, papers & actions');
-  text('selected-summary',network.selectedLinks+' connections · '+network.selectedCrossLinks+' across communities'+(selectedPaper[active]!==null?' · Paper #'+selectedPaper[active]+' selected':''));
   $('selected-network').textContent='Drag this lab to change its possible partners. A linked partner has ×1.7 citation weight in this model; positions do not directly change statistical evidence or hidden truth.';
   $('freeze-lab').textContent=l.locked?'Resume proposals':'Slow proposals';
   const listKey=JSON.stringify([active,id,selectedPaper[active],s.agents.filter(a=>a.labId===id).map(a=>[a.id,a.produced]),l.papers.slice(-7),s.hypotheses.filter(h=>l.papers.slice(-7).includes(h.id)).map(h=>[h.id,h.replications,h.retracted])]);
@@ -602,7 +603,7 @@ function startLesson({action,policy,days}){
 function runAtlasComparison(data){
  if(!Object.hasOwn(E.DEFAULTS,data.policy)||!Number.isInteger(data.low)||!Number.isInteger(data.high)||data.low<1||data.low>10||data.high<1||data.high>10||data.low===data.high||!Number.isInteger(data.seed)||data.seed<0||data.seed>4294967295||!Number.isInteger(data.days)||data.days<1||data.days>120)return;
  const parameters={};for(const key of Object.keys(E.DEFAULTS)){const v=data.parameters?.[key];if(!Number.isInteger(v)||v<1||v>10)return;parameters[key]=v;}
- play(false);lesson=null;worlds[0]=E.make(data.seed,{...parameters,[data.policy]:data.low},E.normalizeDesign(data.design||{}));worlds[1]=E.make(data.seed,{...parameters,[data.policy]:data.high},E.normalizeDesign(data.design||{}));
+ selectLevel('advanced');play(false);lesson=null;worlds[0]=E.make(data.seed,{...parameters,[data.policy]:data.low},E.normalizeDesign(data.design||{}));worlds[1]=E.make(data.seed,{...parameters,[data.policy]:data.high},E.normalizeDesign(data.design||{}));
  selected.fill(null);selectedPaper.fill(null);$('world-b').disabled=false;$('compare').disabled=false;$('comparison-setup').hidden=true;compare(true);chooseWorld(1);advance(data.days);trackUsage('atlas_replayed',{parameter:data.policy,low:data.low,high:data.high,days:data.days,seed:data.seed});
  $('branch-explainer').textContent='Reproduced stored comparison · seed '+data.seed+' · '+data.days+' model days · '+policyDescriptions[data.policy][0]+': '+data.low+' in A, '+data.high+' in B. Other settings and initial design equal.';document.querySelector('.analysis').scrollIntoView({block:'start'});
 }
@@ -662,33 +663,39 @@ function livePaperNodes(s,g){
  paperNodeCache.set(s,{key:cacheKey,nodes});return nodes;
 }
 function mapLegend(){
- const s=nowWorld(),m=E.summary(s),n=networkFacts(s),papers=view==='papers';
+ const s=nowWorld(),papers=view==='papers';
  $('claim-focusbar').hidden=!papers;
  const visible=papers?livePaperNodes(s,{w:$(active?'network-b':'network-a').clientWidth,h:$(active?'network-b':'network-a').clientHeight}).map(n=>n.paper):[];
  if(papers){const key=active+':'+visible.map(p=>p.id).join(',');if(key!==claimOptionsKey){claimOptionsKey=key;const select=$('claim-select');select.replaceChildren(make('option','','Choose a claim…'));select.firstChild.value='';for(const p of [...visible].reverse()){const option=make('option','','#'+p.id+' · '+domainNames[p.domain]+' · day '+p.publishedOn);option.value=p.id;select.append(option);}}$('claim-select').value=selectedPaper[active]===null?'':String(selectedPaper[active]);}
  text('stage-title',('World '+(active?'B':'A')+' · ')+(papers?'Knowledge, one claim at a time':'Teams and collaboration'));
- text('map-explanation',papers?'Small dots are published claims, arranged by research field and publication time. Select a claim to reveal its recorded citations.':'Circle size follows studies in progress. Select a lab to inspect it, or drag it to change its possible collaborators.');
+ text('map-explanation',papers?'Small dots are published claims. Pick one to see its citations.':'Larger circles have more studies in progress. Drag a team to change its possible collaborators.');
  text('canvas-instruction',papers?'Select a claim → inspect its citations':'Size = active studies · Lines = possible collaborators');
  text('links-label',papers?'Selected citations':'Collaborations');text('flows-label',papers?'Recent activity':'Team & citations');
- text('map-counts',papers?visible.length+' / '+m.healthyPapers+' live papers shown · '+n.retainedCitations+' retained citation records':s.labs.length+' laboratories · '+m.activeStudies+' active studies · '+n.links+' links, '+n.crossFieldLinks+' across communities');
- text('map-key-summary',papers?'Color = repeat-test history · Rows = topic communitys':'Field colors identify teams. Select a field to focus.');
- if(mapKeyView!==view){mapKeyView=view;const key=$('map-key-content');key.replaceChildren();
-   const illustration=make('div','map-guide-illustration');
-   // Authored legend, explicitly schematic, never fabricated research data.
-   illustration.innerHTML=papers?'<svg viewBox="0 0 460 150" role="img" aria-label="Schematic example: Community 01 and Community 02 paper lanes, with a citation arrow toward a selected paper"><path d="M90 48H440M90 112H440" stroke="var(--subtle)" stroke-opacity=".25"/><text x="8" y="52" fill="var(--domain-0)">Group 01</text><text x="8" y="116" fill="var(--domain-1)">Group 02</text><circle cx="150" cy="48" r="6" fill="var(--claim-open)"/><circle cx="230" cy="48" r="7" fill="var(--claim-pass)"/><circle cx="350" cy="112" r="7" fill="var(--claim-fail)"/><circle cx="230" cy="48" r="13" fill="none" stroke="var(--map-select)"/><path d="M90 112Q130 25 215 48m-7-6 7 6-9 2" fill="none" stroke="var(--map-cross-solid)"/><text x="270" y="28" fill="var(--muted)">Select one claim</text><text x="225" y="143" fill="var(--subtle)">Earlier → later publication</text></svg>':'<svg viewBox="0 0 460 150" role="img" aria-label="Schematic example: two laboratories, a collaboration line and small team-member marks"><path d="M130 75H330" stroke="var(--map-cross-solid)" stroke-width="2"/><circle cx="130" cy="75" r="21" fill="var(--map-node)" stroke="var(--domain-0)" stroke-width="2"/><circle cx="330" cy="75" r="13" fill="var(--map-node)" stroke="var(--domain-2)" stroke-width="2"/><circle cx="130" cy="75" r="4" fill="var(--domain-0)"/><circle cx="330" cy="75" r="3" fill="var(--domain-2)"/><circle cx="130" cy="43" r="3" fill="var(--agent-ai)"/><circle cx="104" cy="94" r="3" fill="var(--agent-human)"/><circle cx="156" cy="94" r="3" fill="var(--agent-human)"/><text x="75" y="127" fill="var(--muted)">More active studies</text><text x="285" y="127" fill="var(--muted)">Fewer studies</text><text x="177" y="55" fill="var(--map-cross-solid)">Possible partners</text></svg>';
-   key.append(illustration,make('small','small-print','Schematic legend · not measurements from your run'));
-   const items=papers?[
-     ['One dot, one claim','Up to the newest 180 live papers are grouped by topic community; smaller maps keep the newest claims in each field as space allows. Horizontal position follows publication time, adjusted into free slots for legibility. Select a dot for its exact publication day, origin lab and repeat tests. Dot positions never change model outcomes.'],
-     ['Read the evidence color','Gold: no completed repeat. Green: passed repeat(s), no failed repeat. Orange: at least one failed repeat. Size follows completed repeats. These are observations, not proof of truth.'],
-     ['Follow one citation','Select a claim to show retained arrows from citing labs at the left to that paper. The origin-field color surrounds each dot; a violet outer ring means its topic differs from its lab’s specialty. Only 120 recent citation records are retained.'],
-     ['Watch model time','A moving mark represents an actual citation from the last 8 model days. Its position shows age, not the physical speed of knowledge. Pausing model time freezes it.']
-   ]:[
-     ['Read a laboratory','Circle color is its field; circle size follows active studies with a visual cap. Small stationary marks are actual human (blue) and AI (gold) team members. Grey means proposals are reduced to 17% of the usual rate.'],
-     ['Follow the connections','Blue lines join possible partners in one field; violet lines cross communities. A connection multiplies citation preference by 1.7 in this model. A line is an opportunity, not proof that a joint paper exists.'],
-     ['Move with a purpose','Dragging a lab changes possible partners and later citation choices. It does not directly change truth, funding or evidence. The inspector reports its exact connection counts.'],
-     ['Compare the two views','Laboratories shows the teams. Knowledge flow shows actual published claims, organized into readable field lanes. Select one claim to focus its citations.']
-   ];
-   for(const [title,body] of items){const item=make('section','guide-fact');item.append(make('h3','',title),make('p','',body));key.append(item);}
+ text('map-key-summary',papers?'Color shows repeat-test history · Each row is a community':'Choose a community to focus the map.');
+ if(mapKeyView!==view){
+  mapKeyView=view;
+  const key=$('map-key-content'),tiles=make('div','map-guide-tiles');
+  const guide=papers?[
+   ['One dot, one claim','Rows group claims by community. Newer claims are farther right.',
+    '<path d="M10 29H158M10 58H158" class="guide-grid"/><circle cx="39" cy="29" r="5" fill="var(--domain-0)"/><circle cx="104" cy="29" r="5" fill="var(--domain-0)"/><circle cx="65" cy="58" r="5" fill="var(--domain-1)"/><circle cx="141" cy="58" r="5" fill="var(--domain-1)"/>'],
+   ['Read repeat tests','Gold means waiting. Green means passed. Orange means at least one failed.',
+    '<circle cx="31" cy="37" r="8" fill="var(--claim-open)"/><circle cx="84" cy="37" r="8" fill="var(--claim-pass)"/><circle cx="137" cy="37" r="8" fill="var(--claim-fail)"/><path d="M27 58h8m44 0 4 4 8-8m40 0 12 12m0-12-12 12" class="guide-grid"/>'],
+   ['Follow a citation','Select a claim to reveal arrows from labs that cited it.',
+    '<path d="M28 25 116 45M33 65 116 49m-10-9 10 5-11 3" class="guide-link"/><circle cx="26" cy="25" r="6" fill="var(--domain-0)"/><circle cx="31" cy="65" r="6" fill="var(--domain-1)"/><circle cx="132" cy="47" r="14" class="guide-grid"/><circle cx="132" cy="47" r="7" fill="var(--claim-pass)"/>']
+  ]:[
+   ['Read a research team','Larger circles have more studies in progress. Small marks are team members.',
+    '<circle cx="54" cy="45" r="20" class="guide-ring"/><circle cx="124" cy="45" r="11" class="guide-ring"/><circle cx="54" cy="45" r="4" fill="var(--domain-0)"/><circle cx="124" cy="45" r="3" fill="var(--domain-0)"/><circle cx="54" cy="18" r="3" fill="var(--agent-ai)"/><circle cx="30" cy="62" r="3" fill="var(--agent-human)"/><circle cx="78" cy="62" r="3" fill="var(--agent-human)"/>'],
+   ['Spot possible partners','Lines connect possible collaborators. Purple lines cross communities.',
+    '<path d="M34 45H84L134 29M84 45l47 22" class="guide-link"/><circle cx="33" cy="45" r="10" class="guide-ring"/><circle cx="84" cy="45" r="10" class="guide-ring"/><circle cx="134" cy="29" r="10" class="guide-ring-other"/><circle cx="131" cy="67" r="8" class="guide-ring-other"/>'],
+   ['Move a team','Drag a team to change its possible partners. Tap it for details.',
+    '<path d="M47 44h71m-11-8 11 8-11 8" class="guide-link" stroke-dasharray="4 4"/><circle cx="33" cy="44" r="13" class="guide-grid"/><circle cx="134" cy="44" r="16" class="guide-ring"/><circle cx="134" cy="44" r="4" fill="var(--domain-0)"/>']
+  ];
+  for(const [title,caption,art] of guide){
+   const tile=make('figure','map-guide-tile'),image=make('div','map-guide-art'),description=make('figcaption');
+   image.innerHTML='<svg viewBox="0 0 168 88" aria-hidden="true">'+art+'</svg>';
+   description.append(make('strong','',title),make('span','',caption));tile.append(image,description);tiles.append(tile);
+  }
+  key.replaceChildren(tiles);
  }
  for(const id of ['network-a','network-b'])$(id).setAttribute('aria-label',papers?'Published claims arranged by field and publication time; select a paper for its recorded citations':'Laboratory map; size indicates active studies, lines show possible partners; drag a lab to change its network position');
 }
@@ -710,7 +717,9 @@ function draw(canvas,s,index,t){
   const group=s.labs.filter(l=>l.domain===domain).map(l=>position(l,g));if(!group.length)continue;
   const x=group.reduce((sum,p)=>sum+p.x,0)/group.length,y=group.reduce((sum,p)=>sum+p.y,0)/group.length;
   const rx=Math.max(48,...group.map(p=>Math.abs(p.x-x)+24)),ry=Math.max(44,...group.map(p=>Math.abs(p.y-y)+24));
-  ctx.save();ctx.globalAlpha=(fieldFilter===null||fieldFilter===domain) ? 0.045 : 0.012;ctx.fillStyle=domainColors[domain];ctx.beginPath();ctx.ellipse(x,y,rx,ry,0,0,Math.PI*2);ctx.fill();ctx.restore();
+  ctx.save();const aura=ctx.createRadialGradient(x,y,0,x,y,Math.max(rx,ry));
+  aura.addColorStop(0,domainColors[domain]);aura.addColorStop(1,'transparent');
+  ctx.globalAlpha=(fieldFilter===null||fieldFilter===domain) ? .19 : .04;ctx.fillStyle=aura;ctx.beginPath();ctx.ellipse(x,y,rx,ry,0,0,Math.PI*2);ctx.fill();ctx.restore();
   ctx.fillStyle=domainColors[domain];ctx.globalAlpha=.7;ctx.font='600 11px '+FONT;ctx.textAlign='left';ctx.fillText(domainNames[domain],Math.max(10,x-rx+12),Math.max(18,y-ry+16));ctx.globalAlpha=1;
  }
  if(show.links&&!papers)for(const edge of s.links){
@@ -753,7 +762,7 @@ function draw(canvas,s,index,t){
    agents.forEach((a,j)=>{const ang=-Math.PI/2+j*2*Math.PI/agents.length,orbit=r+9;
     ctx.fillStyle=a.role==='AI'?ink['agent-ai']:ink['agent-human'];ctx.beginPath();ctx.arc(p.x+Math.cos(ang)*orbit,p.y+Math.sin(ang)*orbit,1.9,0,6.283);ctx.fill();});
   }
-  if(show.labels&&(isSelected||w>340||i%3===0)){
+  if(show.labels&&(isSelected||fieldFilter===l.domain||w>850)){
    ctx.fillStyle=isSelected?ink['map-label-strong']:ink['map-label'];ctx.font=isSelected?'600 11px '+FONT:'11px '+FONT;ctx.textAlign='center';ctx.fillText(l.name,p.x,p.y-r-12);
   }
  });
@@ -1011,26 +1020,111 @@ function setView(name){
 }
 /* Experiment recipes are transparent, authored model interventions, not
    generated science. The user explicitly chooses to advance both worlds. */
+const REVIEW_CAPACITY={
+ name:'Can peer review keep up?',key:'verification',label:'Peer review capacity',metric:'reviewBacklog',
+ outcome:'Studies waiting for review',low:E.DEFAULTS.verification,high:8
+};
 const GUIDED_EXPERIMENTS={
  review_bottleneck:{
-   name:'Can review keep up with faster research?',key:'generation',low:3,high:9,
+   name:'Can review keep up with faster research?',key:'generation',label:'Idea generation',metric:'reviewBacklog',outcome:'Studies waiting for review',low:3,high:9,
    rationale:'More attempted hypotheses may increase the review queue if review staffing is fixed.',
    observe:'Review backlog and publication counts',
    caution:'The throughput rates and staffing coefficients are uncalibrated assumptions.'
  },
  selective_reporting:{
-   name:'What if positive results are rewarded?',key:'pressure',low:3,high:9,
+   name:'What if positive results are rewarded?',key:'pressure',label:'Publication pressure',metric:'falsePublished',outcome:'False claims published in the model',low:3,high:9,
    rationale:'Selecting a favorable p-value from additional analyses can increase false positives.',
    observe:'False published claims and published counts',
    caution:'The number of analyses and publication-pressure response are hypothetical.'
  },
  replication_capacity:{
-   name:'What changes when replication is easier?',key:'replication',low:2,high:9,
+   name:'What changes when replication is easier?',key:'replication',label:'Independent repeat capacity',metric:'replicated',outcome:'Completed independent repeats',low:2,high:9,
    rationale:'More repeat-study capacity can uncover non-replicating publications, but does not prove any claim true.',
    observe:'Independent replications, withdrawals and queue size',
    caution:'Replications use synthetic independent normal samples, not real laboratory studies.'
  }
 };
+let level='simple',mediumScenario='review_capacity';
+const simpleRuns=new Map(),mediumRuns=new Map();
+let focusedRuns=null;
+function focusedRecipe(){return level==='simple'?REVIEW_CAPACITY:GUIDED_EXPERIMENTS[mediumScenario]||REVIEW_CAPACITY;}
+function selectLevel(next,scenario,focus=false){
+ if(!['simple','medium','advanced'].includes(next))return;
+ if(level==='advanced'&&next!==level){play(false);if(drawerOpen)settings(false,false);}
+ if(next==='medium'&&(scenario==='review_capacity'||Object.hasOwn(GUIDED_EXPERIMENTS,scenario)))mediumScenario=scenario;
+ level=next;$('universe-app').dataset.level=level;
+ document.querySelectorAll('[data-level-choice]').forEach(button=>{
+  const active=button.dataset.levelChoice===level;button.classList.toggle('active',active);button.setAttribute('aria-pressed',String(active));
+ });
+ if(level==='advanced'){render();drawMap();}
+ else{
+  focusedRuns=level==='simple'?[...simpleRuns.values()].at(-1):mediumRuns.get(mediumScenario);
+  const recipe=focusedRecipe(),medium=level==='medium';
+  text('focus-title',recipe.name);
+  text('focus-description',medium?'World A stays fixed. Change World B and run both from the same starting point.':'Set the review capacity, run the model, then watch how many studies are still waiting.');
+  text('focus-setting-label',recipe.label+(medium?' · World B':''));
+  $('focus-setting').value=focusedRuns?.value??(medium?recipe.high:recipe.low);
+  text('focus-setting-value',$('focus-setting').value+' / 10');
+  text('focus-run',medium?'Compare both worlds':'Run simulation');
+  drawFocused();
+  if(focus){$('focus-setting').focus({preventScroll:true});$('focus-setting').scrollIntoView({block:'nearest'});}
+ }
+ publishContext(true);reportFocusedProgress();
+}
+function modelRun(recipe,value){
+ const world=E.make(FOCUS_SEED,{[recipe.key]:value});E.step(world,FOCUS_DAYS);
+ return {world,summary:E.summary(world)};
+}
+function runFocused(){
+ const recipe=focusedRecipe(),value=Number($('focus-setting').value);
+ if(level==='medium'&&value===recipe.low){text('focus-status','Give World B a different setting from World A.');return;}
+ focusedRuns={value,a:modelRun(recipe,level==='medium'?recipe.low:value),b:level==='medium'?modelRun(recipe,value):null};
+ if(level==='simple'){simpleRuns.delete(value);simpleRuns.set(value,focusedRuns);}
+ else mediumRuns.set(mediumScenario,focusedRuns);
+ trackUsage('step',{days:FOCUS_DAYS});
+ drawFocused();publishContext(true);reportFocusedProgress();
+}
+function drawFocused(){
+ const recipe=focusedRecipe(),medium=level==='medium',a=focusedRuns?.a,b=focusedRuns?.b;
+ const metric=recipe.metric,host=$('focus-results');
+ text('focus-metric',recipe.outcome);
+ if(medium){
+  const scores=[['World A · '+recipe.low+'/10',a],['World B'+(b?' · '+focusedRuns.value+'/10':''),b]];
+  host.replaceChildren(...scores.map(([label,run])=>{
+   const score=make('div','focus-world-value');score.append(make('strong','',run?.summary[metric]??'—'),make('small','',label));return score;
+  }));
+ }else host.replaceChildren(make('strong','',a?.summary[metric]??'—'));
+ text('focus-status',a?(medium?'Same seed and duration. Only '+recipe.label.toLowerCase()+' differs.':'Completed at '+focusedRuns.value+'/10. Try another setting to see what changes.'):'45 model days per run · synthetic teaching model');
+ const series=run=>run?[...run.world.history,run.summary]:[];
+ const pointsA=series(a),pointsB=series(b);
+ const max=Math.max(1,...[...pointsA,...pointsB].map(row=>row[metric]));
+ function drawLine(rows,side){
+  const xy=rows.map(row=>[10+row.day/FOCUS_DAYS*620,168-row[metric]/max*151]);
+  $('focus-line-'+side).setAttribute('points',xy.map(p=>p.join(',')).join(' '));
+  const end=$('focus-point-'+side);end.toggleAttribute('hidden',!xy.length);
+  if(xy.length){end.setAttribute('cx',xy.at(-1)[0]);end.setAttribute('cy',xy.at(-1)[1]);}
+  return xy;
+ }
+ const xy=drawLine(pointsA,'a');drawLine(pointsB,'b');
+ $('focus-area').setAttribute('d',!medium&&xy.length?'M'+xy.map(p=>p.join(',')).join(' L')+' L630 168 H10 Z':'');
+}
+function reportFocusedProgress(){
+ if(level==='advanced'){G.learningProgress?.({level});return;}
+ const recipe=focusedRecipe();
+ const runs=level==='simple'?[...simpleRuns.values()].slice(-2):focusedRuns?[focusedRuns]:[];
+ G.learningProgress?.({
+  level,metric:recipe.metric,scenario:level==='medium'?mediumScenario:'',
+  trials:runs.map(run=>({setting:run.value,result:(run.b||run.a).summary[recipe.metric]})),
+  baseline:level==='medium'?{setting:recipe.low,result:focusedRuns?.a.summary[recipe.metric]??null}:null
+ });
+}
+function publishFocusedContext(){
+ const a=focusedRuns?.a,b=focusedRuns?.b,run=b||a,recipe=focusedRecipe();
+ G.context({level,world:b?'B':'A',day:run?.world.day||0,hasFork:!!b,view:'focused',
+  policies:run?.world.policy||{...E.DEFAULTS},metrics:run?.summary||{},seed:FOCUS_SEED,
+  comparison:b?{a:a.summary,b:b.summary}:null,
+  lesson:{policy:recipe.key,observed:!!run},focusedMetric:recipe.metric});
+}
 function runGuidedExperiment(id){
   const recipe=GUIDED_EXPERIMENTS[id];
   if(!recipe||typeof G.experimentResult!=='function')return;
@@ -1090,7 +1184,8 @@ function bridge(){
       show[key]=!!enabled;$('layer-'+key).checked=!!enabled;
     }
   });
-  G.onExperiment(runGuidedExperiment);
+  G.onExperiment(id=>{selectLevel('advanced');runGuidedExperiment(id);});
+  G.onLevel?.(({level,scenario,focus})=>selectLevel(level,scenario,focus));
   if(G.onLesson)G.onLesson(startLesson);
   if(G.onComparison)G.onComparison(runAtlasComparison);
   G.onSection(section=>{
@@ -1111,7 +1206,10 @@ function bind(){
   for(const id of ['map-help','inspector-map-help'])$(id).addEventListener('click',openMapGuide);
   $('close-map-help').addEventListener('click',()=>$('map-dialog').close());
   $('guide-knowledge').addEventListener('click',()=>{setView('papers');$('map-dialog').close();});
-  $('back-labs').addEventListener('click',()=>shellAction('catalog'));
+  $('back-labs').addEventListener('click',event=>{if(window.parent!==window){event.preventDefault();shellAction('catalog');}});
+  document.querySelectorAll('[data-level-choice]').forEach(button=>button.addEventListener('click',()=>selectLevel(button.dataset.levelChoice)));
+  $('focus-setting').addEventListener('input',event=>text('focus-setting-value',event.target.value+' / 10'));
+  $('focus-run').addEventListener('click',runFocused);
   $('guided-tour').addEventListener('click',()=>shellAction('tour'));
   $('fullscreen').addEventListener('click',()=>shellAction('fullscreen'));
   $('scientific-sources').addEventListener('click',()=>shellAction('sources'));
@@ -1169,7 +1267,7 @@ function bind(){
   window.addEventListener('resize',drawChart,{passive:true});
   document.addEventListener('keydown',e=>{
     if(e.key==='Escape'&&drawerOpen)settings(false);
-    if(e.code==='Space'&&e.target===document.body){e.preventDefault();play(!playing);}
+    if(level==='advanced'&&e.code==='Space'&&e.target===document.body){e.preventDefault();play(!playing);}
   });
   canvasEvents(0);canvasEvents(1);
 }
@@ -1182,7 +1280,7 @@ function animation(now){
     render();interesting();snapshotInsight();
   }
   if(!playing)lastSimulation=now;
-  drawMap(nowWorld().day);
+  if(level==='advanced')drawMap(nowWorld().day);
   raf=requestAnimationFrame(animation);
 }
 /* Dropdowns. The list a browser draws for <select> belongs to the operating
@@ -1271,7 +1369,7 @@ function installSelects(){
   document.addEventListener('scroll',e=>{if(cur&&!cur.pop.contains(e.target))close();},true);
   addEventListener('resize',()=>close());
 }
-mountWorkspace();bind();render();bridge();installSelects();
+mountWorkspace();bind();render();bridge();installSelects();selectLevel('simple');
 if(G.onTheme)G.onTheme(()=>{readInk();drawChart();drawMap(nowWorld().day);});
 // The host hides Pulsar while a dialog in here dims the workspace, so the
 // companion never floats undimmed over a modal backdrop.
