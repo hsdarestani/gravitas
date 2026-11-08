@@ -141,6 +141,11 @@ jobs:
               CODE_ONLY=true
             fi
           fi
+          INITIAL_TOPIC_01_ESSAY_IMPORT=false
+          if ! git cat-file -e "$BASE:backend/core/management/commands/publish_topic_01_essays.py" 2>/dev/null; then
+            INITIAL_TOPIC_01_ESSAY_IMPORT=true
+          fi
+          echo "INITIAL_TOPIC_01_ESSAY_IMPORT=$INITIAL_TOPIC_01_ESSAY_IMPORT" >> "$GITHUB_ENV"
           echo "STATIC_ONLY=$STATIC_ONLY" >> "$GITHUB_ENV"
           echo "CODE_ONLY=$CODE_ONLY" >> "$GITHUB_ENV"
           echo "Release scope=$RELEASE_SCOPE static=$STATIC_ONLY hot_reload=$CODE_ONLY"
@@ -863,6 +868,37 @@ jobs:
           sudo systemctl enable --now gravitas-task-notifications.timer
           sudo systemctl enable --now gravitas-canonical-task-sync.timer
           sudo systemctl start gravitas-task-notifications.service || true
+          REMOTE
+
+      - name: Synchronize public page content for Pulsar
+        shell: bash
+        run: |
+          set -euo pipefail
+          HOST="${{ secrets.DEPLOY_HOST }}"
+          ssh -i ~/.ssh/gravitas_deploy -p "$DEPLOY_PORT" "$DEPLOY_USER@$HOST" \
+            sudo -u gravitas bash -s -- "$BACKEND_PATH" "$DEPLOY_PATH" <<'REMOTE'
+          set -euo pipefail
+          set -a
+          . /etc/gravitas/backend.env
+          set +a
+          export PYTHONPATH="$1" DJANGO_SETTINGS_MODULE=gravitas_backend.settings
+          "$1/.venv/bin/django-admin" sync_public_pages --source "$2"
+          REMOTE
+
+      - name: Publish the selected Topic 01 essay sources
+        if: env.INITIAL_TOPIC_01_ESSAY_IMPORT == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          HOST="${{ secrets.DEPLOY_HOST }}"
+          ssh -i ~/.ssh/gravitas_deploy -p "$DEPLOY_PORT" "$DEPLOY_USER@$HOST" \
+            sudo -u gravitas bash -s -- "$BACKEND_PATH" <<'REMOTE'
+          set -euo pipefail
+          set -a
+          . /etc/gravitas/backend.env
+          set +a
+          export PYTHONPATH="$1" DJANGO_SETTINGS_MODULE=gravitas_backend.settings
+          "$1/.venv/bin/django-admin" publish_topic_01_essays
           REMOTE
 
       - name: Install native conditional ACL bridge

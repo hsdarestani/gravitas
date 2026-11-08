@@ -70,6 +70,7 @@ export async function renderProjectStructure(doc, projectId) {
     try {
       const url = `${endpoint}/file-content/?path=${encodeURIComponent(path)}${generic ? '&edit=1' : ''}`;
       const file = await call(url); let etag = file.etag;
+      let savedContent = file.content;
       editor.hidden = false; editor.replaceChildren(el('h3', null, path));
       const input = el('textarea', 'ws-input');
       input.rows = 16; input.value = file.content;
@@ -113,16 +114,65 @@ export async function renderProjectStructure(doc, projectId) {
       editor.append(split, tools);
       paint();
       const conflicts = el('div'); editor.append(conflicts);
+      const essayTools = el('div', 'fl-row__actions');
+      editor.append(essayTools);
+      const essayEndpoint = `${endpoint}/topic-essays/`;
+      let essayState, publishing = false;
+      function showEssayTools() {
+        if (!essayState) return;
+        essayTools.replaceChildren();
+        for (const [depth, slot] of Object.entries(essayState.slots)) {
+          if (!slot.linked && (!essayState.can_bind || Object.values(essayState.slots).some(other => other.linked))) continue;
+          const label = slot.linked ? 'Publish' : slot.occupied ? 'Replace source and publish' : 'Link and publish';
+          const publish = button(`${label} · ${slot.label}`, async () => {
+            if (saving || publishing || input.value !== savedContent) return;
+            if (!confirm(`Publish the saved Markdown in “${path}” as ${slot.label} on the public Topic 01 page and in Pulsar?`)) return;
+            publishing = true;
+            showEssayTools();
+            try {
+              essayState = await call(essayEndpoint, { method: 'POST', body: { path, depth, etag, version: slot.version } });
+              status.textContent = `Published · Topic 01 · ${slot.label}`;
+            } catch (error) {
+              if (error.message === 'essay_source_changed') {
+                status.textContent = 'The file changed in Nextcloud. Reopen it and review the latest version before publishing.';
+              } else if (error.message === 'essay_publication_changed') {
+                status.textContent = 'Someone updated this publication. Reopen the file to review the current version.';
+              } else {
+                status.textContent = 'Publication could not be confirmed: ' + error.message;
+              }
+            } finally {
+              publishing = false;
+              showEssayTools();
+            }
+          });
+          publish.disabled = saving || publishing || input.value !== savedContent;
+          publish.title = 'Save Markdown edits before publishing them to Topic 01.';
+          essayTools.append(publish);
+        }
+      }
+      if (file.can_edit && path !== 'project.md' && /\.md$/i.test(path)) {
+        call(essayEndpoint + '?path=' + encodeURIComponent(path)).then(state => {
+          essayState = state;
+          showEssayTools();
+        }).catch(error => {
+          if (error.status !== 404 && error.status !== 403) {
+            essayTools.textContent = 'Publishing controls are temporarily unavailable.';
+          }
+        });
+      }
+      input.addEventListener('input', showEssayTools);
       let saving = false;
       const save = async () => {
-        if (saving || !file.can_edit) return;
+        if (saving || publishing || !file.can_edit) return;
         const submitted = input.value;
         saving = true;
+        showEssayTools();
         storeDraft();
         try {
           const result = await call(url, { method: 'PUT', body: { content: submitted, etag } });
           if (result.content !== submitted || !result.etag) throw new Error('Could not confirm saved revision');
           etag = result.etag;
+          savedContent = submitted;
           if (input.value === submitted) {
             clearDraft();
             status.textContent = 'Saved to versioned project file';
@@ -139,8 +189,8 @@ export async function renderProjectStructure(doc, projectId) {
           status.textContent = 'Another edit changed this file. Both versions are preserved below.';
           conflicts.replaceChildren(el('h3', null, 'Resolve conflict'));
           for (const [label, value] of [['Base version', conflict.base], ['Your version', input.value], ['Current remote version', conflict.remote]]) { const text = el('pre', 'fl-prose', value); conflicts.append(el('h4', null, label), text); }
-          conflicts.append(button('Keep mine', () => { etag = conflict.etag; save(); }), button('Keep remote', () => { input.value = conflict.remote; etag = conflict.etag; status.textContent = 'Remote version loaded. Your previous version remains visible below.'; }), button('Manual merge in editor', () => { etag = conflict.etag; input.focus(); status.textContent = 'Merge in the editor, then Save. The remote revision will be checked again.'; }));
-        } finally { saving = false; }
+          conflicts.append(button('Keep mine', () => { etag = conflict.etag; save(); }), button('Keep remote', () => { input.value = conflict.remote; etag = conflict.etag; savedContent = conflict.remote; showEssayTools(); status.textContent = 'Remote version loaded. Your previous version remains visible below.'; }), button('Manual merge in editor', () => { etag = conflict.etag; input.focus(); status.textContent = 'Merge in the editor, then Save. The remote revision will be checked again.'; }));
+        } finally { saving = false; showEssayTools(); }
       };
       input.addEventListener('keydown', event => {
         if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 's') {
