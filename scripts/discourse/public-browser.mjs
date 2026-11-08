@@ -100,7 +100,7 @@ try{
   const topicId=await approve(moderator,created.pending_post.id);result.topic_id=topicId;
   await member.page.goto(FORUM+'/t/'+topicId,{waitUntil:'domcontentloaded'});await member.page.locator('.topic-post').first().waitFor();
   phase='reply, edit, search and poll';
-  await approve(moderator,await queued(member.context,{topic_id:topicId,raw:`A persistent acceptance reply ${token} with an exact reference to the operational check.`,reply_to_post_number:1}));
+  await approve(moderator,await queued(member.context,{topic_id:topicId,raw:`A persistent acceptance reply ${token} with an exact reference to the operational check. @${moderator.user.username}`,reply_to_post_number:1}));
   let topic=await json(await member.context.request.get(FORUM+`/t/${topicId}.json`),'Reload persistent discussion');
   const reply=topic.post_stream.posts.find(post=>post.post_number===2);assert(reply?.id,'Moderated reply persists');
   await json(await member.context.request.put(FORUM+`/posts/${reply.id}.json`,{data:{post:{raw:`An edited persistent acceptance clarification ${token}.`}},headers:await headers(member.context)}),'Edit own reply');
