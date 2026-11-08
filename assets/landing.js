@@ -1,4 +1,4 @@
-// The workspace window on the home page (chapter 03).
+// The workspace window on the home page (chapter 04).
 //
 // It was a still picture: a frame, aria-hidden, that showed one page and
 // nothing else. A visitor's first instinct with anything that looks like a
@@ -57,4 +57,54 @@
     e.preventDefault();
     show(tabs[next].getAttribute('data-ws'), true);
   });
+})();
+
+// The Lab chapter (02). The cards come from the registry and nowhere else:
+// the Lab is a space for every Topic, its experiences are not ours to name on
+// this page, and a hard-coded card would outlive the Lab it described. Only
+// Labs the registry marks ready are drawn, as on lab.html. Nothing published,
+// a failed request or a missing route leaves the list hidden and says nothing,
+// because the chapter's copy, steps and button already stand on their own.
+// Thumbnails follow the Lab page's naming, <slug>-preview.webp and
+// <slug>-preview-light.webp; one that fails to load removes its frame.
+(function () {
+  var list = document.querySelector('[data-lab-list]');
+  if (!list || !window.fetch) return;
+  function el(tag, cls, text) {
+    var n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (text != null) n.textContent = String(text);
+    return n;
+  }
+  function thumb(slug, suffix, cls) {
+    var img = el('img', cls);
+    img.src = 'assets/thumbnails/' + encodeURIComponent(slug) + '-preview' + suffix + '.webp';
+    img.alt = ''; img.width = 1280; img.height = 720; img.loading = 'lazy'; img.decoding = 'async';
+    return img;
+  }
+  fetch('/api/labs/', { credentials: 'same-origin', cache: 'no-store' })
+    .then(function (r) { if (!r.ok) throw new Error('registry'); return r.json(); })
+    .then(function (data) {
+      var labs = (Array.isArray(data && data.labs) ? data.labs : []).filter(function (l) { return l && l.ready && l.slug; });
+      if (!labs.length) return;
+      labs.forEach(function (lab) {
+        var card = el('a', 'g-card g-card--interactive lp-lab');
+        card.href = 'lab.html?lab=' + encodeURIComponent(lab.slug);
+        var media = el('span', 'lp-lab__media');
+        var dark = thumb(lab.slug, '', 'lp-lab__img--dark');
+        var light = thumb(lab.slug, '-light', 'lp-lab__img--light');
+        dark.onerror = function () { media.remove(); card.style.gridTemplateColumns = '1fr'; };
+        light.onerror = function () { light.remove(); };
+        media.append(dark, light);
+        var body = el('span', 'lp-lab__body');
+        body.append(el('span', 'lp-lab__k', 'Interactive model' + (lab.duration_text ? ' \u00b7 ' + lab.duration_text : '')));
+        body.append(el('h3', '', lab.title || 'Lab'));
+        if (lab.summary) body.append(el('p', '', lab.summary));
+        body.append(el('span', 'lp-lab__go', 'Preview the Lab \u2192'));
+        card.append(media, body);
+        list.append(card);
+      });
+      list.hidden = false;
+    })
+    .catch(function () {});
 })();

@@ -30,7 +30,9 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
 <link rel="stylesheet" href="assets/gravitas.css?v=up-f706806e3a02-g1df6ff09-lit1">
 <link rel="stylesheet" href="assets/site.css?v=up-f706806e3a02-g1df6ff09-ds10">
 <link rel="stylesheet" href="assets/hero.css?v=20261105-stars1">
-<link rel="stylesheet" href="assets/landing.css?v=20261105-lp9">
+<link rel="stylesheet" href="assets/landing.css?v=20261108-lp13">
+<link rel="stylesheet" href="assets/topic-rail.css?v=20261108-reel2">
+<link rel="stylesheet" href="assets/forum.css?v=20261108-fm10">
 <link rel="stylesheet" href="assets/chat.css?v=20261010-pulsar8">
 <link rel="stylesheet" href="assets/production-overrides.css?v=up-f706806e3a02-g1df6ff09-rl3">
 </head>
@@ -96,7 +98,7 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
           <a class="g-btn g-btn--primary g-btn--lg g-btn--lead" href="/signup">
             <svg class="g-btn__icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><g transform="translate(0.645 0.673) scale(0.945894)" stroke-width="1.797"><path d="M2.6 20.4v-1.7a4.6 4.6 0 0 1 4.6-4.6h3.4a4.6 4.6 0 0 1 4.6 4.6v1.7"/><path d="M18.8 5.6v4.8"/><path d="M16.4 8h4.8"/><circle cx="8.9" cy="7.4" r="3.5" fill="currentColor" stroke="none"/></g></svg>
             <span>Join Us</span></a>
-          <a class="g-btn g-btn--secondary g-btn--lg" href="#topic">Open the Topic</a>
+          <a class="g-btn g-btn--secondary g-btn--lg" href="#start">Open the Topic</a>
         </div>
         <p class="lp-hero__fine">Free account. No field or degree required.</p>
       </div>
@@ -133,111 +135,280 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
   </div>
 </section>
 
-<!-- 01 · The Topic ----------------------------------------------------------
-     This was a four-panel rail that paged itself sideways on a timer and
-     took the wheel while the pointer was over it. It hid the best material
-     on the page behind three clicks most visitors never make. The same
-     material is now a list a reader takes in at one glance, and each layer
-     is a link into the Topic at that layer. -->
-<section class="g-section lp-chap lp-gridded lp-gridded--left" id="topic" aria-labelledby="ch-topic">
+<!-- 01 · The Topic: the rail ---------------------------------------------------
+     The four-panel rail came back on 2026-11-06 at the owner's request, and on
+     2026-11-08 it became the whole of chapter 01: one panel for each part of
+     Topic 01, in the Topic page's own order. The layer grid and the Argument
+     chapter that used to follow it were the same material said twice, so the
+     two readings and This Week's Question are panels 07 and 08 now.
+     It does not page itself and does not take the mouse wheel; the named
+     steps, the arrows, a swipe or the arrow keys move it, and the next panel
+     always shows at the edge. Layout: assets/topic-rail.css. Behaviour:
+     assets/topic-rail.js. The poster and the cast are drawn from the final
+     paper-cast artwork. -->
+<section class="g-section g-section--deep lp-chap trail" id="start" data-rail aria-labelledby="trail-h">
   <div class="g-container">
     <header class="lp-chap__head rv">
       <span class="lp-chap__n">01 &middot; The Topic</span>
-      <h2 id="ch-topic">One Question, All the Way Down</h2>
-      <p class="g-lead">A Topic is not a video and not an article. It is one question with every layer wrapped around it, so you stop at the depth that suits you and never hit a locked door.</p>
+      <h2 id="trail-h">One Question, All the Way Down</h2>
+      <p class="g-lead">A Topic is not a video and not an article. It is one question with every layer wrapped around it, so you stop at the depth that suits you and never hit a locked door. This is Topic 01, one layer at a time.</p>
     </header>
-    <div class="lp-topic">
-      <div class="lp-topic__intro rv">
-        <p class="lp-topic__k">Topic 01 &middot; AI in Research &middot; Open now</p>
-        <h3 class="lp-topic__q">Can you trust an answer that looks right?</h3>
-        <p class="lp-topic__say">An assistant reads a number off a dataset, and it is correct. Professor Hulse&rsquo;s reply is the whole Topic: &ldquo;That proves you can read a number.&rdquo;</p>
-        <p class="lp-topic__meta">5 min video &middot; essay at two depths &middot; 9 sources</p>
-        <a class="g-btn g-btn--primary" href="topic-answer-that-looked-right.html">Open the Topic</a>
+
+    <div class="trail__bar">
+      <div class="trail__steps" role="group" aria-label="Jump within Topic 01">
+        <button class="chip trail__step" type="button" aria-current="true"><span class="g-nums">01</span>Video</button>
+        <button class="chip trail__step" type="button" aria-current="false"><span class="g-nums">02</span>Cast</button>
+        <button class="chip trail__step" type="button" aria-current="false"><span class="g-nums">03</span>The 9.8</button>
+        <button class="chip trail__step" type="button" aria-current="false"><span class="g-nums">04</span>Essay</button>
+        <button class="chip trail__step" type="button" aria-current="false"><span class="g-nums">05</span>Sources</button>
+        <button class="chip trail__step" type="button" aria-current="false"><span class="g-nums">06</span>Timeline</button>
+        <button class="chip trail__step" type="button" aria-current="false"><span class="g-nums">07</span>Viewpoints</button>
+        <button class="chip trail__step" type="button" aria-current="false"><span class="g-nums">08</span>Discussion</button>
       </div>
-      <ol class="lp-layers rv" aria-label="The layers of this Topic">
-        <li class="lp-layer"><a href="topic-answer-that-looked-right.html#video">
-          <span class="lp-layer__n">01</span>
-          <div><h3>Video</h3><p>The Answer That Looked Right: a professor, a student and an assistant called Pulsar, with the full transcript.</p></div>
-          <svg class="lp-layer__go" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a></li>
-        <li class="lp-layer"><a href="topic-answer-that-looked-right.html#essay">
-          <span class="lp-layer__n">02</span>
-          <div><h3>Essay</h3><p>Reading a number is not evidence. Overview or In depth: neither is a teaser, both are the whole case.</p></div>
-          <svg class="lp-layer__go" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a></li>
-        <li class="lp-layer"><a href="topic-answer-that-looked-right.html#sources">
-          <span class="lp-layer__n">03</span>
-          <div><h3>Sources</h3><p>From a beginner&rsquo;s guide to protein data to the AlphaFold and CASP papers, every link checked.</p></div>
-          <svg class="lp-layer__go" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a></li>
-        <li class="lp-layer"><a href="topic-answer-that-looked-right.html#timeline">
-          <span class="lp-layer__n">04</span>
-          <div><h3>Timeline</h3><p>From Anfinsen in 1973 to the 2024 Nobel Prize, and the citations that looked right in between.</p></div>
-          <svg class="lp-layer__go" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a></li>
-        <li class="lp-layer"><a href="topic-answer-that-looked-right.html#test">
-          <span class="lp-layer__n">05</span>
-          <div><h3>Try It</h3><p>Five answers that all look right. Decide which ones to check.</p></div>
-          <svg class="lp-layer__go" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a></li>
-        <li class="lp-layer"><a href="topic-answer-that-looked-right.html#views">
-          <span class="lp-layer__n">06</span>
-          <div><h3>Viewpoints</h3><p>Check everything, or check by risk? Our reading, and the strongest case against it.</p></div>
-          <svg class="lp-layer__go" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a></li>
-        <li class="lp-layer"><a href="topic-answer-that-looked-right.html#talk">
-          <span class="lp-layer__n">07</span>
-          <div><h3>Discussion</h3><p>This week&rsquo;s question and the replies, read by a moderator before they appear.</p></div>
-          <svg class="lp-layer__go" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a></li>
-      </ol>
+      <div class="trail__nav">
+        <span class="trail__count g-nums" data-rail-count aria-live="polite">01 / 08</span>
+        <button class="trail__arrow" type="button" data-rail-prev aria-label="Previous panel"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5M11 18l-6-6 6-6"/></svg></button>
+        <button class="trail__arrow" type="button" data-rail-next aria-label="Next panel"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
+      </div>
     </div>
-    <div class="lp-gal lp-gal--wide rv">
-      <figure>
-        <img src="assets/img/topic-01/promises.jpg" alt="A paper diagram: a new technology arrives, a big promise, and someone checks whether it was wrong, with stickers reading Breakthrough, Revolution and Game changer" width="1280" height="720" loading="lazy" decoding="async">
-        <figcaption><b>1:10 &middot; The promise</b>Every few years a new technology arrives. Someone still has to check it.</figcaption>
-      </figure>
-      <figure>
-        <img src="assets/img/topic-01/taylors-week.jpg" alt="Taylor at a desk in a lilac room, a chart on the wall and a week of ticked boxes" width="1280" height="720" loading="lazy" decoding="async">
-        <figcaption><b>1:40 &middot; Taylor&rsquo;s week</b>Fast, good at patterns, and using an AI assistant.</figcaption>
-      </figure>
-      <figure>
-        <img src="assets/img/topic-01/using-not-trusting.jpg" alt="Two paper labels, Using AI and Trusting it, joined by a not-equal sign" width="1280" height="720" loading="lazy" decoding="async">
-        <figcaption><b>2:07 &middot; The distinction</b>Using AI is not the same as trusting it.</figcaption>
-      </figure>
-      <figure>
-        <img src="assets/img/topic-01/dataset-review.jpg" alt="A dataset table with flagged cells beside the counts 12 missing entries and 03 naming conflicts, marked for review" width="1280" height="720" loading="lazy" decoding="async">
-        <figcaption><b>4:10 &middot; The ordinary work</b>Twelve missing entries, three naming conflicts, marked for review.</figcaption>
-      </figure>
+
+    <div class="trail__rail" tabindex="0" role="region" aria-label="Topic 01, eight panels side by side">
+
+      <article class="trail__panel" aria-label="01 of 08: The video">
+        <div class="trail__side">
+          <p class="trail__n">01 &middot; The video</p>
+          <h3>Can you trust an answer that looks right?</h3>
+          <p class="trail__say">Professor Hulse has spent thirty years on proteins. His student Taylor gets through the week with an AI assistant. Then the three of them sit down and test it.</p>
+          <ol class="trail__chap" aria-label="Chapters">
+            <li><time>0:00</time>Thirty years of proteins</li>
+            <li><time>2:44</time>Meet Pulsar</li>
+            <li><time>3:20</time>The 9.8</li>
+            <li><time>3:51</time>The work that eats a day</li>
+          </ol>
+          <div class="trail__act">
+            <a class="g-btn g-btn--primary" href="topic-answer-that-looked-right.html">Open the Topic</a>
+          </div>
+        </div>
+        <div class="trail__body">
+          <a class="video trail__video" href="topic-answer-that-looked-right.html#video" data-thumb="topic-01-video" aria-label="The Answer That Looked Right: chapters and full transcript on the Topic page">
+            <span class="video__play"><svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg></span>
+            <span class="trail__tag"><span class="g-nums">5:34</span> &middot; Soon on YouTube</span>
+          </a>
+        </div>
+      </article>
+
+      <article class="trail__panel" aria-label="02 of 08: The cast">
+        <div class="trail__side">
+          <p class="trail__n">02 &middot; The cast</p>
+          <h3>A professor, a student and an assistant</h3>
+          <p class="trail__say">Cut paper, one size each, wherever they stand. Pulsar never stands at all: it lives on screens.</p>
+          <div class="trail__act">
+            <a class="g-btn g-btn--secondary" href="topic-answer-that-looked-right.html#video">Who Is in It</a>
+          </div>
+        </div>
+        <div class="trail__body">
+          <ul class="trail__cast">
+            <li><img src="assets/img/topic-01/cast/hulse.webp" alt="Hulse, a round brick-red paper cut-out with thick black glasses and half-lowered lids" width="480" height="480" loading="lazy" decoding="async">
+              <p class="trail__who"><b>Hulse</b><span>Professor</span></p>
+              <p>Has heard every promise that a new technology will transform science, and checked most of them.</p></li>
+            <li><img src="assets/img/topic-01/cast/taylor.webp" alt="Taylor, a lumpy peach paper cut-out with round black eyes and a small smile" width="480" height="480" loading="lazy" decoding="async">
+              <p class="trail__who"><b>Taylor</b><span>Student</span></p>
+              <p>Fast, good at patterns, uses an AI assistant every day, and knows using it is not trusting it.</p></li>
+            <li><img src="assets/img/topic-01/cast/pulsar.webp" alt="Pulsar, four paper quarter-rings on a Cosmos Blue tile with a dot in the middle" width="480" height="480" loading="lazy" decoding="async">
+              <p class="trail__who"><b>Pulsar</b><span>AI assistant</span></p>
+              <p>Answers from the files it is given, and says so when it cannot verify something.</p></li>
+          </ul>
+        </div>
+      </article>
+
+      <article class="trail__panel" aria-label="03 of 08: The 9.8">
+        <div class="trail__side">
+          <p class="trail__n">03 &middot; The 9.8</p>
+          <h3>Correct is where the question starts</h3>
+          <p class="trail__say">Pulsar reads the right value off yesterday&rsquo;s dataset. Hulse&rsquo;s reply is the whole Topic.</p>
+          <div class="trail__act">
+            <a class="g-btn g-btn--primary" href="topic-answer-that-looked-right.html#test">Try It: Check Five Answers</a>
+          </div>
+        </div>
+        <div class="trail__body">
+          <ol class="trail__talk" aria-label="From the transcript, 3:20 to 3:35">
+            <li><time>3:20</time><b>Hulse</b><span>What is the molecular weight of the protein in yesterday&rsquo;s dataset?</span></li>
+            <li class="is-ai"><time>3:24</time><b>Pulsar</b><span>The molecular weight is approximately <strong class="trail__num">9.8</strong>.</span></li>
+            <li><time>3:27</time><b>Hulse</b><span>Correct.</span></li>
+            <li><time>3:28</time><b>Taylor</b><span>I told you.</span></li>
+            <li class="is-key"><time>3:30</time><b>Hulse</b><span>That proves you can read a number.</span></li>
+            <li class="is-ai"><time>3:35</time><b>Pulsar</b><span>Reading a number is not sufficient evidence of scientific reliability.</span></li>
+          </ol>
+        </div>
+      </article>
+
+      <article class="trail__panel" aria-label="04 of 08: The essay">
+        <div class="trail__side">
+          <p class="trail__n">04 &middot; The essay</p>
+          <h3>Reading a number is not evidence</h3>
+          <p class="trail__say">One essay that reads two ways. Overview or In depth: neither is a teaser, both are the whole case.</p>
+          <div class="trail__act">
+            <a class="g-btn g-btn--secondary" href="topic-answer-that-looked-right.html#essay">Read the Essay</a>
+          </div>
+        </div>
+        <div class="trail__body">
+          <div class="trail__essay">
+            <p class="trail__depth" aria-label="Two depths"><span class="g-tag">Overview</span><span class="g-tag">In depth</span></p>
+            <blockquote class="trail__open"><p>The dangerous answer from an AI assistant is not the obviously wrong one. It is the one that looks right: the expected format, a plausible number, a calm tone, and nothing on its surface to say whether anyone checked it.</p></blockquote>
+            <div class="trail__short">
+              <p class="trail__short-k">The short answer</p>
+              <p>Trust it the way you would trust a capable new colleague: enough to ask, never enough to skip the check on anything that compares, carries a unit, or cites something you did not give it.</p>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <article class="trail__panel" aria-label="05 of 08: The sources">
+        <div class="trail__side">
+          <p class="trail__n">05 &middot; The sources</p>
+          <h3>Three levels, every link checked</h3>
+          <p class="trail__say">Enter at the level you want, and move up when you feel like it. Nine sources, every DOI resolved.</p>
+          <div class="trail__act">
+            <a class="g-btn g-btn--secondary" href="topic-answer-that-looked-right.html#sources">All Nine Sources</a>
+          </div>
+        </div>
+        <div class="trail__body">
+          <ol class="trail__stairs" aria-label="Sources by level">
+            <li><p class="trail__lvl"><b>Start here</b><span>No background needed</span></p>
+              <ul><li>PDB-101: a guide to protein structure data</li><li>EMBL-EBI: what AlphaFold&rsquo;s confidence score means</li></ul></li>
+            <li><p class="trail__lvl"><b>Go further</b><span>Some method expected</span></p>
+              <ul><li>Walters &amp; Wilder, <i>Scientific Reports</i>, 2023</li><li>Parasuraman &amp; Manzey, <i>Human Factors</i>, 2010</li></ul></li>
+            <li><p class="trail__lvl"><b>Primary</b><span>The papers themselves</span></p>
+              <ul><li>Anfinsen, <i>Science</i>, 1973</li><li>Jumper et al., <i>Nature</i>, 2021</li></ul></li>
+          </ol>
+        </div>
+      </article>
+
+      <article class="trail__panel" aria-label="06 of 08: The timeline">
+        <div class="trail__side">
+          <p class="trail__n">06 &middot; The timeline</p>
+          <h3>Fifty years of checking</h3>
+          <p class="trail__say">From a principle in 1973 to a Nobel Prize in 2024, and the citations that looked right in between.</p>
+          <div class="trail__act">
+            <a class="g-btn g-btn--secondary" href="topic-answer-that-looked-right.html#timeline">How the Question Developed</a>
+          </div>
+        </div>
+        <div class="trail__body">
+          <ol class="trail__time" aria-label="Timeline">
+            <li><time>1973</time><span>The sequence holds the shape</span></li>
+            <li><time>1994</time><span>CASP: predictions judged blind</span></li>
+            <li><time>2008</time><span>Foldit opens to the public</span></li>
+            <li><time>2020</time><span>AlphaFold at CASP14</span></li>
+            <li><time>2021</time><span>A confidence score on every residue</span></li>
+            <li class="is-key"><time>2023</time><span>Citations that look right</span></li>
+            <li><time>2024</time><span>A Nobel Prize for the field</span></li>
+          </ol>
+        </div>
+      </article>
+
+      <article class="trail__panel" aria-label="07 of 08: Viewpoints">
+        <div class="trail__side">
+          <p class="trail__n">07 &middot; Viewpoints</p>
+          <h3>Two readings, both defensible</h3>
+          <p class="trail__say">We publish the strongest case against our own reading. If the counter-argument is weak, that is our failure, and you can say so.</p>
+          <div class="trail__act">
+            <a class="g-btn g-btn--secondary" href="topic-answer-that-looked-right.html#views">Where Do You Land?</a>
+          </div>
+        </div>
+        <div class="trail__body">
+          <div class="trail__views">
+            <div class="view view--for"><p class="view__tag">For checking</p>
+              <p>An assistant changes how fast drafts arrive, not who answers for them. A number in a report is the scientist&rsquo;s claim, whoever produced it.</p>
+              <cite>The position the video leans toward</cite></div>
+            <div class="view view--against"><p class="view__tag">Against</p>
+              <p>If the assistant is right more often than a tired researcher at the end of a long week, a rule that its answers need checking is ritual, not rigour. Checks belong where errors are likely.</p>
+              <cite>The strongest objection we could find</cite></div>
+          </div>
+        </div>
+      </article>
+
+      <article class="trail__panel" aria-label="08 of 08: The discussion">
+        <div class="trail__side">
+          <p class="trail__n">08 &middot; Discussion</p>
+          <h3>This week&rsquo;s question</h3>
+          <p class="trail__say">Replies are read by a moderator before they appear. Reading needs no account.</p>
+          <div class="trail__act">
+            <a class="g-btn g-btn--primary" href="topic-answer-that-looked-right.html#talk">Join the Discussion</a>
+          </div>
+        </div>
+        <div class="trail__body">
+          <blockquote class="trail__q"><p>If an assistant has been right ninety-nine times in a row, what should make you check the hundredth?</p></blockquote>
+        </div>
+      </article>
+
     </div>
-    <p class="lp-gal__credit">Stills from The Answer That Looked Right, our first video.</p>
+    <div class="trail__line" aria-hidden="true"><span></span></div>
+    <p class="trail__foot"><a class="lp-head__link" href="topics.html">All Topics <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a></p>
   </div>
 </section>
 
-<!-- 02 · The argument -------------------------------------------------------
-     The one thing no other science channel does, given a section of its own
-     instead of panel three of a carousel. -->
-<section class="g-section g-section--deep lp-chap lp-argue lp-gridded" id="argument" aria-labelledby="ch-argue">
+<!-- 02 · The Lab ----------------------------------------------------------------
+     Added 2026-11-08. The Lab is a GraviQuest space for every Topic, so this
+     chapter names no experiment of its own: the copy is the Lab page's, the
+     three steps say what any Lab run is, and the cards come only from the
+     registry. landing.js asks /api/labs/ for the Labs marked ready and draws
+     one card each; with none published, or with the registry unreachable,
+     the list stays hidden and the chapter is the copy, the steps and the
+     button. Thumbnails are looked up as assets/thumbnails/<slug>-preview.webp
+     (and -light.webp), the names the Lab page already uses. -->
+<section class="g-section lp-chap lp-gridded lp-gridded--left" id="lab" aria-labelledby="ch-lab">
   <div class="g-container">
     <header class="lp-chap__head rv">
-      <span class="lp-chap__n">02 &middot; The Argument</span>
-      <h2 id="ch-argue">Two Readings, Both Defensible</h2>
-      <p class="g-lead">We publish the strongest case against our own reading. If the counter-argument is weak, that is our failure, and you can say so.</p>
+      <span class="lp-chap__n">02 &middot; The Lab</span>
+      <h2 id="ch-lab">Change the Model. Watch What Moves.</h2>
+      <p class="g-lead">Interactive models you can change and question. Each one is tied to the scientific sources behind it, and none of them belongs to a single Topic.</p>
     </header>
-    <div class="views rv">
-      <div class="view view--for"><p class="view__tag">For checking</p>
-        <p>An assistant changes how fast drafts arrive, not who answers for them. A number in a report is
-          the scientist&rsquo;s claim, whoever produced it.</p>
-        <cite>The position the video leans toward</cite></div>
-      <div class="view view--against"><p class="view__tag">Against</p>
-        <p>If the assistant is right more often than a tired researcher at the end of a long week, a rule
-          that its answers need checking is ritual, not rigour. Checks belong where errors are likely.</p>
-        <cite>The strongest objection we could find</cite></div>
-    </div>
-    <div class="callout lp-argue__q rv">
-      <div>
-        <h3>This Week&rsquo;s Question</h3>
-        <p>If an assistant has been right ninety-nine times in a row, what should make you check the hundredth?</p>
-      </div>
-      <a class="g-btn g-btn--secondary" href="topic-answer-that-looked-right.html#talk">Join the Discussion</a>
+    <div class="lp-labs rv" data-lab-list hidden aria-live="polite"></div>
+    <ol class="lp-run rv" aria-label="What a Lab run is">
+      <li><svg class="g-ic lp-run__ic" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><g transform="translate(0.794 0.673) scale(0.946052)" stroke-width="1.797"><path d="M2.6 18.4h18.8"/><path d="M6.2 18.4V9.6"/><path d="M12 18.4V4.6"/><path d="M17.8 18.4v-6.2"/><circle cx="6.2" cy="7.4" r="1.5"/><circle cx="17.8" cy="10" r="1.5"/><circle cx="12" cy="2.6" r="1.638" fill="currentColor" stroke="none"/></g></svg><span><b>Change a condition</b>Move one setting, such as how fast results are rewarded.</span></li>
+      <li><svg class="g-ic lp-run__ic" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><g transform="translate(-1.028 0.184) scale(1.038200)" stroke-width="1.637"><path d="M20.4 12a8.4 8.4 0 1 1-2.9-6.35"/><path d="M20.8 3.2v5.2h-5.2"/><circle cx="12" cy="12" r="1.493" fill="currentColor" stroke="none"/></g></svg><span><b>Run it</b>The model plays out the consequences, step by step.</span></li>
+      <li><svg class="g-ic lp-run__ic" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><g transform="translate(1.586 0.550) scale(0.889943)" stroke-width="1.910"><path d="M5.6 3.6a1.6 1.6 0 0 1 1.6-1.6h6.2l5 5v13.4a1.6 1.6 0 0 1-1.6 1.6H7.2a1.6 1.6 0 0 1-1.6-1.6z"/><path d="M13.4 2v5h5"/><path d="M9.2 12.6h5.6"/><path d="M9.2 15.8h3.4"/><circle cx="9.6" cy="19" r="1.742" fill="currentColor" stroke="none"/></g></svg><span><b>Read the sources</b>Each result points to the evidence behind the rule that produced it.</span></li>
+    </ol>
+    <div class="lp-chap__act rv">
+      <a class="g-btn g-btn--primary" href="lab.html">Open the Lab</a>
+      <p class="lp-chap__fine">Runs in your browser. No field or degree required.</p>
     </div>
   </div>
 </section>
 
-<!-- 03 · The workspace ------------------------------------------------------
+<!-- 03 · Learn ------------------------------------------------------------------
+     The redesign proposal's Learning Paths chapter, kept as short as it was
+     there: the open path on the left, its eight steps on the right, and nothing
+     else. The step titles are path-ai-in-research.html's own. The proposal's
+     progress bar stays out, because saved progress is not built. -->
+<section class="g-section g-section--deep lp-chap lp-gridded" id="learn" aria-labelledby="ch-learn">
+  <div class="g-container">
+    <header class="lp-chap__head rv">
+      <span class="lp-chap__n">03 &middot; Learn</span>
+      <h2 id="ch-learn">One Path. Eight Steps.</h2>
+    </header>
+    <div class="lp-path">
+      <div class="lp-path__lead rv">
+        <h3 class="lp-path__h">AI in Research</h3>
+        <p class="lp-path__say">From what these models actually do, to using one on your own data without fooling yourself.</p>
+        <p class="lp-path__meta"><span class="g-tag">8 steps &middot; ~6 hours</span></p>
+        <a class="g-btn g-btn--primary" href="path-ai-in-research.html">Start the Path</a>
+      </div>
+      <ol class="lp-steps rv" aria-label="The eight steps of AI in Research">
+        <li class="g-card"><span class="lp-steps__n">01</span><h3>What a model is doing when it answers</h3><p>The mechanism, without the mysticism.</p></li>
+        <li class="g-card"><span class="lp-steps__n">02</span><h3>Where the productivity actually is</h3><p>Drafting is faster. Deciding what to ask is not.</p></li>
+        <li class="g-card"><span class="lp-steps__n">03</span><h3>Retrieval, and why citations get invented</h3><p>What grounding does and does not fix.</p></li>
+        <li class="g-card"><span class="lp-steps__n">04</span><h3>Evaluating a claim you cannot inspect</h3><p>The questions to ask when the mechanism is hidden.</p></li>
+        <li class="g-card"><span class="lp-steps__n">05</span><h3>Using a model on your own data</h3><p>A worked example, and where it quietly goes wrong.</p></li>
+        <li class="g-card"><span class="lp-steps__n">06</span><h3>Reproducibility with a stochastic tool</h3><p>Seeds, versions and the parts that now move.</p></li>
+        <li class="g-card"><span class="lp-steps__n">07</span><h3>The ethics you will actually meet</h3><p>Authorship, disclosure and review.</p></li>
+        <li class="g-card"><span class="lp-steps__n">08</span><h3>Where this breaks</h3><p>The open problems, honestly stated.</p></li>
+      </ol>
+    </div>
+  </div>
+</section>
+
+<!-- 04 · The workspace ------------------------------------------------------
      The page never said that an account opens a place to work, which is the
      most concrete thing joining gets you. The frame below is drawn in HTML,
      labelled as an illustration, and filled only with the public Topic's own
@@ -247,7 +418,7 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
 <section class="g-section lp-chap lp-gridded lp-gridded--left" id="workspace" aria-labelledby="ch-ws">
   <div class="g-container">
     <header class="lp-chap__head rv">
-      <span class="lp-chap__n">03 &middot; The Workspace</span>
+      <span class="lp-chap__n">04 &middot; The Workspace</span>
       <h2 id="ch-ws">A Place to Do the Work</h2>
       <p class="g-lead">Sign in and GraviQuest stops being something you read. What you save from the site, your research projects, the sources you are learning from, and an assistant that shows what it read before it answers.</p>
     </header>
@@ -315,8 +486,8 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
           </div>
           <div class="lp-ws__pulsar">
             <p class="lp-ws__who"><span class="lp-pulsar-mark" aria-hidden="true"></span>Pulsar</p>
-            <p class="lp-ws__ask">What is the molecular weight of the protein in yesterday&rsquo;s dataset?</p>
-            <p class="lp-ws__ans">About 9.8 kDa. That shows I can read a value from your file. It is not evidence the value is right.</p>
+            <p class="lp-ws__ask">Which of the six samples is the most stable?</p>
+            <p class="lp-ws__ans">Protein D has the highest melting point in your file, 81&nbsp;&deg;C. Melting point alone does not establish stability, so I have marked D for validation.</p>
             <p class="lp-ws__cite">Read: Protein stability screen</p>
           </div>
         </div>
@@ -344,33 +515,64 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
   </div>
 </section>
 
-<!-- 04 · The community -------------------------------------------------------
-     Only what an account does today. The planned Topics used to be dead
-     "Coming soon" cards on the Topics page; here they are the shortlist
-     members choose from, which is what they actually are. -->
-<section class="g-section g-section--deep lp-chap lp-gridded" id="community" aria-labelledby="ch-comm">
+<!-- 05 · The Forum --------------------------------------------------------------
+     The redesign proposal's Forum chapter: the rooms and what members do on the
+     left, a few threads on the right. The threads are the Forum page's own first
+     four rows (forum.html), drawn with its own row component (assets/forum.css),
+     so the landing and the Forum always show the same room. -->
+<section class="g-section g-section--deep lp-chap lp-gridded" id="forum" aria-labelledby="ch-forum">
   <div class="g-container">
     <header class="lp-chap__head rv">
-      <span class="lp-chap__n">04 &middot; The Community</span>
-      <h2 id="ch-comm">Pick the Next Question</h2>
-      <p class="g-lead">Members do three things, and each one changes what gets published.</p>
+      <span class="lp-chap__n">05 &middot; The Forum</span>
+      <h2 id="ch-forum">Every Topic Has a Room</h2>
+      <p class="g-lead">Read any thread without an account; sign in to reply, like or start one. A moderator reads every post before it appears.</p>
     </header>
-    <div class="lp-comm">
-      <ol class="lp-do rv">
-        <li><span class="lp-layer__n">01</span><div><h3>Argue</h3><p>Comment, ask and push back on any Topic. The strongest objection is published beside our reading.</p></div></li>
-        <li><span class="lp-layer__n">02</span><div><h3>Correct</h3><p>Bring evidence, and flag where a claim outruns its source. Corrections are logged in public.</p></div></li>
-        <li><span class="lp-layer__n">03</span><div><h3>Decide</h3><p>Propose the next Topic and vote on what we take on.</p></div></li>
-      </ol>
-      <div class="lp-short rv">
-        <h3>On the Shortlist</h3>
-        <p>Planned Topics. Members decide which one comes next.</p>
-        <ol>
-          <li><span>What does peer review actually catch?</span><span class="g-soon">Planned</span></li>
-          <li><span>Who pays for science, and what does that buy?</span><span class="g-soon">Planned</span></li>
-          <li><span>Can we model a living cell?</span><span class="g-soon">Planned</span></li>
-          <li><span>Why do most findings shrink when someone repeats them?</span><span class="g-soon">Planned</span></li>
+    <div class="lp-forum">
+      <div class="lp-forum__side rv">
+        <ul class="lp-forum__rooms" aria-label="Forum rooms">
+          <li><a class="chip" href="forum.html">The Open Question</a></li>
+          <li><a class="chip" href="forum.html">Topic 01</a></li>
+          <li><a class="chip" href="forum.html">Topic 03</a></li>
+          <li><a class="chip" href="forum.html">Topic 04</a></li>
+        </ul>
+        <p class="lp-forum__say">Three things members do: argue, correct, decide. Each one is a place you can go, not a paragraph to read.</p>
+        <div class="lp-chap__act">
+          <a class="g-btn g-btn--primary" href="forum.html">Enter the Forum</a>
+          <a class="g-btn g-btn--secondary" href="community.html">How the Community Works</a>
+        </div>
+      </div>
+      <div class="fm-list lp-forum__list rv">
+        <div class="fm-row fm-row--head" aria-hidden="true"><span>Thread</span><span class="fm-c-who"></span><span class="fm-c-n">Replies</span><span class="fm-c-n fm-c-views">Views</span><span class="fm-c-n">Activity</span></div>
+        <ol class="fm-rows" aria-label="Recent threads">
+          <li><a class="fm-row" href="forum-thread.html">
+        <span class="fm-row__main"><span class="fm-room">Topic 03 &middot; Discovery</span><span class="fm-row__title">Is “the model found it” ever a valid methods section?</span></span>
+        <span class="fm-c-who"><span class="fm-who"><span class="avatar fm-av" title="Sara N.">SN</span><img class="avatar fm-av" src="assets/img/forum/hulse.png" alt="" width="160" height="160" loading="lazy" decoding="async" title="Hulse"></span><span class="g-visually-hidden">2 taking part</span></span>
+        <span class="fm-c-n">1<span class="g-visually-hidden"> replies</span></span>
+        <span class="fm-c-n fm-c-views">97<span class="g-visually-hidden"> views</span></span>
+        <span class="fm-c-n fm-c-age" title="Last reply 12 hours ago"><span class="g-visually-hidden">Last reply </span>12h</span>
+      </a></li>
+          <li><a class="fm-row" href="forum-thread.html">
+        <span class="fm-row__main"><span class="fm-room">Topic 01 &middot; AI in Research</span><span class="fm-row__title">If it was right ninety-nine times, what should make you check the hundredth?</span><span class="fm-row__tags"><span class="g-tag">Verification</span></span></span>
+        <span class="fm-c-who"><span class="fm-who"><img class="avatar fm-av" src="assets/img/forum/hulse.png" alt="" width="160" height="160" loading="lazy" decoding="async" title="Hulse"><span class="avatar fm-av" title="Jonas R.">JR</span><img class="avatar fm-av" src="assets/img/forum/taylor.png" alt="" width="160" height="160" loading="lazy" decoding="async" title="Taylor"></span><span class="g-visually-hidden">3 taking part</span></span>
+        <span class="fm-c-n">2<span class="g-visually-hidden"> replies</span></span>
+        <span class="fm-c-n fm-c-views">238<span class="g-visually-hidden"> views</span></span>
+        <span class="fm-c-n fm-c-age" title="Last reply 22 hours ago"><span class="g-visually-hidden">Last reply </span>22h</span>
+      </a></li>
+          <li><a class="fm-row" href="forum-thread.html">
+        <span class="fm-row__main"><span class="fm-room">Open Question</span><span class="fm-row__title">Is “engineering, not science” a fair way to put it?</span></span>
+        <span class="fm-c-who"><span class="fm-who"><span class="avatar fm-av" title="Lena W.">LW</span><img class="avatar fm-av" src="assets/img/forum/taylor.png" alt="" width="160" height="160" loading="lazy" decoding="async" title="Taylor"><span class="avatar fm-av" title="Omar F.">OF</span><img class="avatar fm-av" src="assets/img/forum/hulse.png" alt="" width="160" height="160" loading="lazy" decoding="async" title="Hulse"></span><span class="g-visually-hidden">5 taking part</span></span>
+        <span class="fm-c-n">7<span class="g-visually-hidden"> replies</span></span>
+        <span class="fm-c-n fm-c-views">301<span class="g-visually-hidden"> views</span></span>
+        <span class="fm-c-n fm-c-age" title="Last reply 1 days ago"><span class="g-visually-hidden">Last reply </span>1d</span>
+      </a></li>
+          <li><a class="fm-row" href="forum-thread.html">
+        <span class="fm-row__main"><span class="fm-room">Topic 01 &middot; AI in Research</span><span class="fm-row__title">Checking by risk, or checking everything</span><span class="fm-row__tags"><span class="g-tag">Reading notes</span></span></span>
+        <span class="fm-c-who"><span class="fm-who"><img class="avatar fm-av" src="assets/img/forum/taylor.png" alt="" width="160" height="160" loading="lazy" decoding="async" title="Taylor"><img class="avatar fm-av" src="assets/img/forum/hulse.png" alt="" width="160" height="160" loading="lazy" decoding="async" title="Hulse"></span><span class="g-visually-hidden">2 taking part</span></span>
+        <span class="fm-c-n">1<span class="g-visually-hidden"> replies</span></span>
+        <span class="fm-c-n fm-c-views">156<span class="g-visually-hidden"> views</span></span>
+        <span class="fm-c-n fm-c-age" title="Last reply 2 days ago"><span class="g-visually-hidden">Last reply </span>2d</span>
+      </a></li>
         </ol>
-        <a class="g-btn g-btn--secondary g-btn--sm" href="community.html">See How It Works</a>
       </div>
     </div>
   </div>
@@ -379,7 +581,7 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
 <!-- Join band ------------------------------------------------------------------
      The rotating "… with us" line closes the page now. At the top it made the
      visitor wait for the sentence they were meant to read first; here, after
-     four chapters, every verb in it has been shown, so the cycle is a recap
+     five chapters, every verb in it has been shown, so the cycle is a recap
      rather than a riddle. -->
 <section class="g-section lp-gridded lp-gridded--left"><div class="g-container">
   <div class="join rv">
@@ -421,8 +623,9 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
 </footer>
 <script src="assets/site.js?v=20261102-ws1"></script>
 <script src="assets/hero.js?v=20261105-stars1"></script>
-<script src="assets/landing.js?v=20261102-ws3" defer></script>
+<script src="assets/landing.js?v=20261108-lab1" defer></script>
+<script src="assets/topic-rail.js?v=20261108-reel2" defer></script>
 <script src="assets/chat.js?v=20261102-lab1" defer></script>
-<script src="assets/production-bridge.js?v=20261102-ws1" defer></script>
+<script src="assets/production-bridge.js?v=20261105-fm1" defer></script>
 </body>
 </html>

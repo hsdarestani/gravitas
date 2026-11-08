@@ -1,161 +1,140 @@
-/* Topic rail — the horizontal pass through the current Topic ---------------
+/* Topic rail — the "Start here" reel under the landing hero ----------------
  *
- * The landing page used to introduce the current Topic with a single split:
- * a poster on the left, a paragraph and two buttons on the right. It told you
- * the Topic existed. It gave no evidence that anything stood behind it, so the
- * only way to find out was to leave the page.
+ * History, kept because it is why this file looks the way it does. The rail
+ * first pinned itself and drove sideways from vertical scroll, which held the
+ * reader for four screens; then it became a real scroller that paged itself
+ * on a timer and took the mouse wheel under the pointer, which hid three of
+ * its four panels from anyone who did not stop and play with it. It was
+ * removed on 2026-11-02 and replaced by the layer list in chapter 01.
  *
- * This is that card opened out into four panels — the Topic, what it looks
- * like, the two readings, the argument already running in the comments. The
- * section pins for the length of the rail and releases at the end, so vertical
- * scrolling resumes where the page would otherwise have continued.
+ * It came back on 2026-11-06, at the owner's request, for Topic 01. What
+ * changed is what had been wrong:
  *
- * THE ONE RULE THAT MAKES THIS WORK: every panel is exactly --panel-h tall.
+ * - No timer and no wheel capture. The rail is a plain scroll-snap scroller.
+ *   A swipe, a trackpad's sideways gesture, the arrow keys, the two arrow
+ *   buttons and the named steps move it. Vertical scrolling always belongs to
+ *   the page.
+ * - Named steps instead of anonymous dots, so a reader sees what the other
+ *   panels hold before going there.
+ * - The next panel always shows at the right edge. Nothing announces "there
+ *   is more" as well as the start of the more.
  *
- * A rail whose panels size to their own content is a rail where every panel is
- * as tall as the worst one. The first build proved it twice: the video panel
- * carried 400px of content inside a 630px box because the gallery panel needed
- * 630, and on a phone every panel became 1275px tall because the four pictures
- * stacked into one column. Both are the same bug. So the panel height is
- * declared, the content is designed to fit it, and anything that would not fit
- * is clamped rather than allowed to push — captions lose their sentence, long
- * quotes lose their tail, the third comment steps out. This is a trailer for
- * the Topic page, not a copy of it; every panel carries a link to the full
- * thing.
+ * THE ONE RULE THAT STILL HOLDS: every panel is exactly --panel-h tall. A
+ * rail whose panels size to their content is a rail where every panel is as
+ * tall as the worst one, so the height is declared and the content is
+ * designed to fit it; what would not fit steps out at narrow widths instead
+ * of pushing.
  *
- * Inside that height, one composition, four times: a left column with the
- * number, the heading, one line of framing and the buttons on the floor, then
- * a hairline, then the body carrying the one thing the panel is about — the
- * video, the pictures, the two positions, the comments. Four kinds of content
- * read as one sequence because the frame never moves.
- *
- * One mode, and it is the honest one: a real overflow-x scroller with snap
- * points, which is what the markup renders as before any script runs. There
- * used to be a second, pinned mode that held the section under the header and
- * drove the rail sideways from vertical scroll; it made everything below the
- * section reachable only by paging through the rail, so it is gone.
- * assets/topic-rail.js now only pages the scroller — sideways under the
- * pointer, on a timer when nobody is pointing at it — and never takes the
- * page's own scrolling away.
- *
- * .video, .view and .comment come from site.css. The rail owns layout, not
- * appearance — that is why this file is mostly grid.
+ * Inside that height, one composition four times: a side column with the
+ * number, the heading, one line of framing and the buttons on the floor, a
+ * hairline, then the body carrying the one thing the panel is about.
  */
 
 .trail {
   --rail-gap: var(--g-space-md);
   --rail-p: 0;
-  /* Phones first: tall enough to hold a panel, short enough to sit inside the
-     viewport with the section head above it. */
-  --panel-h: clamp(23rem, 68svh, 30rem);
+  --panel-h: 40rem;
 }
 @media (min-width: 900px) {
-  .trail {
-    --panel-h: clamp(22rem, calc(100svh - var(--g-header-h, 4.5rem) - 14rem), 35rem);
-  }
+  .trail { --panel-h: clamp(26rem, calc(100svh - var(--g-header-h, 4.5rem) - 13rem), 31rem); }
 }
-
-/* The section head lives INSIDE the stage, with the bar and the rail, because
-   the three are one composition: the heading names the Topic, the bar says
-   which of its four panels you are on, and the rail moves under both. The
-   pinned build needed them grouped so they could be centred under the header
-   together; that reason is gone, but the grouping is still the right one and
-   the stage is now what the pointer- and timer-driven paging treats as "the
-   section" — hovering anywhere in it pauses the slideshow. */
 .trail .lp-head { margin-bottom: var(--g-space-md); }
-.trail__stage {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  gap: var(--g-space-sm);
-}
 
-/* Stage bar: what you are looking at, and how far through it you are. It sits
-   above the rail and outside the scroller, so it stays put while the rail
-   moves — under the pointer, under the dots, or on its own timer. */
+/* Bar: the named steps on the left, count and arrows on the right ------- */
 .trail__bar {
   display: flex;
-  align-items: baseline;
-  gap: var(--g-space-sm);
-  flex-wrap: wrap;
-}
-.trail__now {
-  font-size: var(--g-fs-caption);
-  color: var(--g-text-subtle);
-  margin: 0;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.trail__now b { color: var(--g-text); font-weight: var(--g-w-semibold); }
-.trail__dots {
-  display: flex;
   align-items: center;
+  justify-content: space-between;
+  gap: var(--g-space-sm);
+  margin-bottom: var(--g-space-sm);
+}
+.trail__steps {
+  display: flex;
   gap: var(--g-space-3xs);
-  margin-left: auto;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
 }
-.trail__dot {
-  width: 1.5rem; height: 1.5rem;
-  display: grid; place-items: center;
-  padding: 0; border: 0; background: none; cursor: pointer;
-  color: var(--g-text-subtle);
+.trail__steps::-webkit-scrollbar { display: none; }
+.trail__step {
+  flex: none;
+  display: inline-flex;
+  align-items: baseline;
+  gap: .45em;
+  padding: .45rem .8rem;
+  border: 1px solid var(--g-hairline);
+  border-radius: var(--g-radius-pill);
+  background: none;
+  color: var(--g-text-muted);
+  font: inherit;
+  font-size: var(--g-fs-small);
+  font-weight: var(--g-w-medium);
+  cursor: pointer;
+  transition: color var(--g-dur) var(--g-ease-orbit), background-color var(--g-dur) var(--g-ease-orbit), border-color var(--g-dur) var(--g-ease-orbit);
 }
-.trail__dot::before {
-  content: "";
-  width: .4rem; height: .4rem; border-radius: 50%;
-  background: currentColor; opacity: .4;
-  transition: transform var(--g-dur) var(--g-ease-orbit), opacity var(--g-dur) var(--g-ease-orbit);
-}
-.trail__dot:hover::before { opacity: .8; }
-.trail__dot[aria-current="true"] { color: var(--g-accent); }
-.trail__dot[aria-current="true"]::before { opacity: 1; transform: scale(1.9); }
+.trail__step span { font-family: var(--g-font-mono); font-size: var(--g-fs-caption); color: var(--g-text-subtle); }
+.trail__step:hover { color: var(--g-text); border-color: var(--g-text-subtle); }
+.trail__step[aria-current="true"] { color: var(--g-text); background: var(--g-surface-raised); border-color: var(--g-accent); }
+.trail__step[aria-current="true"] span { color: var(--g-accent); }
+
+.trail__nav { display: flex; align-items: center; gap: var(--g-space-2xs); flex: none; }
 .trail__count {
   font-family: var(--g-font-mono);
   font-size: var(--g-fs-caption);
   color: var(--g-text-subtle);
-  font-variant-numeric: tabular-nums;
+  margin-right: var(--g-space-2xs);
 }
+.trail__arrow {
+  width: 2.5rem; height: 2.5rem;
+  display: grid; place-items: center;
+  border: 1px solid var(--g-hairline);
+  border-radius: 50%;
+  background: var(--g-surface);
+  color: var(--g-text);
+  cursor: pointer;
+  transition: border-color var(--g-dur) var(--g-ease-orbit), opacity var(--g-dur) var(--g-ease-orbit), transform var(--g-dur-fast) var(--g-ease-orbit);
+}
+.trail__arrow svg { width: 1.1rem; height: 1.1rem; }
+.trail__arrow:hover { border-color: var(--g-accent); }
+.trail__arrow:active { transform: scale(.94); }
+.trail__arrow:disabled { opacity: .35; cursor: default; border-color: var(--g-hairline); transform: none; }
 
-/* The rail. In native mode this is the scroller itself. */
+/* The rail ---------------------------------------------------------------- */
 .trail__rail {
   display: flex;
-  align-items: flex-start;
   gap: var(--rail-gap);
   overflow-x: auto;
   overscroll-behavior-x: contain;
   scroll-snap-type: x mandatory;
-  scroll-padding-inline: var(--g-space-2xs);
-  padding-bottom: var(--g-space-2xs);
-  -webkit-overflow-scrolling: touch;
-  /* The rail used to show a thin native scrollbar, which was the only progress
-     indicator it had outside pinned mode. Now that the progress line under the
-     rail is always on, the scrollbar is a second bar saying the same thing one
-     pixel row away from it — so it goes, the way .topic-nav__row and
-     .fields__ticker already hide theirs. The line, the dots and the count say
-     where you are; the wheel, a drag and a swipe all still move the rail. */
   scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+  border-radius: var(--g-radius-lg);
+  outline-offset: 4px;
 }
-.trail__rail::-webkit-scrollbar { width: 0; height: 0; }
-/* While topic-rail.js pages the rail, snapping is off so Firefox cannot
-   re-aim a smooth scroll mid-flight; the target is a snap point anyway. */
+.trail__rail::-webkit-scrollbar { display: none; }
+/* Off while topic-rail.js scrolls, so Firefox cannot re-aim a smooth scroll
+   mid-flight; the target is a snap point anyway. */
 .trail__rail.is-paging { scroll-snap-type: none; }
 
 .trail__panel {
   flex: 0 0 auto;
-  width: min(88vw, 21rem);
+  width: 86%;
   height: var(--panel-h);
   scroll-snap-align: start;
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
   gap: var(--g-space-sm);
+  padding: var(--g-space-md);
   border: 1px solid var(--g-hairline);
   border-radius: var(--g-radius-lg);
-  background: var(--g-surface);
-  padding: var(--g-space-md);
-  min-width: 0;
+  background: var(--g-surface-raised);
   overflow: hidden;
+  min-width: 0;
+  transition: opacity var(--g-dur-slow) var(--g-ease-orbit);
 }
+/* The panel that is only peeking stays readable but steps back. */
+.trail.is-live .trail__panel:not(.is-current) { opacity: .55; }
+.trail.is-live .trail__panel:not(.is-current):hover { opacity: .8; }
 
 .trail__side {
   display: flex;
@@ -168,162 +147,130 @@
   font-family: var(--g-font-mono);
   font-size: var(--g-fs-caption);
   letter-spacing: .12em;
+  text-transform: uppercase;
   color: var(--g-accent);
   margin: 0 0 var(--g-space-2xs);
 }
-.trail__side h3 {
-  font-size: var(--g-fs-h4, 1.15rem);
-  line-height: 1.2;
-  letter-spacing: -.01em;
-  margin: 0;
-  text-wrap: balance;
-}
+.trail__side h3 { font-size: var(--g-fs-h4, 1.15rem); line-height: 1.2; letter-spacing: -.01em; margin: 0; text-wrap: balance; }
 .trail__say {
   font-size: var(--g-fs-small);
   color: var(--g-text-muted);
   margin: var(--g-space-2xs) 0 0;
   display: -webkit-box;
   -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
+  -webkit-line-clamp: 3;
   overflow: hidden;
 }
-.trail__meta {
-  font-family: var(--g-font-mono);
-  font-size: var(--g-fs-caption);
-  color: var(--g-text-subtle);
-  margin: var(--g-space-2xs) 0 0;
-}
-/* The buttons sit on the panel's floor, so the CTA is in the same place in
-   every panel and the reader stops hunting for it. */
-/* On a phone the two actions sat on two lines and ate 50px of a panel that
-   is height-budgeted to the pixel. auto-fit rather than a fixed pair of
-   columns: panel 02 carries a single long button and needs the whole width. */
+.trail__chap { display: none; }
 .trail__act {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
+  display: flex;
+  flex-wrap: wrap;
   gap: var(--g-space-2xs);
   margin-top: auto;
   padding-top: var(--g-space-sm);
 }
-.trail__act .g-btn { width: 100%; justify-content: center; text-align: center; padding-inline: var(--g-space-xs); }
-.trail__body { min-width: 0; min-height: 0; display: flex; flex-direction: column; gap: var(--g-space-2xs); }
+.trail__body { min-width: 0; min-height: 0; display: flex; flex-direction: column; justify-content: center; }
 
-/* 01 — the poster keeps 16:9. Letting it stretch to the panel height was
-   the wrong fix for the dead space the first build had: a video frame is a
-   known shape and a reader recognises it, so the frame holds its ratio and
-   the leftover height goes to the margins instead, which centres it.
-   Whatever height is left over is the panel breathing, not a gap. */
-.trail__body > .video { width: 100%; aspect-ratio: 16 / 9; height: auto; flex: 0 0 auto; margin-block: auto; }
-
-/* 02 — the pictures. A fraction of the body each, so the mosaic tracks the
-   panel height instead of dictating it. */
-.trail__gal { flex: 1; min-height: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-auto-rows: 1fr; gap: var(--g-space-xs); }
-.trail__fig { margin: 0; display: grid; grid-template-rows: minmax(0, 1fr) auto; gap: var(--g-space-3xs); min-width: 0; min-height: 0; }
-.trail__fig img {
-  display: block; width: 100%; height: 100%; object-fit: cover;
-  border-radius: var(--g-radius-sm);
-  border: 1px solid var(--g-hairline);
-  background: var(--g-surface-sunken);
+/* 01 — the poster, 16:9, with its runtime and where it will be watched */
+.trail__video { width: 100%; aspect-ratio: 16 / 9; flex: none; }
+.trail__tag {
+  position: absolute; left: var(--g-space-sm); bottom: var(--g-space-sm); z-index: 1;
+  font-family: var(--g-font-mono); font-size: var(--g-fs-caption); letter-spacing: .06em;
+  color: var(--g-white-tint);
+  background: rgb(3 3 3 / .55);
+  backdrop-filter: blur(4px);
+  border-radius: var(--g-radius-pill);
+  padding: .25rem .65rem;
 }
-.trail__fig--face img { object-position: center 20%; }
-.trail__fig--wide img { object-position: 62% 50%; }
-/* A 250×180 cellular automaton upscaled: keep the cells square rather than
-   letting the browser smear them into grey, and let it crop instead of
-   letterboxing itself against a ground that is not its own white. */
-.trail__fig--pixel img { image-rendering: pixelated; background: #fff; object-position: 28% 22%; }
+
+/* 02 — the cast. Each portrait sits on a Cosmos Blue card with the film's
+   grid, which is the ground the artwork was drawn for in both themes. */
+.trail__cast { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--g-space-xs); align-content: center; }
+.trail__cast li { display: grid; gap: var(--g-space-3xs); min-width: 0; }
+.trail__cast img {
+  display: block; width: 100%; height: auto; aspect-ratio: 1;
+  border-radius: var(--g-radius);
+  background-color: var(--g-cosmos-blue);
+  background-image:
+    linear-gradient(rgb(212 201 190 / .09) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(212 201 190 / .09) 1px, transparent 1px);
+  background-size: 12.5% 12.5%;
+  background-position: center;
+}
+.trail__who { margin: var(--g-space-3xs) 0 0; display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 .5em; }
+.trail__who b { font-size: var(--g-fs-body); }
+.trail__who span { font-family: var(--g-font-mono); font-size: var(--g-fs-caption); color: var(--g-text-subtle); text-transform: uppercase; letter-spacing: .08em; }
+.trail__cast li > p:last-child { display: none; margin: 0; font-size: var(--g-fs-caption); color: var(--g-text-muted); line-height: var(--g-lh-snug); }
+
+/* 03 — the exchange, as the transcript has it. Pulsar's lines sit on its
+   own colour; Hulse's line is the one the Topic turns on. */
+.trail__talk { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--g-space-2xs); align-content: center; }
+.trail__talk li {
+  display: grid;
+  grid-template-columns: 2.6rem 4.2rem minmax(0, 1fr);
+  align-items: baseline;
+  gap: var(--g-space-2xs);
+  padding: .45rem .7rem;
+  border-radius: var(--g-radius);
+  font-size: var(--g-fs-small);
+  line-height: var(--g-lh-snug);
+}
+.trail__talk time { font-family: var(--g-font-mono); font-size: var(--g-fs-caption); color: var(--g-text-subtle); }
+.trail__talk b { font-size: var(--g-fs-caption); font-weight: var(--g-w-semibold); color: var(--g-text-muted); text-transform: uppercase; letter-spacing: .06em; }
+.trail__talk li.is-ai { background: var(--g-surface-sunken); }
+.trail__talk li.is-ai b { color: var(--g-accent); }
+.trail__num { font-family: var(--g-font-mono); font-size: 1.15em; }
+.trail__talk li.is-key { padding-block: .7rem; }
+.trail__talk li.is-key span { font-family: var(--g-font-read); font-style: italic; font-size: var(--g-fs-body); color: var(--g-text); }
+
+/* 04 — three frames: one leads, two follow */
+.trail__gal { flex: 1; min-height: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: minmax(0, 1.4fr) minmax(0, 1fr); gap: var(--g-space-xs); }
+.trail__fig { margin: 0; display: grid; grid-template-rows: minmax(0, 1fr) auto; gap: var(--g-space-3xs); min-width: 0; min-height: 0; }
+.trail__fig--lead { grid-column: 1 / -1; }
+.trail__fig img { display: block; width: 100%; height: 100%; object-fit: cover; border-radius: var(--g-radius-sm); border: 1px solid var(--g-hairline); background: var(--g-surface-sunken); }
 .trail__fig figcaption { font-size: var(--g-fs-caption); line-height: 1.3; color: var(--g-text-muted); }
 .trail__fig figcaption b { display: block; color: var(--g-text); font-weight: var(--g-w-semibold); }
 .trail__fig figcaption span { display: none; }
-.trail__credit { font-size: var(--g-fs-caption); color: var(--g-text-subtle); margin: 0; display: none; }
-.trail__credit a { color: inherit; }
 
-/* 03 — the two readings. */
-/* grid-auto-rows: 1fr forced both cards to an equal share of whatever height
-   was left, and on a phone that share was smaller than a card needs. Flex
-   children then squashed below their own line boxes and the tag came out
-   sliced through the middle. So on the narrow layout the cards size to their
-   content, the children refuse to shrink, and the attribution — the one part
-   a reader does not need in a teaser — steps out instead. */
-.trail__views { flex: 1; min-height: 0; display: grid; grid-auto-rows: auto; align-content: start; gap: var(--g-space-xs); }
-.trail__views .view { display: flex; flex-direction: column; gap: var(--g-space-3xs); padding: var(--g-space-sm); overflow: hidden; }
-.trail__views .view > * { flex: 0 0 auto; }
-.trail__views .view cite { display: none; }
-/* -webkit-line-clamp caps the paragraph, but the card can still be shorter
-   than tag + clamp + cite on a small phone. margin-top:auto on the cite was
-   the bug in that case: a flex box that overflows with an auto margin
-   distributes the overflow to BOTH ends, so the card lost the top of its own
-   tag. The cite is pinned to the floor only where there is a floor to pin it
-   to — the two-column desktop layout, where both cards share a row. */
-.trail__views .view p {
-  margin: 0;
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-  overflow: hidden;
+/* Phones: the steps give way to the count and arrows, the cast keeps its
+   faces and drops its sentences, and the exchange keeps the four lines that
+   carry it. */
+@media (max-width: 599px) {
+  .trail__steps { display: none; }
+  .trail__bar { justify-content: flex-end; }
+  .trail__panel { padding: var(--g-space-sm); }
+  .trail__act .g-btn { flex: 1 1 auto; justify-content: center; }
+  .trail__talk li { grid-template-columns: 3.8rem minmax(0, 1fr); padding: .4rem .55rem; }
+  .trail__talk time { display: none; }
+  .trail__talk li:nth-child(3), .trail__talk li:nth-child(4) { display: none; }
 }
-.trail__views .view cite { margin-top: 0; }
 
-/* 04 — the discussion. These are the comments already published on the Topic
-   page; nothing here invents a count or a timestamp. */
-.trail__talk { justify-content: flex-start; gap: 0; }
-.trail__talk .comment { padding-block: var(--g-space-2xs); }
-.trail__talk .comment:first-child { padding-top: 0; }
-.trail__talk .comment p {
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 3;
-  overflow: hidden;
-}
-/* Two voices and a disagreement is a thread; three is a transcript, and the
-   transcript lives on the Topic page. */
-.trail__talk .comment:nth-child(2) { border-bottom: 0; }
-.trail__talk .comment:nth-child(n + 3) { display: none; }
-
-/* Wider — the two-column composition, and the content the phone could not
-   hold: caption sentences, the picture credit, the third comment. */
+/* Wide: the two-column composition and the detail a phone cannot hold. */
 @media (min-width: 900px) {
   .trail__panel {
-    width: min(92vw, 62rem);
+    width: calc(100% - 5rem);
     grid-template-rows: none;
-    grid-template-columns: 17rem minmax(0, 1fr);
+    grid-template-columns: 18rem minmax(0, 1fr);
     gap: var(--g-space-lg);
     padding: var(--g-space-lg);
   }
-  .trail__side {
-    padding-bottom: 0;
-    padding-right: var(--g-space-lg);
-    border-bottom: 0;
-    border-right: 1px solid var(--g-hairline);
-  }
+  .trail__side { padding-bottom: 0; padding-right: var(--g-space-lg); border-bottom: 0; border-right: 1px solid var(--g-hairline); }
   .trail__side h3 { font-size: var(--g-fs-h3); }
   .trail__say { -webkit-line-clamp: 5; }
-  .trail__act { padding-top: var(--g-space-md); }
-  .trail__gal { gap: var(--g-space-sm) var(--g-space-md); }
+  .trail__chap {
+    display: grid; gap: .3rem; list-style: none; margin: var(--g-space-sm) 0 0; padding: 0;
+    font-size: var(--g-fs-caption); color: var(--g-text-muted);
+  }
+  .trail__chap time { font-family: var(--g-font-mono); color: var(--g-text-subtle); display: inline-block; min-width: 3.2em; }
+  .trail__cast { gap: var(--g-space-md); }
+  .trail__cast li > p:last-child { display: block; }
   .trail__fig figcaption span { display: inline; }
-  .trail__credit { display: block; }
-  .trail__views { grid-template-columns: repeat(2, minmax(0, 1fr)); align-content: center; gap: var(--g-space-md); }
-  .trail__views .view cite { display: block; }
-  .trail__views .view { padding: var(--g-space-md); }
-  .trail__views .view p { -webkit-line-clamp: 5; }
-  .trail__views .view cite { margin-top: auto; }
-  .trail__act { grid-template-columns: none; display: flex; flex-wrap: wrap; }
-  .trail__act .g-btn { width: auto; padding-inline: var(--g-space-md); }
-  .trail__talk { justify-content: center; }
-  .trail__talk .comment { padding-block: var(--g-space-sm); }
-  .trail__talk .comment:nth-child(2) { border-bottom: 1px solid var(--g-hairline); }
-  .trail__talk .comment:nth-child(n + 3) { display: grid; }
-  .trail__talk .comment:last-child { border-bottom: 0; padding-bottom: 0; }
-  .trail__talk .comment p { -webkit-line-clamp: 4; }
+  .trail__fig figcaption b { display: inline; margin-right: .4em; }
+  .trail__gal { gap: var(--g-space-sm) var(--g-space-md); }
 }
 
-/* The bar's progress line ------------------------------------------------
-   It used to appear only in pinned mode, because only there did the section
-   have a progress to report. Now that the rail pages under the pointer and on
-   its own timer, it is the one element that says "there is more to the right"
-   without asking the reader to have already found the dots, so it is always
-   on. topic-rail.js keeps --rail-p in step with the rail's own scrollLeft,
-   including after a swipe that never went through the script. */
-.trail__line { display: block; height: 2px; background: var(--g-hairline); border-radius: 2px; overflow: hidden; }
+/* Progress under the rail, kept in step with the rail's own scrollLeft. */
+.trail__line { display: block; height: 2px; margin-top: var(--g-space-sm); background: var(--g-hairline); border-radius: 2px; overflow: hidden; }
 .trail__line span {
   display: block; height: 100%; width: 100%;
   background: var(--g-accent);
@@ -331,8 +278,118 @@
   transition: transform var(--g-dur) var(--g-ease-orbit);
 }
 
-.trail__hint { font-size: var(--g-fs-caption); color: var(--g-text-subtle); margin: 0; }
-
 @media (prefers-reduced-motion: reduce) {
-  .trail__dot::before { transition: none; }
+  .trail__panel, .trail__step, .trail__arrow, .trail__line span { transition: none; }
+}
+
+/* The poster's own artwork puts the cast in the middle, where a centred play
+   button would sit on Taylor's face; the play button and the runtime share
+   the empty lower-left corner instead. */
+.trail__video { place-items: end start; padding: var(--g-space-sm); }
+.trail__video .video__play { width: 3.5rem; height: 3.5rem; }
+.trail__video .trail__tag { left: calc(var(--g-space-sm) + 4.25rem); bottom: calc(var(--g-space-sm) + .9rem); }
+.trail__tag { white-space: nowrap; }
+@media (max-width: 599px) {
+  .trail { --panel-h: 31rem; }
+  .trail__body { justify-content: flex-start; }
+  .trail__video { padding: var(--g-space-2xs); }
+  .trail__video .video__play { width: 2.6rem; height: 2.6rem; }
+  .trail__video .video__play svg { width: 16px; height: 16px; }
+  .trail__video .trail__tag { left: calc(var(--g-space-2xs) + 3.1rem); bottom: calc(var(--g-space-2xs) + .55rem); font-size: .62rem; padding: .2rem .5rem; }
+}
+@media (max-width: 599px) {
+  .trail { --panel-h: 33rem; }
+  .trail__talk { gap: .3rem; }
+  .trail__talk li { font-size: .82rem; padding: .35rem .5rem; }
+  .trail__talk li.is-key span { font-size: .92rem; }
+}
+
+/* ---- 2026-11-08: eight panels, one per part of the Topic ---------------- */
+.trail .lp-chap__head { margin-bottom: var(--g-space-lg); }
+.trail__step { padding: .4rem .7rem; }
+.trail__foot { margin: var(--g-space-sm) 0 0; display: flex; justify-content: flex-end; }
+
+/* 04 — the essay: its opening, set in the reading face, and its short answer */
+.trail__essay { display: grid; gap: var(--g-space-sm); align-content: center; }
+.trail__depth { margin: 0; display: flex; gap: var(--g-space-3xs); }
+.trail__depth .g-tag:first-child { border-color: var(--g-accent); color: var(--g-text); }
+.trail__open { margin: 0; }
+.trail__open p { margin: 0; font-family: var(--g-font-read); font-size: clamp(1rem, .9rem + .5vw, 1.3rem); line-height: 1.5; color: var(--g-text); }
+.trail__short { padding: var(--g-space-sm) var(--g-space-md); border-radius: var(--g-radius); background: var(--g-surface-sunken); }
+.trail__short-k { margin: 0 0 .2rem; font-family: var(--g-font-mono); font-size: var(--g-fs-caption); letter-spacing: .1em; text-transform: uppercase; color: var(--g-accent); }
+.trail__short p:last-child { margin: 0; font-size: var(--g-fs-small); color: var(--g-text-muted); }
+
+/* 05 — the sources as three stairs, the proof strip's own mark made large */
+.trail__stairs { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--g-space-xs); align-items: end; }
+.trail__stairs > li { display: flex; flex-direction: column; gap: var(--g-space-2xs); padding: var(--g-space-sm); border: 1px solid var(--g-hairline); border-radius: var(--g-radius); background: var(--g-surface-sunken); }
+.trail__stairs > li:nth-child(1) { min-height: 60%; }
+.trail__stairs > li:nth-child(2) { min-height: 78%; }
+.trail__stairs > li:nth-child(3) { min-height: 96%; border-color: var(--g-accent); }
+.trail__stairs { height: 100%; }
+.trail__lvl { margin: 0; display: grid; }
+.trail__lvl b { font-size: var(--g-fs-body); }
+.trail__lvl span { font-family: var(--g-font-mono); font-size: var(--g-fs-caption); color: var(--g-text-subtle); }
+.trail__stairs ul { list-style: none; margin: auto 0 0; padding: 0; display: grid; gap: .35rem; }
+.trail__stairs ul li { font-size: var(--g-fs-caption); color: var(--g-text-muted); line-height: var(--g-lh-snug); padding-top: .35rem; border-top: 1px solid var(--g-hairline); }
+
+/* 06 — the timeline, on one line */
+.trail__time { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); align-content: center; position: relative; }
+.trail__time::before { content: ""; position: absolute; left: 0; right: 0; top: 2.05rem; height: 1px; background: var(--g-hairline); }
+.trail__time li { display: grid; grid-template-rows: auto auto auto; gap: var(--g-space-2xs); padding-right: var(--g-space-2xs); position: relative; }
+.trail__time time { font-family: var(--g-font-mono); font-size: var(--g-fs-small); color: var(--g-text); }
+.trail__time li::before { content: ""; order: 1; width: .55rem; height: .55rem; border-radius: 50%; background: var(--g-text-subtle); margin: .25rem 0; }
+.trail__time span { order: 2; font-size: var(--g-fs-caption); color: var(--g-text-muted); line-height: var(--g-lh-snug); }
+.trail__time li.is-key::before { background: var(--g-accent); box-shadow: 0 0 0 4px color-mix(in srgb, var(--g-accent) 25%, transparent); }
+.trail__time li.is-key time { color: var(--g-accent); }
+
+/* 07 — the two readings; .view comes from site.css */
+.trail__views { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--g-space-md); align-content: center; }
+.trail__views .view { display: flex; flex-direction: column; gap: var(--g-space-2xs); }
+.trail__views .view p { margin: 0; font-size: var(--g-fs-small); }
+.trail__views .view cite { margin-top: auto; font-family: var(--g-font-mono); font-size: var(--g-fs-caption); font-style: normal; color: var(--g-text-subtle); }
+
+/* 08 — this week's question, set large */
+.trail__q { margin: 0; }
+.trail__q p { margin: 0; font-family: var(--g-font-read); font-size: clamp(1.25rem, 1rem + 1.2vw, 2rem); line-height: 1.35; color: var(--g-text); text-wrap: balance; }
+
+@media (max-width: 899px) {
+  .trail__time { grid-template-columns: minmax(0, 1fr); gap: .35rem; }
+  .trail__time::before { display: none; }
+  .trail__time li { grid-template-columns: 3rem .55rem minmax(0, 1fr); grid-template-rows: none; align-items: center; gap: var(--g-space-xs); }
+  .trail__time li::before { order: 0; margin: 0; grid-column: 2; grid-row: 1; }
+  .trail__time time { grid-column: 1; grid-row: 1; }
+  .trail__time span { grid-column: 3; grid-row: 1; }
+  .trail__views { grid-template-columns: minmax(0, 1fr); gap: var(--g-space-xs); }
+  .trail__views .view { padding: var(--g-space-sm); }
+  .trail__views .view cite { display: none; }
+  .trail__stairs { grid-template-columns: minmax(0, 1fr); height: auto; }
+  .trail__stairs > li { min-height: 0 !important; }
+  .trail__stairs ul li:nth-child(2) { display: none; }
+  .trail__open p { font-size: 1rem; }
+  .trail__short { display: none; }
+  .trail__q p { font-size: 1.25rem; }
+}
+
+/* Timeline geometry, fixed so every dot sits on the line whatever the label
+   wraps to: year 1.25rem tall, a .5rem gap, then the .55rem dot, so the line
+   runs at 1.25 + .5 + .275 = 2.025rem. */
+@media (min-width: 900px) {
+  .trail__time li { display: flex; flex-direction: column; gap: .5rem; }
+  .trail__time time { order: 0; line-height: 1.25rem; }
+  .trail__time li::before { order: 1; margin: 0; flex: none; }
+  .trail__time span { order: 2; }
+  .trail__time::before { top: 2.025rem; }
+}
+/* Phones: the timeline keeps four of its seven dates, and each reading keeps
+   four lines; both panels link to the whole thing on the Topic page. */
+@media (max-width: 599px) {
+  .trail__time li:nth-child(2), .trail__time li:nth-child(3), .trail__time li:nth-child(5) { display: none; }
+  .trail__views .view p:not(.view__tag) { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 4; overflow: hidden; }
+}
+@media (max-width: 599px) {
+  .trail__stairs { gap: .4rem; }
+  .trail__stairs > li { padding: .55rem .75rem; }
+  .trail__stairs ul { display: none; }
+  .trail__views .view p:not(.view__tag) { -webkit-line-clamp: 3; }
+  .trail__views .view .view__tag { margin: 0; }
 }
