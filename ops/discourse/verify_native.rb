@@ -236,9 +236,18 @@ if SiteSetting.enable_s3_uploads && SiteSetting.secure_uploads
     sleep 1
   end
   assert!(Upload.find(private_upload.fetch("id")).secure?, "private attachment is marked secure")
-  object_uri = URI.parse(Discourse.store.cdn_url(private_upload.fetch("url")))
-  object_uri.scheme ||= "https" if object_uri.host
+  stored_private_upload = Upload.find(private_upload.fetch("id"))
+  # The upload API intentionally serializes a secure Discourse URL. Exercise
+  # the actual persisted S3 object instead, first proving the signed URL serves
+  # its exact bytes, then removing its signature to test anonymous denial.
+  object_uri = URI.parse(Discourse.store.url_for(stored_private_upload))
   assert!(object_uri.scheme == "https" && object_uri.host.present?, "private upload uses verified HTTPS object storage")
+  signed_response = Net::HTTP.start(object_uri.host, object_uri.port, use_ssl:true,
+    verify_mode:OpenSSL::SSL::VERIFY_PEER, open_timeout:5, read_timeout:10) do |http|
+    http.get(object_uri.request_uri)
+  end
+  assert!(signed_response.code.to_i == 200 && Digest::SHA1.hexdigest(signed_response.body) == stored_private_upload.sha1,
+    "signed private attachment returns its exact persisted bytes")
   object_uri.query = nil
   object_response = Net::HTTP.start(object_uri.host, object_uri.port, use_ssl:true,
     verify_mode:OpenSSL::SSL::VERIFY_PEER, open_timeout:5, read_timeout:10) do |http|

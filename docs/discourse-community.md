@@ -59,6 +59,9 @@ keys and persistence after restarting only the storage service. It connects
 the root-only `forum.json` only after these checks pass. Native acceptance then
 tests private attachments through Discourse; public launch fails closed until
 that passes. Existing local brand uploads are not destructively migrated.
+`graviquest-objectstore-health.timer` checks the process, disk headroom and
+authenticated HTTPS access to both buckets every five minutes. Failures enter
+the systemd journal; no independent external alert channel has been configured.
 
 ## Identity and permissions
 

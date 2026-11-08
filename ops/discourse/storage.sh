@@ -36,6 +36,7 @@ curl -fsS --max-time 15 https://graviquest.com/api/health/ >/dev/null
 "$PYTHON" /opt/graviquest-objectstore/storage.py main-https
 "$PYTHON" /opt/graviquest-objectstore/storage.py verify
 "$PYTHON" /opt/graviquest-objectstore/storage.py connect
+"$PYTHON" /opt/graviquest-objectstore/storage.py monitor
 systemctl is-active --quiet graviquest-objectstore
 # Existing shared backend and containers are inspected, not restarted.
 curl -fsS --max-time 10 -H 'X-Forwarded-Proto: https' http://127.0.0.1:8000/api/health/ >/dev/null

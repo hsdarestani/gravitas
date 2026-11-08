@@ -12,6 +12,7 @@ from pathlib import Path
 import pwd
 import re
 import secrets
+import shutil
 import socket
 import subprocess
 import sys
@@ -318,12 +319,50 @@ def connect():
     print('Discourse configured for the verified local S3 service; existing SMTP and SSO secrets preserved.')
 
 
+def health():
+    command(['systemctl','is-active','--quiet',SERVICE])
+    assert shutil.disk_usage(DATA).free > 5*1024**3, 'S3 host has less than 5 GiB free disk'
+    client=sdk(ENDPOINT)
+    for bucket in BUCKETS:
+        client.head_bucket(Bucket=bucket)
+    print('S3 process, free disk and authenticated HTTPS bucket access are healthy.')
+
+
+def monitor():
+    health()
+    write('/etc/systemd/system/graviquest-objectstore-health.service','''[Unit]
+Description=Check private GraviQuest S3 availability and free disk
+After=network-online.target graviquest-objectstore.service
+[Service]
+Type=oneshot
+ExecStart=/opt/graviquest-objectstore/venv/bin/python /opt/graviquest-objectstore/storage.py health
+TimeoutStartSec=90
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+''',0o644)
+    write('/etc/systemd/system/graviquest-objectstore-health.timer','''[Unit]
+Description=Monitor GraviQuest S3 every five minutes
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=5min
+Persistent=true
+[Install]
+WantedBy=timers.target
+''',0o644)
+    command(['systemctl','daemon-reload'])
+    command(['systemctl','enable','--now','graviquest-objectstore-health.timer'])
+    command(['systemctl','start','graviquest-objectstore-health.service'])
+    print('S3 health timer enabled; failures are recorded in the systemd journal.')
+
+
 if __name__=='__main__':
     assert os.geteuid()==0, 'Run as root through the authorized deployment workflow'
     mode=sys.argv[1]
     try:
         {'setup':setup,'http':lambda:nginx(False),'https':lambda:nginx(True),'main-https':nginx_main,
-         'provision':provision,'verify':verify,'connect':connect}[mode]()
+         'provision':provision,'verify':verify,'connect':connect,'health':health,'monitor':monitor}[mode]()
     except Exception as exc:
         if isinstance(exc,(AssertionError,RuntimeError)):
             print(str(exc),file=sys.stderr)
