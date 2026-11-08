@@ -22,6 +22,7 @@ class CoreConfig(AppConfig):
         from . import oidc_models  # noqa: F401
         from . import kms_models  # noqa: F401
         from . import email_verification  # noqa: F401
+        from . import forum  # noqa: F401
         from . import layer_signals  # noqa: F401
         from . import space_fs
         from .space_project_metadata import project_markdown

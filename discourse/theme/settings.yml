@@ -1,0 +1,11 @@
+next_topic_poll_id:
+  type: integer
+  default: 0
+  min: 0
+  description: "Native Discourse topic containing the current community poll. Zero hides it."
+
+open_question_topic_id:
+  type: integer
+  default: 0
+  min: 0
+  description: "Official native Open Question topic. Zero hides the pinned band."

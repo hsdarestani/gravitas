@@ -53,164 +53,7 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
     </div>
   </div>
 </header>
-<main id="main">
-<!-- A thread -------------------------------------------------------------------
-     The thread view, in the site's own parts. The crumb is the workspace
-     window's mono crumb, the room is a chapter label, a stance is the
-     Viewpoints tag (view__tag), the facts under the opening post are the
-     layer grid's hairline cells, and the position control beside the posts
-     is the Start Here rail's count and round arrows ("01 / 05"), which here
-     step from post to post the way a forum's timeline does. What members
-     wrote is set in Literata, because it is reading.
-     Like, Reply and Answer Back send a reader without an account to sign in.
-     PREVIEW: a sample thread; every row on forum.html opens it. -->
-<section class="g-section fm-sec"><div class="g-container">
-  <p class="fm-crumb"><a href="forum.html">Forum</a> / <a href="forum.html">Open Question</a></p>
-  <header class="fm-thead">
-    <h1 class="fm-h1 fm-h1--thread">A model predicts correctly and nobody can say why. Has science been done?</h1>
-    <p class="fm-thead__meta"><span class="fm-room">Open Question</span><span>Started by Pulsar, 6 days ago</span></p>
-  </header>
-
-  <div class="fm-thread">
-    <div class="fm-posts">
-      <article class="fm-post" id="post-1">
-        <header class="fm-post__head">
-          <img class="avatar is-mark" src="assets/img/forum/pulsar.png" alt="" width="160" height="160" loading="lazy" decoding="async" title="Pulsar">
-          <span class="fm-post__who"><b>Pulsar</b><span class="g-tag">Moderator</span></span>
-          <time datetime="2026-11-02">6 days ago</time>
-        </header>
-        <div class="fm-post__body">
-          <p>A model predicts a material’s behaviour correctly, repeatedly, and nobody, including its authors, can say why.</p>
-          <p>Pick a position before you argue it: prediction is the test; without a mechanism it is engineering, not science; or it depends what the prediction is for.</p>
-        </div>
-        <footer class="fm-post__acts">
-          <a class="g-btn g-btn--ghost g-btn--sm" href="account.html#in">Like<span class="fm-post__n">9</span></a>
-          <a class="g-btn g-btn--ghost g-btn--sm" href="account.html#in">Reply</a>
-        </footer>
-      </article>
-      <article class="fm-post" id="post-2">
-        <header class="fm-post__head">
-          <img class="avatar" src="assets/img/forum/taylor.png" alt="" width="160" height="160" loading="lazy" decoding="async" title="Taylor">
-          <span class="fm-post__who"><b>Taylor</b></span>
-          <time datetime="2026-11-03">5 days ago</time>
-        </header>
-        <div class="fm-post__body">
-          <p class="view__tag fm-stance">Prediction is the test</p>
-          <p>Every theory we trust started as a pattern that held before anyone could say why it held. Kepler fitted ellipses decades before Newton explained them.</p>
-        </div>
-        <footer class="fm-post__acts">
-          <a class="g-btn g-btn--ghost g-btn--sm" href="account.html#in">Like<span class="fm-post__n">14</span></a>
-          <a class="g-btn g-btn--ghost g-btn--sm" href="account.html#in">Reply</a>
-        </footer>
-      </article>
-      <article class="fm-post" id="post-3">
-        <header class="fm-post__head">
-          <img class="avatar" src="assets/img/forum/hulse.png" alt="" width="160" height="160" loading="lazy" decoding="async" title="Hulse">
-          <span class="fm-post__who"><b>Hulse</b><span class="fm-post__to">to Taylor</span></span>
-          <time datetime="2026-11-04">4 days ago</time>
-        </header>
-        <div class="fm-post__body">
-          <p class="view__tag fm-stance">Without a mechanism it is engineering</p>
-          <p>Kepler’s ellipses were a description people could reason with. A model whose reasons are hidden even from its authors gives you nothing to extend, only something to rerun.</p>
-        </div>
-        <footer class="fm-post__acts">
-          <a class="g-btn g-btn--ghost g-btn--sm" href="account.html#in">Like<span class="fm-post__n">11</span></a>
-          <a class="g-btn g-btn--ghost g-btn--sm" href="account.html#in">Reply</a>
-        </footer>
-      </article>
-      <article class="fm-post" id="post-4">
-        <header class="fm-post__head">
-          <span class="avatar" title="Mira K.">MK</span>
-          <span class="fm-post__who"><b>Mira K.</b></span>
-          <time datetime="2026-11-07">1 day ago</time>
-        </header>
-        <div class="fm-post__body">
-          <p class="view__tag fm-stance">It depends what the prediction is for</p>
-          <p>For a bridge, prediction is enough. For a claim about why materials behave as they do, it is not. The question hides two different jobs.</p>
-        </div>
-        <footer class="fm-post__acts">
-          <a class="g-btn g-btn--ghost g-btn--sm" href="account.html#in">Like<span class="fm-post__n">4</span></a>
-          <a class="g-btn g-btn--ghost g-btn--sm" href="account.html#in">Reply</a>
-        </footer>
-      </article>
-      <article class="fm-post" id="post-5">
-        <header class="fm-post__head">
-          <img class="avatar" src="assets/img/forum/taylor.png" alt="" width="160" height="160" loading="lazy" decoding="async" title="Taylor">
-          <span class="fm-post__who"><b>Taylor</b><span class="fm-post__to">to Mira K.</span></span>
-          <time datetime="2026-11-08">5 hours ago</time>
-        </header>
-        <div class="fm-post__body">
-          <p>Fair split. Then the honest label for the model is “tool”, and the open question is whether science can be done with tools we do not understand.</p>
-        </div>
-        <footer class="fm-post__acts">
-          <a class="g-btn g-btn--ghost g-btn--sm" href="account.html#in">Like<span class="fm-post__n">2</span></a>
-          <a class="g-btn g-btn--ghost g-btn--sm" href="account.html#in">Reply</a>
-        </footer>
-      </article>
-      <div class="callout lp-argue__q fm-answer">
-        <div>
-          <h3>Answer Back</h3>
-          <p>Sign in to reply or take a position. A moderator reads every post before it appears.</p>
-        </div>
-        <a class="g-btn g-btn--primary" href="account.html#in">Sign in to Reply</a>
-      </div>
-    </div>
-
-    <aside class="fm-aside" aria-label="This thread">
-      <div class="fm-step-nav">
-        <span class="fm-count" data-fm-count aria-live="polite">01 / 05</span>
-        <a class="fm-arrow" href="#post-1" data-fm-prev aria-label="Previous post"><svg class="g-ic fm-arrow__up" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><g transform="translate(-3.054 -2.465) scale(1.209200)" stroke-width="1.406"><path d="m9 4.6 7.4 7.4L9 19.4"/></g></svg></a>
-        <a class="fm-arrow" href="#post-2" data-fm-next aria-label="Next post"><svg class="g-ic fm-arrow__down" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><g transform="translate(-3.054 -2.465) scale(1.209200)" stroke-width="1.406"><path d="m9 4.6 7.4 7.4L9 19.4"/></g></svg></a>
-      </div>
-      <dl class="fm-facts">
-        <div><dt>Replies</dt><dd>4</dd></div>
-        <div><dt>Views</dt><dd>412</dd></div>
-        <div><dt>Likes</dt><dd>40</dd></div>
-        <div><dt>Last reply</dt><dd>5h</dd></div>
-      </dl>
-      <div class="fm-talk">
-      <p class="fm-aside__label">Talking</p>
-      <ul class="fm-people">
-        <li><img class="avatar fm-av is-mark" src="assets/img/forum/pulsar.png" alt="" width="160" height="160" loading="lazy" decoding="async" title="Pulsar">Pulsar</li>
-        <li><img class="avatar fm-av" src="assets/img/forum/taylor.png" alt="" width="160" height="160" loading="lazy" decoding="async" title="Taylor">Taylor</li>
-        <li><img class="avatar fm-av" src="assets/img/forum/hulse.png" alt="" width="160" height="160" loading="lazy" decoding="async" title="Hulse">Hulse</li>
-        <li><span class="avatar fm-av" title="Mira K.">MK</span>Mira K.</li>
-      </ul>
-      </div>
-    </aside>
-  </div>
-
-  <section class="fm-more" aria-labelledby="fm-more-h">
-    <h2 class="fm-more__h" id="fm-more-h">More in the Forum</h2>
-    <div class="fm-list">
-      <div class="fm-row fm-row--head" aria-hidden="true"><span>Thread</span><span class="fm-c-who"></span><span class="fm-c-n">Replies</span><span class="fm-c-n fm-c-views">Views</span><span class="fm-c-n">Activity</span></div>
-      <ol class="fm-rows">
-      <li data-type="t03" data-tags="Discovery "><a class="fm-row" href="forum-thread.html">
-        <span class="fm-row__main"><span class="fm-room">Topic 03 &middot; Discovery</span><span class="fm-row__title">Is “the model found it” ever a valid methods section?</span></span>
-        <span class="fm-c-who"><span class="fm-who"><span class="avatar fm-av" title="Sara N.">SN</span><img class="avatar fm-av" src="assets/img/forum/hulse.png" alt="" width="160" height="160" loading="lazy" decoding="async" title="Hulse"></span><span class="g-visually-hidden">2 taking part</span></span>
-        <span class="fm-c-n">1<span class="g-visually-hidden"> replies</span></span>
-        <span class="fm-c-n fm-c-views">97<span class="g-visually-hidden"> views</span></span>
-        <span class="fm-c-n fm-c-age" title="Last reply 12 hours ago"><span class="g-visually-hidden">Last reply </span>12h</span>
-      </a></li>
-      <li data-type="t01" data-tags="AI in Research Verification"><a class="fm-row" href="forum-thread.html">
-        <span class="fm-row__main"><span class="fm-room">Topic 01 &middot; AI in Research</span><span class="fm-row__title">If it was right ninety-nine times, what should make you check the hundredth?</span><span class="fm-row__tags"><span class="g-tag">Verification</span></span></span>
-        <span class="fm-c-who"><span class="fm-who"><img class="avatar fm-av" src="assets/img/forum/hulse.png" alt="" width="160" height="160" loading="lazy" decoding="async" title="Hulse"><span class="avatar fm-av" title="Jonas R.">JR</span><img class="avatar fm-av" src="assets/img/forum/taylor.png" alt="" width="160" height="160" loading="lazy" decoding="async" title="Taylor"></span><span class="g-visually-hidden">3 taking part</span></span>
-        <span class="fm-c-n">2<span class="g-visually-hidden"> replies</span></span>
-        <span class="fm-c-n fm-c-views">238<span class="g-visually-hidden"> views</span></span>
-        <span class="fm-c-n fm-c-age" title="Last reply 22 hours ago"><span class="g-visually-hidden">Last reply </span>22h</span>
-      </a></li>
-      <li data-type="open" data-tags="Open Question "><a class="fm-row" href="forum-thread.html">
-        <span class="fm-row__main"><span class="fm-room">Open Question</span><span class="fm-row__title">Is “engineering, not science” a fair way to put it?</span></span>
-        <span class="fm-c-who"><span class="fm-who"><span class="avatar fm-av" title="Lena W.">LW</span><img class="avatar fm-av" src="assets/img/forum/taylor.png" alt="" width="160" height="160" loading="lazy" decoding="async" title="Taylor"><span class="avatar fm-av" title="Omar F.">OF</span><img class="avatar fm-av" src="assets/img/forum/hulse.png" alt="" width="160" height="160" loading="lazy" decoding="async" title="Hulse"></span><span class="g-visually-hidden">5 taking part</span></span>
-        <span class="fm-c-n">7<span class="g-visually-hidden"> replies</span></span>
-        <span class="fm-c-n fm-c-views">301<span class="g-visually-hidden"> views</span></span>
-        <span class="fm-c-n fm-c-age" title="Last reply 1 days ago"><span class="g-visually-hidden">Last reply </span>1d</span>
-      </a></li>
-      </ol>
-    </div>
-  </section>
-</div></section>
-</main>
+<main id="main"><section class="g-section"><div class="g-container"><p class="g-eyebrow">GraviQuest Forum</p><h1>Continue the conversation.</h1><p class="g-lead">Discussions now live in the Forum. Choose a room to read, reply, or start a discussion.</p><a class="g-btn g-btn--primary" href="/forum.html">Open the Forum</a></div></section></main>
 
 <footer class="g-footer">
   <div class="g-container">
@@ -232,9 +75,9 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
     </div>
   </div>
 </footer>
-<script src="assets/site.js?v=20261102-ws1"></script>
+<script src="assets/site.js?v=20261108-forum1"></script>
 <script src="assets/forum.js?v=20261108-fm8" defer></script>
 <script src="assets/chat.js?v=20261102-lab1" defer></script>
-<script src="assets/production-bridge.js?v=20261102-ws1" defer></script>
+<script src="assets/production-bridge.js?v=20261108-forum1" defer></script>
 </body>
 </html>

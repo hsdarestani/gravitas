@@ -234,7 +234,8 @@
         return adoptReaderLibrary().then(function (adopted) {
           if (adopted) setNote(form, 'Signed in. Your saved items came with you — opening your library…');
           window.setTimeout(function () {
-            location.href = adopted ? '/workspace/kms/library' : '/workspace';
+            location.href = /(?:^|;\s*)gq_forum_continue=1(?:;|$)/.test(document.cookie)
+              ? '/api/forum/resume/' : (adopted ? '/workspace/kms/library' : '/workspace');
           }, 250);
         });
       });

@@ -25,6 +25,7 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
 <link rel="stylesheet" href="assets/forum.css?v=20261108-fm10">
 <link rel="stylesheet" href="assets/chat.css?v=20261010-pulsar8">
 <link rel="stylesheet" href="assets/production-overrides.css?v=up-f706806e3a02-g1df6ff09-rl3">
+<link rel="stylesheet" href="/assets/forum-live.css?v=20261108-forum2">
 </head>
 <body>
 <a class="g-skip-link" href="#main">Skip to content</a>
@@ -54,21 +55,7 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
   </div>
 </header>
 <main id="main">
-<!-- The Forum ------------------------------------------------------------------
-     No hero: the Community hero's "Open the Forum" lands here and the reader
-     is in the forum at once, the way a community forum opens (the Julia
-     Discourse was the reference: rooms, a list of threads with who is
-     talking, replies, views and last activity, then the thread itself).
-     Nothing here is a new component. The heading is a chapter head
-     (lp-chap__n), the pinned question is the home page's This Week's Question
-     band (lp-argue__q), the rooms are the Start Here rail's pill steps (a mono
-     number before the name, outlined in the accent when chosen), the rows
-     are the layer list's hairline rows, and House Rules is the Topics page's
-     callout. site.js runs the room filter and the search, as it does on
-     Topics, so nothing else is scripted on this page.
-     Static HTML, so it reads whole with JavaScript blocked.
-     PREVIEW: sample threads, said on screen; every row opens the one sample
-     thread (forum-thread.html). -->
+<!-- Existing GraviQuest forum layout; conversations are loaded from Discourse. -->
 <section class="g-section fm-sec"><div class="g-container">
   <header class="fm-top">
     <div>
@@ -76,7 +63,7 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
       <h1 class="fm-h1">The Forum</h1>
       <p class="g-lead fm-lead">Every Topic has a room. Read any thread without an account; sign in to reply, like or start one.</p>
     </div>
-    <a class="g-btn g-btn--primary" href="account.html#in">Start a Thread</a>
+    <a class="g-btn g-btn--primary" href="/api/forum/start/" data-forum-new>Start a Thread</a>
   </header>
 
 
@@ -85,77 +72,31 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
       <h3>This Week&rsquo;s Question</h3>
       <p>A model predicts a material&rsquo;s behaviour correctly, repeatedly, and nobody, including its authors, can say why. Has science been done?</p>
     </div>
-    <a class="g-btn g-btn--secondary" href="forum-thread.html">Join the Thread</a>
+    <a class="g-btn g-btn--secondary" href="/api/forum/open/weekly-thought-experiment/">Join the Thread</a>
   </div>
 
   <div class="fm-bar">
-    <div class="fm-steps" role="group" aria-label="Rooms">
-      <button class="chip fm-step" type="button" data-filter="all" aria-pressed="true">All</button>
-      <button class="chip fm-step" type="button" data-filter="open" aria-pressed="false">Open Question</button>
-      <button class="chip fm-step" type="button" data-filter="t01" aria-pressed="false"><span>01</span>AI in Research</button>
-      <button class="chip fm-step" type="button" data-filter="t03" aria-pressed="false"><span>03</span>Discovery</button>
-      <button class="chip fm-step" type="button" data-filter="t04" aria-pressed="false"><span>04</span>Computation</button>
+    <div class="fm-steps" id="rd-rooms" role="group" aria-label="Rooms"><span class="g-muted">Loading rooms…</span></div>
+    <form class="fm-find" data-forum-search role="search">
+      <input class="search" type="search" name="q" placeholder="Search threads" aria-label="Search threads" required maxlength="200">
+      <button class="g-btn g-btn--secondary g-btn--sm" type="submit">Search</button>
+    </form>
+  </div>
+  <div class="fm-live-tools">
+    <div class="fm-steps" role="group" aria-label="Sort discussions">
+      <button class="chip fm-step" type="button" data-forum-sort="latest" aria-pressed="true">Latest</button>
+      <button class="chip fm-step" type="button" data-forum-sort="top" aria-pressed="false">Top</button>
+      <button class="chip fm-step" type="button" data-forum-sort="unanswered" aria-pressed="false">Unanswered</button>
     </div>
-    <div class="fm-find">
-      <input class="search" type="search" placeholder="Search threads" aria-label="Search threads">
-      <span class="result-count" aria-live="polite"></span>
-    </div>
+    <span class="result-count" data-forum-count aria-live="polite"></span>
   </div>
 
   <div class="fm-list">
     <div class="fm-row fm-row--head" aria-hidden="true"><span>Thread</span><span class="fm-c-who"></span><span class="fm-c-n">Replies</span><span class="fm-c-n fm-c-views">Views</span><span class="fm-c-n">Activity</span></div>
-    <ol class="fm-rows" data-filterable>
-      <li data-type="t03" data-tags="Discovery "><a class="fm-row" href="forum-thread.html">
-        <span class="fm-row__main"><span class="fm-room">Topic 03 &middot; Discovery</span><span class="fm-row__title">Is “the model found it” ever a valid methods section?</span></span>
-        <span class="fm-c-who"><span class="fm-who"><span class="avatar fm-av" title="Sara N.">SN</span><img class="avatar fm-av" src="assets/img/forum/hulse.png" alt="" width="160" height="160" loading="lazy" decoding="async" title="Hulse"></span><span class="g-visually-hidden">2 taking part</span></span>
-        <span class="fm-c-n">1<span class="g-visually-hidden"> replies</span></span>
-        <span class="fm-c-n fm-c-views">97<span class="g-visually-hidden"> views</span></span>
-        <span class="fm-c-n fm-c-age" title="Last reply 12 hours ago"><span class="g-visually-hidden">Last reply </span>12h</span>
-      </a></li>
-      <li data-type="t01" data-tags="AI in Research Verification"><a class="fm-row" href="forum-thread.html">
-        <span class="fm-row__main"><span class="fm-room">Topic 01 &middot; AI in Research</span><span class="fm-row__title">If it was right ninety-nine times, what should make you check the hundredth?</span><span class="fm-row__tags"><span class="g-tag">Verification</span></span></span>
-        <span class="fm-c-who"><span class="fm-who"><img class="avatar fm-av" src="assets/img/forum/hulse.png" alt="" width="160" height="160" loading="lazy" decoding="async" title="Hulse"><span class="avatar fm-av" title="Jonas R.">JR</span><img class="avatar fm-av" src="assets/img/forum/taylor.png" alt="" width="160" height="160" loading="lazy" decoding="async" title="Taylor"></span><span class="g-visually-hidden">3 taking part</span></span>
-        <span class="fm-c-n">2<span class="g-visually-hidden"> replies</span></span>
-        <span class="fm-c-n fm-c-views">238<span class="g-visually-hidden"> views</span></span>
-        <span class="fm-c-n fm-c-age" title="Last reply 22 hours ago"><span class="g-visually-hidden">Last reply </span>22h</span>
-      </a></li>
-      <li data-type="open" data-tags="Open Question "><a class="fm-row" href="forum-thread.html">
-        <span class="fm-row__main"><span class="fm-room">Open Question</span><span class="fm-row__title">Is “engineering, not science” a fair way to put it?</span></span>
-        <span class="fm-c-who"><span class="fm-who"><span class="avatar fm-av" title="Lena W.">LW</span><img class="avatar fm-av" src="assets/img/forum/taylor.png" alt="" width="160" height="160" loading="lazy" decoding="async" title="Taylor"><span class="avatar fm-av" title="Omar F.">OF</span><img class="avatar fm-av" src="assets/img/forum/hulse.png" alt="" width="160" height="160" loading="lazy" decoding="async" title="Hulse"></span><span class="g-visually-hidden">5 taking part</span></span>
-        <span class="fm-c-n">7<span class="g-visually-hidden"> replies</span></span>
-        <span class="fm-c-n fm-c-views">301<span class="g-visually-hidden"> views</span></span>
-        <span class="fm-c-n fm-c-age" title="Last reply 1 days ago"><span class="g-visually-hidden">Last reply </span>1d</span>
-      </a></li>
-      <li data-type="t01" data-tags="AI in Research Reading notes"><a class="fm-row" href="forum-thread.html">
-        <span class="fm-row__main"><span class="fm-room">Topic 01 &middot; AI in Research</span><span class="fm-row__title">Checking by risk, or checking everything</span><span class="fm-row__tags"><span class="g-tag">Reading notes</span></span></span>
-        <span class="fm-c-who"><span class="fm-who"><img class="avatar fm-av" src="assets/img/forum/taylor.png" alt="" width="160" height="160" loading="lazy" decoding="async" title="Taylor"><img class="avatar fm-av" src="assets/img/forum/hulse.png" alt="" width="160" height="160" loading="lazy" decoding="async" title="Hulse"></span><span class="g-visually-hidden">2 taking part</span></span>
-        <span class="fm-c-n">1<span class="g-visually-hidden"> replies</span></span>
-        <span class="fm-c-n fm-c-views">156<span class="g-visually-hidden"> views</span></span>
-        <span class="fm-c-n fm-c-age" title="Last reply 2 days ago"><span class="g-visually-hidden">Last reply </span>2d</span>
-      </a></li>
-      <li data-type="t04" data-tags="Computation "><a class="fm-row" href="forum-thread.html">
-        <span class="fm-row__main"><span class="fm-room">Topic 04 &middot; Computation</span><span class="fm-row__title">Does chaos make prediction impossible, or only expensive?</span></span>
-        <span class="fm-c-who"><span class="fm-who"><span class="avatar fm-av" title="Omar F.">OF</span><span class="avatar fm-av" title="Lena W.">LW</span><img class="avatar fm-av is-mark" src="assets/img/forum/pulsar.png" alt="" width="160" height="160" loading="lazy" decoding="async" title="Pulsar"></span><span class="g-visually-hidden">3 taking part</span></span>
-        <span class="fm-c-n">3<span class="g-visually-hidden"> replies</span></span>
-        <span class="fm-c-n fm-c-views">129<span class="g-visually-hidden"> views</span></span>
-        <span class="fm-c-n fm-c-age" title="Last reply 3 days ago"><span class="g-visually-hidden">Last reply </span>3d</span>
-      </a></li>
-      <li data-type="t03" data-tags="Discovery "><a class="fm-row" href="forum-thread.html">
-        <span class="fm-row__main"><span class="fm-room">Topic 03 &middot; Discovery</span><span class="fm-row__title">Where did the idea come from, and does it matter for whether it is true?</span></span>
-        <span class="fm-c-who"><span class="fm-who"><span class="avatar fm-av" title="Jonas R.">JR</span><span class="avatar fm-av" title="Sara N.">SN</span><img class="avatar fm-av" src="assets/img/forum/taylor.png" alt="" width="160" height="160" loading="lazy" decoding="async" title="Taylor"></span><span class="g-visually-hidden">3 taking part</span></span>
-        <span class="fm-c-n">5<span class="g-visually-hidden"> replies</span></span>
-        <span class="fm-c-n fm-c-views">184<span class="g-visually-hidden"> views</span></span>
-        <span class="fm-c-n fm-c-age" title="Last reply 5 days ago"><span class="g-visually-hidden">Last reply </span>5d</span>
-      </a></li>
-      <li data-type="t04" data-tags="Computation Reading group"><a class="fm-row" href="forum-thread.html">
-        <span class="fm-row__main"><span class="fm-room">Topic 04 &middot; Computation</span><span class="fm-row__title">Reading group: what counts as computing?</span><span class="fm-row__tags"><span class="g-tag">Reading group</span></span></span>
-        <span class="fm-c-who"><span class="fm-who"><img class="avatar fm-av is-mark" src="assets/img/forum/pulsar.png" alt="" width="160" height="160" loading="lazy" decoding="async" title="Pulsar"></span><span class="g-visually-hidden">1 taking part</span></span>
-        <span class="fm-c-n">0<span class="g-visually-hidden"> replies</span></span>
-        <span class="fm-c-n fm-c-views">64<span class="g-visually-hidden"> views</span></span>
-        <span class="fm-c-n fm-c-age" title="Last reply 8 days ago"><span class="g-visually-hidden">Last reply </span>8d</span>
-      </a></li>
-    </ol>
-    <div class="empty is-hidden"><p>No thread matches that. Clear the search or pick All.</p></div>
+    <ol class="fm-rows" data-forum-feed data-forum-layout="table" aria-label="Public discussions" aria-busy="true"></ol>
+    <div data-forum-status role="status"><p>Loading discussions…</p></div>
+    <button class="g-btn g-btn--secondary" type="button" data-forum-more hidden>Load more discussions</button>
+    <noscript><p>Enable JavaScript to load the discussion list. <a href="/api/forum/start/">Open the Forum</a>.</p></noscript>
   </div>
 
   <div class="callout g-mt-xl">
@@ -185,8 +126,9 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
     </div>
   </div>
 </footer>
-<script src="assets/site.js?v=20261102-ws1"></script>
+<script src="assets/site.js?v=20261108-forum1"></script>
 <script src="assets/chat.js?v=20261102-lab1" defer></script>
-<script src="assets/production-bridge.js?v=20261102-ws1" defer></script>
+<script src="assets/production-bridge.js?v=20261108-forum1" defer></script>
+<script src="/assets/forum-live.js?v=20261108-forum2" defer></script>
 </body>
 </html>

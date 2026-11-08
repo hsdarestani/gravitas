@@ -112,6 +112,7 @@
   }
 
   function enableCommunity() {
+    if (document.querySelector('[data-forum-community]')) return;
     var reasoning = document.getElementById('arg');
     var form = reasoning && reasoning.closest('form');
     if (!form || form.dataset.liveCommunity === '1') return;

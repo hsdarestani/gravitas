@@ -1,0 +1,36 @@
+name: Discourse read-only host preflight
+on:
+  push:
+    branches: [feat/discourse-community]
+    paths: ['ops/discourse/preflight.sh', '.github/workflows/forum-preflight.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Inspect existing host without changing services
+        env:
+          SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          SSH_HOST: ${{ secrets.DEPLOY_HOST }}
+          SSH_USER: ${{ secrets.DEPLOY_USER }}
+          SSH_PORT: ${{ secrets.DEPLOY_PORT }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$SSH_KEY" && test -n "$SSH_HOST"
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/forum-preflight
+          chmod 600 ~/.ssh/forum-preflight
+          PORT="${SSH_PORT:-22}"
+          LOGIN="${SSH_USER:-deploy}"
+          ssh-keyscan -p "$PORT" -H "$SSH_HOST" >> ~/.ssh/known_hosts
+          OPTS=(-i ~/.ssh/forum-preflight -p "$PORT" -o BatchMode=yes -o ConnectTimeout=10)
+          if ! ssh "${OPTS[@]}" "$LOGIN@$SSH_HOST" true; then
+            LOGIN=root
+            ssh "${OPTS[@]}" "$LOGIN@$SSH_HOST" true
+          fi
+          ssh "${OPTS[@]}" "$LOGIN@$SSH_HOST" 'sudo bash -s' < ops/discourse/preflight.sh

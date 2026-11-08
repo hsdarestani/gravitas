@@ -480,6 +480,8 @@ jobs:
               ssl_certificate_key $CERT_DIR/privkey.pem;
               include /etc/letsencrypt/options-ssl-nginx.conf;
               ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
+              # Optional isolated S3 routes; an unmatched glob is valid nginx.
+              include /etc/nginx/snippets/graviquest-storage*.conf;
 
               location ^~ /api/ {
                   client_max_body_size 260M;
@@ -536,6 +538,7 @@ jobs:
 
               location = /account.html { return 301 /login; }
               location = /workspace.html { return 301 /workspace; }
+              location = /community { try_files /community.html =404; }
               location = /login { try_files /account.html =404; }
               location = /signup { try_files /account.html =404; }
               location = /workspace { try_files /workspace.html =404; }
@@ -623,6 +626,7 @@ jobs:
 
               location = /account.html { return 301 /login; }
               location = /workspace.html { return 301 /workspace; }
+              location = /community { try_files /community.html =404; }
               location = /login { try_files /account.html =404; }
               location = /signup { try_files /account.html =404; }
               location = /workspace { try_files /workspace.html =404; }
