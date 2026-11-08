@@ -9,6 +9,7 @@ system_user = Discourse.system_user
 SiteSetting.title = "GraviQuest Forum"
 SiteSetting.site_description = "Good questions pull people together."
 SiteSetting.navigation_menu = "header dropdown"
+SiteSetting.enable_welcome_banner = false
 SiteSetting.discourse_connect_url = "https://graviquest.com/api/forum/sso/"
 SiteSetting.discourse_connect_secret = settings_file.fetch("GRAVITAS_DISCOURSE_CONNECT_SECRET")
 SiteSetting.enable_discourse_connect = true
@@ -140,6 +141,12 @@ theme.update!(color_scheme_id: scheme.id, user_selectable: true)
 theme.update_setting(:next_topic_poll_id, poll.id)
 theme.update_setting(:open_question_topic_id, question.id)
 theme.update_javascript_cache!
+compiled = theme.javascript_cache&.content.to_s
+# Core records a JS compilation failure as a throwing cache, not a ThemeField
+# validation error. Reject that artifact before making it the default theme.
+if compiled.blank? || compiled.start_with?("throw new Error(")
+  raise "Theme JavaScript compilation failed: #{compiled.first(2000)}"
+end
 theme.theme_fields.each(&:ensure_baked!)
 raise "Theme compilation failed" if theme.theme_fields.where.not(error: [nil, ""]).exists?
 %i[common_theme desktop_theme mobile_theme].each { |target| Stylesheet::Manager.new(theme_id: theme.id).stylesheet_data(target) }

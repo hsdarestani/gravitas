@@ -10,6 +10,7 @@ require "uri"
 require "net/http"
 require "tempfile"
 require "zlib"
+require "digest/sha1"
 require "rack/test"
 require "action_dispatch/testing/integration"
 
@@ -102,7 +103,18 @@ if ENV["GQ_VERIFY_AFTER_RESTART"] == "1"
   state = JSON.parse(File.read(state_path))
   assert!(Topic.exists?(state.fetch("topic_id")), "discussion survived container restart")
   assert!(Post.exists?(state.fetch("reply_id")), "reply survived container restart")
-  assert!(Upload.exists?(state.fetch("upload_id")), "attachment survived container restart")
+  upload = Upload.find(state.fetch("upload_id"))
+  unless Discourse.store.external?
+    file = Discourse.store.path_for(upload)
+    assert!(file && File.file?(file) && Digest::SHA1.file(file).hexdigest == upload.sha1, "actual attachment bytes survived container restart")
+  else
+    download = Discourse.store.url_for(upload, force_download:true)
+    uri = URI.parse(download.start_with?("//") ? "https:#{download}" : download)
+    assert!(uri.scheme == "https", "attachment recovery uses verified HTTPS")
+    response = Net::HTTP.start(uri.host, uri.port, use_ssl:true, verify_mode:OpenSSL::SSL::VERIFY_PEER,
+                              open_timeout:5, read_timeout:10) { |http| http.get(uri.request_uri) }
+    assert!(response.code.to_i == 200 && Digest::SHA1.hexdigest(response.body) == upload.sha1, "actual S3 attachment bytes survived container restart")
+  end
   assert!(PollVote.exists?(user_id: state.fetch("member_id")), "vote survived container restart")
   s, member = sso_login("member", state.fetch("token"))
   assert!(member.id == state.fetch("member_id"), "repeat SSO maps the same account")
