@@ -166,6 +166,8 @@ a.fm-row:hover .fm-row__title { color: var(--g-accent); }
 img.avatar { display: block; padding: 0; object-fit: cover; background: var(--g-surface-hover); }
 /* Pulsar is the mark itself, cut out of the cast sheet's paper tile along
    its own edge, set inside the same disc as everyone else and at the same
-   size, so a row of avatars reads as one row. */
-img.avatar.is-mark { padding: .45rem; object-fit: contain; }
+   size, so a row of avatars reads as one row. Its disc is Cosmos Blue in
+   both themes: the paper mark is drawn to sit on the brand anchor, and a
+   theme-following surface would wash it out on light. */
+img.avatar.is-mark { padding: .45rem; object-fit: contain; background: var(--g-cosmos-blue); }
 img.avatar.fm-av.is-mark { padding: .3rem; }
