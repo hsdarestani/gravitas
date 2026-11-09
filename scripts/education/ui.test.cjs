@@ -113,3 +113,11 @@ test('a cached answer is not reused after intervening conversation changes its c
   let calls=0;const dom=setup('en','physics',async()=>({ok:true,json:async()=>({ok:true,provider:'cloudflare',reply:'Answer '+(++calls)})})),w=dom.window,d=w.document;
   for(const q of ['Why?','Now discuss mass.','Why?']){d.getElementById('el-message').value=q;click(w,'#el-send');await flush();}assert.equal(calls,3);dom.window.close();
 });
+test('replaying an older scenario restores its question, evidence, reflection and language state together',()=>{
+  const dom=setup(),w=dom.window,d=w.document;click(w,'#el-choices button:nth-child(2)');click(w,'#el-test');const threshold=d.getElementById('el-comparison').textContent;
+  change(w,'#el-lesson',1);click(w,'#el-choices button:nth-child(2)');click(w,'#el-test');change(w,'#el-replay-select',0);click(w,'.el-replay-actions button:first-child');assert.equal(d.getElementById('el-lesson').value,'0');assert.equal(d.getElementById('el-param-angle').value,'20');assert.equal(d.getElementById('el-comparison').textContent,threshold);
+  d.getElementById('el-reflection').value='Reflection for the threshold';d.getElementById('el-reflection').dispatchEvent(new w.Event('input'));assert.match(d.getElementById('el-journey-content').textContent,/Reflection for the threshold/);const saved=JSON.parse(w.sessionStorage.getItem('gq:education:session:v1'));assert.equal(saved.lesson,0);assert.equal(saved.parameters.angle,20);assert.ok(!JSON.stringify(saved).includes('Reflection for'));dom.window.close();
+});
+test('typing a valid numerical value updates the model without a blur and incomplete decimals remain editable',()=>{
+  const dom=setup(),w=dom.window,d=w.document;click(w,'button[data-level="advanced"]');change(w,'#el-number-angle',41,'input');assert.equal(d.getElementById('el-param-angle').value,'41');assert.match(d.getElementById('el-out-angle').textContent,/41/);change(w,'#el-number-mass','0','input');assert.equal(d.getElementById('el-number-mass').value,'0');assert.equal(d.getElementById('el-param-mass').value,'2');change(w,'#el-number-mass',.5,'input');assert.equal(d.getElementById('el-param-mass').value,'0.5');dom.window.close();
+});
