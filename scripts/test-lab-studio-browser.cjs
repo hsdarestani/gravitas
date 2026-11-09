@@ -63,7 +63,9 @@ const server=http.createServer((req,res)=>{
         if(!signedIn&&guestQuestions>=25){res.writeHead(401);res.end(JSON.stringify({ok:false,error:'trial_exhausted',access:{authenticated:false,remaining:0,limit:25,used:25}}));return;}
         if(!signedIn)guestQuestions++;
       }
-      res.end(JSON.stringify({ok:true,provider:detailedFixture?'live':'script',reply:data.question?'Fixture answer '+guestQuestions+': compare the two matched outcomes.':'Fixture guided note.',access:{authenticated:signedIn,remaining:signedIn?null:25-guestQuestions,limit:25,used:guestQuestions}}));
+      const reply=data.question?'Fixture answer '+guestQuestions+': compare the two matched outcomes.':'Fixture guided note.';
+      const detail=data.reply_detail==='detailed'?'\n\nCompare the review queues at the same point in both runs.'.repeat(19)+' End of detailed answer.':'';
+      res.end(JSON.stringify({ok:true,provider:detailedFixture?'live':'script',reply:reply+detail,access:{authenticated:signedIn,remaining:signedIn?null:25-guestQuestions,limit:25,used:guestQuestions}}));
     });return;
   }
   if(url.pathname==='/lab-run/fixture-lab/'){
@@ -248,12 +250,19 @@ const server=http.createServer((req,res)=>{
     assert.deepEqual(runtimeErrors,[],'Lab runtime must not throw browser errors');
     await page.close();
     guestQuestions=0;detailedFixture=true;
-    const fresh=await browser.newContext({viewport:{width:390,height:844}});page=await fresh.newPage();page.on('pageerror',err=>runtimeErrors.push(err.message));
+    const fresh=await browser.newContext({viewport:{width:390,height:700},isMobile:true,hasTouch:true});page=await fresh.newPage();page.on('pageerror',err=>runtimeErrors.push(err.message));
     await page.goto(url+'?lab=science-universe',{waitUntil:'networkidle'});await page.getByRole('button',{name:'Enter simulation',exact:true}).click();
     await page.getByText('Try a guided experiment',{exact:true}).waitFor();
     const mobileFrame=page.frameLocator('.lab-frame');
     const replies=page.getByRole('group',{name:'Suggested replies'});
     const input=page.getByRole('textbox',{name:'Message Pulsar'});
+    const views=page.getByRole('group',{name:'Pulsar view'});
+    const compact=await page.locator('.lab-pulsar-widget').boundingBox();
+    assert.equal(await input.isVisible(),false,'experiment dock gives the simulation more room');
+    await views.getByRole('button',{name:'Chat',exact:true}).click();
+    const expanded=await page.locator('.lab-pulsar-widget').boundingBox();
+    assert.ok(expanded.height>=compact.height+100,'the transcript gets a larger dock');
+    assert.equal(await page.getByText('Try a guided experiment',{exact:true}).isVisible(),false,'experiment controls do not crowd the transcript');
     failScienceReply=true;
     await input.fill('Explain this result');await page.getByRole('button',{name:'Send to Pulsar'}).click();
     await replies.getByRole('button',{name:'Try again',exact:true}).waitFor();
@@ -267,6 +276,18 @@ const server=http.createServer((req,res)=>{
     await page.locator('.lab-chat-bubble').filter({hasText:'Fixture answer 3:'}).waitFor();
     assert.equal(lastScienceRequest.reply_detail,'detailed');
     assert.equal(await replies.getAttribute('dir'),'rtl','prepared replies follow the user’s conversation language');
+    const longReply=await page.locator('.lab-chat-history').evaluate(history=>{
+      const answer=history.querySelector('.lab-chat-bubble:last-child'),bounds=history.getBoundingClientRect();
+      const start=answer.getBoundingClientRect().top;
+      history.scrollTop=history.scrollHeight;
+      const composer=history.nextElementSibling.getBoundingClientRect();
+      return {start:Math.round(start-bounds.top),scrollable:history.scrollHeight>history.clientHeight,
+        endVisible:answer.getBoundingClientRect().bottom<=bounds.bottom+1,
+        composerVisible:composer.bottom<=window.innerHeight+1};
+    });
+    assert.ok(longReply.start>=0&&longReply.start<=15,'a long reply opens at the first line');
+    assert.ok(longReply.scrollable&&longReply.endVisible&&longReply.composerVisible,'scroll to the end while the composer stays visible');
+    await views.getByRole('button',{name:'Experiment',exact:true}).click();
     await page.getByText('Try a guided experiment',{exact:true}).click();
     await page.getByRole('button',{name:'Publication pressure',exact:true}).click();
     await mobileFrame.getByText('False claims published in the model',{exact:true}).waitFor();

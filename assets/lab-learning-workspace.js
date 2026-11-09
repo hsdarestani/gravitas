@@ -24,7 +24,7 @@ let config=null,authOwner=null,accessReady=false,notice=null,saveRequested=false
 let lessonPolicies=POLICIES,guideDays=20,firstComplete=false;
 const GUIDE_KEY='graviquest:science-ecosystem:guide:v2';
 function prepare(){if(guide&&!guide.hidden&&guideIndex<0)config.tell('lab:lesson',{action:'welcome'});}
-function startGuide(){guideIndex=-1;firstComplete=false;guide.hidden=false;renderGuide();prepare();config.openChat();host.dataset.mode='guide';}
+function startGuide(){guideIndex=-1;firstComplete=false;guide.hidden=false;renderGuide();prepare();config.openChat('experiment');host.dataset.mode='guide';}
 function rememberGuide(){try{localStorage.setItem(GUIDE_KEY,'done');}catch(_){}}
 function skipGuide(){if(!guide.hidden&&!firstComplete&&guideIndex<lessonPolicies.length)config.track?.('guide_skipped',{step:Math.max(0,guideIndex+1)});guide.hidden=true;host.dataset.mode='chat';rememberGuide();config.tell('lab:lesson',{action:'skip'});config.refreshReplies?.();}
 function beginComparison(){config.track?.('guide_started');guideIndex=0;showPolicy();renderGuide();}
@@ -126,8 +126,8 @@ function mountAtlas(content){
 function mount(options){
  config=options;access=null;accessReady=false;saveRequested=false;authOwner=null;canSync=false;atlas=null;firstComplete=false;clearTimeout(syncTimer);
  const settings=options.settings||{};guideDays=Number.isInteger(settings.lesson_days)&&settings.lesson_days>=1&&settings.lesson_days<=120?settings.lesson_days:20;lessonPolicies=POLICIES.map(p=>{const custom=settings.lessons?.[p[0]]||{};return [p[0],custom.title||p[1],custom.question||p[2],custom.watch||p[3]];});
- host=options.assistant;host.dataset.mode='chat';const tabs=el('div','learning-mobile-tabs');tabs.append(button('Pulsar guide',()=>{host.dataset.mode='guide';if(guide.hidden)startGuide();}),button('Ask Pulsar',()=>{host.dataset.mode='chat';config.openChat();}));host.prepend(tabs);guide=el('section','lab-learning-guide');guide.hidden=true;guideIndex=-1;lessonState=null;tabs.after(guide);renderGuide();
- notice=el('section','lab-access-strip');notice.setAttribute('aria-label','Pulsar guest access');options.body.insertBefore(notice,options.form);
+ host=options.assistant;host.dataset.mode='chat';guide=el('section','lab-learning-guide');guide.hidden=true;guideIndex=-1;lessonState=null;host.prepend(guide);renderGuide();
+ notice=el('section','lab-access-strip');notice.setAttribute('aria-label','Pulsar guest access');options.accessHost.append(notice);
  refreshAccess();
 }
 window.addEventListener('focus',()=>{if(config&&root.document.querySelector('#lab-experiences[data-lab-slug="science-universe"]'))refreshAccess();});

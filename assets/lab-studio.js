@@ -15,6 +15,8 @@ var chat=null,chatHistory=[],chatUnread=0,chatBusy=false,chatOpen=false,chatMoun
 var usage=null,lastQuestion='',replyFailed=false;
 var notices=[],chatSequence=0,fullscreenButton=null,companionGeometry=null;
 var labLevel='simple',missionProgress=null,missionEnabled=true,missionUnlocks=new Set();
+const mobilePulsar=window.matchMedia('(max-width: 900px)');
+mobilePulsar.addEventListener('change',()=>scrollPulsar());
 function enteredLab(slug){try{return sessionStorage.getItem('graviquest:lab:entered:'+slug)==='yes';}catch(_){return false;}}
 function positionCompanion(){
  if(root.classList.contains('learning-split'))return;
@@ -141,7 +143,7 @@ function removeNotice(n,immediate){
 }
 function openPulsarMessage(m){
  if(!chat)return;
- chatOpen=true;refreshChat();
+ openPulsarChat();
  var row=Array.from(chat.log.children).find(function(el){return el.dataset.messageId===m.id;});
  if(row){row.focus({preventScroll:true});row.scrollIntoView({block:'center'});}
  else chat.input.focus();
@@ -197,7 +199,26 @@ function addBubble(m){
   row.append(btn('['+(i+1)+'] '+(c.section||c.title),function(){openKnowledge(c.document,c.anchor);},'lab-source-ref'));
  });
  row.append(meta);chat.log.append(row);
- chat.log.scrollTop=chat.log.scrollHeight;
+ scrollPulsar();
+}
+function scrollPulsar(){
+ if(!chat)return;
+ const last=chat.log.lastElementChild;
+ if(!mobilePulsar.matches||!chat.history){chat.log.scrollTop=chat.log.scrollHeight;return;}
+ if(!last||!chat.history.clientHeight)return;
+ const history=chat.history;
+ const top=last.getBoundingClientRect().top-history.getBoundingClientRect().top;
+ history.scrollTop+=top-8;
+}
+function openPulsarChat(pane='chat'){
+ if(!chat)return;
+ chatOpen=true;
+ chat.sidebar.dataset.mode='chat';
+ if(chat.panes){
+  root.dataset.pulsarPane=pane;
+  for(const button of chat.panes.children)button.setAttribute('aria-pressed',String(button.dataset.pane===pane));
+ }
+ refreshChat();
 }
 function refreshChat(){
  if(!chat)return;
@@ -210,8 +231,8 @@ function refreshChat(){
  chat.log.setAttribute('aria-live',chatOpen?'polite':'off');
  chat.badge.hidden=chatOpen||chatUnread===0;
  chat.badge.textContent=chatUnread>9?'9+':String(chatUnread);
- if(chatOpen){chatUnread=0;clearNotices();chat.log.scrollTop=chat.log.scrollHeight;}
  root.classList.toggle('companion-collapsed',!chatOpen);
+ if(chatOpen){chatUnread=0;clearNotices();scrollPulsar();}
  positionCompanion();
 }
 // Pulsar stays invisible until the simulator has said where its dock is.
@@ -323,17 +344,36 @@ function mountPulsarChat(sidebar){
   noticeStack.setAttribute('aria-label','Pulsar notifications');noticeStack.setAttribute('aria-live','polite');
   sidebar.append(noticeStack);
  }
- var tools=node('div','lab-chat-tools'),mission=null;
+ var tools=node('div','lab-chat-tools'),mission=null,experiment=null,history=null,panes=null;
  if(active.slug==='science-universe'){
+  panes=node('div','lab-chat-mobile-views');
+  panes.setAttribute('role','group');panes.setAttribute('aria-label','Pulsar view');
+  for(const [pane,label] of [['experiment','Experiment'],['chat','Chat']]){
+   const button=btn(label,()=>openPulsarChat(pane));
+   button.dataset.pane=pane;
+   button.setAttribute('aria-pressed',String(pane===root.dataset.pulsarPane));
+   panes.append(button);
+  }
+  experiment=node('div','lab-chat-experiment');
   mission=node('section','lab-mission');
   mission.setAttribute('aria-label','Pulsar mission');
-  body.append(mission);
+  experiment.append(mission);
  }
  if(active.slug==='science-universe'){var tips=btn('Tips on',function(){speaking=!speaking;tips.textContent=speaking?'Tips on':'Tips off';tips.setAttribute('aria-pressed',String(speaking));if(!speaking)clearNotices();},'lab-tips-toggle');tips.setAttribute('aria-pressed','true');tools.append(observation,tips);}
- body.append(tools,log,starters,status,form);box.append(toggle,body);sidebar.append(box);
- if(window.GraviLabUsage)body.insertBefore(window.GraviLabUsage.privacyControl(document.createDocumentFragment()),form);
+ if(experiment){
+  const conversation=node('div','lab-chat-conversation');
+  history=node('div','lab-chat-history');
+  history.append(tools,log,starters,status);
+  if(window.GraviLabUsage)window.GraviLabUsage.privacyControl(history);
+  conversation.append(history,form);
+  body.append(experiment,conversation);box.append(toggle,panes,body);
+ }else{
+  body.append(tools,log,starters,status,form);box.append(toggle,body);
+  if(window.GraviLabUsage)body.insertBefore(window.GraviLabUsage.privacyControl(document.createDocumentFragment()),form);
+ }
+ sidebar.append(box);
  if(active.config.pulsar_enabled===false){input.disabled=true;send.disabled=true;input.placeholder='AI explanations are disabled for this Lab';tools.hidden=true;}
- chat={box,body,log,status,input,send,toggle,badge,arrow,observation,starters,mission,notices:noticeStack};
+ chat={box,body,sidebar,panes,history,log,status,input,send,toggle,badge,arrow,observation,starters,mission,notices:noticeStack};
  chatOpen=true;
  try{
    var old=JSON.parse(localStorage.getItem(CHAT_KEY)||'[]');
@@ -347,7 +387,7 @@ function mountPulsarChat(sidebar){
    addChat('pulsar',active.slug==='directory'?'Tell me what you want to understand. I can help you choose an available Lab and explain what you will learn.':'What would you like to understand? Choose a lab, change one policy, or ask me about the science. We can follow what changes and work through why.','guide');
  }
  if(scienceGuide&&active.slug==='science-universe'){
-  scienceGuide.mount(body,mission,function(recipe){
+  scienceGuide.mount(experiment,mission,function(recipe){
    missionEnabled=true;
    if(!recipe){
     tellIframe('lab:level',{level:'simple',focus:true});return false;
@@ -355,6 +395,7 @@ function mountPulsarChat(sidebar){
    if(labLevel!=='advanced'){
     tellIframe('lab:level',{level:'medium',scenario:recipe.id,focus:true});return false;
    }
+   openPulsarChat();
    addChat('user','Run experiment: '+recipe.title,'guide');
    chat.status.textContent='Comparing two synthetic worlds…';
    tellIframe('lab:experiment',{id:recipe.id});return true;
@@ -362,7 +403,7 @@ function mountPulsarChat(sidebar){
   renderMission();
  }
  toggle.addEventListener('click',function(){
-   chatOpen=!chatOpen;refreshChat();if(chatOpen)input.focus();
+   chatOpen=!chatOpen;refreshChat();if(chatOpen&&(!panes||!mobilePulsar.matches))input.focus();
  });
  form.addEventListener('submit',function(e){
    e.preventDefault();var q=input.value.trim();
@@ -540,7 +581,7 @@ function configPanel(container,title){
 function runLab(lab,initialScenario){
   if(!lab||!lab.ready)return;
   lastQuestion='';replyFailed=false;
-  labLevel='simple';missionProgress=null;missionUnlocks=new Set();root.dataset.level=labLevel;
+  labLevel='simple';root.dataset.pulsarPane='experiment';missionProgress=null;missionUnlocks=new Set();root.dataset.level=labLevel;
   if(usage)usage.stop();usage=window.GraviLabUsage?window.GraviLabUsage.start(lab):null;
   if(focusWorkspace)focusWorkspace.close();focusWorkspace=null;root.classList.remove('is-reading-lab');
   clearNotices();lastInsightAt=0;companionGeometry=null;chatMountAt=Date.now();chatHistoryReady=lab.slug!=='science-universe';
@@ -647,10 +688,10 @@ function runLab(lab,initialScenario){
   if(lab.slug!=='science-universe'&&window.GraviLabUsage)window.GraviLabUsage.privacyControl(sidebar);
   grid.append(stageCol,sidebar);main.append(grid);root.replaceChildren(main);root.hidden=false;
   shell={line:speech,source:source,steps:steps,metrics:metrics,chart:chart,layers:shellLayerContainer,controls:controls,stage:stageCol,canvas:canvas};
-  if(lab.slug==='science-universe'&&learning){learning.mount({assistant:sidebar,body:chat.body,form:chat.body.querySelector('form'),settings:cfg.learning_workspace,pulsarEnabled:cfg.pulsar_enabled!==false,track:(kind,data)=>usage?.record(kind,data),refreshReplies:renderReplies,
+  if(lab.slug==='science-universe'&&learning){learning.mount({assistant:sidebar,accessHost:chat.history,settings:cfg.learning_workspace,pulsarEnabled:cfg.pulsar_enabled!==false,track:(kind,data)=>usage?.record(kind,data),refreshReplies:renderReplies,
     tell:tellIframe,ask:askPulsar,session:()=>session,history:()=>chatHistory,openAtlas:openAtlas,
     atlasOpen:()=>!!focusWorkspace?.querySelector('.lab-atlas'),closeAtlas:()=>focusWorkspace?.close(),
-    openChat:()=>{chatOpen=true;sidebar.dataset.mode='chat';refreshChat();},
+    openChat:openPulsarChat,
     restoreGuest:(preserveFresh=true)=>{chatHistoryReady=true;const fresh=preserveFresh?chatHistory.filter(m=>m.at>=chatMountAt):[];CHAT_KEY='graviquest:pulsar:science-universe:history:v3:guest';try{const stored=JSON.parse(localStorage.getItem(CHAT_KEY)||'[]');const merged=new Map([...stored,...fresh].filter(m=>m&&typeof m.id==='string'&&typeof m.text==='string'&&m.text.length<=1800&&['user','pulsar'].includes(m.role)).map(m=>[m.id,m]));chatHistory=[...merged.values()].slice(-70);chat.log.replaceChildren();chatHistory.forEach(addBubble);if(!chatHistory.length)addChat('pulsar','Ask me what changed and why.','guide');saveChat();}catch(_){}},
     restore:(messages,owner,preserveFresh)=>{chatHistoryReady=true;const fresh=preserveFresh?chatHistory.filter(m=>m.at>=chatMountAt&&(m.role==='user'||m.provider==='ai')):[];CHAT_KEY='graviquest:pulsar:science-universe:history:v3:'+owner;
       const merged=new Map([...messages,...fresh].map(m=>[m.id,m]));chatHistory=[...merged.values()].slice(-70);chat.log.replaceChildren();chatHistory.forEach(addBubble);if(!chatHistory.length)addChat('pulsar','Ask me what changed and why.','guide');saveChat();}
@@ -734,7 +775,7 @@ function modal(title,eyebrow){
  // on a button the reader had not reached by keyboard.
  dialog.tabIndex=-1;
  if(active?.slug==='science-universe'&&shell?.stage){
-  if(focusWorkspace)focusWorkspace.close();focusWorkspace=dialog;root.classList.add('is-reading-lab');chatOpen=true;const companion=chat?.box.closest('.lab-pulsar-widget');if(companion)companion.dataset.mode='chat';refreshChat();dialog.classList.add('lab-focus-workspace');shell.canvas.hidden=true;shell.stage.append(dialog);tellIframe('lab:command',{command:'pause'});dialog.show();
+  if(focusWorkspace)focusWorkspace.close();focusWorkspace=dialog;root.classList.add('is-reading-lab');openPulsarChat();dialog.classList.add('lab-focus-workspace');shell.canvas.hidden=true;shell.stage.append(dialog);tellIframe('lab:command',{command:'pause'});dialog.show();
  }else{document.body.append(dialog);dialog.showModal();}
  dialog.focus();return dialog;
 }
