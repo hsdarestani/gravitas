@@ -6,7 +6,7 @@
 
   function esc(value){return String(value==null?'':value).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;');}
   function dateLabel(value){if(!value)return'';var d=new Date(value);return Number.isNaN(d.getTime())?'':d.toLocaleDateString('en-GB',{year:'numeric',month:'short',day:'numeric'});}
-  function href(item){return '/topic.html?slug='+encodeURIComponent(item.slug);}
+  function href(item){var page=(item.topic_data||{}).page_url;return /^\/[a-z0-9-]+\.html$/.test(page||'')?page:'/topic.html?slug='+encodeURIComponent(item.slug);}
 
   var parent=target.parentElement;
   if(parent){var filters=parent.querySelector('.filters');if(filters)filters.remove();var empty=parent.querySelector('.empty');if(empty)empty.remove();}
@@ -22,10 +22,11 @@
         var topic=item.topic_data||{};
         var parts=[];
         if((topic.video||{}).duration)parts.push((topic.video||{}).duration+' video');
-        if((topic.essay||{}).overview_html|| (topic.essay||{}).indepth_html)parts.push('Essay');
+        if((topic.essay||{}).overview_html|| (topic.essay||{}).indepth_html||topic.essay_source==='publication')parts.push('Essay');
         if((topic.timeline||[]).length)parts.push('Timeline');
         if((topic.sources||[]).length)parts.push('Sources');
         if((topic.simulation||{}).code)parts.push('Simulation');
+        if(((topic.exercise||{}).answers||[]).length)parts.push('Exercise');
         var a=document.createElement('a');
         a.className='entry';
         a.href=href(item);

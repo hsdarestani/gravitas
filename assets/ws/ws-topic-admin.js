@@ -24,6 +24,10 @@ import * as K from './ws-admin-kit.js?v=20261016-task1';
 
 const { el } = K;
 const ADMIN = '/workspace/core/admin';
+/* Topic 01 has a page of its own with parts other Topics do not have: a cast,
+   stills, a transcript, an exercise and its panels on the home page. Its page
+   looks the record up by this slug, so the slug is not editable there. */
+const TOPIC_01 = 'answer-that-looked-right';
 
 function cookie(name) {
   const hit = document.cookie.split('; ').find((row) => row.startsWith(name + '='));
@@ -118,9 +122,10 @@ function sourceRow(values = {}) {
   const level = K.select([['start', 'Start here'], ['further', 'Go further'], ['primary', 'Primary']], values.level || 'start');
   const labelInput = K.input(values.label || '', 'text', 'Source label / title');
   const url = K.input(values.url || '', 'url', 'https://…');
+  const short = K.input(values.short || '', 'text', 'Shorter label for the home page');
   renameOnInput(row, labelInput, 'Source');
-  row.append(K.fields([K.field('Level', level), K.field('Label', labelInput), K.field('URL', url)]));
-  row._topicFields = { level, label: labelInput, url };
+  row.append(K.fields([K.field('Level', level), K.field('Label', labelInput), K.field('URL', url), K.field('Home page label', short)]));
+  row._topicFields = { level, label: labelInput, url, short };
   return row;
 }
 
@@ -131,12 +136,14 @@ function timelineRow(values = {}) {
   const description = K.textarea(values.description || '', 3, 'Short explanation');
   const image = mediaField('Image', values.image_url || '', 'image/*');
   const alt = K.input(values.image_alt || '', 'text', 'Image alt text');
+  const short = K.input(values.short || '', 'text', 'Shorter title for the home page');
+  const key = K.select([['', 'No'], ['1', 'Yes']], values.key ? '1' : '');
   row.append(
-    K.fields([K.field('Date', date), K.field('Title', title)], 2),
-    K.field('Description', description),
+    K.fields([K.field('Date', date), K.field('Title', title), K.field('Home page title', short), K.field('Highlight on home page', key)], 2),
+    K.field('Description', description, 'A link is written [label](https://…).'),
     K.fields([image.holder, K.field('Image alt text', alt)], 2),
   );
-  row._topicFields = { date, title, description, imageUrl: image.url, alt };
+  row._topicFields = { date, title, description, imageUrl: image.url, alt, short, key };
   return row;
 }
 
@@ -170,6 +177,8 @@ function videoRow(values = {}) {
   const sourceType = K.select([['none', 'Not published yet'], ['youtube', 'YouTube'], ['self_hosted', 'Self-hosted']], values.source_type || 'none');
   const youtube = K.input(values.youtube_url || '', 'url', 'YouTube URL');
   const self = mediaField('Self-hosted video', values.self_hosted_url || '', 'video/*');
+  const poster = mediaField('Thumbnail', values.poster_url || '', 'image/*');
+  const posterAlt = K.input(values.poster_alt || '', 'text', 'Thumbnail description');
   const duration = K.input(values.duration || '', 'text', 'e.g. 28 minutes');
   const description = K.textarea(values.description || '', 4, 'Video description');
   const info = K.input(values.info || '', 'text', 'Additional information');
@@ -186,6 +195,7 @@ function videoRow(values = {}) {
   sync();
   row.append(
     K.fields([K.field('Title', title), K.field('Source type', sourceType), K.field('Runtime', duration), youtubeField, self.holder]),
+    K.fields([poster.holder, K.field('Thumbnail description', posterAlt)], 2),
     K.field('Description', description),
     K.fields([
       K.field('Info', info, '', { wide: true }),
@@ -193,7 +203,7 @@ function videoRow(values = {}) {
       K.field('Transcript label', transcriptLabel), K.field('Transcript URL', transcriptUrl),
     ], 2),
   );
-  row._topicFields = { title, sourceType, youtube, selfUrl: self.url, duration, description, info, companionLabel, companionUrl, transcriptLabel, transcriptUrl };
+  row._topicFields = { title, sourceType, youtube, selfUrl: self.url, poster: poster.url, posterAlt, duration, description, info, companionLabel, companionUrl, transcriptLabel, transcriptUrl };
   return row;
 }
 
@@ -244,9 +254,69 @@ function viewpointRow(values = {}) {
   renameOnInput(row, labelInput, 'Viewpoint');
   const text = K.textarea(values.text || '', 6, 'Viewpoint text');
   const cite = K.input(values.cite || '', 'text', 'Citation / note');
-  row.append(K.fields([K.field('Label', labelInput), K.field('Citation', cite)], 2), K.field('Text', text));
-  row._topicFields = { label: labelInput, text, cite };
+  const short = K.textarea(values.short || '', 3, 'Shorter text for the home page');
+  row.append(K.fields([K.field('Label', labelInput), K.field('Citation', cite)], 2), K.field('Text', text), K.field('Home page text', short));
+  row._topicFields = { label: labelInput, text, cite, short };
   return row;
+}
+
+function castRow(values = {}) {
+  const row = item('Person', values.name, 'topic-cast-row');
+  const name = K.input(values.name || '', 'text', 'Name');
+  renameOnInput(row, name, 'Person');
+  const role = K.input(values.role || '', 'text', 'Role');
+  const image = mediaField('Picture', values.image_url || '', 'image/*');
+  const alt = K.input(values.image_alt || '', 'text', 'Picture description');
+  const bio = K.textarea(values.bio || '', 3, 'On the Topic page');
+  const short = K.textarea(values.short || '', 2, 'On the home page');
+  row.append(
+    K.fields([K.field('Name', name), K.field('Role', role)], 2),
+    K.fields([image.holder, K.field('Picture description', alt)], 2),
+    K.field('About', bio), K.field('Home page text', short),
+  );
+  row._topicFields = { name, role, imageUrl: image.url, alt, bio, short };
+  return row;
+}
+
+function stillRow(values = {}) {
+  const row = item('Still', values.caption, 'topic-still-row');
+  const image = mediaField('Picture', values.image_url || '', 'image/*');
+  const alt = K.input(values.image_alt || '', 'text', 'Picture description');
+  const caption = K.input(values.caption || '', 'text', 'Caption');
+  row.append(K.fields([image.holder, K.field('Picture description', alt)], 2), K.field('Caption', caption));
+  row._topicFields = { imageUrl: image.url, alt, caption };
+  return row;
+}
+
+function nextRow(values = {}) {
+  const row = item('Next link', values.title, 'topic-next-row');
+  const kicker = K.input(values.kicker || '', 'text', 'e.g. Next Topic');
+  const title = K.input(values.title || '', 'text', 'Title');
+  renameOnInput(row, title, 'Next link');
+  const text = K.input(values.text || '', 'text', 'One line');
+  const href = K.input(values.href || '', 'url', '/page.html');
+  row.append(K.fields([K.field('Label', kicker), K.field('Title', title), K.field('Text', text), K.field('Address', href)], 2));
+  row._topicFields = { kicker, title, text, href };
+  return row;
+}
+
+/* The transcript is edited as text, one "Speaker: line" per row, because that
+   is how a transcript is pasted in. */
+const transcriptText = (rows) => (Array.isArray(rows) ? rows : []).map((row) => `${row.speaker}: ${row.text}`).join('\n');
+function transcriptRows(text) {
+  return text.split('\n').map((line) => line.trim()).filter(Boolean).map((line) => {
+    const cut = line.indexOf(':');
+    return cut > 0 ? { speaker: line.slice(0, cut).trim(), text: line.slice(cut + 1).trim() } : { speaker: '', text: line };
+  });
+}
+
+function jsonField(value) {
+  return K.textarea(JSON.stringify(value && typeof value === 'object' ? value : {}, null, 2), 22, '{ }', { code: true });
+}
+
+function readJson(node, name) {
+  try { return JSON.parse(node.value || '{}'); }
+  catch (error) { throw new Error(name + ' is not valid JSON: ' + error.message); }
 }
 
 let pollSequence = 0;
@@ -358,10 +428,13 @@ export async function renderAdminContentEditor(host, id, { go }) {
       : 'English Topic content only for now. German and Persian translation controls are intentionally hidden.',
     actions: [
       K.link(go, 'All Topics', `${ADMIN}/content`),
-      current && current.status === 'published' ? K.anchor('View on site', `/topic.html?slug=${encodeURIComponent(current.slug)}`) : null,
+      current && current.status === 'published' ? K.anchor('View on site', data.page_url || `/topic.html?slug=${encodeURIComponent(current.slug)}`) : null,
     ],
   });
+  const isTopic01 = current?.slug === TOPIC_01;
   const form = el('form', 'adm-form');
+  // Fields take site paths like /api/content/media/…, which type=url refuses.
+  form.noValidate = true;
 
   /* Topic ----------------------------------------------------------------- */
   const title = K.input(current?.title || '', 'text', 'Question / Topic title');
@@ -371,6 +444,7 @@ export async function renderAdminContentEditor(host, id, { go }) {
   const summary = K.textarea(current?.summary || '', 4, 'Short summary used on cards and the main landing page');
   const heroLead = K.textarea(data.hero_lead || current?.summary || '', 3, 'Lead paragraph on the Topic page');
   const tags = K.input(Array.isArray(data.tags) ? data.tags.join(', ') : '', 'text', 'Comma-separated tags');
+  if (isTopic01) slug.disabled = true;
   let touched = !!current;
   slug.addEventListener('input', () => { touched = true; });
   title.addEventListener('input', () => { if (!touched) slug.value = K.slugify(title.value); });
@@ -423,6 +497,35 @@ export async function renderAdminContentEditor(host, id, { go }) {
     pollValues.map((v) => pollRow(v, pollResults.get(String(v.id || 'main')) || null)), 'Add poll', () => pollRow());
   polls.card.box.dataset.span = '6';
 
+  /* The parts only Topic 01 has ------------------------------------------- */
+  const cast = listCard('Cast', 'The people in the video, on the Topic page and the home page.',
+    (Array.isArray(data.cast) ? data.cast : []).map((v) => castRow(v)), 'Add person', () => castRow());
+  const stills = listCard('Stills', 'Frames from the video, under the cast.',
+    (Array.isArray(data.stills) ? data.stills : []).map((v) => stillRow(v)), 'Add still', () => stillRow());
+  const transcript = K.textarea(transcriptText(data.transcript), 18, 'Speaker: what they said');
+  const transcriptCard = K.card({ title: 'Transcript', note: 'One line per row, written Speaker: text.' });
+  transcriptCard.body.append(K.field('Transcript', transcript));
+  const figure = data.timeline_figure && typeof data.timeline_figure === 'object' ? data.timeline_figure : {};
+  const figureImage = mediaField('Picture', figure.image_url || '', 'image/*');
+  const figureAlt = K.input(figure.image_alt || '', 'text', 'Picture description');
+  const figureCaption = K.input(figure.caption || '', 'text', 'Caption');
+  if (isTopic01) timeline.card.body.append(K.heading('Picture beside the timeline'), K.fields([figureImage.holder, K.field('Picture description', figureAlt), K.field('Caption', figureCaption)], 2));
+  const exercise = jsonField(data.exercise);
+  const exerciseCard = K.card({ title: 'Exercise', note: 'The dataset, the answers and what the reader is told at the end. "correct" says whether an answer is right; "row" is the dataset row it points to.' });
+  exerciseCard.body.append(K.field('Exercise (JSON)', exercise));
+  const discussionData = data.discussion && typeof data.discussion === 'object' ? data.discussion : {};
+  const question = K.textarea(discussionData.question || '', 3, "This week's question");
+  const corrections = K.textarea(discussionData.corrections || '', 3, 'Corrections log');
+  const discussionCard = K.card({ title: 'Discussion', note: 'The question also appears on the home page.', span: 6 });
+  discussionCard.body.append(K.field("This week's question", question), K.field('Corrections', corrections));
+  const nextLinks = listCard('Where this goes next', 'The cards at the foot of the Topic page.',
+    (Array.isArray(data.next) ? data.next : []).map((v) => nextRow(v)), 'Add link', () => nextRow());
+  nextLinks.card.box.dataset.span = '6';
+  const landing = jsonField(data.landing);
+  const landingCard = K.card({ title: 'Home page', note: "The wording of the home page's Topic panels. Everything else in those panels comes from the other tabs." });
+  landingCard.body.append(K.field('Home page panels (JSON)', landing));
+  const essayNote = K.card({ title: 'Essays', note: 'This Topic\'s essays are published from the research project\'s files in Nextcloud, with the publish control beside each file. They are not edited here.' });
+
   const counted = (name, list) => `${name}${list.children.length ? ` · ${list.children.length}` : ''}`;
   form.append(K.tabs([
     ['topic', 'Topic'],
@@ -432,10 +535,20 @@ export async function renderAdminContentEditor(host, id, { go }) {
     ['timeline', counted('Timeline', timeline.list)],
     ['simulations', counted('Simulations', simulations.list)],
     ['viewpoints', 'Viewpoints & polls'],
+    ...(isTopic01 ? [
+      ['cast', counted('Cast & stills', cast.list)],
+      ['exercise', 'Exercise'],
+      ['discussion', 'Discussion'],
+      ['landing', 'Home page'],
+    ] : []),
   ], (key) => K.bento({
     topic: [basics.box, publishing.box],
     videos: [videos.card.box],
-    essays: [essays.card.box],
+    essays: [isTopic01 ? essayNote.box : essays.card.box],
+    cast: [cast.card.box, stills.card.box, transcriptCard.box],
+    exercise: [exerciseCard.box],
+    discussion: [discussionCard.box, nextLinks.card.box],
+    landing: [landingCard.box],
     sources: [sources.card.box],
     timeline: [timeline.card.box],
     simulations: [simulations.card.box],
@@ -447,7 +560,7 @@ export async function renderAdminContentEditor(host, id, { go }) {
   const save = K.button(current ? 'Save Topic' : 'Create Topic', null, { solid: true, type: 'submit' });
   const back = K.link(go, 'Back to Topics', `${ADMIN}/content`);
   let del = null;
-  if (current) {
+  if (current && !isTopic01) {
     del = K.button('Delete Topic', async () => {
       if (!window.confirm('Delete this Topic? This cannot be undone.')) return;
       del.disabled = true;
@@ -467,10 +580,39 @@ export async function renderAdminContentEditor(host, id, { go }) {
     event.preventDefault();
     save.disabled = true;
     K.setStatus(statusLine, 'Saving…');
+    let topic01Parts = {};
+    if (isTopic01) {
+      try {
+        topic01Parts = {
+          cast: collect(cast.list, '.topic-cast-row', (row) => {
+            const f = row._topicFields; if (!f) return null;
+            return { name: f.name.value.trim(), role: f.role.value.trim(), image_url: f.imageUrl.value.trim(), image_alt: f.alt.value.trim(), bio: f.bio.value.trim(), short: f.short.value.trim() };
+          }).filter((x) => x.name),
+          stills: collect(stills.list, '.topic-still-row', (row) => {
+            const f = row._topicFields; if (!f) return null;
+            return { image_url: f.imageUrl.value.trim(), image_alt: f.alt.value.trim(), caption: f.caption.value.trim() };
+          }).filter((x) => x.image_url),
+          transcript: transcriptRows(transcript.value),
+          timeline_figure: { image_url: figureImage.url.value.trim(), image_alt: figureAlt.value.trim(), caption: figureCaption.value.trim() },
+          exercise: readJson(exercise, 'Exercise'),
+          discussion: { question: question.value.trim(), corrections: corrections.value.trim() },
+          next: collect(nextLinks.list, '.topic-next-row', (row) => {
+            const f = row._topicFields; if (!f) return null;
+            return { kicker: f.kicker.value.trim(), title: f.title.value.trim(), text: f.text.value.trim(), href: f.href.value.trim() };
+          }).filter((x) => x.title),
+          landing: readJson(landing, 'Home page panels'),
+        };
+      } catch (error) {
+        K.setStatus(statusLine, error.message, 'bad');
+        save.disabled = false;
+        return;
+      }
+    }
     const videoRows = collect(videos.list, '.topic-video-row', (row) => {
       const f = row._topicFields; if (!f) return null;
       return {
         title: f.title.value.trim(), source_type: f.sourceType.value, youtube_url: f.youtube.value.trim(), self_hosted_url: f.selfUrl.value.trim(),
+        poster_url: f.poster.value.trim(), poster_alt: f.posterAlt.value.trim(),
         description: f.description.value, duration: f.duration.value.trim(), info: f.info.value.trim(),
         companion_label: f.companionLabel.value.trim(), companion_url: f.companionUrl.value.trim(),
         transcript_label: f.transcriptLabel.value.trim(), transcript_url: f.transcriptUrl.value.trim(),
@@ -485,13 +627,13 @@ export async function renderAdminContentEditor(host, id, { go }) {
     }).filter((x) => x.title || x.overview_html || x.indepth_html || x.image_url || x.aside_text);
     const sourceRows = collect(sources.list, '.topic-source-row', (row) => {
       const f = row._topicFields; if (!f) return null;
-      return { level: f.level.value || 'start', level_label: f.level.selectedOptions?.[0]?.textContent || '', label: f.label.value.trim(), url: f.url.value.trim() };
+      return { level: f.level.value || 'start', level_label: f.level.selectedOptions?.[0]?.textContent || '', label: f.label.value.trim(), url: f.url.value.trim(), short: f.short.value.trim() };
     }).filter((x) => x.label);
     const timelineRows = collect(timeline.list, '.topic-timeline-row', (row) => {
       const f = row._topicFields; if (!f) return null;
       return {
         date: f.date.value.trim(), title: f.title.value.trim(), description: f.description.value.trim(),
-        image_url: f.imageUrl.value.trim(), image_alt: f.alt.value.trim(),
+        image_url: f.imageUrl.value.trim(), image_alt: f.alt.value.trim(), short: f.short.value.trim(), key: f.key.value === '1',
       };
     }).filter((x) => x.title || x.date);
     const simulationRows = collect(simulations.list, '.topic-simulation-row', (row) => {
@@ -500,7 +642,7 @@ export async function renderAdminContentEditor(host, id, { go }) {
     }).filter((x) => x.description || x.builtin || x.native || x.type || x.enabled || x.code);
     const viewpointRows = collect(viewpoints.list, '.topic-viewpoint-row', (row) => {
       const f = row._topicFields; if (!f) return null;
-      return { label: f.label.value.trim(), text: f.text.value, cite: f.cite.value.trim() };
+      return { label: f.label.value.trim(), text: f.text.value, cite: f.cite.value.trim(), short: f.short.value.trim() };
     }).filter((x) => x.label || x.text || x.cite);
     const pollRows = collect(polls.list, '.topic-poll-row', (row) => {
       const f = row._topicFields; if (!f) return null;
@@ -514,6 +656,7 @@ export async function renderAdminContentEditor(host, id, { go }) {
     const secondView = viewpointRows[1] || {};
     const firstPoll = pollRows[0] || {};
     const topicData = {
+      ...data,
       number: number.value.trim(),
       hero_lead: heroLead.value,
       tags: tags.value.split(',').map((v) => v.trim()).filter(Boolean),
@@ -537,6 +680,7 @@ export async function renderAdminContentEditor(host, id, { go }) {
         poll_note: firstPoll.note || '',
       },
       landing: data.landing || {},
+      ...topic01Parts,
     };
     const payload = { title: title.value.trim(), slug: slug.value.trim(), kind: 'topic', status: status.value, summary: summary.value, body: '', topic_data: topicData, translations: [] };
     try {

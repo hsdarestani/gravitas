@@ -4,7 +4,6 @@ Disallow: /admin/
 Disallow: /api/
 Disallow: /django-static/
 Disallow: /dossier-machine-hypothesis.html
-Disallow: /dossier-computable-universe.html
 Disallow: /game-hypothesis-machine.html
 Disallow: /path-ai-in-research.html
 

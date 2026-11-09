@@ -313,6 +313,7 @@ class ForumPublishedSourceTests(TestCase):
         from core.forum_content import published_manifest
         ContentItem.objects.create(slug='published-science',title='Published science',kind='topic',status='published')
         ContentItem.objects.create(slug='draft-science',title='Draft',kind='topic',status='draft')
+        ContentItem.objects.filter(slug='answer-that-looked-right').delete()
         with tempfile.TemporaryDirectory() as folder:
             root=Path(folder)
             page=root/'topic-answer-that-looked-right.html'

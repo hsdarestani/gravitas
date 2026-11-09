@@ -35,7 +35,7 @@ def published_manifest(site_root=None):
     for item in ContentItem.objects.filter(status='published', kind__in=['topic', 'dossier']):
         canonical = json.dumps({'body':item.body, 'data':item.topic_data}, sort_keys=True)
         items.append({'id':item.pk, 'key':item.slug, 'title':item.title, 'source':'cms',
-                      'url':base + '/topic.html?slug=' + quote(item.slug),
+                      'url':base + '/' + STATIC_TOPICS.get(item.slug, 'topic.html?slug=' + quote(item.slug)),
                       'version':'sha256:' + hashlib.sha256(canonical.encode()).hexdigest()})
     keys = {item['key'] for item in items}
     home = (root/'index.html').read_text() if (root/'index.html').exists() else ''

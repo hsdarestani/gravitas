@@ -16,8 +16,7 @@ CATALOG = [
      'href': 'topic-answer-that-looked-right.html'},
     {'title': 'Can a machine form a hypothesis?', 'status': 'open',
      'href': 'topic-machine-hypothesis.html'},
-    {'title': 'Is the universe computable?', 'status': 'open',
-     'href': 'topic-computable-universe.html'},
+    {'title': 'What does peer review actually catch?', 'status': 'planned', 'href': ''},
     {'title': 'Can we model a living cell?', 'status': 'planned', 'href': ''},
 ]
 
@@ -75,7 +74,7 @@ class PublicPulsarContextTests(TestCase):
     def test_cannot_claim_database_topics_are_all_visible(self):
         reply, links = short_public_answer(
             'What are all topics till now?', db_topics=[{
-                'title': 'Is the universe computable?', 'status': 'open', 'href': '',
+                'title': 'Can a machine form a hypothesis?', 'status': 'open', 'href': '',
             }],
         )
         self.assertIn('database currently lists', reply)
@@ -88,11 +87,11 @@ class PublicPulsarApiTests(TestCase):
         # Migration 0020 seeds this slug; update it instead of creating
         # a second row with the same unique slug.
         ContentItem.objects.update_or_create(
-            slug='computable-universe',
+            slug='machine-hypothesis',
             defaults={
                 'kind': ContentItem.Kind.TOPIC,
                 'status': ContentItem.Status.PUBLISHED,
-                'title': 'Is the universe computable?',
+                'title': 'Can a machine form a hypothesis?',
             },
         )
         ContentItem.objects.create(

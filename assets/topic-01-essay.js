@@ -8,8 +8,8 @@
   'use strict';
   const reader = document.querySelector('[data-topic-essay-reader]');
   const excerpt = document.querySelector('[data-topic-essay-excerpt]');
-  const overviewTitles = document.querySelectorAll('[data-topic-essay-title]');
-  const deepTitles = document.querySelectorAll('[data-topic-essay-deep-title]');
+  let overviewTitles = [];
+  let deepTitles = [];
   const depthBar = document.querySelector('[data-essay-depth]');
   const updateTitle = (nodes, title) => nodes.forEach(node => { node.textContent = title; });
   const slotOf = depth => reader?.querySelector(`[data-essay="${depth}"]`);
@@ -94,7 +94,13 @@
     if (depthBar) depthBar.hidden = false;
   }
 
-  fetch('/api/topics/answer-that-looked-right/essays/', { cache: 'no-store' })
+  /* The record draws some of the elements the titles go into, so it goes first. */
+  (window.GQTopic01 || Promise.resolve())
+    .then(() => {
+      overviewTitles = document.querySelectorAll('[data-topic-essay-title]');
+      deepTitles = document.querySelectorAll('[data-topic-essay-deep-title]');
+      return fetch('/api/topics/answer-that-looked-right/essays/', { cache: 'no-store' });
+    })
     .then(response => {
       if (!response.ok) throw new Error('Essay unavailable');
       return response.json();

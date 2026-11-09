@@ -78,6 +78,8 @@
 /* ---- Discussion ----------------------------------------------------------- */
 .ta-comments:empty { display: none; }
 .ta-empty { color: var(--g-text-muted); font-size: var(--g-fs-small); }
+.ta-player { aspect-ratio: 16 / 9; border-radius: var(--g-radius); overflow: hidden; background: var(--g-surface-sunken); }
+.ta-player iframe, .ta-player video { display: block; width: 100%; height: 100%; border: 0; }
 
 /* The essay's two-depth switch and the transcript both need the page's
    anchor offset, since the topic nav is sticky. */

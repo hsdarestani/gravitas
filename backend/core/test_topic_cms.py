@@ -1,22 +1,50 @@
 import json
 from django.contrib.auth import get_user_model
 from django.test import TestCase
+from . import topic_01
 from .models import Comment, CommentLike, ContentItem, TopicPollVote
 from .topic_progress import topic_applicability
 
 
 class TopicCmsTests(TestCase):
     def setUp(self):
-        self.topic = ContentItem.objects.get(slug='computable-universe')
+        self.topic = ContentItem.objects.get(slug='answer-that-looked-right')
 
     def test_seeded_topic_is_public_and_structured(self):
         response = self.client.get('/api/content/?kind=topic')
         self.assertEqual(response.status_code, 200)
         item = next(row for row in response.json()['items'] if row['slug'] == self.topic.slug)
         self.assertEqual(item['kind'], 'topic')
-        self.assertIn('essay', item['topic_data'])
+        self.assertEqual(item['topic_data']['number'], '01')
+        self.assertIn('videos', item['topic_data'])
         self.assertIn('timeline', item['topic_data'])
         self.assertIn('viewpoints', item['topic_data'])
+
+    def test_topic_04_is_gone_and_topic_01_is_the_only_seeded_topic(self):
+        self.assertFalse(ContentItem.objects.filter(slug='computable-universe').exists())
+        self.assertEqual(self.client.get('/api/content/computable-universe/').status_code, 404)
+        slugs = [row['slug'] for row in self.client.get('/api/content/?kind=topic').json()['items']]
+        self.assertEqual(slugs, [self.topic.slug])
+
+    def test_every_seeded_picture_is_served_by_the_backend(self):
+        data = self.topic.topic_data
+        urls = [data['videos'][0]['poster_url'], data['timeline_figure']['image_url']]
+        urls += [row['image_url'] for row in data['cast'] + data['stills']]
+        self.assertEqual(len(urls), 11)
+        for url in urls:
+            self.assertTrue(url.startswith('/api/content/media/'), url)
+            response = self.client.get(url)
+            self.assertEqual(response.status_code, 200, url)
+            self.assertTrue(response['Content-Type'].startswith('image/'), url)
+
+    def test_pulsar_snapshot_follows_an_admin_edit_of_the_record(self):
+        data = dict(self.topic.topic_data)
+        data['discussion'] = {'question': 'A question saved by an admin', 'corrections': ''}
+        self.topic.topic_data = data
+        self.topic.save(update_fields=['topic_data'])
+        sections = {row['id']: row['text'] for row in topic_01.snapshot()['sections']}
+        self.assertIn('A question saved by an admin', sections['talk'])
+        self.assertIn('Hulse', sections['video'])
 
     def test_topic_supports_unlimited_repeatable_section_objects(self):
         data = dict(self.topic.topic_data)

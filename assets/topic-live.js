@@ -682,6 +682,9 @@
     .then(function (data) {
       var item = data.item;
       if (!item || item.kind !== 'topic') throw new Error('topic_not_found');
+      /* A Topic with a page of its own lives there, whichever link led here. */
+      var page = (item.topic_data || {}).page_url;
+      if (/^\/[a-z0-9-]+\.html$/.test(page || '')) { location.replace(page + location.hash); return []; }
       renderTopic(item);
       setupTopicProgress(slug);
       return Promise.all([

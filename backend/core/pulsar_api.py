@@ -5,6 +5,7 @@ from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 
+from . import topic_01
 from .models import ContentItem, PublicPageSnapshot
 from .topic_essay_api import TOPIC_01_PAGE, public_essay_context, public_essay_label, published_essays
 from .pulsar import PLATFORM_CONTEXT, PulsarError, configured, run_text
@@ -101,6 +102,11 @@ def public_pulsar_ask(request):
     key = '/' if page == '/index.html' else page
     snapshots = PublicPageSnapshot.objects.in_bulk({key, '/topics.html'})
     snapshot = snapshots[key].content if key in snapshots else {}
+    if key == TOPIC_01_PAGE:
+        # The record, not the deploy-time copy: an admin's save counts at once.
+        live = topic_01.snapshot()
+        if live:
+            snapshot = {**snapshot, 'sections': live['sections']}
     client_observation = page_observation(data.get('page_context'))
     observation = snapshot.get('observation', client_observation)
     if snapshot and client_observation['actions']:

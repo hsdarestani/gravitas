@@ -5,6 +5,7 @@ from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 from lxml import html
 
+from core import topic_01
 from core.models import PublicPageSnapshot
 from core.pulsar_public_context import clean_text, public_topic_catalog, page_observation, public_href
 
@@ -14,8 +15,7 @@ PAGES = (
     'index', 'about', 'brand', 'community', 'education', 'education-de', 'forum', 'forum-thread',
     'game-hypothesis-machine', 'impressum', 'lab', 'lab-prompt-bias', 'lab-protein-stability',
     'lab-scientific-visualization', 'learn', 'newsletter', 'path-ai-in-research', 'privacy',
-    'topics', 'topic-answer-that-looked-right',
-    'topic-computable-universe', 'topic-machine-hypothesis',
+    'topics', 'topic-answer-that-looked-right', 'topic-machine-hypothesis',
 )
 
 
@@ -120,6 +120,14 @@ class Command(BaseCommand):
             except (OSError, ValueError) as exc:
                 raise CommandError(f'Could not read public page {name}.html') from exc
             pages[name] = _page_content(document, name)
+
+        # Topic 01's static HTML is an empty shell the browser fills from its
+        # record, so the snapshot takes the words from that record.
+        live = topic_01.snapshot()
+        if live:
+            page = pages[topic_01.PAGE]
+            page['sections'] = live['sections']
+            page['observation'] = {**page['observation'], 'heading': live['title']}
 
         home = pages['index']
         featured = pages.get(home.pop('featured_topic_key', ''))

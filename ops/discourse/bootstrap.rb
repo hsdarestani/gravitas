@@ -83,7 +83,6 @@ rooms = {}
   ["The Open Question", "open-question"],
   ["Topic 01 · AI in Research", "ai-in-research"],
   ["Topic 03 · Discovery", "discovery"],
-  ["Topic 04 · Computable universe", "computable-universe"],
   ["Corrections", "corrections"], ["Propose a Topic", "propose-a-topic"],
   ["Lab results", "lab-results"], ["Introductions", "introductions"],
 ].each { |name, slug| rooms[slug] = category(name, slug, {"everyone" => 1}) }
@@ -117,7 +116,6 @@ links << {key: "next-topic-poll", topic_id: poll.id, category_id: poll.category_
 manifest.fetch("published_content").each do |item|
   room = case item.fetch("key")
          when "answer-that-looked-right", "ai-in-research" then rooms.fetch("ai-in-research")
-         when "computable-universe" then rooms.fetch("computable-universe")
          else rooms.fetch("open-question")
          end
   topic = official_topic(item.fetch("key"), "Discuss: #{item.fetch('title')}",

@@ -367,8 +367,8 @@
      A .video card is a poster frame with a play button on it, and the frame
      was an empty gradient. Rather than paste a path into every card, the file
      is looked up from the page the card points at: the card linking to
-     topic-computable-universe.html asks for
-     assets/thumbnails/topic-computable-universe.webp, and a .video with no
+     topic-machine-hypothesis.html asks for
+     assets/thumbnails/topic-machine-hypothesis.webp, and a .video with no
      href — the one on a topic page, which is already on the page it means —
      asks for its own filename. Export a still under the page's name, drop it
      in the folder, and it appears in every card that links there. No markup
@@ -404,7 +404,8 @@
     probe.src = url;
   }
 
-  [].forEach.call(document.querySelectorAll('.video'), function (card) {
+  // data-set-poster: the card's poster comes from the Topic's record instead.
+  [].forEach.call(document.querySelectorAll('.video:not([data-set-poster])'), function (card) {
     var name = thumbName(card);
     var urls = THUMB_EXT.map(function (ext) { return THUMB_DIR + name + '.' + ext; });
 

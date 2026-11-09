@@ -6,7 +6,6 @@ workflow is included in `.github/workflows/deploy.yml`.
 ```
 index.html                        Home
 dossiers.html                     Dossier index (filter + search)
-dossier-computable-universe.html  A full worked dossier — all seven layers
 dossier-machine-hypothesis.html   Dossier 03 — the roadmap's starting topic
 account.html                      Sign in / create an account
 lab.html                          Interactive lab
@@ -39,7 +38,7 @@ one question with every layer wrapped around it:
 | 06 Viewpoints | the strongest case *against* our own reading, plus a poll |
 | 07 Discussion | comments, this week's question, a public correction log |
 
-`dossier-computable-universe.html` is built out in full so the pattern is
+`dossier-machine-hypothesis.html` is built out in full so the pattern is
 concrete rather than described.
 
 ### 2. One page, two audiences — not two sites
@@ -154,8 +153,8 @@ you to fill in, not missing pages.
 ## Second pass
 
 **Dossier 03 is now built out.** The roadmap names AI and ML in scientific
-research as the starting point, but the site was leading with *Is the universe
-computable?* — a strategic mismatch. `dossier-machine-hypothesis.html` carries
+research as the starting point, but the site was leading with a physics
+question — a strategic mismatch. `dossier-machine-hypothesis.html` carries
 all seven layers and the roadmap's harder questions rather than a
 tools-and-prompts tour.
 

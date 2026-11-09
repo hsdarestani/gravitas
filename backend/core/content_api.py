@@ -15,6 +15,11 @@ from .topic_progress import mark_topic_progress
 
 SUPPORTED_LOCALES = {'en', 'de', 'fa'}
 MEDIA_NAME_RE = re.compile(r'^[0-9a-f]{32}\.[a-z0-9]{1,10}$')
+# Pictures a seeded Topic was published with ship beside the code under the same
+# content-hash names uploads use, so the seed needs no write to the media volume
+# and an admin replaces one simply by uploading another.
+SEED_MEDIA_ROOT = Path(__file__).resolve().parent / 'topic_seed' / 'media'
+mimetypes.add_type('image/webp', '.webp')
 
 
 def _requested_locale(request):
@@ -256,6 +261,8 @@ def topic_media(request, name):
     if not MEDIA_NAME_RE.fullmatch(name or ''):
         return JsonResponse({'ok': False, 'error': 'not_found'}, status=404)
     target = Path(settings.TOPIC_MEDIA_ROOT) / name
+    if not target.is_file():
+        target = SEED_MEDIA_ROOT / name
     if not target.is_file():
         return JsonResponse({'ok': False, 'error': 'not_found'}, status=404)
     content_type = mimetypes.guess_type(str(target))[0] or 'application/octet-stream'

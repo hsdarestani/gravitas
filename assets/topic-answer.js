@@ -23,8 +23,10 @@
   'use strict';
 
   /* ---- Exercise --------------------------------------------------------- */
-  var box = document.getElementById('ta-test');
-  if (box) {
+  (window.GQTopic01 || Promise.resolve(null)).then(function (topic) {
+    var box = document.getElementById('ta-test');
+    if (!box || !topic) return;
+    var exercise = (topic.topic_data || {}).exercise || {};
     var rows = box.querySelectorAll('.ta-data tbody tr');
     var answers = [].slice.call(box.querySelectorAll('.ta-answer'));
     var resultEl = box.querySelector('.ta-result');
@@ -39,9 +41,10 @@
     }
 
     function score() {
-      var missed = 0, checked = 0, checkedRight = 0, left = 0;
+      var missed = 0, checked = 0, checkedRight = 0, left = 0, right = 0;
       answers.forEach(function (a) {
         var s = a.getAttribute('data-state'), ok = a.getAttribute('data-ok') === 'true';
+        if (ok) right++;
         if (!s) left++;
         else if (s === 'check') { checked++; if (ok) checkedRight++; }
         else if (!ok) missed++;
@@ -54,12 +57,11 @@
       // reader who trusted a wrong one finds out which, not just how many.
       answers.forEach(function (a) { a.querySelector('.ta-answer__v').hidden = false; });
       if (missed) {
-        resultEl.textContent = missed + (missed === 1 ? ' wrong answer' : ' wrong answers') +
-          ' went into your report looking exactly like the right ones. Look again at what they have in common.';
-      } else if (checkedRight === 2) {
-        resultEl.textContent = 'Nothing got past you, and you checked everything, including the two answers that only read a value off the table. That is the afternoon Hulse was trying to win back.';
+        resultEl.textContent = missed + (missed === 1 ? ' wrong answer' : ' wrong answers') + (exercise.result_missed || '');
+      } else if (checkedRight === right) {
+        resultEl.textContent = exercise.result_all_checked || '';
       } else {
-        resultEl.textContent = 'Nothing wrong got past you, and you skipped a check that did not matter. That is the skill: check what compares, carries a unit, or points outside your files.';
+        resultEl.textContent = exercise.result_good || '';
       }
     }
 
@@ -90,7 +92,7 @@
       score();
     });
     score();
-  }
+  });
 
   /* ---- Published comments ----------------------------------------------- */
   var list = document.querySelector('[data-comments-for]');
@@ -130,7 +132,7 @@
 
 /* Several videos in one Topic. Without this script every video simply shows,
    one under the other, and the list's links jump to them. */
-(function () {
+(window.GQTopic01 || Promise.resolve()).then(function () {
   var list = document.querySelector('[data-video-set]');
   if (!list) return;
   var links = Array.prototype.slice.call(list.querySelectorAll('a'));
@@ -151,4 +153,4 @@
   });
   var fromHash = links.findIndex(function (l) { return l.getAttribute('href') === location.hash; });
   show(fromHash >= 0 ? fromHash : 0);
-})();
+});

@@ -130,8 +130,8 @@
     --g-lh-snug:  1.35;
     --g-lh-body:  1.65;
 
-    /* v2: eased off. At -0.03em the heavy display cuts touched ("Is the
-       universe computable?" read as one word-mass); this keeps them tight
+    /* v2: eased off. At -0.03em the heavy display cuts touched (a long
+       question read as one word-mass); this keeps them tight
        without the letters colliding. */
     --g-track-display: -0.022em;
     --g-track-head:    -0.014em;

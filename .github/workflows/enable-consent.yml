@@ -45,7 +45,6 @@ jobs:
               /learn.html '<link rel="canonical" href="https://graviquest.com/learn.html"><link rel="stylesheet" href="/assets/cms-public.css"><meta name="robots" content="noindex, nofollow"></head>';
               /community.html '<link rel="canonical" href="https://graviquest.com/community.html"><link rel="stylesheet" href="/assets/cms-public.css"><meta name="robots" content="noindex, nofollow"></head>';
               /dossier-machine-hypothesis.html '<link rel="canonical" href="https://graviquest.com/dossier-machine-hypothesis.html"><link rel="stylesheet" href="/assets/cms-public.css"><meta name="robots" content="noindex, nofollow"></head>';
-              /dossier-computable-universe.html '<link rel="canonical" href="https://graviquest.com/dossier-computable-universe.html"><link rel="stylesheet" href="/assets/cms-public.css"><meta name="robots" content="noindex, nofollow"></head>';
               /game-hypothesis-machine.html '<link rel="canonical" href="https://graviquest.com/game-hypothesis-machine.html"><link rel="stylesheet" href="/assets/cms-public.css"><meta name="robots" content="noindex, nofollow"></head>';
           }
 

@@ -131,13 +131,6 @@
         }
       }
 
-      section.querySelectorAll('a[href="topic-computable-universe.html"],a[href^="topic-computable-universe.html#"]').forEach(function (link) {
-        var hash = '';
-        var old = link.getAttribute('href') || '';
-        if (old.indexOf('#') >= 0) hash = old.slice(old.indexOf('#'));
-        link.href = topicUrl(item, hash);
-      });
-
       window.dispatchEvent(new Event('resize'));
     })
     .catch(function () {

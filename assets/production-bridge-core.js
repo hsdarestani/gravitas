@@ -559,8 +559,8 @@
      section anchors are ways of reading one item, not different items.
 
      Query strings are dropped too, with one exception that matters. A topic is
-     now served two ways - the standalone topic-computable-universe.html, and
-     the shell topic.html?slug=computable-universe, which is what cms-live.js
+     now served two ways - the standalone topic-machine-hypothesis.html, and
+     the shell topic.html?slug=machine-hypothesis, which is what cms-live.js
      links to once the CMS holds rows. Reading only the last path segment gives
      every CMS topic the key "topic", which matches no recognised prefix, so
      the save control silently stopped appearing on exactly the pages the CMS
