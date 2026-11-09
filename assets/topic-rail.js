@@ -15,7 +15,12 @@
  * 2. The bar (steps, count, arrows, progress line) and the .is-current panel
  *    are redrawn from the rail's own scrollLeft, never from what we last
  *    asked for, so a swipe that bypassed this code still agrees with the bar.
- * 3. Two fixes from the previous build stay, because the bugs they fixed are
+ * 3. A panel can hold several videos or essays (data-rail-set). Choosing a row
+ *    in its list swaps what the panel shows. The rows are real links, so
+ *    without this script, or with a modified click, they go to the item's page.
+ *    The click is handled on the rail because a list can arrive after this
+ *    runs: Topic 01's essays are written in once their route answers.
+ * 4. Two fixes from the previous build stay, because the bugs they fixed are
  *    still real: scroll to the snap point itself (start less scroll-padding,
  *    clamped), and switch snapping off for the length of a programmatic
  *    scroll so Firefox cannot re-aim it mid-flight.
@@ -137,6 +142,47 @@
       e.preventDefault();
       goTo(i);
     });
+  });
+
+  /* Several videos or essays in one panel ---------------------------------- */
+  function setPoster(card, url) {
+    var img = card.querySelector('.video__img');
+    if (!url) { card.classList.remove('has-thumb'); return; }
+    if (!img) {
+      img = new Image();
+      img.className = 'video__img';
+      img.alt = '';
+      card.insertBefore(img, card.firstChild);
+    }
+    img.src = url;
+    card.classList.add('has-thumb');
+  }
+
+  function choose(panel, link) {
+    Array.prototype.forEach.call(panel.querySelectorAll('.trail__set a'), function (l) {
+      if (l === link) l.setAttribute('aria-current', 'true');
+      else l.removeAttribute('aria-current');
+    });
+    ['title', 'say', 'open', 'meta'].forEach(function (key) {
+      var el = panel.querySelector('[data-set-' + key + ']');
+      if (el && link.hasAttribute('data-' + key)) el.textContent = link.getAttribute('data-' + key);
+    });
+    Array.prototype.forEach.call(panel.querySelectorAll('[data-set-href]'), function (el) {
+      el.setAttribute('href', link.getAttribute('href'));
+    });
+    var card = panel.querySelector('[data-set-poster]');
+    if (card && link.hasAttribute('data-poster')) setPoster(card, link.getAttribute('data-poster'));
+  }
+
+  rail.addEventListener('click', function (e) {
+    var link = e.target.closest && e.target.closest('.trail__set a');
+    if (!link || link.closest('.trail__set-more')) return;
+    if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
+    var panel = link.closest('.trail__panel');
+    /* A click on a panel still peeking at the edge only brings it in. */
+    if (!panel.classList.contains('is-current')) return;
+    e.preventDefault();
+    choose(panel, link);
   });
 
   window.addEventListener('load', update);

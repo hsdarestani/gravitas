@@ -207,7 +207,7 @@
 .trail__talk { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--g-space-2xs); align-content: center; }
 .trail__talk li {
   display: grid;
-  grid-template-columns: 2.6rem 4.2rem minmax(0, 1fr);
+  grid-template-columns: 4.2rem minmax(0, 1fr);
   align-items: baseline;
   gap: var(--g-space-2xs);
   padding: .45rem .7rem;
@@ -215,7 +215,6 @@
   font-size: var(--g-fs-small);
   line-height: var(--g-lh-snug);
 }
-.trail__talk time { font-family: var(--g-font-mono); font-size: var(--g-fs-caption); color: var(--g-text-subtle); }
 .trail__talk b { font-size: var(--g-fs-caption); font-weight: var(--g-w-semibold); color: var(--g-text-muted); text-transform: uppercase; letter-spacing: .06em; }
 .trail__talk li.is-ai { background: var(--g-surface-sunken); }
 .trail__talk li.is-ai b { color: var(--g-accent); }
@@ -241,7 +240,6 @@
   .trail__panel { padding: var(--g-space-sm); }
   .trail__act .g-btn { flex: 1 1 auto; justify-content: center; }
   .trail__talk li { grid-template-columns: 3.8rem minmax(0, 1fr); padding: .4rem .55rem; }
-  .trail__talk time { display: none; }
   .trail__talk li:nth-child(3), .trail__talk li:nth-child(4) { display: none; }
 }
 
@@ -261,8 +259,7 @@
     display: grid; gap: .3rem; list-style: none; margin: var(--g-space-sm) 0 0; padding: 0;
     font-size: var(--g-fs-caption); color: var(--g-text-muted);
   }
-  .trail__chap time { font-family: var(--g-font-mono); color: var(--g-text-subtle); display: inline-block; min-width: 3.2em; }
-  .trail__cast { gap: var(--g-space-md); }
+    .trail__cast { gap: var(--g-space-md); }
   .trail__cast li > p:last-child { display: block; }
   .trail__fig figcaption span { display: inline; }
   .trail__fig figcaption b { display: inline; margin-right: .4em; }
@@ -307,17 +304,12 @@
 /* ---- 2026-11-08: eight panels, one per part of the Topic ---------------- */
 .trail .lp-chap__head { margin-bottom: var(--g-space-lg); }
 .trail__step { padding: .4rem .7rem; }
-.trail__foot { margin: var(--g-space-sm) 0 0; display: flex; justify-content: flex-end; }
+.trail__foot { margin: var(--g-space-md) 0 0; display: flex; align-items: center; justify-content: space-between; gap: var(--g-space-md); }
 
-/* 04 — the essay: its opening, set in the reading face, and its short answer */
+/* 04 — the essays: the opening of the one chosen, set in the reading face */
 .trail__essay { display: grid; gap: var(--g-space-sm); align-content: center; }
-.trail__depth { margin: 0; display: flex; gap: var(--g-space-3xs); }
-.trail__depth .g-tag:first-child { border-color: var(--g-accent); color: var(--g-text); }
 .trail__open { margin: 0; }
 .trail__open p { margin: 0; font-family: var(--g-font-read); font-size: clamp(1rem, .9rem + .5vw, 1.3rem); line-height: 1.5; color: var(--g-text); }
-.trail__short { padding: var(--g-space-sm) var(--g-space-md); border-radius: var(--g-radius); background: var(--g-surface-sunken); }
-.trail__short-k { margin: 0 0 .2rem; font-family: var(--g-font-mono); font-size: var(--g-fs-caption); letter-spacing: .1em; text-transform: uppercase; color: var(--g-accent); }
-.trail__short p:last-child { margin: 0; font-size: var(--g-fs-small); color: var(--g-text-muted); }
 
 /* 05 — the sources as three stairs, the proof strip's own mark made large */
 .trail__stairs { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--g-space-xs); align-items: end; }
@@ -366,7 +358,6 @@
   .trail__stairs > li { min-height: 0 !important; }
   .trail__stairs ul li:nth-child(2) { display: none; }
   .trail__open p { font-size: 1rem; }
-  .trail__short { display: none; }
   .trail__q p { font-size: 1.25rem; }
 }
 
@@ -392,4 +383,63 @@
   .trail__stairs ul { display: none; }
   .trail__views .view p:not(.view__tag) { -webkit-line-clamp: 3; }
   .trail__views .view .view__tag { margin: 0; }
+}
+
+/* ---- A panel holding several videos or essays (2026-11-09) ---------------
+   One panel and one step however many there are: a rail with a panel per video
+   grows without limit and buries everything after the videos. The list sits in
+   the side column, in the same hairline rows the layer list uses, and replaces
+   the chapters, which belong to one video. The current row is marked by weight
+   and the accent on its number, not by a box. The rail is a trailer for the
+   Topic, so four rows is the budget (three on a phone) and the last row links
+   to the rest. */
+.trail__set { list-style: none; margin: var(--g-space-sm) 0 0; padding: 0; border-top: 1px solid var(--g-hairline); }
+.trail__set li { border-bottom: 1px solid var(--g-hairline); }
+.trail__set li:nth-child(n + 5):not(.trail__set-more) { display: none; }
+.trail__set a {
+  display: grid; grid-template-columns: 1.6rem minmax(0, 1fr) auto; gap: var(--g-space-2xs);
+  align-items: baseline; padding: .4rem 0;
+  font-size: var(--g-fs-caption); color: var(--g-text-muted); text-decoration: none;
+  transition: color var(--g-dur) var(--g-ease-orbit);
+}
+.trail__set a:hover { color: var(--g-text); }
+.trail__set a:focus-visible { outline: 2px solid var(--g-focus); outline-offset: 2px; }
+.trail__set-n, .trail__set time { font-family: var(--g-font-mono); color: var(--g-text-subtle); }
+.trail__set-t { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.trail__set a[aria-current="true"] { color: var(--g-text); font-weight: var(--g-w-semibold); }
+.trail__set a[aria-current="true"] .trail__set-n { color: var(--g-accent); }
+.trail__set-more a { display: inline-flex; gap: .4em; font-weight: var(--g-w-medium); color: var(--g-accent); }
+.trail__panel[data-rail-set] .trail__say { -webkit-line-clamp: 2; }
+.trail__panel[data-rail-set] .trail__chap { display: none; }
+@media (max-width: 899px) {
+  .trail__set li:nth-child(n + 4):not(.trail__set-more) { display: none; }
+  .trail__panel[data-rail-set] .trail__say { display: none; }
+}
+/* Stacked at tablet width the poster shares a fixed panel with the list, so it
+   takes a width whose 16:9 height fits what is left. */
+@media (min-width: 600px) and (max-width: 899px) {
+  .trail__panel[data-rail-set] .trail__video { width: min(100%, 30rem); align-self: center; }
+}
+
+/* The list must not move when a row is chosen. A panel's title and line change
+   length with the item, so the list cannot be placed after them. On the wide
+   layout it hangs from the floor of the column, above the button, and the text
+   above is capped so it always fits. Stacked, where the column has no floor of
+   its own, the title and line keep a fixed height instead. */
+.trail__panel[data-rail-set] .trail__side h3 { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
+.trail__panel[data-rail-set] .trail__say { line-height: 1.5; }
+@media (max-width: 899px) {
+  .trail__panel[data-rail-set] .trail__side h3 { min-height: 2.4em; }
+}
+@media (min-width: 900px) {
+  .trail__panel[data-rail-set] .trail__side h3 { -webkit-line-clamp: 3; }
+  .trail__panel[data-rail-set] .trail__set { margin-top: auto; }
+  .trail__panel[data-rail-set] .trail__act { margin-top: 0; }
+}
+/* A short laptop screen gives the panel less than its full height (--panel-h
+   starts to shrink below 776px), so the title takes two lines and the line
+   steps out, and the column still fits with the list on its floor. */
+@media (min-width: 900px) and (max-height: 775px) {
+  .trail__panel[data-rail-set] .trail__side h3 { -webkit-line-clamp: 2; }
+  .trail__panel[data-rail-set] .trail__say { display: none; }
 }

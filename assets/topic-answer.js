@@ -127,3 +127,28 @@
       });
   }
 })();
+
+/* Several videos in one Topic. Without this script every video simply shows,
+   one under the other, and the list's links jump to them. */
+(function () {
+  var list = document.querySelector('[data-video-set]');
+  if (!list) return;
+  var links = Array.prototype.slice.call(list.querySelectorAll('a'));
+  var blocks = links.map(function (l) { return document.querySelector(l.getAttribute('href')); });
+  function show(i) {
+    links.forEach(function (l, k) {
+      if (k === i) l.setAttribute('aria-current', 'true');
+      else l.removeAttribute('aria-current');
+      if (blocks[k]) blocks[k].hidden = k !== i;
+    });
+  }
+  links.forEach(function (l, i) {
+    l.addEventListener('click', function (e) {
+      if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
+      e.preventDefault();
+      show(i);
+    });
+  });
+  var fromHash = links.findIndex(function (l) { return l.getAttribute('href') === location.hash; });
+  show(fromHash >= 0 ? fromHash : 0);
+})();

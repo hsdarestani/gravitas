@@ -7,20 +7,12 @@
    ========================================================================== */
 
 /* ---- Video layer ---------------------------------------------------------- */
-.ta-chapters { list-style: none; margin: var(--g-space-md) 0 0; padding: 0; border-top: 1px solid var(--g-hairline); }
-.ta-chapters li {
-  display: grid; grid-template-columns: 3.2rem minmax(0, 1fr); gap: var(--g-space-xs);
-  padding: .45rem 0; border-bottom: 1px solid var(--g-hairline);
-  font-size: var(--g-fs-small); color: var(--g-text-muted);
-}
-.ta-chapters time { font-family: var(--g-font-mono); font-size: var(--g-fs-caption); color: var(--g-text-subtle); font-variant-numeric: tabular-nums; }
 
-/* Stills: the video's own frames, captioned with where they fall in it. */
+/* Stills: the video's own frames, captioned. */
 .ta-stills { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--g-space-sm); margin-top: var(--g-space-xl); }
 .ta-stills figure { margin: 0; }
 .ta-stills img { display: block; width: 100%; height: auto; aspect-ratio: 16 / 9; object-fit: cover; border-radius: var(--g-radius); border: 1px solid var(--g-hairline); background: var(--g-surface-sunken); }
 .ta-stills figcaption { padding-top: var(--g-space-2xs); font-size: var(--g-fs-caption); color: var(--g-text-muted); line-height: var(--g-lh-snug); }
-.ta-stills time { font-family: var(--g-font-mono); color: var(--g-text-subtle); margin-right: .4em; }
 @media (max-width: 860px) { .ta-stills { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 480px) { .ta-stills { grid-template-columns: minmax(0, 1fr); } }
 
@@ -49,13 +41,11 @@
 .ta-transcript summary { cursor: pointer; padding: var(--g-space-sm) var(--g-space-md); font-weight: var(--g-w-semibold); }
 .ta-transcript summary:focus-visible { outline: 2px solid var(--g-focus); outline-offset: 2px; border-radius: var(--g-radius); }
 .ta-transcript ol { list-style: none; margin: 0; padding: 0 var(--g-space-md) var(--g-space-md); max-height: 28rem; overflow-y: auto; }
-.ta-transcript li { display: grid; grid-template-columns: 3.2rem 6.5rem minmax(0, 1fr); gap: var(--g-space-xs); padding: .35rem 0; border-top: 1px solid var(--g-hairline); font-size: var(--g-fs-small); }
-.ta-transcript time { font-family: var(--g-font-mono); font-size: var(--g-fs-caption); color: var(--g-text-subtle); }
+.ta-transcript li { display: grid; grid-template-columns: 6.5rem minmax(0, 1fr); gap: var(--g-space-xs); padding: .35rem 0; border-top: 1px solid var(--g-hairline); font-size: var(--g-fs-small); }
 .ta-transcript b { font-weight: var(--g-w-medium); color: var(--g-text-muted); }
 .ta-transcript li > span:last-child { color: var(--g-text); }
 @media (max-width: 560px) {
-  .ta-transcript li { grid-template-columns: 3.2rem minmax(0, 1fr); }
-  .ta-transcript li > span:last-child { grid-column: 2; }
+  .ta-transcript li { grid-template-columns: minmax(0, 1fr); gap: 0; }
 }
 
 /* ---- Try it: check the answer -----------------------------------------------
@@ -135,3 +125,23 @@
 .ta-essay-credit { margin: var(--g-space-xs) 0 0; color: var(--g-text-muted); font-size: var(--g-fs-caption); }
 
 [data-topic-essay-reader] { overflow-wrap: anywhere; }
+
+/* Several videos or several essays: the home rail's rows (.trail__set). The
+   current row is marked by weight and the accent on its number. */
+.ta-set { list-style: none; margin: 0 0 var(--g-space-lg); padding: 0; border-top: 1px solid var(--g-hairline); }
+.ta-set li { border-bottom: 1px solid var(--g-hairline); }
+.ta-set a {
+  display: grid; grid-template-columns: 2rem minmax(0, 1fr) auto; gap: var(--g-space-xs);
+  align-items: baseline; padding: .65rem 0;
+  color: var(--g-text-muted); text-decoration: none;
+  transition: color var(--g-dur) var(--g-ease-orbit);
+}
+.ta-set a:hover { color: var(--g-text); }
+.ta-set a:focus-visible { outline: 2px solid var(--g-focus); outline-offset: 2px; }
+.ta-set__n, .ta-set time { font-family: var(--g-font-mono); font-size: var(--g-fs-caption); color: var(--g-text-subtle); }
+.ta-set a[aria-current="true"] { color: var(--g-text); font-weight: var(--g-w-semibold); }
+.ta-set a[aria-current="true"] .ta-set__n { color: var(--g-accent); }
+
+
+/* .depthbar sets display: flex, which beats the hidden attribute on its own. */
+.depthbar[hidden] { display: none; }

@@ -31,7 +31,7 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
 <link rel="stylesheet" href="assets/site.css?v=up-f706806e3a02-g1df6ff09-ds11">
 <link rel="stylesheet" href="assets/hero.css?v=20261110-align5">
 <link rel="stylesheet" href="assets/landing.css?v=20261108-lp14">
-<link rel="stylesheet" href="assets/topic-rail.css?v=20261108-reel2">
+<link rel="stylesheet" href="assets/topic-rail.css?v=20261110-reel6">
 <link rel="stylesheet" href="assets/forum.css?v=20261108-fm10">
 <link rel="stylesheet" href="assets/chat.css?v=20261010-pulsar8">
 <link rel="stylesheet" href="assets/production-overrides.css?v=up-f706806e3a02-g1df6ff09-rl3">
@@ -146,7 +146,20 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
      steps, the arrows, a swipe or the arrow keys move it, and the next panel
      always shows at the edge. Layout: assets/topic-rail.css. Behaviour:
      assets/topic-rail.js. The poster and the cast are drawn from the final
-     paper-cast artwork. -->
+     paper-cast artwork.
+     Buttons follow the brand book's "one primary per view": the only primary is
+     Open Topic 01 under the rail. A panel has a secondary button only when it
+     promises something it cannot show itself (the exercise, the essay, the
+     discussion); the others have none.
+     A Topic can hold several videos or essays. They stay one panel and one
+     step, so the rail does not grow with the archive. Such a panel carries
+     data-rail-set and an <ol class="trail__set"> at the foot of .trail__side, one real
+     link per item (the first with aria-current="true"), so it works without the
+     script. A link's data-title, data-say, data-meta, data-poster and data-open
+     fill the elements marked data-set-*. Past four rows the rest step out, and
+     <li class="trail__set-more"> ends the list with a link to all of them. A
+     panel with one item has no list. Topic 01's two essays are written into
+     that list by topic-01-essay.js, from the route that publishes them. -->
 <section class="g-section g-section--deep lp-chap trail" id="start" data-public-featured-topic="topic-answer-that-looked-right.html" data-rail aria-labelledby="trail-h">
   <div class="g-container">
     <header class="lp-chap__head rv">
@@ -160,7 +173,7 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
         <button class="chip trail__step" type="button" aria-current="true"><span class="g-nums">01</span>Video</button>
         <button class="chip trail__step" type="button" aria-current="false"><span class="g-nums">02</span>Cast</button>
         <button class="chip trail__step" type="button" aria-current="false"><span class="g-nums">03</span>The 9.8</button>
-        <button class="chip trail__step" type="button" aria-current="false"><span class="g-nums">04</span>Essay</button>
+        <button class="chip trail__step" type="button" aria-current="false"><span class="g-nums">04</span>Essays</button>
         <button class="chip trail__step" type="button" aria-current="false"><span class="g-nums">05</span>Sources</button>
         <button class="chip trail__step" type="button" aria-current="false"><span class="g-nums">06</span>Timeline</button>
         <button class="chip trail__step" type="button" aria-current="false"><span class="g-nums">07</span>Viewpoints</button>
@@ -178,22 +191,19 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
       <article class="trail__panel" aria-label="01 of 08: The video">
         <div class="trail__side">
           <p class="trail__n">01 &middot; The video</p>
-          <h3>Can you trust an answer that looks right?</h3>
-          <p class="trail__say">Professor Hulse has spent thirty years on proteins. His student Taylor gets through the week with an AI assistant. Then the three of them sit down and test it.</p>
+          <h3 data-set-title>Can you trust an answer that looks right?</h3>
+          <p class="trail__say" data-set-say>Professor Hulse has spent thirty years on proteins. His student Taylor gets through the week with an AI assistant. Then the three of them sit down and test it.</p>
           <ol class="trail__chap" aria-label="Chapters">
-            <li><time>0:00</time>Thirty years of proteins</li>
-            <li><time>2:44</time>Meet Pulsar</li>
-            <li><time>3:20</time>The 9.8</li>
-            <li><time>3:51</time>The work that eats a day</li>
+            <li>Thirty years of proteins</li>
+            <li>Meet Pulsar</li>
+            <li>The 9.8</li>
+            <li>The work that eats a day</li>
           </ol>
-          <div class="trail__act">
-            <a class="g-btn g-btn--primary" href="topic-answer-that-looked-right.html">Open the Topic</a>
-          </div>
         </div>
         <div class="trail__body">
-          <a class="video trail__video" href="topic-answer-that-looked-right.html#video" data-thumb="topic-01-video" aria-label="The Answer That Looked Right: chapters and full transcript on the Topic page">
+          <a class="video trail__video" data-set-href data-set-poster href="topic-answer-that-looked-right.html#video" data-thumb="topic-01-video" aria-label="The Answer That Looked Right: chapters and full transcript on the Topic page">
             <span class="video__play"><svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg></span>
-            <span class="trail__tag"><span class="g-nums">5:34</span> &middot; Soon on YouTube</span>
+            <span class="trail__tag" data-set-meta><span class="g-nums">5:34</span> &middot; Soon on YouTube</span>
           </a>
         </div>
       </article>
@@ -203,9 +213,6 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
           <p class="trail__n">02 &middot; The cast</p>
           <h3>A professor, a student and an assistant</h3>
           <p class="trail__say">Cut paper, one size each, wherever they stand. Pulsar never stands at all: it lives on screens.</p>
-          <div class="trail__act">
-            <a class="g-btn g-btn--secondary" href="topic-answer-that-looked-right.html#video">Who Is in It</a>
-          </div>
         </div>
         <div class="trail__body">
           <ul class="trail__cast">
@@ -228,38 +235,33 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
           <h3>Correct is where the question starts</h3>
           <p class="trail__say">Pulsar reads the right value off yesterday&rsquo;s dataset. Hulse&rsquo;s reply is the whole Topic.</p>
           <div class="trail__act">
-            <a class="g-btn g-btn--primary" href="topic-answer-that-looked-right.html#test">Try It: Check Five Answers</a>
+            <a class="g-btn g-btn--secondary" href="topic-answer-that-looked-right.html#test">Try It: Check Five Answers</a>
           </div>
         </div>
         <div class="trail__body">
-          <ol class="trail__talk" aria-label="From the transcript, 3:20 to 3:35">
-            <li><time>3:20</time><b>Hulse</b><span>What is the molecular weight of the protein in yesterday&rsquo;s dataset?</span></li>
-            <li class="is-ai"><time>3:24</time><b>Pulsar</b><span>The molecular weight is approximately <strong class="trail__num">9.8</strong>.</span></li>
-            <li><time>3:27</time><b>Hulse</b><span>Correct.</span></li>
-            <li><time>3:28</time><b>Taylor</b><span>I told you.</span></li>
-            <li class="is-key"><time>3:30</time><b>Hulse</b><span>That proves you can read a number.</span></li>
-            <li class="is-ai"><time>3:35</time><b>Pulsar</b><span>Reading a number is not sufficient evidence of scientific reliability.</span></li>
+          <ol class="trail__talk" aria-label="From the transcript">
+            <li><b>Hulse</b><span>What is the molecular weight of the protein in yesterday&rsquo;s dataset?</span></li>
+            <li class="is-ai"><b>Pulsar</b><span>The molecular weight is approximately <strong class="trail__num">9.8</strong>.</span></li>
+            <li><b>Hulse</b><span>Correct.</span></li>
+            <li><b>Taylor</b><span>I told you.</span></li>
+            <li class="is-key"><b>Hulse</b><span>That proves you can read a number.</span></li>
+            <li class="is-ai"><b>Pulsar</b><span>Reading a number is not sufficient evidence of scientific reliability.</span></li>
           </ol>
         </div>
       </article>
 
-      <article class="trail__panel" aria-label="04 of 08: The essay">
+      <article class="trail__panel" aria-label="04 of 08: The essays">
         <div class="trail__side">
-          <p class="trail__n">04 &middot; The essay</p>
-          <h3 data-topic-essay-title data-public-context-essay="overview">Reading a number is not evidence</h3>
-          <p class="trail__say" data-topic-essay-intro="Two essays on how to check AI-generated research.">One essay that reads two ways. Overview or In depth: neither is a teaser, both are the whole case.</p>
+          <p class="trail__n">04 &middot; The essays</p>
+          <h3 data-set-title data-topic-essay-title data-public-context-essay="overview">The Reference That Never Existed</h3>
+          <p class="trail__say" data-topic-essay-intro="Two essays on how to check AI-generated research.">Two essays on how to check AI-generated research.</p>
           <div class="trail__act">
-            <a class="g-btn g-btn--secondary" href="topic-answer-that-looked-right.html#essay">Read the Essay</a>
+            <a class="g-btn g-btn--secondary" data-set-href href="topic-answer-that-looked-right.html#essay-1">Read the Essay</a>
           </div>
         </div>
         <div class="trail__body">
           <div class="trail__essay">
-            <p class="trail__depth" aria-label="Two depths"><span class="g-tag" data-topic-essay-choice="overview">Overview</span><span class="g-tag" data-topic-essay-choice="deep">In depth</span></p>
-            <blockquote class="trail__open" data-public-context-essay="overview"><p data-topic-essay-excerpt>The dangerous answer from an AI assistant is not the obviously wrong one. It is the one that looks right: the expected format, a plausible number, a calm tone, and nothing on its surface to say whether anyone checked it.</p></blockquote>
-            <div class="trail__short">
-              <p class="trail__short-k">The short answer</p>
-              <p>Trust it the way you would trust a capable new colleague: enough to ask, never enough to skip the check on anything that compares, carries a unit, or cites something you did not give it.</p>
-            </div>
+            <blockquote class="trail__open" data-public-context-essay="overview"><p data-set-open data-topic-essay-excerpt>The dangerous answer from an AI assistant is not the obviously wrong one. It is the one that looks right: the expected format, a plausible number, a calm tone, and nothing on its surface to say whether anyone checked it.</p></blockquote>
           </div>
         </div>
       </article>
@@ -269,9 +271,6 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
           <p class="trail__n">05 &middot; The sources</p>
           <h3>Three levels, every link checked</h3>
           <p class="trail__say">Enter at the level you want, and move up when you feel like it. Nine sources, every DOI resolved.</p>
-          <div class="trail__act">
-            <a class="g-btn g-btn--secondary" href="topic-answer-that-looked-right.html#sources">All Nine Sources</a>
-          </div>
         </div>
         <div class="trail__body">
           <ol class="trail__stairs" aria-label="Sources by level">
@@ -290,9 +289,6 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
           <p class="trail__n">06 &middot; The timeline</p>
           <h3>Fifty years of checking</h3>
           <p class="trail__say">From a principle in 1973 to a Nobel Prize in 2024, and the citations that looked right in between.</p>
-          <div class="trail__act">
-            <a class="g-btn g-btn--secondary" href="topic-answer-that-looked-right.html#timeline">How the Question Developed</a>
-          </div>
         </div>
         <div class="trail__body">
           <ol class="trail__time" aria-label="Timeline">
@@ -312,9 +308,6 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
           <p class="trail__n">07 &middot; Viewpoints</p>
           <h3>Two readings, both defensible</h3>
           <p class="trail__say">We publish the strongest case against our own reading. If the objection is weak, that is our failure, and you can say so.</p>
-          <div class="trail__act">
-            <a class="g-btn g-btn--secondary" href="topic-answer-that-looked-right.html#views">Where Do You Land?</a>
-          </div>
         </div>
         <div class="trail__body">
           <div class="trail__views">
@@ -334,7 +327,7 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
           <h3>This week&rsquo;s question</h3>
           <p class="trail__say">Replies are read by a moderator before they appear. Reading needs no account.</p>
           <div class="trail__act">
-            <a class="g-btn g-btn--primary" href="topic-answer-that-looked-right.html#talk">Join the Discussion</a>
+            <a class="g-btn g-btn--secondary" href="topic-answer-that-looked-right.html#talk">Join the Discussion</a>
           </div>
         </div>
         <div class="trail__body">
@@ -344,7 +337,7 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
 
     </div>
     <div class="trail__line" aria-hidden="true"><span></span></div>
-    <p class="trail__foot"><a class="lp-head__link" href="topics.html">All Topics <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a></p>
+    <div class="trail__foot"><a class="g-btn g-btn--primary" href="topic-answer-that-looked-right.html">Open Topic 01</a><a class="lp-head__link" href="topics.html">All Topics <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a></div>
   </div>
 </section>
 
@@ -586,8 +579,8 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
 <script src="assets/site.js?v=20261109-join1"></script>
 <script src="assets/hero.js?v=20261109-stars2"></script>
 <script src="assets/landing.js?v=20261108-lab1" defer></script>
-<script src="assets/topic-01-essay.js?v=20261109-essay2" defer></script>
-<script src="assets/topic-rail.js?v=20261108-reel2" defer></script>
+<script src="assets/topic-01-essay.js?v=20261110-essay4" defer></script>
+<script src="assets/topic-rail.js?v=20261110-reel6" defer></script>
 <script src="assets/chat.js?v=20261109-essay1" defer></script>
 <script src="assets/production-bridge.js?v=20261108-forum2" defer></script>
 <script src="/assets/forum-live.js?v=20261108-forum2" defer></script>
