@@ -79,7 +79,7 @@
     },
     {
       k: 'about who what is gravitas team behind contact mission why',
-      a: 'GraviQuest is a community working through the hard questions in science and AI, with a workspace to think them through: one question at a time, with graded sources and the strongest case against our own reading. The About page has the editorial rules, which are the interesting part.',
+      a: 'GraviQuest is a community working through the open questions in science and AI, with a workspace to think them through: one question at a time, with graded sources and the strongest case against our own reading. The About page has the editorial rules, which are the interesting part.',
       l: [['About', 'about.html']]
     },
     {
