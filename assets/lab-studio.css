@@ -436,11 +436,11 @@ body:has(#lab-experiences[data-lab-slug="science-universe"]) :is(.page-head,.g-f
   grid-template-columns:minmax(0,1fr);
   grid-template-rows:minmax(0,1fr) min(var(--pulsar-dock),100%);
  }
- #lab-experiences.learning-split:is([data-pulsar-pane="chat"],:has(.lab-pulsar-widget[data-mode="guide"])) .lab-runtime-grid {
+ #lab-experiences.learning-split[data-pulsar-pane="chat"] .lab-runtime-grid,
+ #lab-experiences.learning-split:has(.lab-pulsar-widget[data-mode="guide"]) .lab-runtime-grid {
   --pulsar-dock:clamp(265px,58dvh,540px);
  }
  #lab-experiences.learning-split.is-reading-lab[data-pulsar-pane="chat"] .lab-runtime-grid {--pulsar-dock:clamp(230px,42dvh,350px)}
- #lab-experiences.learning-split:has(.lab-chat-input:focus) .lab-runtime-grid {--pulsar-dock:100%}
  #lab-experiences.learning-split.companion-collapsed .lab-runtime-grid {grid-template-rows:minmax(0,1fr) 48px}
  #lab-experiences.learning-split .lab-pulsar-widget {
   box-sizing:border-box;border:1px solid var(--g-border);border-bottom:0;border-radius:16px 16px 0 0;
@@ -476,4 +476,7 @@ body:has(#lab-experiences[data-lab-slug="science-universe"]) :is(.page-head,.g-f
  #lab-experiences.learning-split .lab-chat-compose {padding:8px 10px max(8px,env(safe-area-inset-bottom))}
  #lab-experiences.learning-split .lab-chat-input {min-height:44px;font-size:16px}
  #lab-experiences.learning-split .lab-chat-send {width:44px;height:44px}
+}
+@media(max-width:900px) and (max-height:520px) {
+ #lab-experiences.learning-split[data-pulsar-pane="chat"]:not(.companion-collapsed) .lab-runtime-grid {--pulsar-dock:100%}
 }
