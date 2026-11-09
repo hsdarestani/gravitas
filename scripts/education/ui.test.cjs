@@ -103,7 +103,7 @@ test('email inquiry validates and prepares a reviewable draft without delivery o
   }
 });
 test('three featured models, six disclosed models, computed previews, metadata and theme remain bilingual',()=>{
-  for(const lang of ['en','de']){const dom=pageSetup(lang),d=dom.window.document;assert.equal(d.querySelectorAll('#anwendung > .ed-container > .el-catalog [data-demo]').length,3);assert.equal(d.querySelectorAll('#all-disciplines [data-demo]').length,6);assert.equal(d.querySelectorAll('[data-preview] svg,[data-preview] .ed-thumb-grid').length,9);assert.equal(d.querySelector('meta[name=robots]').content,'index,follow');assert.equal(d.querySelectorAll('[hreflang][rel=alternate]').length,3);click(dom.window,'#ed-theme');assert.equal(d.documentElement.dataset.theme,'light');dom.window.close();}
+  for(const lang of ['en','de']){const dom=pageSetup(lang),d=dom.window.document;assert.equal(d.querySelectorAll('#anwendung > .ed-container > .el-catalog [data-demo]').length,3);assert.equal(d.querySelectorAll('#all-disciplines [data-demo]').length,6);assert.equal(d.querySelectorAll('[data-preview] svg,[data-preview] .ed-thumb-grid').length,9);assert.equal(d.querySelector('meta[name=robots]').content,'noindex,nofollow');assert.equal(d.querySelectorAll('[hreflang][rel=alternate]').length,3);click(dom.window,'#ed-theme');assert.equal(d.documentElement.dataset.theme,'light');dom.window.close();}
 });
 test('timeout is explicit and leaves the question available for a manual retry',async()=>{
   const dom=setup('en','physics',(url,{signal})=>new Promise((resolve,reject)=>signal.addEventListener('abort',()=>reject(Error('aborted'))))),w=dom.window,d=w.document;let expire;
