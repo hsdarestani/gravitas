@@ -88,3 +88,6 @@ test('all nine model contracts and twelve lessons match between languages',()=>{
   }
   assert.equal(count,12);
 });
+test('spring overshoot is the exact first opposite peak of the existing free response',()=>{
+  for(const damping of [0,.15,.5,.99,1,1.4]){const result=m.engineering({mass:1,stiffness:9,damping});const sampled=Math.max(0,-Math.min(...result.series[0].points.map(p=>p[1])));assert.ok(result.metrics.overshoot>=0&&result.metrics.overshoot<=1);assert.ok(Math.abs(result.metrics.overshoot-sampled)<.001);}
+});

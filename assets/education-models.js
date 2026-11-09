@@ -53,7 +53,7 @@
       const q=Math.sqrt(z*z-1),r1=-w*(z-q),r2=-w*(z+q);return (-r2*Math.exp(r1*t)+r1*Math.exp(r2*t))/(r1-r2);
     };
     const points=Array.from({length:401},(_,i)=>[i/40,displacement(i/40)]);
-    return {metrics:{frequency:w/(2*Math.PI),damping:p.damping,coefficient:2*z*Math.sqrt(p.mass*p.stiffness),final:displacement(10)},series:[series('displacement',points)],xUnit:'s',yUnit:'m'};
+    return {metrics:{overshoot:z<1?Math.exp(-z*Math.PI/Math.sqrt(1-z*z)):0,frequency:w/(2*Math.PI),damping:p.damping,coefficient:2*z*Math.sqrt(p.mass*p.stiffness),final:displacement(10)},series:[series('displacement',points)],xUnit:'s',yUnit:'m'};
   }
   function computing(p) {
     // One FCFS server, exponential interarrival/service times, fixed random stream.
