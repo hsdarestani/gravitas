@@ -1094,6 +1094,14 @@ body.is-deep .entry__lvl { color: var(--g-accent); border-color: var(--g-border)
    no script, or with reduced motion, the static first verb stands alone). */
 .join__verb { display: inline-block; position: relative; color: var(--g-accent);
   white-space: nowrap; vertical-align: bottom; }
+/* "Come and" keeps a line of its own. Left to wrap freely, the heading went
+   from one line to two whenever a long verb arrived, and everything below it
+   jumped every few seconds. On a phone even "experiment with us." is too wide,
+   so there the verb takes its own line as well: three lines for every verb. */
+.join__lead { display: block; }
+@media (max-width: 30rem) {
+  .join__verb { display: block; margin-inline: auto; }
+}
 .join__verb.is-live { transition: width .7s cubic-bezier(.22, 1, .36, 1); }
 .join__sizer { visibility: hidden; }
 .join__word { position: absolute; left: 50%; top: 0; transform: translateX(-50%); perspective: 600px; }
