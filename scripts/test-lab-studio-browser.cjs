@@ -287,6 +287,10 @@ const server=http.createServer((req,res)=>{
     });
     assert.ok(longReply.start>=0&&longReply.start<=15,'a long reply opens at the first line');
     assert.ok(longReply.scrollable&&longReply.endVisible&&longReply.composerVisible,'scroll to the end while the composer stays visible');
+    await input.focus();
+    await page.getByRole('button',{name:'Close Pulsar conversation',exact:true}).click();
+    await page.getByRole('button',{name:'Open Pulsar conversation',exact:true}).click();
+    assert.equal(await input.evaluate(el=>el===document.activeElement),false,'reopening the dock does not restore keyboard focus');
     await views.getByRole('button',{name:'Experiment',exact:true}).click();
     await page.getByText('Try a guided experiment',{exact:true}).click();
     await page.getByRole('button',{name:'Publication pressure',exact:true}).click();

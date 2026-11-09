@@ -223,6 +223,7 @@ function openPulsarChat(pane='chat'){
 function refreshChat(){
  if(!chat)return;
  chatOpen=!!chatOpen;
+ if(mobilePulsar.matches&&chat.panes&&(!chatOpen||root.dataset.pulsarPane==='experiment'))chat.input.blur();
  chat.box.classList.toggle('is-open',chatOpen);
  chat.body.hidden=!chatOpen;
  chat.toggle.setAttribute('aria-expanded',String(chatOpen));
