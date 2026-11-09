@@ -161,7 +161,6 @@
   -webkit-line-clamp: 3;
   overflow: hidden;
 }
-.trail__chap { display: none; }
 .trail__act {
   display: flex;
   flex-wrap: wrap;
@@ -255,10 +254,6 @@
   .trail__side { padding-bottom: 0; padding-right: var(--g-space-lg); border-bottom: 0; border-right: 1px solid var(--g-hairline); }
   .trail__side h3 { font-size: var(--g-fs-h3); }
   .trail__say { -webkit-line-clamp: 5; }
-  .trail__chap {
-    display: grid; gap: .3rem; list-style: none; margin: var(--g-space-sm) 0 0; padding: 0;
-    font-size: var(--g-fs-caption); color: var(--g-text-muted);
-  }
     .trail__cast { gap: var(--g-space-md); }
   .trail__cast li > p:last-child { display: block; }
   .trail__fig figcaption span { display: inline; }
@@ -388,8 +383,7 @@
 /* ---- A panel holding several videos or essays (2026-11-09) ---------------
    One panel and one step however many there are: a rail with a panel per video
    grows without limit and buries everything after the videos. The list sits in
-   the side column, in the same hairline rows the layer list uses, and replaces
-   the chapters, which belong to one video. The current row is marked by weight
+   the side column, in the same hairline rows the layer list uses. The current row is marked by weight
    and the accent on its number, not by a box. The rail is a trailer for the
    Topic, so four rows is the budget (three on a phone) and the last row links
    to the rest. */
@@ -410,7 +404,6 @@
 .trail__set a[aria-current="true"] .trail__set-n { color: var(--g-accent); }
 .trail__set-more a { display: inline-flex; gap: .4em; font-weight: var(--g-w-medium); color: var(--g-accent); }
 .trail__panel[data-rail-set] .trail__say { -webkit-line-clamp: 2; }
-.trail__panel[data-rail-set] .trail__chap { display: none; }
 @media (max-width: 899px) {
   .trail__set li:nth-child(n + 4):not(.trail__set-more) { display: none; }
   .trail__panel[data-rail-set] .trail__say { display: none; }
