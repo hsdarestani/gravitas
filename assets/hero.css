@@ -66,6 +66,33 @@ h1, h2, h3, h4 { overflow-wrap: break-word; }
   .lp-hero__col { container-type: inline-size; }
   .lp-hero__title { font-size: clamp(2.6rem, 10.8cqw, 4.5rem); }
 }
+/* ---- One headline line across the section pages ---------------------------
+   The copy column used to be centred against the figure, so its top depended
+   on how much copy a page had: at 1440px the Lab's headline sat at 276px and
+   Community's at 337px, and moving between pages in the header made the title
+   visibly jump. Copy length is a real difference between pages; where the
+   title starts should not be.
+
+   So the grid reserves the same height on every page and the copy starts at
+   the top of it, which gives every page the same top. The first row is the
+   height of the copy and the empty second row takes up what is left.
+
+   The figure then has to follow the copy, or a shorter block ends up above the
+   figure's middle. It sits in the copy's row and centres on it, and the large
+   negative margins stop it from adding to that row's height: the row stays the
+   height of the text, and the figure overhangs it evenly into the hero's
+   padding, which is deeper than the overhang at every width. So the figure
+   moves a little between pages and the title does not.
+
+   The reservation is the tallest copy on the site, the Lab with its three-line
+   headline, measured from 861px up. A longer hero still gets all the room it
+   needs and simply starts a little higher than the others. Below 861px the
+   layout is one column and starts at the hero's padding anyway. */
+@media (min-width: 861px) {
+  .lp-hero__grid { grid-template-rows: auto 1fr; row-gap: 0; min-height: min(29.7rem, 15.7rem + 19.5vw); }
+  .lp-hero__col { grid-area: 1 / 1; }
+  .lp-orbit { grid-area: 1 / 2; align-self: center; margin-block: -30rem; }
+}
 /* This was `inline-flex` with the default `nowrap`, left over from when it
    held a logo lockup. Three stats and two separators cannot fit one phone
    line, and nowrap meant they did not try, the row simply ran off the side.

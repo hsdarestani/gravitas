@@ -31,6 +31,6 @@
  .rd-bar{gap:.5rem}.rd-seg{display:flex;flex-wrap:wrap}.rd-seg button{min-height:44px;padding:.5rem .65rem}
  .rd-thread{padding:1rem;gap:.5rem}.rd-thread h3{font-size:1rem;line-height:1.4}.rd-thread .gq-likes{flex-basis:1.8rem}
  .rd-tag{white-space:normal}.rd-thread__foot{gap:.5rem}.gq-discussion-title{font-size:1rem}
- .cm-hero{padding-block:2.5rem!important}.rd-seat__act>*{min-height:44px}.rd-seat__paths a{min-width:0}
+ .rd-seat__act>*{min-height:44px}.rd-seat__paths a{min-width:0}
 }
 @media(prefers-reduced-motion:reduce){[data-forum-feed]{transition:none}}
