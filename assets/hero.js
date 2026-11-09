@@ -73,8 +73,10 @@
   // The bands below each hero carry a faint, static trace of its grid
   // (.lp-gridded in hero.css), and with the grid alone they read as graph
   // paper rather than as the same sky. So each band also gets a trace of the
-  // hero's stars: far fewer, far dimmer, no glow and no twinkle, masked to the
-  // same fading corner as its grid. Static on purpose, like the grid: the hero
+  // hero's stars: far fewer, dimmer, no glow and no twinkle, masked to the
+  // same fading corner as its grid. Dimmer, not faint: at .15-.40 opacity and
+  // under a pixel wide, the mask finished them off and most of a band's stars
+  // could not be seen at all. Static on purpose, like the grid: the hero
   // is where things move. Density follows the band's area so a tall band is
   // not sparser than a short one; positions are percentages, so a resize
   // stretches the sky instead of needing a redraw. Off on light with the hero
@@ -92,12 +94,12 @@
     for (var k = 0; k < n; k++) {
       var t = document.createElement('span');
       t.className = 'lp-star';
-      var bs = Math.random() < 0.9 ? (Math.random() * 0.9 + 0.5) : (Math.random() * 0.8 + 1.4);
+      var bs = Math.random() < 0.9 ? (Math.random() * 0.8 + 1.0) : (Math.random() * 0.8 + 1.9);
       t.style.left = (Math.random() * 100) + '%';
       t.style.top = (Math.random() * 100) + '%';
       t.style.width = bs.toFixed(2) + 'px';
       t.style.height = bs.toFixed(2) + 'px';
-      t.style.opacity = (Math.random() * 0.25 + 0.15).toFixed(2);
+      t.style.opacity = (Math.random() * 0.3 + 0.45).toFixed(2);
       bfrag.appendChild(t);
     }
     box.appendChild(bfrag);
