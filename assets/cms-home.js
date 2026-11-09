@@ -119,7 +119,7 @@
 
       if (panels[3]) {
         var dh = panels[3].querySelector('h3');
-        if (dh) dh.textContent = landing.discussion_title || 'The argument is already running';
+        if (dh) dh.textContent = landing.discussion_title || 'The discussion is already running';
         var ds = panels[3].querySelector('.trail__say');
         if (ds) ds.textContent = landing.discussion_text || 'Read the discussion or add your own reply after signing in.';
         var talk = panels[3].querySelector('.trail__talk');

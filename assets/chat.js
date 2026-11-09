@@ -39,7 +39,7 @@
   var INDEX = [
     {
       k: 'topic topics dossier long form deep dive series video essay layers what is a topic',
-      a: 'A Topic is one question worked all the way through: the video that opens it, the essay that argues it, the sources at three levels of difficulty, a timeline, something interactive to break, and the strongest case against our own conclusion.',
+      a: 'A Topic is one question worked all the way through: the video that opens it, the essay that discusses it, the sources at three levels of difficulty, a timeline, something interactive to break, and the strongest case against our own conclusion.',
       l: [['Browse Topics', 'topics.html'], ['See a finished one', 'topic-answer-that-looked-right.html']]
     },
     {
@@ -64,7 +64,7 @@
     },
     {
       k: 'community join member role contribute volunteer help translate review discuss forum people group',
-      a: 'The community is the point, not the afterthought. There are six roles (Reader, Researcher, Translator, Critic, Builder and Host) and you can hold more than one. Members propose the next Topic, vote on it, and argue with the conclusions in public.',
+      a: 'The community is the point, not the afterthought. There are six roles (Reader, Researcher, Translator, Critic, Builder and Host) and you can hold more than one. Members propose the next Topic, vote on it, and discuss the conclusions in public.',
       l: [['Join Us', 'community.html#join'], ['See the roles', 'community.html']]
     },
     {
@@ -74,7 +74,7 @@
     },
     {
       k: 'account sign in log in register password profile free cost price pay subscription paywall',
-      a: 'Everything on the site is free to read and free to play, and there is no paywall planned. An account is optional. It follows Topics, keeps your place in a path, and lets you put your name to an argument.',
+      a: 'Everything on the site is free to read and free to play, and there is no paywall planned. An account is optional. It follows Topics, keeps your place in a path, and lets you join a discussion under your own name.',
       l: [['Create an account', '/signup'], ['Sign in', 'account.html#in']]
     },
     {
