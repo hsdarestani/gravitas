@@ -1052,6 +1052,110 @@ let mediumDraft={};
 const mediumChoices=['generation','verification','replication','funding','aiAdoption','transparency'];
 const focusOutputLabels={reviewBacklog:'Studies awaiting peer review',published:'Published claims',replicated:'Completed independent repeats',falsePublished:'False claims published'};
 function focusedRecipe(){return level==='simple'?REVIEW_CAPACITY:GUIDED_EXPERIMENTS[mediumScenario]||REVIEW_CAPACITY;}
+// Complexity is an information gradient, not three labels on the same chart.
+// Simple: three independent, single-input graphs. Medium: six of twelve policy
+// inputs acting together on matched worlds. Advanced retains all twelve.
+function renderMediumControls(){
+ const host=$('focus-medium-controls');host.replaceChildren();
+ host.hidden=level!=='medium';
+ if(host.hidden)return;
+ const recipe=focusedRecipe();
+ const keys=[...new Set([recipe.key,...mediumChoices])].slice(0,6);
+ const head=make('div','focus-medium-head');
+ head.append(make('h2','','Six adjustable inputs · level 5 of 10'),
+   make('p','','World A is the reference. Change up to six policy settings in World B; the other six stay at their model defaults.'));
+ const grid=make('div','focus-medium-grid');
+ for(const key of keys.filter(key=>key!==recipe.key)){
+   const label=make('label','focus-slider');
+   const name=make('span','',policyDescriptions[key][0]);
+   const current=Number.isFinite(mediumDraft[key])?mediumDraft[key]:E.DEFAULTS[key];
+   const output=make('output','',current+' / 10');
+   const slider=make('input');
+   slider.type='range';slider.min='1';slider.max='10';slider.step='1';slider.value=String(current);
+   slider.setAttribute('aria-label',policyDescriptions[key][0]);
+   slider.addEventListener('input',()=>{output.textContent=slider.value+' / 10';});
+   slider.addEventListener('change',()=>{mediumDraft[key]=Number(slider.value);runFocused();});
+   const hint=make('small','focus-model-disclaimer',policyDescriptions[key][1]+' · input scale 1–10');
+   label.append(name,output,slider,hint);grid.append(label);
+ }
+ host.append(head,grid,make('p','focus-model-disclaimer',
+   'Output graphs show counts after 45 synthetic model days. If several inputs change, their combined effect cannot be attributed to one setting.'));
+}
+function additionalGraph(rowsA,rowsB,metric){
+ const svgNS='http://www.w3.org/2000/svg',svg=document.createElementNS(svgNS,'svg');
+ svg.setAttribute('viewBox','0 0 640 105');svg.setAttribute('preserveAspectRatio','none');
+ svg.setAttribute('role','img');svg.setAttribute('aria-label',metric+' by model day'+(rowsB.length?', World A and World B':''));
+ const ymax=Math.max(1,...rowsA.concat(rowsB).map(row=>Number(row[metric])||0));
+ const guide=document.createElementNS(svgNS,'line');guide.setAttribute('x1','0');guide.setAttribute('y1','102');
+ guide.setAttribute('x2','640');guide.setAttribute('y2','102');svg.append(guide);
+ for(const [rows,side] of [[rowsA,'a'],[rowsB,'b']]){
+   if(!rows.length)continue;
+   const line=document.createElementNS(svgNS,'polyline');
+   if(side==='b')line.setAttribute('class','world-b');
+   line.setAttribute('points',rows.map(row=>{
+     const y=101-(Number(row[metric])||0)/ymax*94;
+     return (8+Math.min(FOCUS_DAYS,row.day)/FOCUS_DAYS*624).toFixed(1)+','+y.toFixed(1);
+   }).join(' '));
+   svg.append(line);
+ }
+ return svg;
+}
+function renderAdditionalCharts(){
+ const host=$('focus-secondary');host.replaceChildren();
+ if(level==='advanced')return;
+ const medium=level==='medium',primary=focusedRecipe().metric;
+ const choices=medium?
+   [{metric:'reviewBacklog',title:'Studies waiting for review'},
+    {metric:'published',title:'Published research claims'},
+    {metric:'replicated',title:'Independent repeat tests'},
+    {metric:'falsePublished',title:'False claims published'}]
+      .filter(item=>item.metric!==primary).slice(0,2):
+   [{key:'generation',metric:'published',title:'Published research claims'},
+    {key:'replication',metric:'replicated',title:'Independent repeat tests'}];
+ for(const choice of choices){
+   const key=choice.key;
+   const value=medium?null:simpleExtraInputs[key];
+   const a=medium?focusedRuns?.a:modelRun({key},value);
+   const b=medium?focusedRuns?.b:null;
+   const countA=a?.summary[choice.metric],countB=b?.summary[choice.metric];
+   const card=make('article','focus-mini');
+   const head=make('div','focus-mini-head');
+   head.append(make('h2','',choice.title),make('strong','',countA===undefined?'—':medium&&countB!==undefined?countA+' / '+countB:countA));
+   card.append(head,additionalGraph(a?[...a.world.history,a.summary]:[],
+     b?[...b.world.history,b.summary]:[],choice.metric));
+   if(!medium){
+     const control=make('label','focus-slider');
+     const name=make('span','',policyDescriptions[key][0]+' · input');
+     const output=make('output','',value+' / 10');
+     const slider=make('input');
+     slider.type='range';slider.min='1';slider.max='10';slider.value=String(value);
+     slider.setAttribute('aria-label',policyDescriptions[key][0]);
+     slider.addEventListener('input',()=>{output.textContent=slider.value+' / 10';});
+     slider.addEventListener('change',()=>{
+       simpleExtraInputs[key]=Number(slider.value);
+       renderAdditionalCharts();
+       const focused=modelRun({key},simpleExtraInputs[key]);
+       G.context?.({level:'simple',world:'A',day:FOCUS_DAYS,view:'focused',
+         policies:focused.world.policy,metrics:focused.summary,focusedMetric:choice.metric,
+         lesson:{policy:key,observed:true}});
+     });
+     control.append(name,output,slider);
+     card.append(control);
+   }
+   const row=make('div','focus-mini-caption');
+   const explanation=medium?
+     'Input: up to six policy settings (1–10). Output: '+choice.title.toLowerCase()+
+       ' · A '+(countA??'—')+' / B '+(countB??'—')+' · 45 days; model counts.':
+     'Input: '+policyDescriptions[key][0]+' '+value+'/10. Output: '+choice.title.toLowerCase()+
+       ' '+(countA??'—')+' after 45 days; model count.';
+   const ask=make('button','focus-ask','Ask Pulsar why');ask.type='button';
+   ask.addEventListener('click',()=>G.askPulsar?.(
+     'Explain this simulation graph: '+explanation+
+     ' What does the input change, what does the output measure, and what are its limits?'));
+   row.append(make('span','',explanation),ask);
+   card.append(row);host.append(card);
+ }
+}
 function selectLevel(next,scenario,focus=false){
  if(!['simple','medium','advanced'].includes(next))return;
  if(level==='advanced'&&next!==level){play(false);if(drawerOpen)settings(false,false);}
