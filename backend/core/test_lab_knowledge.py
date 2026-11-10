@@ -62,7 +62,13 @@ class LabScientificContextTests(TestCase):
         self.assertEqual(context['browser_reported_simulator_selection']['delta']['replicated'], 4)
         self.assertTrue(context['server_model_facts']['verified_engine_match'])
         self.assertIn('REDUCES', context['server_model_facts']['rules']['transparency'])
-        self.assertEqual(context['scientific_context']['complete_model_guides'][0]['markdown'], self.md)
+        # Fast public tutoring includes relevant cited sections, not an
+        # additional complete guide pasted into every quick request.
+        self.assertEqual(context['scientific_context']['complete_model_guides'], [])
+        self.assertEqual(run.call_args.kwargs['operation'], 'interpret')
+        from core.lab_knowledge import scientific_context
+        full, _ = scientific_context(self.lab, 'independent replication')
+        self.assertEqual(full['complete_model_guides'][0]['markdown'], self.md)
 
     @patch('core.lab_api.configured', return_value=False)
     def test_directory_is_available_and_unavailable_llm_is_honestly_labeled(self, configured):
