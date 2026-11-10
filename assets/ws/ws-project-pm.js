@@ -4,7 +4,7 @@
 import * as P from './ws-platform.js?v=20261016-task1&patch=20261027reliability1';
 import { mountAnchoredComments } from './ws-anchored-comments.js?v=20261016-task1';
 import { renderTaskTimeline, taskDateFields } from './ws-task-timeline.js?v=20261016-task1&patch=20261102execution1';
-import { createProjectTask, openProjectTask } from './ws-project-actions.js?v=20261016-task1&patch=20261110qa1';
+import { createProjectTask, openProjectTask } from './ws-project-actions.js?v=20261016-task1&patch=20261110qa1&taskux=20261110compact1';
 import { workflowError, workflowStatusOptions } from './ws-task-workflow.js?v=20261016-task1&patch=20261110qa1';
 
 const node = (tag, cls = '', content = '') => {
