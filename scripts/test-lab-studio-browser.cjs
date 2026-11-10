@@ -303,7 +303,7 @@ const server=http.createServer((req,res)=>{
       inputs.filter(input=>input.value!==String({generation:5,verification:5,replication:4,
         sampleSize:5,transparency:5,pressure:5}[input.getAttribute('aria-label').includes('Idea generation')?'generation':
         input.getAttribute('aria-label').includes('Peer review')?'verification':
-        input.getAttribute('aria-label').includes('Independent repeat')?'replication':
+        input.getAttribute('aria-label').includes('Replication capacity')?'replication':
         input.getAttribute('aria-label').includes('Sample size')?'sampleSize':
         input.getAttribute('aria-label').includes('Open methods')?'transparency':'pressure'])).map(input=>input.getAttribute('aria-label')));
     assert.deepEqual(changed,['Publication pressure in World B'],
