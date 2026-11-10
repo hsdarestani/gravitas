@@ -337,7 +337,7 @@ export function createProjectTask(projectId, cockpit, { go, refresh = refreshPro
     title.maxLength = 240;
     const milestones = (cockpit.milestones || []).filter(item => item.status !== 'archived');
     grid.append(
-      field('Title', title), picker.element,
+      field('Title', title),
       taskOptions(
         ...(milestones.length ? [field('Milestone', select('milestone_id',
           [['', 'No milestone'], ...milestones.map(item => [item.id, item.title])]))] : []),
@@ -345,6 +345,7 @@ export function createProjectTask(projectId, cockpit, { go, refresh = refreshPro
         field('Priority', select('priority', PRIORITY, 'p2')),
         field('Expected outcome', textarea('definition_of_done', '', 3)),
         field('Description', textarea('description', '', 3)),
+        picker.element,
       ),
     );
     return { picker };
@@ -408,7 +409,7 @@ export async function openProjectTask(task, cockpit, { go, refresh, showDetails 
     const title = canEdit ? input('title', task.title) : el('strong', 'ws-project-task-editor__title', task.title);
     const outcome = canEdit ? textarea('definition_of_done', task.definition_of_done || '', 3) :
       el('p', 'ws-project-task-editor__outcome', task.definition_of_done || 'Not defined');
-    grid.append(field('Task', title), field('Outcome', outcome));
+    grid.append(field('Task', title));
     const attrs = el('div', 'ws-project-task-editor__attrs');
     const statuses = [
       ['draft', 'Draft'], ['active', 'Active'], ['ready', 'Ready'],
@@ -419,28 +420,32 @@ export async function openProjectTask(task, cockpit, { go, refresh, showDetails 
     if (canEdit) {
       attrs.append(
         field('Status', select('status', workflowStatusOptions(statuses, task), task.status || 'active')),
-        field('Priority', select('priority', PRIORITY, task.priority || 'p2')),
         field('Due date', input('due_date', task.due_date || '', 'date')),
       );
     } else {
       attrs.append(
         field('Status', el('span', '', P.label(task.status))),
-        field('Priority', el('span', '', P.label(task.priority))),
         field('Due date', el('span', '', task.due_date ? P.formatDate(task.due_date) : 'Not set')),
       );
     }
     grid.append(attrs);
-    grid.append(lifecycleDates.element);
     const owner = el('p', 'fl-muted', 'Owner: ' + (task.owner || 'Not assigned'));
-    grid.append(owner);
     const notes = el('details', 'ws-project-task-editor__more');
-    notes.append(el('summary', '', 'Notes and blockers'));
+    notes.append(el('summary', '', 'Task details'));
     const description = canEdit ? textarea('description', task.description || '', 3) :
       el('p', '', task.description || 'No notes');
     const blocked = canEdit ? textarea('blocked_reason', task.blocked_reason || '', 2) :
       el('p', '', task.blocked_reason || 'No blocker');
-    notes.append(field('Description', description), field('Blocked reason', blocked));
+    notes.append(field('Outcome', outcome), field('Description', description), field('Blocked reason', blocked));
     grid.append(notes);
+    const more = el('details', 'ws-project-task-editor__more');
+    more.append(
+      el('summary', '', 'More options'),
+      canEdit ? field('Priority', select('priority', PRIORITY, task.priority || 'p2'))
+        : field('Priority', el('span', '', P.label(task.priority))),
+      lifecycleDates.element, owner,
+    );
+    grid.append(more);
     if (task.workflow_state || task.workflow_position != null)
       grid.append(button('Open workflow', async () => {
         try {
