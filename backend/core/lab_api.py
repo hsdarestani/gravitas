@@ -503,7 +503,7 @@ def public_lab_coach(request, slug):
                                     if m['role'] == 'pulsar' and m['text'].strip()), '')
     # Only bounded telemetry reaches the shared real LLM runtime.
     science_state = clean_context(data.get('context')) if slug == 'science-universe' else {}
-    knowledge, allowed_citations = scientific_context(item, question, key, science_state, compact=True) if slug == 'science-universe' else ({}, [])
+    knowledge, allowed_citations = scientific_context(item, question, key, science_state, compact=not detailed) if slug == 'science-universe' else ({}, [])
     facts = model_facts(item, science_state) if slug == 'science-universe' else {}
     selected_atlas = None
     if slug == 'science-universe' and isinstance(data.get('atlas_comparison'), dict):
