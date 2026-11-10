@@ -1112,9 +1112,16 @@ function focusedChartCard(metric,a,b){
    (8+(Number(row.day)||0)/FOCUS_DAYS*624)+','+(103-(Number(row[metric])||0)/maximum*95)).join(' '));
   svg.append(line);
  });card.append(svg);
- const inputs=focusInputs(metric),outputs=left===undefined?'Run to measure':
-  (b?'World A: '+left+' · World B: '+right:'Measured: '+left);
- card.append(make('p','focus-chart-caption','Input · '+inputs+' → Output · '+title+' · '+outputs));
+ const inputs=focusInputs(metric),previous=level==='simple'?[...simpleRuns.values()].at(-2):null;
+ const before=previous?.a?.summary[metric],difference=b&&Number.isFinite(right)&&Number.isFinite(left)?
+  ' (Δ '+(right-left>0?'+':'')+(right-left)+')':
+  before!==undefined&&left!==undefined?' (previous '+before+' → '+left+
+  ', Δ '+(left-before>0?'+':'')+(left-before)+')':'';
+ const outputs=left===undefined?'Run to measure':(b?'World A: '+left+' · World B: '+right:
+  'Measured: '+left)+difference;
+ const inputChange=level==='simple'&&previous&&previous.value!==focusedRuns.value?
+  ' · review capacity '+previous.value+'/10 → '+focusedRuns.value+'/10':':'';
+ card.append(make('p','focus-chart-caption','Input · '+inputs+inputChange+' → Output · '+title+' · '+outputs));
  const ask=make('button','text-btn','Ask Pulsar to explain this graph');
  ask.type='button';ask.addEventListener('click',()=>{
   G.askPulsar?.('Explain the '+title+' chart in '+level+' mode. Inputs: '+inputs+
