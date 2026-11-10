@@ -251,7 +251,8 @@ function updateMission(progress){
  const cleanTrial=trial=>trial&&Number.isInteger(trial.setting)&&trial.setting>=1&&trial.setting<=10&&Number.isInteger(trial.result)&&trial.result>=0&&trial.result<1e6;
  missionProgress={
   trials:Array.isArray(progress.trials)?progress.trials.slice(0,2).filter(cleanTrial):[],
-  baseline:cleanTrial(progress.baseline)?progress.baseline:null
+  baseline:cleanTrial(progress.baseline)?progress.baseline:null,
+  multiChange:progress.multiChange===true
  };
  renderMission();
  renderReplies();
@@ -266,6 +267,10 @@ function renderMission(){
  host.replaceChildren(node('span','lab-mission-step',medium?'MISSION 02 · COMPARE':'MISSION 01 · OBSERVE'));
  if(missionUnlocks.has(labLevel)){
   host.append(node('p','','Nice work. '+next+' is ready.'),btn('Continue to '+next,()=>tellIframe('lab:level',{level:next.toLowerCase()}),'lab-mission-next'));return;
+ }
+ if(medium&&progress.multiChange){
+  host.append(node('p','','You changed several inputs together. The charts show their combined outcome; use one changed setting for a controlled comparison.'));
+  return;
  }
  if(samples.length!==2){
   host.append(node('p','',medium?'Change World B, then compare both worlds.':'Run the model at two different review settings.'));return;
