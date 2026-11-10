@@ -88,6 +88,13 @@
     onLesson:function(fn){if(typeof fn==='function')lessonListeners.push(fn);},
     onComparison:function(fn){if(typeof fn==='function')comparisonListeners.push(fn);},
     note:function(payload){send('lab:note',{note:payload});},
+    askPulsar:function(question){
+      // Structured ask; the parent checks iframe source/origin and applies
+      // the normal visitor rate limit and trial entitlement.
+      if(location.pathname.indexOf('/lab-run/science-universe/')!==0)return;
+      var text=String(question||'').trim().slice(0,320);
+      if(text)send('lab:ask',{question:text});
+    },
     openAtlas:function(){send('lab:open-atlas');},
     saveSnapshot:function(payload){send('lab:save-snapshot',{seed:payload?.seed});},
     register:function(details){
