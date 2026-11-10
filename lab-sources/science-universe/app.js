@@ -1058,8 +1058,7 @@ const METRIC_INPUTS={
   falsePublished:['pressure','transparency','sampleSize'],
   replicated:['replication','verification'], retracted:['replication','verification']
 };
-let mediumValues=Object.fromEntries(MEDIUM_KEYS.map(key=>[key,E.DEFAULTS[key]]));
-mediumValues.verification=Math.min(10,E.DEFAULTS.verification+3);
+let mediumValues={...E.DEFAULTS,verification:REVIEW_CAPACITY.high};
 let focusInputTimer=0;
 function focusInputs(metric){
  const keys=METRIC_INPUTS[metric]||['verification'];
@@ -1146,7 +1145,13 @@ function selectLevel(next,scenario,focus=false){
  if(!['simple','medium','advanced'].includes(next))return;
  clearTimeout(focusInputTimer);
  if(level==='advanced'&&next!==level){play(false);if(drawerOpen)settings(false,false);}
- if(next==='medium'&&(scenario==='review_capacity'||Object.hasOwn(GUIDED_EXPERIMENTS,scenario)))mediumScenario=scenario;
+ if(next==='medium'&&(scenario==='review_capacity'||Object.hasOwn(GUIDED_EXPERIMENTS,scenario))){
+  mediumScenario=scenario;
+  const selected=GUIDED_EXPERIMENTS[scenario]||REVIEW_CAPACITY;
+  // Guided scenarios start with one clearly labeled intervention.
+  // A visitor may then explore up to six input policies deliberately.
+  mediumValues={...E.DEFAULTS,[selected.key]:selected.high};
+ }
  level=next;$('universe-app').dataset.level=level;
  document.querySelectorAll('[data-level-choice]').forEach(button=>{
   const active=button.dataset.levelChoice===level;button.classList.toggle('active',active);button.setAttribute('aria-pressed',String(active));
