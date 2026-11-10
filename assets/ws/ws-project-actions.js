@@ -367,7 +367,7 @@ export async function openProjectTask(task, cockpit, { go, refresh, showDetails 
   if (P.canOpenCore()) {
     // One canonical task editor for everyone authorized to use Core; Research
     // participants without Core access retain project-scoped editing below.
-    const { openCoreTask } = await import('./ws-views.js?v=20261016-task1&patch=20261110qa1');
+    const { openCoreTask } = await import('./ws-views.js?v=20261016-task1&patch=20261110qa1&taskux=20261110compact1');
     return openCoreTask(task.id, { go, onTaskChange: refresh });
   }
   if (task.workflow_state && !showDetails) {
