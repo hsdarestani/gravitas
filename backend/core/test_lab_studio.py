@@ -167,3 +167,29 @@ class LabStudioTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()['provider'], 'script')
         self.assertEqual(response.json()['reply'], 'Compare the measured value.')
+
+    @patch('core.lab_api.configured', return_value=True)
+    @patch('core.lab_api.run_text')
+    def test_pulsar_detailed_followup_receives_exact_prior_answer(self, mocked_run, configured):
+        lab = self.create_draft()
+        self.client.post(f"/api/platform/admin/labs/{lab['id']}/publish/",
+                         data=json.dumps({'version': 1}), content_type='application/json')
+        mocked_run.return_value = SimpleNamespace(text='A deeper explanation of the same result.',
+                                                   provider='cloudflare', run_id='test')
+        self.client.logout()
+        response = self.client.post('/api/labs/lab-one/coach/',
+            data=json.dumps({
+                'event': 'ask', 'question': 'Explain your previous answer in more detail.',
+                'reply_detail': 'detailed',
+                'history': [{'role': 'user', 'text': 'What is peer review?'},
+                            {'role': 'pulsar', 'text': 'A scientific quality check.'}],
+                'follow_up': {'question': 'What is peer review?',
+                              'answer': 'A scientific quality check.'},
+            }), content_type='application/json')
+        self.assertEqual(response.status_code, 200, response.content)
+        args = mocked_run.call_args.kwargs
+        self.assertIn('previous_answer_to_expand', args['user'])
+        self.assertIn('A scientific quality check.', args['user'])
+        self.assertIn('What is peer review?', args['user'])
+        self.assertIn('continue it', args['system'])
+        self.assertEqual(args['max_tokens'], 500)

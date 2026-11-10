@@ -251,7 +251,8 @@ function updateMission(progress){
  const cleanTrial=trial=>trial&&Number.isInteger(trial.setting)&&trial.setting>=1&&trial.setting<=10&&Number.isInteger(trial.result)&&trial.result>=0&&trial.result<1e6;
  missionProgress={
   trials:Array.isArray(progress.trials)?progress.trials.slice(0,2).filter(cleanTrial):[],
-  baseline:cleanTrial(progress.baseline)?progress.baseline:null
+  baseline:cleanTrial(progress.baseline)?progress.baseline:null,
+  multiChange:progress.multiChange===true
  };
  renderMission();
  renderReplies();
@@ -266,6 +267,10 @@ function renderMission(){
  host.replaceChildren(node('span','lab-mission-step',medium?'MISSION 02 · COMPARE':'MISSION 01 · OBSERVE'));
  if(missionUnlocks.has(labLevel)){
   host.append(node('p','','Nice work. '+next+' is ready.'),btn('Continue to '+next,()=>tellIframe('lab:level',{level:next.toLowerCase()}),'lab-mission-next'));return;
+ }
+ if(medium&&progress.multiChange){
+  host.append(node('p','','You changed several inputs together. The charts show their combined outcome; use one changed setting for a controlled comparison.'));
+  return;
  }
  if(samples.length!==2){
   host.append(node('p','',medium?'Change World B, then compare both worlds.':'Run the model at two different review settings.'));return;
@@ -525,6 +530,14 @@ async function askPulsar(question,event,fallback,detail){
  var context=chatHistory.slice(-8).map(function(m){return {
    role:m.role,text:m.text.slice(0,480)
  };});
+ // The backend receives a single request per turn. A follow-up must carry
+ // the exact preceding live answer, not merely a vague "previous answer" prompt.
+ var priorIndex=chatHistory.findLastIndex(m=>m.role==='pulsar'&&m.provider==='ai');
+ var prior=priorIndex>=0?chatHistory[priorIndex]:null;
+ var priorQuestion=prior?chatHistory.slice(0,priorIndex).findLast(m=>m.role==='user'):null;
+ var followUp=detail==='detailed'&&prior?{
+   answer:prior.text.slice(0,1450),question:(priorQuestion?.text||'').slice(0,450)
+ }:null;
  if(isChat&&q)addChat('user',q);
  if(q){lastQuestion=q;replyFailed=false;}
  aiBusy=true;chatBusy=isChat&&!!q;lastCoachAt=Date.now();
@@ -540,7 +553,8 @@ async function askPulsar(question,event,fallback,detail){
      method:'POST',headers:{'Content-Type':'application/json'},
      body:JSON.stringify({event:event||'ask',section:currentSection,question:q,
        metrics:lastMetrics,history:context,context:observed,reply_detail:detail,
-       locale:document.documentElement.lang||'en',atlas_comparison:atlasSelection,usage_visit:usage?.visit()}),
+       follow_up:followUp,locale:document.documentElement.lang||'en',
+       atlas_comparison:atlasSelection,usage_visit:usage?.visit()}),
      signal:thisController.signal,credentials:'same-origin'
    });
    var result=await res.json();
@@ -914,6 +928,13 @@ window.addEventListener('message',function(e){
   if(active.slug==='science-universe'&&data.type==='lab:learning-progress'){updateMission(data.progress);return;}
   if(active.slug==='science-universe'&&data.type==='lab:lesson-state'){learning?.updateLesson(data.lesson);return;}
   if(active.slug==='science-universe'&&data.type==='lab:open-atlas'){openAtlas();return;}
+  if(active.slug==='science-universe'&&data.type==='lab:ask-pulsar'){
+    const question=typeof data.question==='string'?data.question.trim().slice(0,340):'';
+    if(question&&active.config.pulsar_enabled!==false){
+      openPulsarChat('chat');askPulsar(question,'ask');
+    }
+    return;
+  }
   if(active.slug==='science-universe'&&data.type==='lab:save-snapshot'){saveSnapshot(data.seed);return;}
   if(active.slug==='science-universe'&&data.type==='lab:note'){
     if(speaking&&data.note&&Date.now()-lastInsightAt>18000){showInsight(String(data.note.title||'Model snapshot'),String(data.note.text||''));lastInsightAt=Date.now();}return;

@@ -12,9 +12,9 @@
     <nav class="level-nav" aria-label="Lab navigation">
       <a id="back-labs" class="crumb-link" href="/lab.html">‹ Labs</a>
       <div class="level-picker" role="group" aria-label="Simulation complexity">
-        <button class="pill active" type="button" data-level-choice="simple" aria-pressed="true">Simple</button>
-        <button class="pill" type="button" data-level-choice="medium" aria-pressed="false">Medium</button>
-        <button class="pill" type="button" data-level-choice="advanced" aria-pressed="false">Advanced</button>
+        <button class="pill active" type="button" data-level-choice="simple" aria-pressed="true" aria-label="Simple">Simple <small aria-hidden="true">1/10</small></button>
+        <button class="pill" type="button" data-level-choice="medium" aria-pressed="false" aria-label="Medium">Medium <small aria-hidden="true">5/10</small></button>
+        <button class="pill" type="button" data-level-choice="advanced" aria-pressed="false" aria-label="Advanced">Advanced <small aria-hidden="true">10/10</small></button>
       </div>
     </nav>
     <main id="focused-model" class="focused-model" aria-labelledby="focus-title">
@@ -43,6 +43,9 @@
         <label class="focus-slider" for="focus-setting"><span id="focus-setting-label">Peer review capacity</span><output id="focus-setting-value" for="focus-setting">5 / 10</output><input id="focus-setting" type="range" min="1" max="10" value="5"></label>
         <button id="focus-run" class="btn primary" type="button">Run simulation</button>
       </div>
+      <div class="focus-meaning"><span id="focus-input-output">Input: review capacity (1–10) · Output: studies waiting after 45 model days</span><button id="focus-ask" class="focus-ask" type="button">Ask Pulsar why</button></div>
+      <section id="focus-medium-controls" class="focus-medium-controls" aria-label="Medium model input parameters" hidden></section>
+      <section id="focus-secondary" class="focus-secondary" aria-label="Additional adjustable charts"></section>
       <p id="focus-status" class="focus-status" role="status">A seeded teaching model. Try a different setting and run it again.</p>
     </main>
     <header class="app-header">
@@ -189,7 +192,7 @@
           </div>
         </div>
         <div class="outcome-workspace"><div class="metric-trends" id="metric-trends" aria-label="Measurements with trends"></div><div class="outcome-chart"><div class="chart-toolbar"><label class="metric-picker">Show trend <select id="metric-select" aria-label="Outcome metric"></select></label><button class="btn small" id="compare" type="button" disabled aria-controls="comparison" aria-expanded="false">Compare results</button><button class="btn small" type="button" id="toggle-data" aria-expanded="false" aria-controls="outcome-data">Data table</button></div><div class="plot-wrap"><canvas id="history-chart" role="img" aria-label="Time series of selected scientific output"></canvas></div>
-        <p class="chart-caption" id="plot-caption">Cumulative publications. Publications are not necessarily true or independently replicated.</p></div></div>
+        <p class="chart-caption" id="plot-caption">Cumulative publications. Publications are not necessarily true or independently replicated.</p><button id="advanced-ask" class="focus-ask" type="button">Ask Pulsar about this trend</button></div></div>
         <div id="outcome-data" class="data-table-wrap" hidden></div>
       </div>
       <div class="activity panel">

@@ -89,6 +89,12 @@
     onComparison:function(fn){if(typeof fn==='function')comparisonListeners.push(fn);},
     note:function(payload){send('lab:note',{note:payload});},
     openAtlas:function(){send('lab:open-atlas');},
+    askPulsar:function(question){
+      if(!location.pathname.startsWith('/lab-run/science-universe/'))return;
+      if(typeof question!=='string')return;
+      var q=question.trim().slice(0,340);
+      if(q)send('lab:ask-pulsar',{question:q});
+    },
     saveSnapshot:function(payload){send('lab:save-snapshot',{seed:payload?.seed});},
     register:function(details){
       didRegister=true;

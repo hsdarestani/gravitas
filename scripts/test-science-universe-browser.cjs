@@ -27,6 +27,16 @@ const server=http.createServer((req,res)=>{
     page.on('pageerror',e=>errors.push(e.message));
     const address='http://127.0.0.1:'+server.address().port+'/lab-sources/science-universe/index.html';
     await page.goto(address,{waitUntil:'networkidle'});
+    await page.locator('.focus-mini').first().waitFor();
+    assert.equal(await page.locator('.focus-mini').count(),2,'Simple shows two additional independent charts');
+    assert.equal(await page.locator('.focus-mini input[type="range"]').count(),2);
+    assert.match(await page.locator('#focus-input-output').innerText(),/Input:.*Output:/);
+    await page.getByRole('button',{name:'Medium',exact:true}).click();
+    assert.equal(await page.locator('#focus-medium-controls input[type="range"]').count(),5,
+      'Medium exposes five more inputs alongside its primary slider (six of twelve)');
+    await page.locator('#focus-run').click();
+    assert.match(await page.locator('#focus-status').innerText(),/changed input/);
+    assert.equal(await page.locator('.focus-mini').count(),2,'Medium shows additional output charts');
     await page.getByRole('button',{name:'Advanced',exact:true}).click();
     await page.locator('#agents').waitFor();
     assert.equal(await page.locator('.tiny-metric').count(),6);
