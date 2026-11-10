@@ -172,7 +172,7 @@ async function smoke() {
   const idx=await context.newPage();
   const indexResponse=await idx.goto(ROOT+"/lab.html",{waitUntil:"networkidle"});
   assert.equal(indexResponse.status(),200);
-  assert.match(await idx.locator("main h1").innerText(),/^Change the conditions/);
+  assert.match(await idx.locator("main h1").innerText(),/^Change one thing/);
   assert.equal(await idx.locator(".ai-path-card,.ai-panel,.games > .game-card,.lab-catalog-card").count(),0);
   assert.equal(await idx.locator("main button").count(),0);
   assert.equal(await idx.locator("main iframe").count(),0);
@@ -186,7 +186,7 @@ async function smoke() {
   const noJsPage=await noJs.newPage();
   await noJsPage.setViewportSize({width:390,height:844});
   assert.equal((await noJsPage.goto(ROOT+"/lab.html",{waitUntil:"load"})).status(),200);
-  assert.match(await noJsPage.locator("main h1").innerText(),/^Change the conditions/);
+  assert.match(await noJsPage.locator("main h1").innerText(),/^Change one thing/);
   await noJs.close();
   const nav = await q.locator('a.back').getAttribute("href");
   assert.equal(nav, "lab.html");
