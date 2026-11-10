@@ -1120,7 +1120,7 @@ function focusedChartCard(metric,a,b){
  const outputs=left===undefined?'Run to measure':(b?'World A: '+left+' · World B: '+right:
   'Measured: '+left)+difference;
  const inputChange=level==='simple'&&previous&&previous.value!==focusedRuns.value?
-  ' · review capacity '+previous.value+'/10 → '+focusedRuns.value+'/10':':'';
+  ' · review capacity '+previous.value+'/10 → '+focusedRuns.value+'/10':'';
  card.append(make('p','focus-chart-caption','Input · '+inputs+inputChange+' → Output · '+title+' · '+outputs));
  const ask=make('button','text-btn','Ask Pulsar to explain this graph');
  ask.type='button';ask.addEventListener('click',()=>{
