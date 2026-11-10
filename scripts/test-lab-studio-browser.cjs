@@ -107,7 +107,7 @@ const server=http.createServer((req,res)=>{
     page.on('pageerror',err=>runtimeErrors.push(err.message));
     const url='http://127.0.0.1:'+port+'/lab.html';
     await page.goto(url,{waitUntil:'networkidle'});
-    assert.equal(await page.locator('#lab-title').innerText(),'Change the conditions. Watch what follows.');
+    assert.equal(await page.locator('#lab-title').innerText(),'Change one thing. Watch what follows.');
     assert.equal(await page.locator('#lab-experiences').isHidden(),true,
       'public Lab must remain empty before publish');
     empty=false;
