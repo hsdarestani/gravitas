@@ -70,6 +70,8 @@ def project_for(obj):
 
 
 def acl_object(obj):
+    if obj.__class__.__name__ == 'OperatingTask' and obj.workflow_position is not None:
+        return obj.parent
     if hasattr(obj, 'mind_map'):
         return obj.mind_map
     if obj.__class__.__name__ in {'ResearchProjectProfile', 'ProjectDiscussionMessage', 'ResearchExperiment', 'ProjectAuditEvent'}:

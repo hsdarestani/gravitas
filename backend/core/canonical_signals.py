@@ -28,6 +28,9 @@ def saved(sender, instance, raw=False, **kwargs):
 
 
 def deleting(sender, instance, **kwargs):
+    if sender.__name__ == 'OperatingTask' and instance.workflow_position is not None:
+        from django.db.models import ProtectedError
+        raise ProtectedError('Generated workflow steps belong to the parent task.', [instance])
     project = project_for(instance)
     if _suppressed.get() or not active(project):
         return

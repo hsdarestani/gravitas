@@ -1,5 +1,7 @@
 import json
+from contextlib import nullcontext
 
+from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.utils import timezone
 from django.http import JsonResponse
@@ -7,7 +9,7 @@ from django.utils.dateparse import parse_date
 from django.views.decorators.http import require_http_methods
 
 from . import operating_api as operating_base
-from .canonical_projects import active as canonical_active
+from .canonical_projects import active as canonical_active, suppress
 from .models import ProjectMembership, ResearchProject
 from .operating_models import (
     Initiative,
@@ -17,6 +19,7 @@ from .operating_models import (
     OperatingTask,
     Priority,
     StrategicObjective,
+    WorkflowTaskError,
     WorkStatus,
 )
 from .platform_access import INHERIT_VISIBILITY, can_edit, can_view, policy_for
@@ -24,6 +27,8 @@ from .platform_models import ProjectAuditEvent
 from .platform_runtime_v3 import ensure_platform_workspaces
 from .project_cockpit import _task_json
 from .task_dates import apply_date_patch
+from .task_workflow_api import workflow_error
+from .task_workflows import WorkflowRequestError, install_workflow, replay_workflow_create, workflow_plan
 
 
 OBJECTIVE_TITLE = 'Research project execution'
@@ -149,6 +154,12 @@ def project_tasks(request, project_id):
         return JsonResponse({'ok': True, 'tasks': [_task_json(item, request.user) for item in visible]})
 
     payload = _body(request)
+    if not isinstance(payload, dict):
+        return _error('invalid_payload')
+    try:
+        plan = workflow_plan(payload, request.user, ['project', project_id])
+    except WorkflowRequestError as error:
+        return workflow_error(error)
     title = str(payload.get('title', '')).strip()[:240]
     if not title:
         return _error('title_required')
@@ -161,24 +172,46 @@ def project_tasks(request, project_id):
     if status not in {WorkStatus.DRAFT, WorkStatus.ACTIVE, WorkStatus.BLOCKED}:
         return _error('invalid_status')
 
-    due_date = parse_date(str(payload.get('due_date', '')).strip()) if payload.get('due_date') else None
+    try:
+        due_date = parse_date(str(payload.get('due_date', '')).strip()) if payload.get('due_date') else None
+    except ValueError:
+        return _error('invalid_due_date')
     if payload.get('due_date') and due_date is None:
         return _error('invalid_due_date')
     if due_date is None:
         due_date = getattr(getattr(project, 'platform_profile', None), 'deadline', None)
 
+    milestone = None
+    if payload.get('milestone_id'):
+        value = str(payload['milestone_id'])
+        if not value.isdecimal() or len(value) > 18:
+            return _error('invalid_milestone')
+        milestone = OperatingMilestone.objects.filter(pk=value, project=project).first()
+        if milestone is None or not can_view(request.user, milestone):
+            return _error('invalid_milestone')
+
     definition_of_done = str(payload.get('definition_of_done', '')).strip()
     if not definition_of_done:
         definition_of_done = f'“{title}” is complete and documented in GRV-{project.pk:06d}.'
 
-    with transaction.atomic():
+    canonical_workflow = bool(plan and canonical_active(project))
+    with transaction.atomic(), (suppress() if canonical_workflow else nullcontext()):
+        core = ensure_platform_workspaces(request.user)['core']
+        try:
+            replay = replay_workflow_create(plan, request.user)
+        except WorkflowRequestError as error:
+            return workflow_error(error)
+        if replay:
+            if not can_edit(request.user, replay):
+                return _error('permission_denied', 403)
+            return JsonResponse({'ok': True, 'task': _task_json(replay, request.user), 'replayed': True})
         # Research tasks are the SAME OperatingTask, but do not imply any KR.
         # Milestones still use the legacy execution initiative helper until
         # their own schema is made optional.
-        core = ensure_platform_workspaces(request.user)['core']
         task = OperatingTask.objects.create(
             workspace=core,
             initiative=None,
+            milestone=milestone,
             project=project,
             owner=request.user,
             title=title,
@@ -202,6 +235,8 @@ def project_tasks(request, project_id):
             object_id=str(task.pk),
             detail={'title': task.title, 'status': task.status},
         )
+        if plan:
+            install_workflow(task, plan)
 
     return JsonResponse({'ok': True, 'task': _task_json(task, request.user)}, status=201)
 
@@ -311,9 +346,10 @@ def project_task_detail(request, project_id, task_id):
     with transaction.atomic():
         for field, value in updates.items():
             setattr(task, field, value)
-        from django.core.exceptions import ValidationError
         try:
             task.clean()
+        except WorkflowTaskError as error:
+            return workflow_error(error)
         except ValidationError:
             return _error('invalid_task_hierarchy')
         try:
@@ -322,7 +358,10 @@ def project_task_detail(request, project_id, task_id):
             return _error(str(exc), 403)
         except ValueError as exc:
             return _error(str(exc))
-        task.save()
+        try:
+            task.save()
+        except WorkflowTaskError as error:
+            return workflow_error(error)
         ProjectAuditEvent.objects.create(
             project=project, actor=request.user, action='task_updated',
             object_type='OperatingTask', object_id=str(task.pk),

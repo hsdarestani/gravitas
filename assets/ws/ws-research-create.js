@@ -12,6 +12,7 @@
 
 import * as P from './ws-platform.js?v=20261016-task1&patch=20261027reliability1';
 import { projectIntegrationPicker } from './ws-project-integrations.js?v=20261016-task1';
+import { taskOptions, workflowError, workflowPicker } from './ws-task-workflow.js?v=20261016-task1&patch=20261110qa1';
 
 let go = (path) => location.assign(path);
 
@@ -112,7 +113,7 @@ function modal(title, build, submitLabel, onSubmit) {
       await onSubmit(fields, new FormData(form));
       dismiss();
     } catch (err) {
-      error.textContent = err?.data?.error || err?.message || 'The action could not be completed.';
+      error.textContent = workflowError(err);
       submit.disabled = false;
       cancel.disabled = false;
     }
@@ -177,7 +178,8 @@ async function openTaskCreator() {
   modal('New research task', (grid) => {
     const project = select('project_id', projects.map((item) => [String(item.id), item.title]), String(projects[0].id));
     const title = input('text', { name: 'title', placeholder: 'Task title', required: true });
-    const due = input('date', { name: 'due_date', required: true });
+    title.maxLength = 240;
+    const due = input('date', { name: 'due_date' });
     const priority = select('priority', [
       ['p0', 'P0 · Critical'],
       ['p1', 'P1 · High'],
@@ -186,30 +188,51 @@ async function openTaskCreator() {
     ], 'p2');
     const done = textarea('definition_of_done', 'What must be true for this task to be complete?');
     const description = textarea('description', 'Optional context');
-    grid.append(
-      field('Project', project),
-      field('Task title', title),
-      field('Due date', due),
-      field('Priority', priority),
-      field('Definition of done', done),
-      field('Description', description),
-    );
-    return { project };
+    const picker = workflowPicker();
+    const milestone = select('milestone_id', [['', 'No milestone']]);
+    const options = taskOptions(field('Milestone', milestone), field('Due date', due),
+      field('Priority', priority), field('Expected outcome', done), field('Description', description));
+    let loadedFor = null;
+    async function loadMilestones() {
+      const projectId = project.value;
+      if (loadedFor === projectId || !options.open) return;
+      loadedFor = projectId;
+      milestone.replaceChildren(new Option('Loading milestones…', ''));
+      try {
+        const data = await P.projectMilestones(projectId);
+        if (project.value !== projectId) return;
+        milestone.replaceChildren(new Option('No milestone', ''), ...(data.milestones || [])
+          .filter(item => item.status !== 'archived').map(item => new Option(item.title, item.id)));
+      } catch {
+        if (project.value !== projectId) return;
+        loadedFor = null;
+        milestone.replaceChildren(new Option('Milestones unavailable', ''));
+      }
+    }
+    project.addEventListener('change', () => {
+      loadedFor = null;
+      milestone.replaceChildren(new Option('No milestone', ''));
+      void loadMilestones();
+    });
+    options.addEventListener('toggle', loadMilestones);
+    grid.append(field('Project', project), field('Task title', title), picker.element, options);
+    return { project, picker };
   }, 'Create task', async (fields, formData) => {
     const projectId = Number(formData.get('project_id') || fields.project.value);
-    const result = await P.call(`/platform/projects/${projectId}/tasks/`, {
-      method: 'POST',
-      body: {
+    const payload = {
         title: String(formData.get('title') || '').trim(),
         due_date: formData.get('due_date'),
         priority: formData.get('priority') || 'p2',
         definition_of_done: String(formData.get('definition_of_done') || '').trim(),
         description: String(formData.get('description') || '').trim(),
         status: 'active',
-      },
+        ...(formData.get('milestone_id') ? { milestone_id: Number(formData.get('milestone_id')) } : {}),
+    };
+    const result = await P.call(`/platform/projects/${projectId}/tasks/`, {
+      method: 'POST', body: { ...payload, workflow: fields.picker.value(payload) },
     });
     if (!result.task?.id) throw new Error('task_create_failed');
-    go(`/workspace/research/projects/${projectId}/tasks`);
+    go(`/workspace/research/projects/${projectId}/tasks${result.task.workflow_state ? '?task=' + result.task.id : ''}`);
   });
 }
 

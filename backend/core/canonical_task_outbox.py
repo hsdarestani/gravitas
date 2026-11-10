@@ -17,6 +17,19 @@ from .operating_models import OperatingTask
 logger = logging.getLogger(__name__)
 
 
+def queue_task_sync(task):
+    """Enqueue a committed task snapshot while its row is locked."""
+    job, created = CanonicalTaskSyncOutbox.objects.get_or_create(
+        project_id=task.project_id, task_id=task.pk,
+        defaults={'generation': 1, 'next_attempt_at': timezone.now()},
+    )
+    if not created:
+        CanonicalTaskSyncOutbox.objects.filter(pk=job.pk).update(
+            generation=F('generation') + 1, next_attempt_at=timezone.now(),
+            state='pending', last_error='', attempts=0,
+        )
+
+
 def process_task_sync_outbox(*, limit=5):
     now = timezone.now()
     ids = list(CanonicalTaskSyncOutbox.objects.filter(
@@ -53,7 +66,7 @@ def process_task_sync_outbox(*, limit=5):
                 ).values_list('object_id', flat=True)
                 audits = ProjectAuditEvent.objects.filter(
                     project_id=job.project_id, object_type='OperatingTask',
-                    object_id=str(job.task_id), action='task_updated',
+                    object_id=str(job.task_id), action__in=('task_created', 'task_updated'),
                 ).exclude(pk__in=exported_audits).order_by('pk')
                 for audit in audits:
                     export_object(audit, reject_external_changes=True)

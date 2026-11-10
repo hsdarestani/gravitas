@@ -1,5 +1,6 @@
 import json
 
+from django.db import transaction
 from django.db.models import Count, Min, Q
 from django.utils import timezone
 from django.http import JsonResponse
@@ -245,8 +246,46 @@ def work_packages(request):
 
 
 @require_http_methods(['GET', 'POST'])
+@transaction.atomic
 def tasks(request):
-    return _delegate_project_link(request, v2.tasks, OperatingTask, 'task')
+    payload = base._body(request) if request.method == 'POST' else {}
+    if not isinstance(payload, dict) or payload.get('workflow') is None:
+        return _delegate_project_link(request, v2.tasks, OperatingTask, 'task')
+
+    from .platform_access import can_edit
+    from .task_board_api import _validate_task_payload
+    from .task_workflow_api import workflow_error
+    from .task_workflows import WorkflowRequestError, install_workflow, replay_workflow_create, workflow_plan
+
+    if error := _validate_task_payload(payload):
+        return error
+    workspace = base._workspace(request, payload)
+    if not workspace or not base._editable(request, workspace):
+        return base._error('permission_denied', 403)
+    project = _research_project_for_core(request, workspace, payload.get('project_id'))
+    if payload.get('project_id') and (project is None or not can_edit(request.user, project)):
+        return base._error('project_edit_required', 403)
+    if payload.get('milestone_id') and not OperatingMilestone.objects.filter(
+        pk=payload['milestone_id'], workspace=workspace, project=project,
+    ).exists():
+        return base._error('invalid_milestone')
+    try:
+        plan = workflow_plan(payload, request.user, ['core', workspace.pk])
+        replay = replay_workflow_create(plan, request.user)
+    except WorkflowRequestError as error:
+        return workflow_error(error)
+    if replay:
+        if not can_edit(request.user, replay):
+            return base._error('permission_denied', 403)
+        return JsonResponse({'ok': True, 'task': base._task_json(replay), 'replayed': True})
+    response = _delegate_project_link(request, v2.tasks, OperatingTask, 'task')
+    if response.status_code == 201:
+        data = json.loads(response.content)
+        task = OperatingTask.objects.get(pk=data['task']['id'])
+        install_workflow(task, plan)
+        data['task']['workflow_state'] = task.workflow_state
+        response.content = json.dumps(data)
+    return response
 
 
 @require_http_methods(['GET', 'POST'])
