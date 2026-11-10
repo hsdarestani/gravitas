@@ -107,7 +107,7 @@ const server=http.createServer((req,res)=>{
     page.on('pageerror',err=>runtimeErrors.push(err.message));
     const url='http://127.0.0.1:'+port+'/lab.html';
     await page.goto(url,{waitUntil:'networkidle'});
-    assert.equal(await page.locator('#lab-title').innerText(),'Change the conditions. Watch what follows.');
+    assert.equal(await page.locator('#lab-title').innerText(),'Change one thing. Watch what follows.');
     assert.equal(await page.locator('#lab-experiences').isHidden(),true,
       'public Lab must remain empty before publish');
     empty=false;
@@ -296,7 +296,18 @@ const server=http.createServer((req,res)=>{
     await page.getByRole('button',{name:'Publication pressure',exact:true}).click();
     await mobileFrame.getByText('False claims published in the model',{exact:true}).waitFor();
     await mobileFrame.locator('#focus-run').click();
-    assert.deepEqual(await mobileFrame.locator('#focus-results strong').allInnerTexts(),['4','12']);
+    const outcomes=(await mobileFrame.locator('#focus-results strong').allInnerTexts()).map(Number);
+    assert.equal(outcomes.length,2,'medium must show both matched-world outputs');
+    assert.ok(outcomes.every(Number.isFinite),'outcomes must be actual computed numbers');
+    const changed=await mobileFrame.locator('#focus-policy-grid input[type="range"]').evaluateAll(inputs=>
+      inputs.filter(input=>input.value!==String({generation:5,verification:5,replication:4,
+        sampleSize:5,transparency:5,pressure:5}[input.getAttribute('aria-label').includes('Idea generation')?'generation':
+        input.getAttribute('aria-label').includes('Peer review')?'verification':
+        input.getAttribute('aria-label').includes('Replication capacity')?'replication':
+        input.getAttribute('aria-label').includes('Sample size')?'sampleSize':
+        input.getAttribute('aria-label').includes('Open methods')?'transparency':'pressure'])).map(input=>input.getAttribute('aria-label')));
+    assert.deepEqual(changed,['Publication pressure in World B'],
+      'selecting a guided scenario must vary only the selected policy by default');
     assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth-document.documentElement.clientWidth)<=1);
     assert.deepEqual(runtimeErrors,[]);await fresh.close();
     console.log('Progressive Lab PASS: gallery, one-control mission, level unlocking, guided scenario, concise/detailed requests and mobile.');

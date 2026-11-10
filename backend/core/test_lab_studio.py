@@ -167,3 +167,33 @@ class LabStudioTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()['provider'], 'script')
         self.assertEqual(response.json()['reply'], 'Compare the measured value.')
+
+    @patch('core.lab_api.configured', return_value=True)
+    @patch('core.lab_api.run_text')
+    def test_more_detail_expands_supplied_reply_and_fast_questions_remain_short(self, mocked_run, configured):
+        lab = self.create_draft()
+        self.client.post(f"/api/platform/admin/labs/{lab['id']}/publish/",
+                         data=json.dumps({'version': 1}), content_type='application/json')
+        mocked_run.return_value = SimpleNamespace(
+            text='The review queue fell because review capacity increased.',
+            provider='cloudflare', run_id='followup')
+        self.client.logout()
+        previous = 'Papers waiting fell from 20 to 7 after review capacity changed.'
+        response = self.client.post('/api/labs/lab-one/coach/',
+                data=json.dumps({'event': 'ask', 'section': 'intro',
+                                 'question': 'Explain your previous answer in more detail.',
+                                 'reply_detail': 'detailed',
+                                 'previous_answer': previous,
+                                 'history': [{'role': 'user', 'text': 'What changed?'}]}),
+                content_type='application/json')
+        self.assertEqual(response.status_code, 200, response.content)
+        args = mocked_run.call_args.kwargs
+        self.assertEqual(json.loads(args['user'])['previous_answer_to_expand'], previous)
+        self.assertIn('Expand previous_answer_to_expand', args['system'])
+        self.assertEqual(args['operation'], 'answer')
+        quick = self.client.post('/api/labs/lab-one/coach/',
+                data=json.dumps({'event': 'ask', 'section': 'intro',
+                                 'question': 'What is peer review?'}),
+                content_type='application/json')
+        self.assertEqual(quick.status_code, 200, quick.content)
+        self.assertEqual(mocked_run.call_args.kwargs['operation'], 'interpret')

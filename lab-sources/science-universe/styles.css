@@ -601,3 +601,36 @@ th{position:sticky;top:0;background:var(--raised);font-family:var(--font);font-w
 .universe[data-level="advanced"] .app-header {margin-bottom:10px}
 .universe[data-level="advanced"] .title-stack h1 {font-size:clamp(20px,3vw,28px)}
 .universe[data-level="advanced"] .stage-header {min-height:56px;padding-block:10px}
+
+
+/* Progressive Lab: an accessible sequence of adjustable measurements. */
+.universe[data-level]:not([data-level="advanced"]){height:auto;min-height:100dvh}
+.universe[data-level]:not([data-level="advanced"]) .focused-model{flex:none}
+.universe[data-level]:not([data-level="advanced"]) .focus-stage{min-height:240px;flex:none;height:clamp(250px,35dvh,360px)}
+.focus-extra-charts{display:grid;grid-template-columns:1fr;gap:12px;min-width:0}
+.focus-trend-card{min-width:0;padding:14px 16px;border:1px solid var(--border);border-radius:var(--radius-lg);background:var(--sunken)}
+.focus-trend-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px}
+.focus-trend-head h3{font-size:15px;margin:0;line-height:1.3}
+.focus-trend-head strong{font:500 18px var(--font-mono)}
+.focus-trend-card svg{display:block;width:100%;height:100px;margin:8px 0}
+.focus-trend-card svg polyline{fill:none;stroke-width:2.5;vector-effect:non-scaling-stroke;stroke-linejoin:round;stroke-linecap:round}
+.focus-chart-caption,.focus-io-caption,.plot-io-caption{color:var(--muted);font-size:12px;line-height:1.5;margin:4px 0;overflow-wrap:anywhere}
+.focus-chart-caption strong{color:var(--text)}
+.focus-trend-card .text-btn,.outcome-chart .text-btn{font-size:12px;text-align:left;padding:6px 0;margin-top:4px}
+.focus-medium-controls{padding:16px;border:1px solid var(--border);border-radius:var(--radius-lg)}
+.focus-medium-controls[hidden],.focus-slider[hidden]{display:none}
+.focus-medium-controls h2{font-size:18px;margin:0 0 5px}
+.focus-medium-controls p{font-size:12px;color:var(--muted);margin:0 0 12px}
+.focus-policy-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 18px}
+.focus-policy{display:grid;gap:5px;min-width:0;font-size:12px}
+.focus-policy-header{display:flex;align-items:baseline;justify-content:space-between;gap:8px}
+.focus-policy-header output{font:12px var(--font-mono);white-space:nowrap}
+.focus-policy small{color:var(--muted);line-height:1.35}
+.focus-policy input{width:100%;accent-color:var(--accent);min-height:26px}
+.universe[data-level="medium"] .focus-extra-charts{grid-template-columns:repeat(2,minmax(0,1fr))}
+@media(max-width:700px){
+ .universe[data-level="medium"] .focus-extra-charts,.focus-policy-grid{grid-template-columns:1fr}
+ .focus-controls{grid-template-columns:1fr}
+ .focus-controls .btn{width:100%}
+ .focus-trend-card{padding:12px}
+}

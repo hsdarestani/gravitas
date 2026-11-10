@@ -39,10 +39,16 @@
         </svg>
         <div class="focus-axis" aria-hidden="true"><span>Day 0</span><span>Day 45</span></div>
       </div>
+      <section id="focus-extra-charts" class="focus-extra-charts" aria-label="Further model measurements"></section>
       <div class="focus-controls">
         <label class="focus-slider" for="focus-setting"><span id="focus-setting-label">Peer review capacity</span><output id="focus-setting-value" for="focus-setting">5 / 10</output><input id="focus-setting" type="range" min="1" max="10" value="5"></label>
         <button id="focus-run" class="btn primary" type="button">Run simulation</button>
       </div>
+      <section id="focus-medium-controls" class="focus-medium-controls" aria-label="Medium complexity model inputs" hidden>
+        <div><h2>Explore six research policies</h2><p>World A keeps its starting values. Adjust up to six inputs for World B, then compare the measured outputs. Change one at a time to understand its effect.</p></div>
+        <div id="focus-policy-grid" class="focus-policy-grid"></div>
+      </section>
+      <p id="focus-io-caption" class="focus-io-caption">Input: review capacity · Output: papers waiting for review.</p>
       <p id="focus-status" class="focus-status" role="status">A seeded teaching model. Try a different setting and run it again.</p>
     </main>
     <header class="app-header">
@@ -189,7 +195,9 @@
           </div>
         </div>
         <div class="outcome-workspace"><div class="metric-trends" id="metric-trends" aria-label="Measurements with trends"></div><div class="outcome-chart"><div class="chart-toolbar"><label class="metric-picker">Show trend <select id="metric-select" aria-label="Outcome metric"></select></label><button class="btn small" id="compare" type="button" disabled aria-controls="comparison" aria-expanded="false">Compare results</button><button class="btn small" type="button" id="toggle-data" aria-expanded="false" aria-controls="outcome-data">Data table</button></div><div class="plot-wrap"><canvas id="history-chart" role="img" aria-label="Time series of selected scientific output"></canvas></div>
-        <p class="chart-caption" id="plot-caption">Cumulative publications. Publications are not necessarily true or independently replicated.</p></div></div>
+        <p class="chart-caption" id="plot-caption">Cumulative publications. Publications are not necessarily true or independently replicated.</p>
+        <p class="plot-io-caption" id="plot-io-caption"></p>
+        <button class="text-btn" type="button" id="plot-ask">Ask Pulsar about this chart</button></div></div>
         <div id="outcome-data" class="data-table-wrap" hidden></div>
       </div>
       <div class="activity panel">

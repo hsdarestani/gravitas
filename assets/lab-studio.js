@@ -303,7 +303,7 @@ function renderReplies(){
  ];
  if(!canAsk)actions=[{label:label('Guide a comparison','یک مقایسه را راهنمایی کن'),action:()=>learning?.startGuide()},{label:label('Compare stored runs','مقایسه‌های ذخیره‌شده'),action:openAtlas}];
  if(labLevel!=='advanced'&&!learning?.atlasContext())actions=replyFailed&&lastQuestion?[{label:label('Try again','دوباره تلاش کن'),ai:true,action:()=>askPulsar(lastQuestion,'ask')}]:[];
- if(canAsk&&!replyFailed&&chatHistory.some(m=>m.provider==='ai')){
+ if(canAsk&&!replyFailed&&chatHistory.some(m=>m.role==='pulsar'&&m.provider==='ai'&&m.text.trim())){
   actions.push({label:label('Explain in more detail','مفصل‌تر توضیح بده'),ai:true,action:()=>askPulsar(fa?'پاسخ قبلی‌ات را با جزئیات بیشتری توضیح بده.':'Explain your previous answer in more detail.','ask',null,'detailed')});
  }
  chat.starters.replaceChildren();chat.starters.hidden=!actions.length;chat.starters.dir=fa?'rtl':'ltr';
@@ -522,6 +522,7 @@ async function askPulsar(question,event,fallback,detail){
  var isChat=['science-universe','directory'].includes(active.slug);
  var observed=active.slug==='science-universe'&&scienceGuide?scienceGuide.context():null;
  var atlasSelection=active.slug==='science-universe'&&learning?learning.atlasContext():null;
+ var previousAnswer=detail==='detailed'?chatHistory.findLast(m=>m.role==='pulsar'&&m.provider==='ai'&&m.text.trim())?.text.slice(0,1600)||'':'';
  var context=chatHistory.slice(-8).map(function(m){return {
    role:m.role,text:m.text.slice(0,480)
  };});
@@ -539,7 +540,7 @@ async function askPulsar(question,event,fallback,detail){
    var res=await fetch('/api/labs/'+encodeURIComponent(labSlug)+'/coach/',{
      method:'POST',headers:{'Content-Type':'application/json'},
      body:JSON.stringify({event:event||'ask',section:currentSection,question:q,
-       metrics:lastMetrics,history:context,context:observed,reply_detail:detail,
+       metrics:lastMetrics,history:context,previous_answer:previousAnswer,context:observed,reply_detail:detail,
        locale:document.documentElement.lang||'en',atlas_comparison:atlasSelection,usage_visit:usage?.visit()}),
      signal:thisController.signal,credentials:'same-origin'
    });
@@ -910,6 +911,12 @@ window.addEventListener('message',function(e){
     if(data.action==='fullscreen'&&fullscreenButton)fullscreenButton.click();
     var destinations={'navigate:home':'/index.html','navigate:topics':'/topics.html','navigate:learn':'/learn.html','navigate:community':'/community.html','navigate:about':'/about.html','navigate:youtube':'https://www.youtube.com/@GraviQuest','navigate:linkedin':'https://www.linkedin.com/company/graviquest/','navigate:instagram':'https://www.instagram.com/graviquest'};
     if(typeof data.action==='string'&&Object.prototype.hasOwnProperty.call(destinations,data.action))location.assign(destinations[data.action]);return;
+  }
+  if(active.slug==='science-universe'&&data.type==='lab:ask'){
+    if(typeof data.question==='string'&&data.question.trim()&&data.question.length<=320){
+      openPulsarChat('chat');askPulsar(data.question,'ask');
+    }
+    return;
   }
   if(active.slug==='science-universe'&&data.type==='lab:learning-progress'){updateMission(data.progress);return;}
   if(active.slug==='science-universe'&&data.type==='lab:lesson-state'){learning?.updateLesson(data.lesson);return;}

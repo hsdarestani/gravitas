@@ -179,7 +179,7 @@ def atlas_context(lab, policies):
                  'relation': 'separate precomputed run; not this visitor checkpoint'} for x in closest]}
 
 
-def scientific_context(lab, question='', event='', state=None):
+def scientific_context(lab, question='', event='', state=None, compact=False):
     """Retrieve exact sections; return a citation allowlist with no invented refs."""
     docs = list(lab.knowledge_documents.filter(is_published=True))
     words = set(re.findall(r'\w{3,}', (question + ' ' + event).lower()))
@@ -203,11 +203,11 @@ def scientific_context(lab, question='', event='', state=None):
     for doc in docs:
         chosen.extend([r for r in substantive if r[1].pk == doc.pk][:2])
     ranked = chosen + [r for r in ranked if r not in chosen]
-    excerpts, citations, budget = [], [], 23000
+    excerpts, citations, budget = [], [], 5800 if compact else 23000
     for _, doc, section in ranked:
-        if len(excerpts) >= 12 or budget < 300:
+        if len(excerpts) >= (4 if compact else 12) or budget < 300:
             break
-        text = section['text'][:min(4800, budget)]
+        text = section['text'][:min(1700 if compact else 4800, budget)]
         key = doc.slug + '#' + section['anchor']
         excerpts.append({'citation': key, 'kind': doc.kind, 'text': text})
         citations.append({'id': key, 'document': doc.slug, 'anchor': section['anchor'],
@@ -216,7 +216,7 @@ def scientific_context(lab, question='', event='', state=None):
     # Always supply the complete Lab rationale, independent of query language.
     # Paper retrieval then adds relevant sections without replacing model rules.
     full_guides = []
-    for doc in [d for d in docs if d.kind == 'model'][:1]:
+    for doc in ([d for d in docs if d.kind == 'model'][:1] if not compact else []):
         full_guides.append({'document': doc.slug, 'markdown': doc.markdown[:22000]})
         for section in doc.sections:
             if section['text'] not in doc.markdown[:22000]:
@@ -228,7 +228,10 @@ def scientific_context(lab, question='', event='', state=None):
     return {'documents': [document_json(d) for d in docs], 'sections': excerpts,
             'complete_model_guides': full_guides,
             'citation_allowlist': [c['id'] for c in citations],
-            'atlas': atlas_context(lab, (state or {}).get('policies', {}))}, citations
+            'atlas': (atlas_context(lab, (state or {}).get('policies', {})) if not compact else
+                      {'engine_sha': digest(next((f.get('content', '') for f in lab.published_files
+                                                  if f.get('name') == 'engine.js'), '')),
+                       'nearest_examples': [], 'coverage': 'omitted for responsive tutoring'})}, citations
 
 
 @require_http_methods(['GET'])

@@ -219,7 +219,7 @@ def _serve_file(files, target):
     content_type = mimetypes.guess_type(target)[0] or 'text/plain'
     source = row.get('content') or ''
     if target == 'index.html':
-        bridge = '<script src="/assets/lab-bridge.js?v=progressive1"></script>'
+        bridge = '<script src="/assets/lab-bridge.js?v=progressive-levels-20261110"></script>'
         if re.search(r'<head(?:\s[^>]*)?>', source, re.IGNORECASE):
             source = re.sub(r'(<head(?:\s[^>]*)?>)', lambda match: match.group(1) + bridge,
                             source, count=1, flags=re.IGNORECASE)
@@ -490,9 +490,20 @@ def public_lab_coach(request, slug):
         if isinstance(m, dict) and m.get('role') in ('user', 'pulsar')
         and isinstance(m.get('text'), str)
     ]
+    # A follow-up must be grounded in an actual previous reply, not just the
+    # literal text "explain your previous answer". Treat browser text as
+    # untrusted conversational context, never as verified scientific evidence.
+    previous_answer = ''
+    if detailed:
+        raw_previous = data.get('previous_answer')
+        if isinstance(raw_previous, str):
+            previous_answer = raw_previous.strip()[:1600]
+        if not previous_answer:
+            previous_answer = next((m['text'] for m in reversed(history)
+                                    if m['role'] == 'pulsar' and m['text'].strip()), '')
     # Only bounded telemetry reaches the shared real LLM runtime.
     science_state = clean_context(data.get('context')) if slug == 'science-universe' else {}
-    knowledge, allowed_citations = scientific_context(item, question, key, science_state) if slug == 'science-universe' else ({}, [])
+    knowledge, allowed_citations = scientific_context(item, question, key, science_state, compact=not detailed) if slug == 'science-universe' else ({}, [])
     facts = model_facts(item, science_state) if slug == 'science-universe' else {}
     selected_atlas = None
     if slug == 'science-universe' and isinstance(data.get('atlas_comparison'), dict):
@@ -545,6 +556,7 @@ def public_lab_coach(request, slug):
             },
             'source_sections': [{**s, 'text': s['text'][:1400]} for s in knowledge.get('sections', [])[:2]],
             'current_question': question,
+            'previous_answer_to_expand': previous_answer,
         }
         false = selected_atlas['metrics'].get('falsePublished', {})
         if false.get('seed_direction') == 'mixed':
@@ -553,7 +565,7 @@ def public_lab_coach(request, slug):
                 f"{false['delta_min']} to {false['delta_max']}. The small mean count increase "
                 'does not establish that this policy consistently increases false claims or their probability.')
     reply_length = (
-        'The visitor requested more detail. Explain the reasoning in up to 200 words, without repetition. '
+        'The visitor requested more detail. Expand previous_answer_to_expand when present; do not call this a new conversation. Explain the reasoning in up to 200 words, without repetition. '
         if detailed else 'Answer in two short sentences, at most 55 words. Lead with the answer. '
     )
     try:
@@ -563,6 +575,7 @@ def public_lab_coach(request, slug):
                 + ('تمام توضیح را به فارسی روان بنویس. اصطلاح علمی را ساده توضیح بده و نام خاص و شناسهٔ منبع را حفظ کن. ' if reply_locale.startswith('fa') else '')
                 +
                 'Explain the mechanism in everyday language. General scientific questions are welcome. '
+                'A follow-up asking for more detail refers to previous_answer_to_expand in the input JSON. Expand it directly if provided; never assert there was no previous reply in that case. '
                 'Use the question language when it differs from the page locale. '
                 'Speak like a thoughtful lab tutor. Lead with interpretation, not a log entry or a list of counters. '
                 'Do not repeat the same point in different words. '
@@ -570,7 +583,7 @@ def public_lab_coach(request, slug):
                 'When asked about the atlas, give an A/B contrast and the matched seed count. '
                 'An increased false-claim COUNT does not establish a higher false-claim PROBABILITY or RATE. If seed differences have mixed signs, explicitly say the small mean difference is inconclusive; never say the policy consistently increases it. '
                 'Observed numbers and event names are client-reported, not independently validated. '
-                'In Science Ecosystem (legacy slug science-universe), the colored clusters are abstract research communities named Helix, Stratus, Axiom and Lattice. The Simple level exposes one review capacity slider and studies waiting for review after 45 model days. Medium uses matched worlds and one varied policy; Advanced exposes the full model. Use the browser-reported level and focusedMetric to stay within the current task. When lesson.observed is false, invite the visitor to run the model before interpreting its output. A visitor can select a paper dot in Knowledge flow, or select a LAB then a PAPER '
+                'In Science Ecosystem (legacy slug science-universe), the colored clusters are abstract research communities named Helix, Stratus, Axiom and Lattice. The Simple level exposes one review capacity slider and studies waiting for review after 45 model days. Medium supports matched worlds, six adjustable input policies, and an explicit list of changed inputs. Do not claim only one input varies when several changed. Advanced exposes the full model. Use the browser-reported level and focusedMetric to stay within the current task. When lesson.observed is false, invite the visitor to run the model before interpreting its output. A visitor can select a paper dot in Knowledge flow, or select a LAB then a PAPER '
                 'from Latest published claims in the inspector. The live_papers metric is ONLY '
                 'an aggregate count; it is never a list of addressable papers. '
                 'Only mention a missing paper selection when the visitor asks about a particular selected paper or asks to act on it. '
@@ -615,6 +628,7 @@ def public_lab_coach(request, slug):
                 'section': section, 'event': key, 'metrics': metrics, 'question': question,
                 'scientific_context': knowledge,
                 'browser_reported_chat_history': history,
+                'previous_answer_to_expand': previous_answer,
                 'browser_reported_simulator_selection': science_state,
                 'science_universe_model_context': ({
                     'statistical_test': 'Known-variance two-sided z test: Z=sqrt(n)*theta+N(0,1)',
@@ -633,8 +647,8 @@ def public_lab_coach(request, slug):
                 'server_model_facts': facts,
                 'current_question': question,
             }, ensure_ascii=False),
-            max_tokens=500 if detailed else 185,
-            surface='public', skill='public', operation='answer',
+            max_tokens=450 if detailed else 155,
+            surface='public', skill='public', operation='answer' if detailed else 'interpret',
             locale=reply_locale,
             metadata={'page': '/lab.html', 'lab_slug': slug},
         )

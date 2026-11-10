@@ -68,6 +68,16 @@ assert.match(app,/G\.emit\(/,'Pulsar receives real model events');
 assert.match(app,/E\.intervention/,'UI actions alter the engine');
 assert.match(app,/E\.fork/,'comparison forks engine state');
 assert.match(css,/max-width:520px/,'responsive fallback is authored');
+assert.match(html,/id="focus-extra-charts"/,'simple and medium show additional outcome charts');
+assert.match(html,/id="focus-policy-grid"/,'medium exposes its own policy inputs');
+assert.match(html,/id="focus-io-caption"/,'focused charts include input and output captions');
+assert.match(html,/id="plot-io-caption"/,'advanced charts include model inputs and outputs');
+assert.match(app,/const MEDIUM_KEYS=\['generation','verification','replication','sampleSize','transparency','pressure'\]/,
+  'medium exposes six of the twelve advanced inputs');
+assert.match(app,/renderFocusedCharts\(a,b\)/,'focused charts redraw with simulated results');
+assert.match(app,/scheduleFocusedRun\(\)/,'slider changes recalculate the simulation');
+assert.match(app,/G\.askPulsar/,'each result can request a grounded explanation');
+
 const deploy=fs.readFileSync(path.join(__dirname,'..','.github','workflows','deploy.yml'),'utf8');
 assert.match(deploy,/--exclude 'lab-sources\/'/,'draft sources must be hidden from Nginx public document root');
 assert.match(deploy,/\/opt\/gravitas-backend\/lab-sources\/science-universe/,'draft sources must live in private backend storage');
