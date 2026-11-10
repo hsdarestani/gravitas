@@ -1047,6 +1047,10 @@ const GUIDED_EXPERIMENTS={
 let level='simple',mediumScenario='review_capacity';
 const simpleRuns=new Map(),mediumRuns=new Map();
 let focusedRuns=null;
+const simpleExtraInputs={generation:E.DEFAULTS.generation,replication:E.DEFAULTS.replication};
+let mediumDraft={};
+const mediumChoices=['generation','verification','replication','funding','aiAdoption','transparency'];
+const focusOutputLabels={reviewBacklog:'Studies awaiting peer review',published:'Published claims',replicated:'Completed independent repeats',falsePublished:'False claims published'};
 function focusedRecipe(){return level==='simple'?REVIEW_CAPACITY:GUIDED_EXPERIMENTS[mediumScenario]||REVIEW_CAPACITY;}
 function selectLevel(next,scenario,focus=false){
  if(!['simple','medium','advanced'].includes(next))return;
@@ -1060,25 +1064,32 @@ function selectLevel(next,scenario,focus=false){
  else{
   focusedRuns=level==='simple'?[...simpleRuns.values()].at(-1):mediumRuns.get(mediumScenario);
   const recipe=focusedRecipe(),medium=level==='medium';
+  if(medium)mediumDraft={...(focusedRuns?.overrides||{[recipe.key]:recipe.high})};
   text('focus-title',recipe.name);
   text('focus-description',medium?'World A stays fixed. Change World B and run both from the same starting point.':'Set the review capacity, run the model, then watch how many studies are still waiting.');
   text('focus-setting-label',recipe.label+(medium?' · World B':''));
   $('focus-setting').value=focusedRuns?.value??(medium?recipe.high:recipe.low);
   text('focus-setting-value',$('focus-setting').value+' / 10');
   text('focus-run',medium?'Compare both worlds':'Run simulation');
+  renderMediumControls();
   drawFocused();
   if(focus){$('focus-setting').focus({preventScroll:true});$('focus-setting').scrollIntoView({block:'nearest'});}
  }
  publishContext(true);reportFocusedProgress();
 }
-function modelRun(recipe,value){
- const world=E.make(FOCUS_SEED,{[recipe.key]:value});E.step(world,FOCUS_DAYS);
+function modelRun(recipe,value,overrides){
+ const world=E.make(FOCUS_SEED,{[recipe.key]:value,...(overrides||{})});E.step(world,FOCUS_DAYS);
  return {world,summary:E.summary(world)};
 }
 function runFocused(){
  const recipe=focusedRecipe(),value=Number($('focus-setting').value);
  if(level==='medium'&&value===recipe.low){text('focus-status','Give World B a different setting from World A.');return;}
- focusedRuns={value,a:modelRun(recipe,level==='medium'?recipe.low:value),b:level==='medium'?modelRun(recipe,value):null};
+ const medium=level==='medium';
+ const overrides=medium?{...mediumDraft,[recipe.key]:value}:null;
+ const a=modelRun(recipe,medium?recipe.low:value),b=medium?modelRun(recipe,value,overrides):null;
+ const changed=medium?Object.keys(E.DEFAULTS).filter(key=>a.world.policy[key]!==b.world.policy[key]):[];
+ if(medium&&!changed.length){text('focus-status','Change at least one input in World B to compare.');return;}
+ focusedRuns={value,a,b,overrides,changed};
  if(level==='simple'){simpleRuns.delete(value);simpleRuns.set(value,focusedRuns);}
  else mediumRuns.set(mediumScenario,focusedRuns);
  trackUsage('step',{days:FOCUS_DAYS});
@@ -1094,7 +1105,12 @@ function drawFocused(){
    const score=make('div','focus-world-value');score.append(make('strong','',run?.summary[metric]??'—'),make('small','',label));return score;
   }));
  }else host.replaceChildren(make('strong','',a?.summary[metric]??'—'));
- text('focus-status',a?(medium?'Same seed and duration. Only '+recipe.label.toLowerCase()+' differs.':'Completed at '+focusedRuns.value+'/10. Try another setting to see what changes.'):'45 model days per run · synthetic teaching model');
+ const changed=focusedRuns?.changed||[];
+ text('focus-status',a?(medium?
+   'Worlds share a seed and duration · '+changed.length+' changed input'+(changed.length===1?'':'s')+(changed.length>1?' (combined effects; not a one-variable test).':'.'):
+   'Completed at '+focusedRuns.value+'/10. Change a setting and run again.'):'45 model days per run · synthetic teaching model');
+ text('focus-input-output','Input: '+recipe.label+' '+(a?.world.policy[recipe.key]??recipe.low)+'/10'+(b?' → '+b.world.policy[recipe.key]+'/10':'')+
+   ' · Output: '+recipe.outcome.toLowerCase()+' after 45 model days · count (synthetic)');
  const series=run=>run?[...run.world.history,run.summary]:[];
  const pointsA=series(a),pointsB=series(b);
  const max=Math.max(1,...[...pointsA,...pointsB].map(row=>row[metric]));
@@ -1107,6 +1123,7 @@ function drawFocused(){
  }
  const xy=drawLine(pointsA,'a');drawLine(pointsB,'b');
  $('focus-area').setAttribute('d',!medium&&xy.length?'M'+xy.map(p=>p.join(',')).join(' L')+' L630 168 H10 Z':'');
+ renderAdditionalCharts();
 }
 function reportFocusedProgress(){
  if(level==='advanced'){G.learningProgress?.({level});return;}
@@ -1114,8 +1131,9 @@ function reportFocusedProgress(){
  const runs=level==='simple'?[...simpleRuns.values()].slice(-2):focusedRuns?[focusedRuns]:[];
  G.learningProgress?.({
   level,metric:recipe.metric,scenario:level==='medium'?mediumScenario:'',
-  trials:runs.map(run=>({setting:run.value,result:(run.b||run.a).summary[recipe.metric]})),
-  baseline:level==='medium'?{setting:recipe.low,result:focusedRuns?.a.summary[recipe.metric]??null}:null
+  trials:level==='medium'&&focusedRuns?.changed?.length>1?[]:runs.map(run=>({setting:run.value,result:(run.b||run.a).summary[recipe.metric]})),
+  baseline:level==='medium'?{setting:recipe.low,result:focusedRuns?.a.summary[recipe.metric]??null}:null,
+  multiChange:level==='medium'&&focusedRuns?.changed?.length>1
  });
 }
 function publishFocusedContext(){
