@@ -208,8 +208,18 @@ export function renderProjectManagement(doc, projectId, cockpit, { go, refresh }
       try { if (await patch(task, payload)) { lifecycleDates.sync(task); confirmed = { ...submitted, ...lifecycleDates.values() }; } }
       finally { saveTask.disabled = false; }
     });
-    panel.append(title, description, done, deadline, lifecycleDates.element, status, priority, owner, blocked,
-      saveTask,
+    const statusField = node('label', 'pm-editor__field', 'Status');
+    statusField.append(status);
+    const dueField = node('label', 'pm-editor__field', 'Due date');
+    dueField.append(deadline);
+    const priorityField = node('label', 'pm-editor__field', 'Priority');
+    priorityField.append(priority);
+    const ownerField = node('label', 'pm-editor__field', 'Owner');
+    ownerField.append(owner);
+    const advanced = node('details', 'pm-editor__more');
+    advanced.append(node('summary', '', 'More options'), description, done,
+      priorityField, ownerField, blocked, lifecycleDates.element);
+    panel.append(title, statusField, dueField, advanced, saveTask,
       btn('Close', () => editor.replaceChildren()));
     mountAnchoredComments({ container: panel, kind: 'task', id: task.id, canEdit: task.can_edit,
       fields: [
