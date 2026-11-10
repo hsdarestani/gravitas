@@ -37,6 +37,8 @@ EXPECTED = {
         '2e73d57d60bfedccfeb68aad3e3c28b663a5367f',
         '7b5efba1196ba6d29b26b434242b57e69ee2de96',
         'bf9d933fc18d7f75fdbe6b4addc7a86b71f54d91',
+        # Verified pre-PR #347 Git blob at 21a7ce21 (published source baseline).
+        '6580855aabe78f7324ba5a5131255ad9a7ef0430',
     ),
     'app.js': (
         '2654ebdb6151f94eba575baf1b4eea684366b18f',
@@ -51,6 +53,7 @@ EXPECTED = {
         '39582357f5ff293bffbc6bdf4b5ec84699884c7b',
         'e0a07c1432bdfa362da296b0a92a760b41a381ff',
         '95278896f9c111774c051e9193c76ee7b1d1e8a3',
+        '07bf2406f956803b8b0adbebccf989680ccec766',
     ),
     'styles.css': (
         '519d741558a4d57ef6116bc7f445e09bda52f84e',
@@ -68,6 +71,7 @@ EXPECTED = {
         # deploy read our own previous release as an author edit and stop.
         '63a6327c1527013a5cd794adad2bd3ceace0d2a5',
         'ff4eb8585fe46867acde9783c615c04d3c1bb8ab',
+        '8f6c41b2e86299e875da036c2604ef4e45c9404e',
     ),
 }
 NAMES = tuple(EXPECTED)
@@ -102,7 +106,7 @@ def upgrade_file_set(files, replacements, check_baseline=True):
         old_hash = blob_sha(existing)
         new_hash = blob_sha(replacements[name])
         if check_baseline and old_hash not in (*EXPECTED[name], new_hash):
-            raise ValueError('author_modified_' + name)
+            raise ValueError('author_modified_' + name + ': sha=' + old_hash)
         edited.append({**row, 'content': replacements[name]})
     return _clean_files(edited)
 
