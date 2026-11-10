@@ -1147,7 +1147,7 @@ function renderAdditionalCharts(){
    }
    const row=make('div','focus-mini-caption');
    const explanation=medium?
-     'Input: up to six policy settings (1–10). Output: '+choice.title.toLowerCase()+
+     'Inputs: '+(focusedRuns?.changed||[]).map(key=>policyDescriptions[key][0]+' '+a.world.policy[key]+'→'+b.world.policy[key]+'/10').join(', ')+'. Output: '+choice.title.toLowerCase()+
        ' · A '+(countA??'—')+' / B '+(countB??'—')+' · 45 days; model counts.':
      'Input: '+policyDescriptions[key][0]+' '+value+'/10. Output: '+choice.title.toLowerCase()+
        ' '+(countA??'—')+' after 45 days; model count.';
@@ -1216,7 +1216,9 @@ function drawFocused(){
  text('focus-status',a?(medium?
    'Worlds share a seed and duration · '+changed.length+' changed input'+(changed.length===1?'':'s')+(changed.length>1?' (combined effects; not a one-variable test).':'.'):
    'Completed at '+focusedRuns.value+'/10. Change a setting and run again.'):'45 model days per run · synthetic teaching model');
- text('focus-input-output','Input: '+recipe.label+' '+(a?.world.policy[recipe.key]??recipe.low)+'/10'+(b?' → '+b.world.policy[recipe.key]+'/10':'')+
+ const changedInputs=medium&&a&&b?changed.map(key=>policyDescriptions[key][0]+' '+a.world.policy[key]+'→'+b.world.policy[key]+'/10').join(', '):'';
+ text('focus-input-output',(changedInputs?'Inputs: '+changedInputs:
+   'Input: '+recipe.label+' '+(a?.world.policy[recipe.key]??recipe.low)+'/10')+
    ' · Output: '+recipe.outcome.toLowerCase()+' after 45 model days · count (synthetic)');
  const series=run=>run?[...run.world.history,run.summary]:[];
  const pointsA=series(a),pointsB=series(b);
