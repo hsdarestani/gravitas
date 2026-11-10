@@ -1409,7 +1409,8 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
       schedulingFields.append(field('Milestone', milestone),
         field('Work package', workPackage), field('Dependency', dependency));
       scheduling.append(schedulingFields);
-      relatedBlock.append(field('Priority', priority), lifecycleDates.element, placement, scheduling);
+      relatedBlock.append(field('Priority', priority), lifecycleDates.element);
+      relatedBlock.append(placement, scheduling);
       relatedBlock.addEventListener('toggle', () => {
         if (relatedBlock.open) loadDependencyIndex();
       });
