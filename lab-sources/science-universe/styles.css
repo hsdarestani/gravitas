@@ -535,6 +535,7 @@ th{position:sticky;top:0;background:var(--raised);font-family:var(--font);font-w
 .level-picker {display:flex;gap:2px;padding:3px;border:1px solid var(--hairline);border-radius:var(--pill);background:var(--sunken)}
 .level-picker .pill {min-height:34px;padding:4px clamp(9px,2vw,17px);font-size:12px}
 .level-picker .pill[aria-pressed="true"] {background:var(--solid-bg);color:var(--solid-fg)}
+.level-picker .pill small {display:inline-block;margin-inline-start:4px;font:10px var(--font-mono);opacity:.7}
 .focused-model {display:flex;flex:1;flex-direction:column;gap:12px;min-height:0}
 .focus-heading {display:flex;align-items:end;justify-content:space-between;gap:8px}
 .focus-heading h1 {font-size:clamp(24px,4vw,45px);line-height:1.06;letter-spacing:-.045em;margin:4px 0 0}
