@@ -545,10 +545,11 @@ function drawChart(){
     reviewBacklog:'Manuscripts waiting for modelled peer review.'
   }[plot]||metricInfo(plot)[1]);
   if($('metric-select'))$('metric-select').value=plot;
+  const current=nowWorld(),snapshot=E.summary(current);
   const relevant=METRIC_INPUTS[plot]||['verification'];
   text('plot-io-caption','Inputs · '+relevant.map(key=>policyDescriptions[key][0]+': '+
-   (s.policy[key]??'—')+'/10').join(' · ')+' → Output · '+metricInfo(plot)[0]+': '+
-   (Number(m[plot]||0).toLocaleString('en-US',{maximumFractionDigits:2})));
+   (current.policy[key]??'—')+'/10').join(' · ')+' → Output · '+metricInfo(plot)[0]+': '+
+   (Number(snapshot[plot]||0).toLocaleString('en-US',{maximumFractionDigits:2})));
   if(!$('outcome-data').hidden&&!readingSelection())renderDataTable();
 }
 function comparison(){
@@ -1136,6 +1137,7 @@ function renderFocusedCharts(a,b){
 function focusedRecipe(){return level==='simple'?REVIEW_CAPACITY:GUIDED_EXPERIMENTS[mediumScenario]||REVIEW_CAPACITY;}
 function selectLevel(next,scenario,focus=false){
  if(!['simple','medium','advanced'].includes(next))return;
+ clearTimeout(focusInputTimer);
  if(level==='advanced'&&next!==level){play(false);if(drawerOpen)settings(false,false);}
  if(next==='medium'&&(scenario==='review_capacity'||Object.hasOwn(GUIDED_EXPERIMENTS,scenario)))mediumScenario=scenario;
  level=next;$('universe-app').dataset.level=level;
@@ -1163,6 +1165,7 @@ function modelRun(recipe,value){
  return {world,summary:E.summary(world)};
 }
 function runFocused(){
+ if(level==='advanced')return;
  const recipe=focusedRecipe(),value=Number($('focus-setting').value);
  if(level==='medium'){
   const changed=MEDIUM_KEYS.filter(key=>mediumValues[key]!==E.DEFAULTS[key]);
@@ -1209,7 +1212,7 @@ function reportFocusedProgress(){
  G.learningProgress?.({
   level,metric:recipe.metric,scenario:level==='medium'?mediumScenario:'',
   trials:runs.map(run=>({setting:run.value,result:(run.b||run.a).summary[recipe.metric]})),
-  baseline:level==='medium'?{setting:recipe.low,result:focusedRuns?.a.summary[recipe.metric]??null}:null
+  baseline:level==='medium'?{setting:E.DEFAULTS[recipe.key],result:focusedRuns?.a.summary[recipe.metric]??null}:null
  });
 }
 function publishFocusedContext(){
