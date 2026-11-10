@@ -1317,7 +1317,7 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
       });
 
       const two = el('div', 'task-board__two');
-      two.append(field('Priority', priority), field('Status', status), field('Owner', owner), field('Due date', due));
+      two.append(field('Status', status), field('Owner', owner), field('Due date', due));
       const calendarAction = makeButton('Google Tasks', async () => {
         if (calendarAction.dataset.openUrl) {
           window.open(calendarAction.dataset.openUrl, '_blank', 'noopener,noreferrer');
@@ -1393,15 +1393,10 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
       const titleField = field('Task', title);
       titleField.classList.add('task-card-dialog__title-field');
       const goalField = field('Outcome', done);
-      const descriptionBlock = el('details', 'task-family__details');
-      descriptionBlock.append(
-        el('summary', null, 'Notes and blockers'),
-        field('Description', description),
-        field('Blocked reason', blocked),
-      );
-      if (description.value.trim() || blocked.value.trim()) descriptionBlock.open = false;
+      const descriptionBlock = el('div', 'task-family__description');
+      descriptionBlock.append(field('Description', description), field('Blocked reason', blocked));
       const relatedBlock = el('details', 'task-family__details');
-      relatedBlock.append(el('summary', null, 'More details'));
+      relatedBlock.append(el('summary', null, 'More options'));
       const placement = el('details', 'task-family__relation-group');
       placement.append(el('summary', null, 'Placement'));
       const placementFields = el('div', 'task-board__two');
@@ -1414,7 +1409,7 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
       schedulingFields.append(field('Milestone', milestone),
         field('Work package', workPackage), field('Dependency', dependency));
       scheduling.append(schedulingFields);
-      relatedBlock.append(placement, scheduling);
+      relatedBlock.append(field('Priority', priority), lifecycleDates.element, placement, scheduling);
       relatedBlock.addEventListener('toggle', () => {
         if (relatedBlock.open) loadDependencyIndex();
       });
@@ -1526,14 +1521,13 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
         note.textContent = 'Saved in GraviQuest, but the Nextcloud file changed. Sync needs conflict review.';
         note.setAttribute('role', 'alert');
       }
+      const taskDetails = el('details', 'task-family__details');
+      taskDetails.append(el('summary', null, 'Task details'), goalField, descriptionBlock, resourceSection);
       form.append(
         familyPath,
         titleField,
-        goalField,
         two,
-        lifecycleDates.element,
-        resourceSection,
-        descriptionBlock,
+        taskDetails,
         relatedBlock,
         actions,
         note,
@@ -1707,7 +1701,12 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
         subtasks.append(createDisclosure);
       }
       subtasksPanel.body.append(subtasks);
-      main.append(subtasksPanel);
+      if (descendants.length) main.append(subtasksPanel);
+      else {
+        const subtaskDisclosure = el('details', 'task-card-dialog__fold');
+        subtaskDisclosure.append(el('summary', null, 'Subtasks'), subtasksPanel);
+        main.append(subtaskDisclosure);
+      }
 
       const checklistPanel = el('details', 'task-card-dialog__fold');
       checklistPanel.append(el('summary', null, 'Checklist'));
@@ -1862,7 +1861,9 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
       historyPanel.body.append(el('p', 'fl-muted', 'Loading activity…'));
       commentsPanel.classList.add('task-card-dialog__side-section');
       attachmentsPanel.classList.add('task-card-dialog__side-section');
-      side.append(commentsPanel, attachmentsPanel, historyPanel);
+      const sideExtras = el('details', 'task-card-dialog__fold');
+      sideExtras.append(el('summary', null, 'Files & activity'), attachmentsPanel, historyPanel);
+      side.append(commentsPanel, sideExtras);
 
       const loadComments = async () => {
         commentsPanel.body.innerHTML = '';
@@ -2293,8 +2294,8 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
     updateMilestones();
     const options = taskOptions(field('Project', project), field('Goal', keyResult), field('Milestone', milestone),
       field('Owner', owner), field('Due date', due), field('Priority', priority), field('Status', status),
-      field('Description', description), field('Expected outcome', done));
-    form.append(field('Title', title), picker.element, options, create, note);
+      field('Description', description), field('Expected outcome', done), picker.element);
+    form.append(field('Title', title), options, create, note);
     form.addEventListener('submit', async (event) => {
       event.preventDefault();
       if (!title.value.trim() || !owner.value) {
