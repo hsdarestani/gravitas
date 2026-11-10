@@ -584,7 +584,7 @@ th{position:sticky;top:0;background:var(--raised);font-family:var(--font);font-w
 }
 #focus-chart [hidden] {display:none}
 .focus-meaning {display:flex;align-items:start;justify-content:space-between;gap:12px;font-size:12px;line-height:1.5;color:var(--muted)}
-.focus-ask {border:1px solid var(--hairline);background:var(--sunken);color:var(--fg);font:600 12px var(--font-sans);border-radius:var(--pill);padding:7px 12px;min-height:32px;cursor:pointer;white-space:nowrap}
+.focus-ask {border:1px solid var(--hairline);background:var(--sunken);color:var(--text);font:600 12px var(--font);border-radius:var(--pill);padding:7px 12px;min-height:32px;cursor:pointer;white-space:nowrap}
 .focus-ask:hover,.focus-ask:focus-visible {border-color:var(--accent);color:var(--accent)}
 .focus-secondary {display:grid;grid-template-columns:1fr;gap:12px;min-width:0}
 .focus-mini {border:1px solid var(--border);border-radius:var(--radius-lg);background:var(--surface);padding:14px;display:grid;gap:8px;min-width:0}
