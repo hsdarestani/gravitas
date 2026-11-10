@@ -554,6 +554,8 @@ def public_lab_coach(request, slug):
             },
             'source_sections': [{**s, 'text': s['text'][:1400]} for s in knowledge.get('sections', [])[:2]],
             'current_question': question,
+            'previous_answer_to_expand': previous_answer if detailed else '',
+            'previous_user_question': previous_question if detailed else '',
         }
         false = selected_atlas['metrics'].get('falsePublished', {})
         if false.get('seed_direction') == 'mixed':
