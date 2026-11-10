@@ -1,12 +1,12 @@
 import { renderProjectStructure } from './ws-project-files.js?v=20261016-task1&patch=20261109essay1';
-import { renderProjectManagement } from './ws-project-pm.js?v=20261016-task1&patch=20261102execution1';
+import { renderProjectManagement } from './ws-project-pm.js?v=20261016-task1&patch=20261110qa1';
 import * as P from './ws-platform.js?v=20261016-task1&patch=20261027reliability1';
 import { projectIntegrationPicker } from './ws-project-integrations.js?v=20261016-task1';
 import { mountProjectTools, renderProjectDatabase, mountExperimentJournal } from './ws-project-tools-live.js?v=20261016-task1';
 import { mountProjectProviders, renderProjectDrafts } from './ws-project-next-phase.js?v=20261016-task1';
 import { mountExternalDatasets, renderBuiltinTools } from './ws-research-advanced-tools.js?v=20261016-task1';
-import { projectActionBar, openProjectAccess, openProjectMindMap, openProjectTask } from './ws-project-actions.js?v=20261016-task1&patch=20261102execution1';
-import { renderResearchIntelligence } from './ws-home.js?v=20261016-task1&patch=20261019researchtools2&project=20261027autoresearch2';
+import { projectActionBar, openProjectAccess, openProjectMindMap, openProjectTask } from './ws-project-actions.js?v=20261016-task1&patch=20261110qa1';
+import { renderResearchIntelligence } from './ws-home.js?v=20261016-task1&patch=20261019researchtools2&flow=20261110qa1';
 
 const TABS = [
   ['structure', 'Project folder'],
@@ -295,9 +295,10 @@ function milestonesView(doc, milestones) {
 }
 
 function tasksView(doc, cockpit, context) {
-  const box = section('Tasks', 'Project-linked execution remains one object whether it is viewed from Core or Research.');
-  if (!cockpit.tasks.length) box.body.append(empty('No project tasks', 'Tasks linked to this project appear here.'));
-  for (const item of cockpit.tasks) {
+  const box = section('Tasks', 'Open a task to see its next step.');
+  const tasks = cockpit.tasks.filter(item => item.workflow_position == null);
+  if (!tasks.length) box.body.append(empty('No project tasks', 'Tasks linked to this project appear here.'));
+  for (const item of tasks) {
     box.body.append(row({
       title: item.title,
       meta: P.meta([item.owner, item.due_date ? `Due ${date(item.due_date)}` : '', label(item.priority)]),
@@ -600,7 +601,7 @@ export async function renderResearchProject(host, projectId, tab = 'structure', 
     const staging = document.createElement('div');
     const doc = projectShell(staging, project, projectId, tab, go);
     const rerender = () => {
-      if (location.href !== initialPath || host._wsProjectRenderToken !== renderToken) return;
+      if (location.href !== initialPath || !host.isConnected) return;
       return renderResearchProject(host, projectId, tab, { go, preserveView: true });
     };
     const head = doc.querySelector('.fl-project-head');
@@ -628,6 +629,11 @@ export async function renderResearchProject(host, projectId, tab = 'structure', 
     if (keepExisting) previousScrollTop = scrollRegion.scrollTop;
     host.replaceChildren(doc);
     if (keepExisting) scrollRegion.scrollTop = previousScrollTop;
+    if (tab === 'tasks' && !preserveView) {
+      const selected = new URL(initialPath).searchParams.get('task');
+      const task = cockpit.tasks.find(item => String(item.id) === selected);
+      if (task) void openProjectTask(task, cockpit, { go, refresh: rerender });
+    }
   } catch (error) {
     if (host._wsProjectRenderToken !== renderToken || location.href !== initialPath) return;
     if (keepExisting && previousView) {

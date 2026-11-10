@@ -122,6 +122,8 @@ def _project(obj):
 
 
 def _parent_object(obj):
+    if isinstance(obj, OperatingTask) and obj.workflow_position is not None:
+        return obj.parent
     if isinstance(obj, KnowledgeResource):
         if obj.collection_id:
             return obj.collection
@@ -251,6 +253,9 @@ def effective_role(user, obj, _seen=None):
     if key in _seen:
         return None
     _seen.add(key)
+    # Generated steps have the same access boundary as their workflow.
+    if isinstance(obj, OperatingTask) and obj.workflow_position is not None:
+        return effective_role(user, obj.parent, _seen)
 
     roles = []
     owner_role = _owner_role(user, obj)

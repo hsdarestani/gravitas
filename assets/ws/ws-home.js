@@ -13,10 +13,10 @@
 
 import * as P from './ws-platform.js?v=20261016-task1&patch=20261027reliability1';
 import * as C from './ws-charts.js?v=20261016-task1';
-import { el, panel, row, empty, skeleton, failure, stats } from './ws-views.js?v=20261016-task1&patch=20261102execution1';
+import { el, panel, row, empty, skeleton, failure, stats } from './ws-views.js?v=20261016-task1&patch=20261110qa1';
 import { availableWorkspaces } from './ws-nav.js?v=20261016-task1';
 import * as K from './ws-kms.js?v=20261016-task1';
-import { researchCreateBar, openProjectCreator } from './ws-research-create.js?v=20261016-task1&patch=20261019researchtools2';
+import { researchCreateBar, openProjectCreator } from './ws-research-create.js?v=20261016-task1&patch=20261110qa1';
 
 const icon = (name) => window.GravitasIcons.icon(name, 'g-wi');
 

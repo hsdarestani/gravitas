@@ -13,6 +13,7 @@ import { WORKSPACES, availableWorkspaces } from './ws-nav.js?v=20261016-task1';
 import { uploadToolbar, mindmapToolbar, profileToolbar } from './ws-research-tools.js?v=20261016-task1';
 import { deckPanel } from './ws-deck-sync.js?v=20261016-task1';
 import { renderTaskTimeline, taskDateFields } from './ws-task-timeline.js?v=20261016-task1&patch=20261102execution1';
+import { mountTaskWorkflow, taskOptions, workflowError, workflowPicker, workflowStatusOptions } from './ws-task-workflow.js?v=20261016-task1&patch=20261110qa1';
 
 const icon = (name) => window.GravitasIcons.icon(name, 'g-wi');
 
@@ -937,10 +938,31 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
     let previewLoaded = false;
     let editorFailed = false;
     const mobileReader = window.matchMedia?.('(max-width: 800px)')?.matches && !forceEditor;
+    const showWorkflow = (task) => {
+      dialog.classList.add('task-card-dialog--workflow');
+      head.querySelector('h2').textContent = task.title;
+      head.querySelector('button').setAttribute('aria-label', 'Close task');
+      body.replaceChildren();
+      mountTaskWorkflow(body, task, {
+        onChange: () => reloadBoard({ keepDialog: true }),
+        openStep: (step) => {
+          closeDialog(dialog);
+          openTaskDialog(step.id, state, reloadBoard);
+        },
+        more: () => {
+          closeDialog(dialog);
+          openTaskDialog(task.id, state, reloadBoard, { forceEditor: true });
+        },
+      });
+    };
     const showTaskPreview = ({ task: summary, events = [], hierarchy = {} }) => {
       if (!dialog.isConnected || !summary || (detailForFallback && !editorFailed)) return;
       previewLoaded = true;
       detailForFallback = summary;
+      if (summary.workflow_state && !forceEditor) {
+        showWorkflow(summary);
+        return;
+      }
       head.querySelector('h2').textContent = summary.title || 'Task';
       const status = el('p', 'fl-muted',
         `Status: ${P.label(summary.status || 'unknown')} · Owner: ${summary.owner?.name || 'Unknown'}`);
@@ -1040,6 +1062,11 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
     };
 
     try {
+      const known = !forceEditor && state?.tasks?.find(task => task.id === taskId && task.workflow_state);
+      if (known) {
+        showWorkflow(known);
+        return;
+      }
       // Detail is the only blocking request. The dependency index can include
       // thousands of tasks; waiting for it used to keep the entire card blank.
       const stateLoader = typeof state === 'function' ? state : null;
@@ -1069,6 +1096,10 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
       state = { ...detailData, ...boardState, tasks: boardState.tasks || [] };
       const task = detailData.task;
       detailForFallback = task;
+      if (task.workflow_state && !forceEditor) {
+        showWorkflow(task);
+        return;
+      }
       head.querySelector('h2').textContent = 'Task #' + task.id;
       const closeButton = head.querySelector('button');
       closeButton.textContent = '×';
@@ -1142,6 +1173,8 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
         catch { refTask.textContent = 'Copy unavailable'; }
       });
       moreItems.append(linkTask);
+      if (task.workflow_state || task.workflow_position != null)
+        moreItems.prepend(makeButton('Open workflow', () => navTask(task.workflow_state ? task.id : task.parent_id)));
       const advancedActions = el('details', 'task-card-dialog__advanced-actions');
       advancedActions.append(el('summary', null, 'Advanced actions'));
       const advancedActionItems = el('div', 'task-card-dialog__advanced-action-items');
@@ -1207,7 +1240,7 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
       const priorityChoices = taskCardOptions(detailData.priorities, state.priorities, PRIORITY_COLUMNS);
       const statusChoices = taskCardOptions(detailData.statuses, state.statuses, STATUS_COLUMNS);
       const priority = select(priorityChoices.map((item) => [item.value, item.label]), task.priority);
-      const status = select(statusChoices.map((item) => [item.value, item.label]), task.status);
+      const status = select(workflowStatusOptions(statusChoices.map((item) => [item.value, item.label]), task), task.status);
       const owner = select(optionRows(detailData.members || state.members, 'Choose owner', 'name'), task.owner?.id);
       const keyResult = select(
         [['', 'Choose key result'], ...(detailData.key_results || state.key_results || []).map((item) => [
@@ -1578,7 +1611,7 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
           } else {
             note.textContent = error?.data?.error === 'task_changed_elsewhere'
               ? 'This task changed elsewhere. Your draft is retained. Reopen the task to review the current server version before saving.'
-              : error?.data?.error || error?.message || 'Save failed.';
+              : workflowError(error);
           }
         } finally {
           save.disabled = false;
@@ -2223,8 +2256,14 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
     const form = el('form', 'task-board__form');
     const title = input('text');
     title.placeholder = 'Task title';
+    title.maxLength = 240;
+    title.required = true;
     const description = textarea('', 4);
-    const owner = select(optionRows(state.members, 'Choose owner', 'name'), state.members?.[0]?.id || '');
+    const me = P.platform.user?.user || P.platform.user;
+    const owner = select(optionRows(state.members, 'Choose owner', 'name'),
+      state.members?.find(item => item.id === me?.id)?.id || state.members?.[0]?.id || '');
+    const project = select(optionRows(state.projects, 'No project', 'title'));
+    const milestone = select([['', 'No milestone']]);
     const keyResult = select([
       ['', 'Choose key result'],
       ...(state.key_results || []).map((item) => [
@@ -2238,40 +2277,58 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
     const done = textarea('', 3);
     done.placeholder = 'What has to be true for this task to be done?';
     const note = el('p', 'v-note');
+    note.setAttribute('role', 'status');
     const create = makeButton('Create task', () => {}, true);
     create.type = 'submit';
-
-    const two = el('div', 'task-board__two');
-    two.append(field('Owner', owner), field('Key result (optional)', keyResult), field('Priority', priority), field('Status', status), field('Due date', due));
-    form.append(field('Title', title), field('Description', description), two, field('Definition of done', done), create, note);
+    const picker = workflowPicker();
+    function updateMilestones() {
+      const selected = milestone.value;
+      const rows = (state.milestones || []).filter(item =>
+        (!keyResult.value || String(item.key_result_id) === keyResult.value)
+        && String(item.project_id || '') === project.value);
+      milestone.replaceChildren(...select(optionRows(rows, 'No milestone', 'title'), selected).children);
+    }
+    project.addEventListener('change', updateMilestones);
+    keyResult.addEventListener('change', updateMilestones);
+    updateMilestones();
+    const options = taskOptions(field('Project', project), field('Goal', keyResult), field('Milestone', milestone),
+      field('Owner', owner), field('Due date', due), field('Priority', priority), field('Status', status),
+      field('Description', description), field('Expected outcome', done));
+    form.append(field('Title', title), picker.element, options, create, note);
     form.addEventListener('submit', async (event) => {
       event.preventDefault();
-      if (!title.value.trim() || !owner.value || !done.value.trim()) {
-        note.textContent = 'Title, owner and definition of done are required.';
+      if (!title.value.trim() || !owner.value) {
+        note.textContent = 'Enter a title and choose an owner.';
+        if (!owner.value) options.open = true;
         return;
       }
-      if (!due.value) {
-        note.textContent = 'Choose a due date.';
+      if ((keyResult.value || milestone.value) && !due.value) {
+        options.open = true;
+        note.textContent = 'Choose a due date for this planned task.';
+        due.focus();
         return;
       }
       create.disabled = true;
       note.textContent = 'Creating…';
       try {
-        const result = await P.createOperatingTask({
+        const fields = {
           title: title.value.trim(),
           description: description.value.trim(),
           owner_id: Number(owner.value),
+          ...(project.value ? { project_id: Number(project.value) } : {}),
+          ...(milestone.value ? { milestone_id: Number(milestone.value) } : {}),
           ...(keyResult.value ? { key_result_id: Number(keyResult.value) } : {}),
           priority: priority.value,
           status: status.value,
           due_date: due.value,
-          definition_of_done: done.value.trim(),
-        });
+          definition_of_done: done.value.trim() || '“' + title.value.trim() + '” is complete.',
+        };
+        const result = await P.createOperatingTask({ ...fields, workflow: picker.value(fields) });
         closeDialog(dialog);
-        await reloadBoard();
-        if (result.task?.id) openTaskDialog(result.task.id, state, reloadBoard);
+        if (result.task?.id) openTaskDialog(result.task.id, { ...state, tasks: [result.task] }, reloadBoard);
+        await reloadBoard({ keepDialog: true }).catch(() => {});
       } catch (error) {
-        note.textContent = error?.data?.error || error?.message || 'Task could not be created.';
+        note.textContent = workflowError(error);
         create.disabled = false;
       }
     });
@@ -2322,12 +2379,13 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
       holder._taskBoardResizeObserver?.disconnect?.();
       holder.innerHTML = '';
 
-      const openTasks = data.tasks.filter((task) => !['done', 'archived'].includes(task.status)).length;
+      const boardTasks = data.tasks.filter(task => task.workflow_position == null);
+      const openTasks = boardTasks.filter((task) => !['done', 'archived'].includes(task.status)).length;
       const boardStats = stats([
         ['Open tasks', openTasks],
-        ['Backlog', data.tasks.filter((task) => task.status === 'draft').length],
-        ['Blocked', data.tasks.filter((task) => task.status === 'blocked').length],
-        ['Done', data.tasks.filter((task) => task.status === 'done').length],
+        ['Backlog', boardTasks.filter((task) => task.status === 'draft').length],
+        ['Blocked', boardTasks.filter((task) => task.status === 'blocked').length],
+        ['Done', boardTasks.filter((task) => task.status === 'done').length],
       ]);
       holder.append(boardStats);
 
@@ -2437,16 +2495,17 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
         const intelligenceView = ['timeline', 'analysis'].includes(filters.view);
         boardStats.style.display = intelligenceView ? 'none' : '';
         for (const control of [search, ownerFilter, priorityFilter, sortFilter, count]) control.style.display = intelligenceView ? 'none' : '';
-        if (deckDetails) deckDetails.open = !intelligenceView;
+        if (deckDetails && intelligenceView) deckDetails.open = false;
         const q = filters.q.toLowerCase();
-        const visible = data.tasks.filter((task) => {
+        const pool = filters.view === 'board' ? boardTasks : data.tasks;
+        const visible = pool.filter((task) => {
           if (intelligenceView) return true;
           if (filters.owner && String(task.owner?.id) !== filters.owner) return false;
           if (filters.priority && task.priority !== filters.priority) return false;
           if (q && !taskSearchText(task).includes(q)) return false;
           return true;
         });
-        count.textContent = `${visible.length} of ${data.tasks.length}`;
+        count.textContent = `${visible.length} of ${pool.length}`;
         board._execution?.destroy();
         board.innerHTML = '';
         holder.querySelector('.task-board-view-note')?.remove();
@@ -2583,7 +2642,7 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
               await P.moveOperatingTask(taskId, statusValue, orderedIds);
               await load();
             } catch (error) {
-              alert(error?.data?.error || error?.message || 'Task could not be moved.');
+              alert(workflowError(error));
               await load();
             }
           });

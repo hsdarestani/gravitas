@@ -23,6 +23,16 @@ class WorkStatus(models.TextChoices):
     ARCHIVED = 'archived', 'Archived'
 
 
+class WorkflowState(models.TextChoices):
+    NONE = '', 'No workflow'
+    PENDING = 'pending', 'Approval pending'
+    APPROVED = 'approved', 'Approved'
+
+
+class WorkflowTaskError(ValidationError):
+    """A task transition reserved for the workflow."""
+
+
 class Priority(models.TextChoices):
     P0 = 'p0', 'P0 · Critical'
     P1 = 'p1', 'P1 · High'
@@ -255,6 +265,8 @@ class OperatingTask(models.Model):
     definition_of_done = models.TextField()
     dependency = models.ForeignKey('self', on_delete=models.SET_NULL, related_name='dependants', blank=True, null=True)
     parent = models.ForeignKey('self', on_delete=models.PROTECT, related_name='subtasks', blank=True, null=True)
+    workflow_state = models.CharField(max_length=8, choices=WorkflowState.choices, default='', editable=False)
+    workflow_position = models.PositiveSmallIntegerField(null=True, editable=False)
     source_key = models.CharField(max_length=240, unique=True, null=True, blank=True)
     source_metadata = models.JSONField(default=dict, blank=True)
     blocked_reason = models.TextField(blank=True)
@@ -268,6 +280,12 @@ class OperatingTask(models.Model):
 
     def clean(self):
         super().clean()
+        if self.workflow_state == WorkflowState.PENDING and (self.status == WorkStatus.DONE or self.completed_at):
+            raise WorkflowTaskError('Approve the required QA parts and use Final approval.', code='workflow_approval_required')
+        if self.workflow_state == WorkflowState.APPROVED and self.status not in (WorkStatus.DONE, WorkStatus.ARCHIVED):
+            raise WorkflowTaskError('This workflow has final approval.', code='workflow_already_approved')
+        if self.workflow_position is not None and self.status == WorkStatus.ARCHIVED:
+            raise WorkflowTaskError('Archive the parent task to stop its workflow.', code='workflow_step_locked')
         if not isinstance(self.source_metadata, dict):
             raise ValidationError({'source_metadata': 'Source metadata must be an object.'})
         seen = {self.pk} if self.pk else set()
@@ -297,13 +315,27 @@ class OperatingTask(models.Model):
 
     @transaction.atomic
     def save(self, *args, **kwargs):
+        workflow_approval = kwargs.pop('workflow_approval', False)
         previous = None
         if self.pk:
             from .execution_history import TRACKED
-            previous = type(self).objects.using(kwargs.get('using') or self._state.db).filter(pk=self.pk).values(
-                'source_key', *TRACKED).first()
+            rows = type(self).objects.using(kwargs.get('using') or self._state.db).filter(pk=self.pk)
+            if self.workflow_state or self.workflow_position is not None:
+                rows = rows.select_for_update()
+            previous = rows.values('source_key', 'workflow_state', 'workflow_position', *TRACKED).first()
             if previous and previous['source_key'] and previous['source_key'] != self.source_key:
                 raise ValidationError({'source_key': 'A source binding is immutable.'})
+            if previous:
+                # The gate is changed by the workflow transaction alone.
+                if not workflow_approval:
+                    self.workflow_state = previous['workflow_state']
+                if self.workflow_position != previous['workflow_position'] or (
+                    self.workflow_position is not None and (
+                        self.parent_id != previous['parent_id']
+                        or (previous['status'] == WorkStatus.DONE and self.status != WorkStatus.DONE)
+                    )
+                ):
+                    raise WorkflowTaskError('Use the parent workflow to manage this step.', code='workflow_step_locked')
         if self.dependency_id and (previous is None or previous['dependency_id'] != self.dependency_id):
             # Serialize competing edge additions before the final cycle check.
             from .models import Workspace
@@ -338,8 +370,31 @@ class OperatingTask(models.Model):
                 condition=Q(meeting__isnull=True) | Q(due_date__isnull=False),
                 name='grav_meeting_action_due',
             ),
+            models.CheckConstraint(
+                condition=(Q(workflow_state=WorkflowState.NONE)
+                           | (Q(workflow_state=WorkflowState.PENDING, completed_at__isnull=True) & ~Q(status=WorkStatus.DONE))
+                           | Q(workflow_state=WorkflowState.APPROVED, status__in=(WorkStatus.DONE, WorkStatus.ARCHIVED))),
+                name='grav_task_workflow_approval',
+            ),
+            models.CheckConstraint(
+                condition=Q(workflow_position__isnull=True) | (Q(parent__isnull=False) & ~Q(status=WorkStatus.ARCHIVED)),
+                name='grav_task_workflow_step',
+            ),
+            models.UniqueConstraint(fields=('parent', 'workflow_position'), name='grav_task_workflow_step_position'),
         ]
 
+
+class OperatingTaskWorkflow(models.Model):
+    """The task's template snapshot and versioned QA. Steps are ordinary subtasks."""
+
+    task = models.OneToOneField(OperatingTask, on_delete=models.CASCADE, related_name='workflow')
+    template = models.CharField(max_length=24)
+    parts = models.JSONField()
+    revision = models.PositiveIntegerField(default=1)
+    # Retries of the same create request return the same task.
+    creation_id = models.UUIDField(null=True, unique=True)
+    creation_fingerprint = models.CharField(max_length=64, blank=True)
+    final_approval = models.JSONField(default=dict, blank=True)
 
 
 class GoogleCalendarConnection(models.Model):

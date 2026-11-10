@@ -56,6 +56,8 @@ def _task_json(item, user):
         'execution_weight': item.execution_weight,
         'dependency_id': item.dependency_id,
         'parent_id': item.parent_id,
+        'workflow_state': item.workflow_state,
+        'workflow_position': item.workflow_position,
         'source_metadata': item.source_metadata,
         'milestone_id': item.milestone_id,
         'completed_at': item.completed_at.isoformat() if item.completed_at else None,

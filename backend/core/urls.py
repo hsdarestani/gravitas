@@ -34,6 +34,7 @@ from core.research_calendar_api import research_calendar
 from core.member_api import member_dashboard
 from core.initiative_planner import initiative_planner
 from core.task_reorder_api import reorder_tasks
+from core.task_workflow_api import task_workflow, workflow_templates
 from core.execution_api import execution_dashboard, execution_settings, execution_schedule
 from core.task_board_api import (
     task_attachment_delete,
@@ -368,6 +369,8 @@ urlpatterns = [
     path('platform/projects/<int:project_id>/cockpit/', require_research_or_core(project_cockpit)),
     path('platform/projects/<int:project_id>/tasks/', require_research_or_core(research_project_tasks)),
     path('platform/projects/<int:project_id>/tasks/<int:task_id>/', require_research_or_core(research_project_task_detail)),
+    path('platform/projects/<int:project_id>/tasks/<int:task_id>/workflow/', require_research_or_core(task_workflow)),
+    path('platform/task-workflow-templates/', require_research_or_core(workflow_templates)),
     path('platform/projects/<int:project_id>/tasks/<int:task_id>/time/', require_research_or_core(project_task_time)),
     path('platform/projects/<int:project_id>/work-time/', require_research_or_core(project_time_summary)),
     path('platform/projects/<int:project_id>/schedules/', require_research_or_core(project_task_schedules)),
@@ -497,6 +500,7 @@ urlpatterns = [
     path('operating/task-board/move/', require_core(task_board_move)),
     path('operating/task-board/<int:task_id>/', require_core(task_board_detail)),
     path('operating/tasks/<int:task_id>/checklist/', require_core(task_checklist)),
+    path('operating/tasks/<int:task_id>/workflow/', require_core(task_workflow)),
     path('operating/tasks/<int:task_id>/checklist/<int:item_id>/', require_core(task_checklist_item)),
     path('operating/tasks/<int:task_id>/comments/', require_core(task_comments)),
     path('operating/tasks/<int:task_id>/attachments/', require_core(task_attachments)),

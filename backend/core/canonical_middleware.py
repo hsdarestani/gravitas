@@ -7,6 +7,7 @@ jobs use the same signals; callers must use transaction.atomic for operations
 spanning multiple projections.
 """
 import re
+import json
 from django.core.exceptions import ValidationError, ImproperlyConfigured
 from django.db import transaction
 from django.http import JsonResponse
@@ -270,6 +271,19 @@ class CanonicalProjectMiddleware:
         relevant = any(token in request.path for token in ('projects/', 'resources/', 'mindmaps/', 'work-reports', 'notes/', 'pages/', 'tasks/', 'task-board/', 'assistant/', 'pulsar/', 'platform/share/', 'platform/folders/'))
         if not relevant:
             return None
+        # Workflow history lives in Django. The workflow transactions queue
+        # canonical task snapshots for each created or completed subtask.
+        if re.fullmatch(r'/api/(?:operating/tasks|platform/projects/\d+/tasks)/\d+/workflow/', request.path):
+            return None
+        if request.method == 'POST' and re.fullmatch(
+            r'/api/(?:operating/(?:tasks|task-board)|platform/projects/\d+/tasks)/', request.path,
+        ):
+            try:
+                payload = json.loads(request.body or '{}')
+            except (ValueError, UnicodeDecodeError):
+                payload = None
+            if isinstance(payload, dict) and payload.get('workflow') is not None:
+                return None
         # Project tool picks are standalone ResearchProjectProfile metadata.
         # Their dedicated PATCH does not write canonical project or permission
         # objects, so a project-wide DAV refresh would only block the request.
@@ -369,4 +383,8 @@ class CanonicalProjectMiddleware:
         except (cloud.CloudError, ImproperlyConfigured) as exc:
             return JsonResponse({'ok': False, 'error': 'canonical_storage_unavailable', 'detail': str(exc)}, status=503)
         except (ValueError, ValidationError) as exc:
+            from .operating_models import WorkflowTaskError
+            if isinstance(exc, WorkflowTaskError):
+                from .task_workflow_api import workflow_error
+                return workflow_error(exc)
             return JsonResponse({'ok': False, 'error': 'canonical_file_invalid', 'detail': str(exc)}, status=409)

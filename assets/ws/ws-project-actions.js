@@ -15,6 +15,7 @@
 import * as P from './ws-platform.js?v=20261016-task1&patch=20261027reliability1';
 import { openMindMapEditor } from './ws-mindmap-editor.js?v=20261016-task1';
 import { taskDateFields } from './ws-task-timeline.js?v=20261016-task1&patch=20261102execution1';
+import { mountTaskWorkflow, taskOptions, workflowError, workflowPicker, workflowStatusOptions } from './ws-task-workflow.js?v=20261016-task1&patch=20261110qa1';
 
 // The page the bar belongs to: how to navigate, and how to redraw it after
 // a change. Set each time the cockpit asks for a bar.
@@ -137,7 +138,7 @@ function modal(title, build, submitLabel = '', onSubmit = null) {
         await onSubmit(fields, new FormData(form), status);
         dismiss();
       } catch (error) {
-        status.textContent = error?.data?.error || error?.message || 'The action could not be completed.';
+        status.textContent = workflowError(error);
         submit.disabled = false;
         cancel.disabled = false;
       }
@@ -328,31 +329,74 @@ async function editMilestone(projectId) {
   });
 }
 
-function createTask(projectId) {
+export function createProjectTask(projectId, cockpit, { go, refresh = refreshProject } = {}) {
   modal('New task', (grid) => {
+    const picker = workflowPicker();
+    const title = input('title', '', 'text', 'Task title');
+    title.required = true;
+    title.maxLength = 240;
+    const milestones = (cockpit.milestones || []).filter(item => item.status !== 'archived');
     grid.append(
-      field('Title', input('title', '', 'text', 'Task title')),
-      field('Due date', input('due_date', '', 'date')),
-      field('Priority', select('priority', PRIORITY, 'p2')),
-      field('Definition of done', textarea('definition_of_done', '', 3)),
-      field('Description', textarea('description', '', 3)),
+      field('Title', title), picker.element,
+      taskOptions(
+        ...(milestones.length ? [field('Milestone', select('milestone_id',
+          [['', 'No milestone'], ...milestones.map(item => [item.id, item.title])]))] : []),
+        field('Due date', input('due_date', '', 'date')),
+        field('Priority', select('priority', PRIORITY, 'p2')),
+        field('Expected outcome', textarea('definition_of_done', '', 3)),
+        field('Description', textarea('description', '', 3)),
+      ),
     );
-    return {};
-  }, 'Create task', async (_fields, data) => {
-    await P.call(`/platform/projects/${projectId}/tasks/`, { method: 'POST', body: {
+    return { picker };
+  }, 'Create task', async ({ picker }, data) => {
+    const fields = {
       title: String(data.get('title') || '').trim(), due_date: data.get('due_date') || '', priority: data.get('priority') || 'p2',
       definition_of_done: String(data.get('definition_of_done') || '').trim(), description: String(data.get('description') || '').trim(), status: 'active',
-    }});
-    refreshProject();
+      ...(data.get('milestone_id') ? { milestone_id: Number(data.get('milestone_id')) } : {}),
+    };
+    const { task } = await P.call(`/platform/projects/${projectId}/tasks/`, {
+      method: 'POST', body: { ...fields, workflow: picker.value(fields) },
+    });
+    Promise.resolve().then(refresh).catch(() => {});
+    if (task.workflow_state) await openProjectTask(task, cockpit, { go, refresh });
   });
 }
 
-export async function openProjectTask(task, cockpit, { go, refresh } = {}) {
+export async function openProjectTask(task, cockpit, { go, refresh, showDetails = false } = {}) {
   if (P.canOpenCore()) {
     // One canonical task editor for everyone authorized to use Core; Research
     // participants without Core access retain project-scoped editing below.
-    const { openCoreTask } = await import('./ws-views.js?v=20261016-task1&patch=20261102execution1');
+    const { openCoreTask } = await import('./ws-views.js?v=20261016-task1&patch=20261110qa1');
     return openCoreTask(task.id, { go, onTaskChange: refresh });
+  }
+  if (task.workflow_state && !showDetails) {
+    const projectId = cockpit.project.id;
+    const view = modal(task.title, (grid, form) => {
+      form.addEventListener('submit', (event) => event.preventDefault());
+      grid.classList.add('wf-project-card');
+      mountTaskWorkflow(grid, task, {
+        projectId,
+        onChange: refresh || refreshProject,
+        more: async () => {
+          // The workflow may have completed since the project list was read.
+          try {
+            const result = await P.call(`/platform/projects/${projectId}/tasks/`);
+            const latest = result.tasks.find(item => item.id === task.id);
+            if (latest) openProjectTask(latest, cockpit, { go, refresh, showDetails: true });
+          } catch (error) { view.status.textContent = workflowError(error); }
+        },
+        openStep: async (step) => {
+          try {
+            const result = await P.call(`/platform/projects/${projectId}/tasks/`);
+            const child = result.tasks.find(item => item.id === step.id);
+            if (child) openProjectTask(child, cockpit, { go, refresh });
+          } catch (error) { view.status.textContent = workflowError(error); }
+        },
+      });
+    });
+    view.layer.firstElementChild.classList.add('ws-action-dialog--workflow');
+    view.form.querySelector('.ws-action-dialog__actions').hidden = true;
+    return view;
   }
   // This is the SAME project task, not a Research copy. Keep project ACL and
   // PATCH the existing object via the project-access endpoint.
@@ -374,7 +418,7 @@ export async function openProjectTask(task, cockpit, { go, refresh } = {}) {
     ];
     if (canEdit) {
       attrs.append(
-        field('Status', select('status', statuses, task.status || 'active')),
+        field('Status', select('status', workflowStatusOptions(statuses, task), task.status || 'active')),
         field('Priority', select('priority', PRIORITY, task.priority || 'p2')),
         field('Due date', input('due_date', task.due_date || '', 'date')),
       );
@@ -397,6 +441,14 @@ export async function openProjectTask(task, cockpit, { go, refresh } = {}) {
       el('p', '', task.blocked_reason || 'No blocker');
     notes.append(field('Description', description), field('Blocked reason', blocked));
     grid.append(notes);
+    if (task.workflow_state || task.workflow_position != null)
+      grid.append(button('Open workflow', async () => {
+        try {
+          const result = await P.call(`/platform/projects/${cockpit.project.id}/tasks/`);
+          const parent = result.tasks.find(item => item.id === (task.workflow_state ? task.id : task.parent_id));
+          if (parent) openProjectTask(parent, cockpit, { go, refresh });
+        } catch (error) { result.status.textContent = workflowError(error); }
+      }));
     return { taskId: task.id };
   }, canEdit ? 'Save changes' : '', canEdit ? async (_fields, data) => {
     await P.call(`/platform/projects/${cockpit.project.id}/tasks/${task.id}/`, {
@@ -671,7 +723,7 @@ function actionSet(info, cockpit, project) {
   if (canManage) add('Access', () => manageAccess(info.projectId).catch(console.error));
 
   if (info.tab === 'overview') {
-    if (canEdit) add('New task', () => createTask(info.projectId));
+    if (canEdit) add('New task', () => createProjectTask(info.projectId, cockpit, page));
     if (canEdit) add('New note', () => createNote(info.projectId));
     if (canEdit) add('Upload', () => uploadFile(info.projectId, 'file'));
   } else if (info.tab === 'milestones') {
@@ -679,7 +731,7 @@ function actionSet(info, cockpit, project) {
     if (canEdit) add('Edit milestone', () => editMilestone(info.projectId).catch(console.error));
     if (P.canOpenCore()) add('Open planning', () => go('/workspace/operating'));
   } else if (info.tab === 'tasks') {
-    if (canEdit) add('New task', () => createTask(info.projectId), true);
+    if (canEdit) add('New task', () => createProjectTask(info.projectId, cockpit, page), true);
     // Open a task card to edit it; avoid a second generic edit-task form.
     if ((cockpit.research_requests || []).some((item) => item.can_edit)) add('Edit request', () => editResearchRequest(cockpit));
   } else if (info.tab === 'notes') {

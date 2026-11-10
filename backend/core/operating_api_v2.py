@@ -346,6 +346,8 @@ def risk_detail(request, risk_id):
 
 @require_http_methods(['GET', 'POST'])
 def tasks(request):
+    from .platform_access import can_view
+
     if (auth := base._auth(request)):
         return auth
     payload = base._body(request) if request.method == 'POST' else {}
@@ -363,6 +365,8 @@ def tasks(request):
             qs = qs.filter(initiative__key_result_id=request.GET['key_result_id'])
         data = []
         for obj in qs:
+            if (obj.workflow_state or obj.workflow_position is not None) and not can_view(request.user, obj):
+                continue
             item = base._task_json(obj)
             item['work_package_id'] = obj.work_package_id
             item['work_package_title'] = obj.work_package.title if obj.work_package else None
@@ -375,7 +379,6 @@ def tasks(request):
     # A subtask is a first-class OperatingTask, never a detached checklist
     # string or a duplicate cross-workspace record.
     from .operating_models import OperatingTaskConsolidation
-    from .platform_access import can_view
     raw_parent = payload.get('parent_id')
     parent = None
     if raw_parent not in (None, '', 0, '0'):
@@ -512,6 +515,8 @@ def tasks(request):
 
 @require_http_methods(['PATCH', 'DELETE'])
 def task_detail(request, task_id):
+    from .platform_access import can_edit
+
     if (auth := base._auth(request)):
         return auth
     obj = OperatingTask.objects.select_related(
@@ -521,7 +526,12 @@ def task_detail(request, task_id):
         return base._error('task_not_found', 404)
     if not base._editable(request, obj.workspace):
         return base._error('permission_denied', 403)
+    managed = bool(obj.workflow_state or obj.workflow_position is not None)
+    if managed and not can_edit(request.user, obj):
+        return base._error('permission_denied', 403)
     if request.method == 'DELETE':
+        if managed:
+            return base._error('task_has_linked_records', 409)
         obj.delete()
         return JsonResponse({'ok': True})
     payload = base._body(request)

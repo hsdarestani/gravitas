@@ -43,8 +43,10 @@ from .operating_models import (
     OperatingTaskConsolidation,
     OperatingWorkPackage,
     Priority,
+    WorkflowTaskError,
     WorkStatus,
 )
+from .task_workflow_api import workflow_error
 
 
 BOARD_STATUSES = (
@@ -176,6 +178,8 @@ def _task_json(task):
         'project_title': task.project.title if task.project else '',
         'dependency_id': task.dependency_id,
         'parent_id': task.parent_id,
+        'workflow_state': task.workflow_state,
+        'workflow_position': task.workflow_position,
         'source_metadata': task.source_metadata,
         'dependency_title': task.dependency.title if task.dependency else '',
         'comment_count': getattr(task, 'comment_count', 0),
@@ -281,6 +285,7 @@ def _choices(request, workspace, *, include_legacy=True):
             'title': row.title,
             'key_result_id': row.initiative.key_result_id,
             'key_result_title': row.initiative.key_result.title,
+            'project_id': row.project_id,
             'objective_id': row.initiative.key_result.objective_id,
             'objective_title': row.initiative.key_result.objective.title,
         } for row in milestones],
@@ -385,7 +390,7 @@ def _create_board_task(request, workspace):
         task_id = (data.get('task') or {}).get('id')
         task = OperatingTask.objects.filter(pk=task_id, workspace=workspace).first()
         if task:
-            if task.project_id and (
+            if task.project_id and not task.workflow_state and (
                 canonical_parent or CanonicalProject.objects.filter(
                     project_id=task.project_id, enabled=True).exists()
             ):
@@ -696,6 +701,8 @@ def task_board_detail(request, task_id):
                 'owner': _person(task.owner),
                 'definition_of_done': task.definition_of_done,
                 'parent_id': task.parent_id,
+                'workflow_state': task.workflow_state,
+                'workflow_position': task.workflow_position,
                 'key_result': {
                     'id': task.initiative.key_result_id,
                     'title': task.initiative.key_result.title,
@@ -728,9 +735,10 @@ def task_board_detail(request, task_id):
             'ok': True,
             'task': task_data,
             'hierarchy': _task_hierarchy(request, workspace, task),
-            'can_delete': _can_delete_task(request, workspace, task),
+            'can_delete': (not task.workflow_state and task.workflow_position is None
+                           and _can_delete_task(request, workspace, task)),
             'can_edit_dates': can_edit_dates(request.user, task),
-            'can_edit': base._editable(request, workspace),
+            'can_edit': base._editable(request, workspace) and can_edit(request.user, task),
             # The task detail dialog also opens directly from Research, where no
             # full Core board was loaded to provide these select options.
             'statuses': [{'value': value, 'label': label} for value, label in WorkStatus.choices],
@@ -939,10 +947,14 @@ def task_board_detail(request, task_id):
 
     try:
         task.clean()
+    except WorkflowTaskError as error:
+        return workflow_error(error)
     except ValidationError:
         return _error('invalid_task_hierarchy', 409)
     try:
         task.save()
+    except WorkflowTaskError as error:
+        return workflow_error(error)
     except ValidationError:
         return _error('invalid_task_hierarchy', 409)
     # The just-saved model contains the authoritative fields. Requerying the
@@ -986,6 +998,8 @@ def task_board_move(request):
     task = OperatingTask.objects.filter(pk=task_id, workspace=workspace).first()
     if not task:
         return _error('task_not_found', 404)
+    if not can_edit(request.user, task):
+        return _error('permission_denied', 403)
 
     raw_order = payload.get('ordered_ids') or []
     try:
@@ -1011,7 +1025,10 @@ def task_board_move(request):
             task.completed_at = timezone.now()
         elif status != WorkStatus.DONE:
             task.completed_at = None
-        task.save(update_fields=['status', 'completed_at', 'updated_at'])
+        try:
+            task.save(update_fields=['status', 'completed_at', 'updated_at'])
+        except WorkflowTaskError as error:
+            return workflow_error(error)
         for index, row_id in enumerate(ordered_ids, start=1):
             OperatingTask.objects.filter(pk=row_id, workspace=workspace, status=status).update(board_order=index * 100)
 

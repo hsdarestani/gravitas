@@ -9,7 +9,7 @@
 
 import * as P from './ws-platform.js?v=20261016-task1&patch=20261027reliability1';
 import * as C from './ws-charts.js?v=20261016-task1';
-import { researchCreateBar, spaceProjectToolbar } from './ws-research-create.js?v=20261016-task1&patch=20261019researchtools2';
+import { researchCreateBar, spaceProjectToolbar } from './ws-research-create.js?v=20261016-task1&patch=20261110qa1';
 import { teamPanel, teamRow } from './ws-core-team.js?v=20261016-task1';
 import { loadProjectData } from './ws-project-data.js?v=20261016-task1';
 
@@ -554,6 +554,11 @@ export function renderFolders(host, { go }) {
   load();
 }
 
+function researchTaskPath(task, project) {
+  const path = `/workspace/research/projects/${project.id}`;
+  return task.workflow_state ? `${path}/tasks?task=${task.id}` : path;
+}
+
 function taskBoard(body, records, go) {
   body.innerHTML = '';
   const states = [['draft', 'Draft'], ['active', 'Active'], ['blocked', 'Blocked'], ['done', 'Done']];
@@ -564,7 +569,7 @@ function taskBoard(body, records, go) {
     lane.append(el('h2', 'rkms-lane__title', `${label} · ${matches.length}`));
     for (const { task, project } of matches) {
       const card = el('button', 'rkms-task'); card.type = 'button';
-      card.addEventListener('click', () => go(`/workspace/research/projects/${project.id}`));
+      card.addEventListener('click', () => go(researchTaskPath(task, project)));
       card.append(el('strong', null, task.title), el('small', null, P.meta([project.title, task.owner, P.formatDate(task.due_date)])));
       lane.append(card);
     }
@@ -584,8 +589,9 @@ function taskList(body, records, go) {
   for (const { task, project } of records) {
     const row = el('tr');
     row.tabIndex = 0;
-    row.addEventListener('click', () => go(`/workspace/research/projects/${project.id}`));
-    row.addEventListener('keydown', (event) => { if (event.key === 'Enter') go(`/workspace/research/projects/${project.id}`); });
+    const open = () => go(researchTaskPath(task, project));
+    row.addEventListener('click', open);
+    row.addEventListener('keydown', (event) => { if (event.key === 'Enter') open(); });
     for (const value of [P.label(task.priority), task.title, P.formatDate(task.start_date), P.formatDate(task.due_date), project.title, task.owner || '—', P.label(task.status)]) {
       row.append(el('td', null, value || '—'));
     }
@@ -601,7 +607,8 @@ export function renderTasks(host, { go }) {
   const body = el('div'); doc.append(body); body.append(notice('Loading tasks', 'Reading project cockpits…'));
   projectData().then((rows) => {
     body.innerHTML = '';
-    const records = rows.flatMap(({ project, cockpit }) => (cockpit?.tasks || []).map((task) => ({ task, project })));
+    const records = rows.flatMap(({ project, cockpit }) => (cockpit?.tasks || [])
+      .filter(task => task.workflow_position == null).map(task => ({ task, project })));
     const statusCounts = {
       draft: records.filter(({ task }) => (task.status || 'draft') === 'draft').length,
       active: records.filter(({ task }) => task.status === 'active').length,

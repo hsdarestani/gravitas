@@ -4,6 +4,8 @@
 import * as P from './ws-platform.js?v=20261016-task1&patch=20261027reliability1';
 import { mountAnchoredComments } from './ws-anchored-comments.js?v=20261016-task1';
 import { renderTaskTimeline, taskDateFields } from './ws-task-timeline.js?v=20261016-task1&patch=20261102execution1';
+import { createProjectTask, openProjectTask } from './ws-project-actions.js?v=20261016-task1&patch=20261110qa1';
+import { workflowError, workflowStatusOptions } from './ws-task-workflow.js?v=20261016-task1&patch=20261110qa1';
 
 const node = (tag, cls = '', content = '') => {
   const n = document.createElement(tag);
@@ -126,7 +128,7 @@ export function renderProjectManagement(doc, projectId, cockpit, { go, refresh }
     } catch (err) {
       notice.textContent = err.data?.error === 'task_changed_elsewhere'
         ? 'This task changed elsewhere. Your draft is retained; refresh and review the server version.'
-        : err.message + (err.data?.detail ? ': ' + err.data.detail : '');
+        : workflowError(err);
       return false;
     } finally { savingTasks.delete(task.id); }
   }
@@ -176,6 +178,9 @@ export function renderProjectManagement(doc, projectId, cockpit, { go, refresh }
     container.append(recent);
   }
   function openEditor(task) {
+    if (task.workflow_state) {
+      return openProjectTask(task, cockpit, { go, refresh: reload });
+    }
     editor.replaceChildren();
     const panel = node('div', 'pm-editor');
     panel.append(node('h3', '', 'Edit task #' + task.id + ' · ' + task.title));
@@ -183,7 +188,7 @@ export function renderProjectManagement(doc, projectId, cockpit, { go, refresh }
     const deadline = control('input', 'date', 'Due date'); deadline.value = day(task.due_date);
     const lifecycleDates = taskDateFields(task, { canEdit: task.can_edit_dates === true });
     const status = node('select'), priority = node('select'), owner = node('select');
-    [['draft','Draft'],['active','Doing'],['ready','Ready'],['waiting','Waiting'],['needs_review','Needs review'],['retest','Retest'],['blocked','Blocked'],['done','Done'],['archived','Archived']].forEach(([v,n])=>{const op=node('option','',n);op.value=v;status.append(op);});
+    workflowStatusOptions(statusNames, task).forEach(([v,n])=>{const op=node('option','',n);op.value=v;status.append(op);});
     ['p0','p1','p2','p3'].forEach(v=>{const op=node('option','',v.toUpperCase());op.value=v;priority.append(op);});
     status.value=task.status; priority.value=task.priority;
     members.forEach(m=>{const op=node('option','',m.name);op.value=m.user_id;owner.append(op);});
@@ -218,7 +223,7 @@ export function renderProjectManagement(doc, projectId, cockpit, { go, refresh }
     showTime(task,time);
   }
   function tile(task) {
-    const t = btn('#' + task.id + ' · ' + task.title, () => { if(task.can_edit) openEditor(task); else notice.textContent='Read only task'; });
+    const t = btn('#' + task.id + ' · ' + task.title, () => { if(task.can_edit || task.workflow_state) openEditor(task); else notice.textContent='Read only task'; });
     t.className = 'pm-card';
     t.append(node('small','',format(task)));
     if(task.dependency_id) t.append(node('small','','Depends on #' + task.dependency_id));
@@ -339,7 +344,8 @@ export function renderProjectManagement(doc, projectId, cockpit, { go, refresh }
         c.append(node('h3','',m.name),node('p','pm-note',`${assigned.filter(t=>!done(t)).length} open · ${assigned.filter(t=>overdue(t,today)).length} overdue · ${logged===undefined?'—':(logged/60).toFixed(1)+'h'} logged`));
         assigned.forEach(t=>c.append(tile(t)));cols.append(c);});body.append(cols);
     }
-    if(cockpit.project?.permissions?.can_edit) body.append(newTask());
+    if(cockpit.project?.permissions?.can_edit)
+      body.append(btn('New task', () => createProjectTask(projectId, cockpit, { go, refresh: reload })));
   }
   function editSchedule(task){
     editor.replaceChildren();
@@ -359,17 +365,6 @@ export function renderProjectManagement(doc, projectId, cockpit, { go, refresh }
     });
     box.append(node('h3','','Plan · '+task.title),start,end,minutes,save,btn('Close',()=>editor.replaceChildren()),message);
     editor.append(box);
-  }
-  function newTask(){
-    const box=node('div','pm-new');box.append(node('h3','','Create task'));
-    const name=control('input','text','Task title'),due=control('input','date','Due date'),p=node('select');
-    ['p0','p1','p2','p3'].forEach(v=>{const o=node('option','',v.toUpperCase());o.value=v;p.append(o);});p.value='p2';
-    box.append(name,due,p,btn('Add to project',async()=>{
-      if(!name.value.trim()||!due.value){notice.textContent='Task title and due date are required.';return;}
-      try{await P.call(`/platform/projects/${projectId}/tasks/`,{method:'POST',body:{title:name.value.trim(),due_date:due.value,priority:p.value}});
-        notice.textContent='Task created in the shared Core/Research model.';await reload();
-      }catch(e){notice.textContent=e.message;}
-    }));return box;
   }
   function buildPulsar(){
     ai.append(node('h3','','Pulsar · Project assistant'));
@@ -401,6 +396,6 @@ export function renderProjectManagement(doc, projectId, cockpit, { go, refresh }
   const linkedId = new URLSearchParams(location.search).get('task');
   if(linkedId && /^\d+$/.test(linkedId)){
     const selected = tasks.find(t=>String(t.id)===linkedId);
-    if(selected){if(selected.can_edit)openEditor(selected);else notice.textContent='Task #' + linkedId + ' is read only.';}
+    if(selected){if(selected.can_edit || selected.workflow_state)openEditor(selected);else notice.textContent='Task #' + linkedId + ' is read only.';}
   }
 }
