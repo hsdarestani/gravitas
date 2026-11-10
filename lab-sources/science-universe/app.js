@@ -539,12 +539,15 @@ function drawChart(){
       if(i===0)ctx.moveTo(px,py);else ctx.lineTo(px,py);
     });ctx.stroke();
   });
-  text('plot-caption',{
-    published:'Cumulative publications. Acceptance is not independent proof.',
-    falsePublished:'False claims still published, based on hidden SYNTHETIC ground truth.',
-    reviewBacklog:'Manuscripts waiting for modelled peer review.'
-  }[plot]||metricInfo(plot)[1]);
-  if($('metric-select'))$('metric-select').value=plot;
+  const graphReading={
+     published:'Cumulative publications. Acceptance is not independent proof.',
+     falsePublished:'False claims still published, based on hidden SYNTHETIC ground truth.',
+     reviewBacklog:'Manuscripts waiting for modelled peer review.'
+   }[plot]||metricInfo(plot)[1];
+   const changed=Object.keys(E.DEFAULTS).filter(key=>worlds[0].policy[key]!==nowWorld().policy[key]);
+   text('plot-caption','Output: '+metricInfo(plot)[0]+' (model values by day). '+graphReading+
+     ' Inputs: twelve policy settings (1–10)'+(changed.length?'; '+changed.map(k=>policyDescriptions[k][0]).join(', ')+' differ from World A.':'.'));
+   if($('metric-select'))$('metric-select').value=plot;
   if(!$('outcome-data').hidden&&!readingSelection())renderDataTable();
 }
 function comparison(){
@@ -1332,6 +1335,21 @@ function bind(){
   document.querySelectorAll('[data-level-choice]').forEach(button=>button.addEventListener('click',()=>selectLevel(button.dataset.levelChoice)));
   $('focus-setting').addEventListener('input',event=>text('focus-setting-value',event.target.value+' / 10'));
   $('focus-run').addEventListener('click',runFocused);
+   $('focus-setting').addEventListener('change',()=>{if(level==='medium')runFocused();});
+   $('focus-ask').addEventListener('click',()=>{
+     const recipe=focusedRecipe(),a=focusedRuns?.a,b=focusedRuns?.b;
+     G.askPulsar?.('Explain the '+recipe.outcome.toLowerCase()+' chart in the Science Ecosystem model. '+
+       'Input: '+recipe.label+' A '+(a?.world.policy[recipe.key]??recipe.low)+'/10'+
+       (b?', B '+b.world.policy[recipe.key]+'/10':'')+
+       '. Output after 45 simulated days: A '+(a?.summary[recipe.metric]??'not run')+
+       (b?', B '+b.summary[recipe.metric]:'')+
+       '. What causes the pattern, and what is its limitation?');
+   });
+   $('advanced-ask').addEventListener('click',()=>{
+     G.askPulsar?.('Explain the '+metricInfo(plot)[0]+' chart for the current Science Ecosystem run. '+
+       'Current simulation day: '+nowWorld().day+'. Output: '+E.summary(nowWorld())[plot]+
+       '. Which model inputs influence it, how does the trend develop and what are the limitations?');
+   });
   $('guided-tour').addEventListener('click',()=>shellAction('tour'));
   $('fullscreen').addEventListener('click',()=>shellAction('fullscreen'));
   $('scientific-sources').addEventListener('click',()=>shellAction('sources'));
