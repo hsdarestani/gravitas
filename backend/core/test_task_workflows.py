@@ -62,6 +62,66 @@ class TaskWorkflowTests(TestCase):
             state = self.action(url, state, 'complete_step', step=step['id'])
         return state
 
+    def test_existing_task_can_adopt_workflow_without_losing_identity(self):
+        client = self.client_as(self.author)
+        response = client.post(self.project_tasks, {
+            'title': 'Legacy website video', 'description': 'Private reviewer upload',
+            'status': 'active',
+        }, content_type='application/json')
+        self.assertEqual(response.status_code, 201, response.content)
+        task_id = response.json()['task']['id']
+        url = f'{self.project_tasks}{task_id}/workflow/'
+        original = OperatingTask.objects.get(pk=task_id)
+        self.assertEqual(client.get(url).status_code, 404)
+
+        # A viewer can read a project task but cannot change its workflow.
+        denied = self.client_as(self.viewer).post(url, {
+            'action': 'install', 'workflow': {'template': 'video'},
+        }, content_type='application/json')
+        self.assertEqual(denied.status_code, 403, denied.content)
+        self.assertFalse(original.subtasks.exists())
+
+        installed = client.post(url, {
+            'action': 'install', 'workflow': {'template': 'video'},
+        }, content_type='application/json')
+        self.assertEqual(installed.status_code, 200, installed.content)
+        body = installed.json()['workflow']
+        self.assertEqual(body['template'], 'Video')
+        self.assertEqual(len(body['steps']), 6)
+        self.assertEqual([p['name'] for p in body['parts']], ['Music', 'Character', 'Content', 'Final cut'])
+        self.assertTrue(all(part['iterations'][0]['status'] == 'draft' for part in body['parts']))
+        self.assertFalse(body['final_approval'])
+        original.refresh_from_db()
+        self.assertEqual(original.title, 'Legacy website video')
+        self.assertEqual(original.description, 'Private reviewer upload')
+        self.assertEqual(original.status, WorkStatus.ACTIVE)
+        self.assertEqual(original.workflow_state, 'pending')
+        self.assertEqual(original.subtasks.count(), 6)
+
+        # A repeated or racing installation must never spawn duplicate steps.
+        repeated = client.post(url, {
+            'action': 'install', 'workflow': {'template': 'essay'},
+        }, content_type='application/json')
+        self.assertEqual(repeated.status_code, 409, repeated.content)
+        self.assertEqual(repeated.json()['error'], 'workflow_already_installed')
+        self.assertEqual(original.subtasks.count(), 6)
+        self.assertEqual(self.action(url, body, 'finalize', status=409), 'workflow_finish_steps')
+
+    def test_completed_legacy_task_cannot_attach_workflow(self):
+        client = self.client_as(self.author)
+        response = client.post(self.project_tasks, {
+            'title': 'Historical finished task', 'status': 'done',
+        }, content_type='application/json')
+        self.assertEqual(response.status_code, 201, response.content)
+        task_id = response.json()['task']['id']
+        url = f'{self.project_tasks}{task_id}/workflow/'
+        attempt = client.post(url, {
+            'action': 'install', 'workflow': {'template': 'video'},
+        }, content_type='application/json')
+        self.assertEqual(attempt.status_code, 400, attempt.content)
+        self.assertEqual(attempt.json()['error'], 'workflow_open_task_required')
+        self.assertFalse(OperatingTask.objects.get(pk=task_id).subtasks.exists())
+
     def test_project_video_iteration_and_final_approval(self):
         task, url = self.create_project_task()
         state = self.state(url)
