@@ -110,10 +110,13 @@ class TaskWorkflowTests(TestCase):
     def test_completed_legacy_task_cannot_attach_workflow(self):
         client = self.client_as(self.author)
         response = client.post(self.project_tasks, {
-            'title': 'Historical finished task', 'status': 'done',
+            'title': 'Historical finished task', 'status': 'active',
         }, content_type='application/json')
         self.assertEqual(response.status_code, 201, response.content)
         task_id = response.json()['task']['id']
+        # Creation intentionally forbids an already-done status. Model a
+        # previously completed legacy task without involving the QA writer.
+        OperatingTask.objects.filter(pk=task_id).update(status=WorkStatus.DONE)
         url = f'{self.project_tasks}{task_id}/workflow/'
         attempt = client.post(url, {
             'action': 'install', 'workflow': {'template': 'video'},
