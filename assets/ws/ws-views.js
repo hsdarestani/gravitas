@@ -14,6 +14,7 @@ import { uploadToolbar, mindmapToolbar, profileToolbar } from './ws-research-too
 import { deckPanel } from './ws-deck-sync.js?v=20261016-task1';
 import { renderTaskTimeline, taskDateFields } from './ws-task-timeline.js?v=20261016-task1&patch=20261102execution1';
 import { mountTaskWorkflow, taskOptions, workflowError, workflowPicker, workflowStatusOptions } from './ws-task-workflow.js?v=20261016-task1&patch=20261110qa1';
+import { downloadTaskCsv } from './ws-task-csv.js?v=20261111taskcsv1';
 
 const icon = (name) => window.GravitasIcons.icon(name, 'g-wi');
 
@@ -2350,7 +2351,7 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
     // until the member list arrives, so a reader who is not a member of this
     // workspace falls back to everyone rather than to an empty board.
     const requestedView = new URLSearchParams(location.search).get('ei_view');
-    let filters = { q: '', owner: null, priority: '', sort: 'manual', view: ['timeline', 'analysis'].includes(requestedView) ? requestedView : 'board' };
+    let filters = { q: '', owner: null, status: '', priority: '', sort: 'manual', view: ['timeline', 'analysis'].includes(requestedView) ? requestedView : 'board' };
     const executionState = {};
     let deepLinkedTaskOpened = false;
     let applyLocalMutation = null;
@@ -2405,6 +2406,7 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
       search.placeholder = 'Search tasks, owner, KR, milestone or project';
       search.setAttribute('aria-label', 'Search tasks');
       const ownerFilter = select([['', 'All owners'], ...(data.members || []).map((member) => [member.id, member.name || member.email])], filters.owner);
+      const statusFilter = select([['', 'All statuses'], ...(data.statuses || []).map((item) => [item.value, item.label])], filters.status);
       const priorityFilter = select([['', 'All priorities'], ...(data.priorities || []).map((item) => [item.value, item.label])], filters.priority);
       const sortFilter = select([
         ['manual', 'Manual order'],
@@ -2439,8 +2441,67 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
       }
       const count = el('span', 'v-toolbar__count');
       ownerFilter.setAttribute('aria-label', 'Filter by owner');
+      statusFilter.setAttribute('aria-label', 'Filter by status');
       priorityFilter.setAttribute('aria-label', 'Filter by priority');
-      toolbar.append(viewFilter, search, ownerFilter, priorityFilter, sortFilter, count);
+
+      // Keep the filter calculation shared by the board and the export.
+      // Exporting must respect today's current controls even if the search
+      // redraw is still waiting on its short typing debounce.
+      const readFilters = () => ({
+        q: search.value.trim(),
+        owner: ownerFilter.value,
+        status: statusFilter.value,
+        priority: priorityFilter.value,
+        sort: sortFilter.value,
+        view: viewFilter.value,
+      });
+      const filteredTasks = (current) => {
+        const pool = current.view === 'board' ? boardTasks : data.tasks;
+        const isIntelligence = ['timeline', 'analysis'].includes(current.view);
+        const query = current.q.toLowerCase();
+        const visible = pool.filter((task) => {
+          if (isIntelligence) return true;
+          if (current.owner && String(task.owner?.id) !== current.owner) return false;
+          if (current.status && task.status !== current.status) return false;
+          if (current.priority && task.priority !== current.priority) return false;
+          if (query && !taskSearchText(task).includes(query)) return false;
+          return true;
+        });
+        return { pool, visible };
+      };
+      const orderedTasks = (rows, sort) => [...rows].sort((a, b) => {
+        if (sort === 'due_asc' || sort === 'due_desc') {
+          const aMissing = !a.due_date;
+          const bMissing = !b.due_date;
+          if (aMissing !== bMissing) return aMissing ? 1 : -1;
+          const diff = String(a.due_date || '').localeCompare(String(b.due_date || ''));
+          if (diff) return sort === 'due_desc' ? -diff : diff;
+        } else if (sort === 'created_desc' || sort === 'created_asc') {
+          const diff = String(a.created_at || '').localeCompare(String(b.created_at || ''));
+          if (diff) return sort === 'created_desc' ? -diff : diff;
+        }
+        return (a.board_order || 0) - (b.board_order || 0) || a.id - b.id;
+      });
+      const exportButton = makeButton('Export CSV', () => {
+        const current = readFilters();
+        const { visible } = filteredTasks(current);
+        if (!visible.length) return;
+        let rows = visible;
+        if (current.view === 'board') {
+          const knownStatuses = new Set(STATUS_COLUMNS.map(([value]) => value));
+          rows = [
+            ...STATUS_COLUMNS.flatMap(([status]) => orderedTasks(visible.filter(task => task.status === status), current.sort)),
+            ...orderedTasks(visible.filter(task => !knownStatuses.has(task.status)), current.sort),
+          ];
+        } else if (current.view === 'week') {
+          rows = [...visible].sort((a, b) => String(a.due_date || '9999').localeCompare(String(b.due_date || '9999')) || a.id - b.id);
+        }
+        downloadTaskCsv(rows);
+      });
+      exportButton.classList.add('task-board__export');
+      exportButton.setAttribute('aria-label', 'Export currently filtered tasks as CSV');
+      exportButton.title = 'Download only the tasks matching the current filters';
+      toolbar.append(viewFilter, search, ownerFilter, statusFilter, priorityFilter, sortFilter, count, exportButton);
 
       /* Creating a task is the page's one primary action, so it sits in the
          page head beside the title, where every other workspace screen keeps
@@ -2487,27 +2548,14 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
       }
 
       const draw = () => {
-        filters = {
-          q: search.value.trim(),
-          owner: ownerFilter.value,
-          priority: priorityFilter.value,
-          sort: sortFilter.value,
-          view: viewFilter.value,
-        };
+        filters = readFilters();
         const intelligenceView = ['timeline', 'analysis'].includes(filters.view);
         boardStats.style.display = intelligenceView ? 'none' : '';
-        for (const control of [search, ownerFilter, priorityFilter, sortFilter, count]) control.style.display = intelligenceView ? 'none' : '';
+        for (const control of [search, ownerFilter, statusFilter, priorityFilter, sortFilter, count]) control.style.display = intelligenceView ? 'none' : '';
         if (deckDetails && intelligenceView) deckDetails.open = false;
-        const q = filters.q.toLowerCase();
-        const pool = filters.view === 'board' ? boardTasks : data.tasks;
-        const visible = pool.filter((task) => {
-          if (intelligenceView) return true;
-          if (filters.owner && String(task.owner?.id) !== filters.owner) return false;
-          if (filters.priority && task.priority !== filters.priority) return false;
-          if (q && !taskSearchText(task).includes(q)) return false;
-          return true;
-        });
+        const { pool, visible } = filteredTasks(filters);
         count.textContent = `${visible.length} of ${pool.length}`;
+        exportButton.disabled = visible.length === 0;
         board._execution?.destroy();
         board.innerHTML = '';
         holder.querySelector('.task-board-view-note')?.remove();
@@ -2598,20 +2646,7 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
         for (const [statusValue, statusLabel] of STATUS_COLUMNS) {
           const column = el('section', 'task-trello-column');
           column.dataset.status = statusValue;
-          const matches = visible.filter((task) => task.status === statusValue)
-            .sort((a, b) => {
-              if (filters.sort === 'due_asc' || filters.sort === 'due_desc') {
-                const aMissing = !a.due_date;
-                const bMissing = !b.due_date;
-                if (aMissing !== bMissing) return aMissing ? 1 : -1;
-                const diff = String(a.due_date || '').localeCompare(String(b.due_date || ''));
-                if (diff) return filters.sort === 'due_desc' ? -diff : diff;
-              } else if (filters.sort === 'created_desc' || filters.sort === 'created_asc') {
-                const diff = String(a.created_at || '').localeCompare(String(b.created_at || ''));
-                if (diff) return filters.sort === 'created_desc' ? -diff : diff;
-              }
-              return (a.board_order || 0) - (b.board_order || 0) || a.id - b.id;
-            });
+          const matches = orderedTasks(visible.filter((task) => task.status === statusValue), filters.sort);
           const head = el('div', 'task-trello-column__head');
           head.append(el('strong', null, statusLabel), el('span', 'v-column__count', String(matches.length)));
           const body = el('div', 'task-trello-column__body');
@@ -2665,6 +2700,7 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
         }, 120);
       });
       ownerFilter.addEventListener('change', draw);
+      statusFilter.addEventListener('change', draw);
       priorityFilter.addEventListener('change', draw);
       sortFilter.addEventListener('change', draw);
       viewFilter.addEventListener('change', draw);
