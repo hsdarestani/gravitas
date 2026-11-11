@@ -14,7 +14,7 @@ import { uploadToolbar, mindmapToolbar, profileToolbar } from './ws-research-too
 import { deckPanel } from './ws-deck-sync.js?v=20261016-task1';
 import { renderTaskTimeline, taskDateFields } from './ws-task-timeline.js?v=20261016-task1&patch=20261102execution1';
 import { mountTaskWorkflow, taskOptions, workflowError, workflowPicker, workflowStatusOptions } from './ws-task-workflow.js?v=20261016-task1&patch=20261110qa1';
-import { downloadTaskCsv } from './ws-task-csv.js?v=20261111taskcsv1';
+import { downloadTaskCsv } from './ws-task-csv.js?v=20261016-task1&patch=20261111taskcsv1';
 
 const icon = (name) => window.GravitasIcons.icon(name, 'g-wi');
 
