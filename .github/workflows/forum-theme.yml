@@ -1,0 +1,80 @@
+name: Deploy and verify the GraviQuest Forum theme
+
+on:
+  push:
+    branches: ['feat/discourse-*']
+    paths: ['discourse/theme/**', 'ops/discourse/**', '.github/workflows/forum-theme.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  theme:
+    if: github.repository == 'hsdarestani/gravitas' && (github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[deploy-forum-theme]'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    concurrency:
+      group: gravitas-production
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+      - name: Assemble theme and install browser dependencies
+        run: |
+          set -euo pipefail
+          ruby -c ops/discourse/deploy_theme.rb
+          python3 ops/discourse/assemble_theme.py "$GITHUB_WORKSPACE" "$RUNNER_TEMP/forum-theme/candidate"
+          npm install --prefix "$RUNNER_TEMP/forum-browser" --no-audit --no-fund playwright@1.65.0
+          "$RUNNER_TEMP/forum-browser/node_modules/.bin/playwright" install --with-deps chromium webkit
+      - name: Apply theme and verify the public thread on three browsers
+        env:
+          SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          SSH_HOST: ${{ secrets.DEPLOY_HOST }}
+          SSH_USER: ${{ secrets.DEPLOY_USER }}
+          SSH_PORT: ${{ secrets.DEPLOY_PORT }}
+        run: |
+          set -Eeuo pipefail
+          test -n "$SSH_KEY" && test -n "$SSH_HOST"
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/forum-theme
+          chmod 600 ~/.ssh/forum-theme
+          PORT="${SSH_PORT:-22}"
+          LOGIN="${SSH_USER:-deploy}"
+          ssh-keyscan -p "$PORT" -H "$SSH_HOST" >> ~/.ssh/known_hosts
+          OPTS=(-i ~/.ssh/forum-theme -p "$PORT" -o BatchMode=yes -o ConnectTimeout=10)
+          if ! ssh "${OPTS[@]}" "$LOGIN@$SSH_HOST" true; then LOGIN=root; fi
+          TARGET="$LOGIN@$SSH_HOST"
+          RELEASE="theme-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          REMOTE="/tmp/graviquest-$RELEASE"
+          SHARED="/var/discourse/shared/graviquest/graviquest-integration/$RELEASE"
+          CONTAINER="/shared/graviquest-integration/$RELEASE"
+          cp ops/discourse/deploy_theme.rb "$RUNNER_TEMP/forum-theme/"
+          tar -C "$RUNNER_TEMP/forum-theme" -czf "$RUNNER_TEMP/forum-theme.tgz" candidate deploy_theme.rb
+          ssh "${OPTS[@]}" "$TARGET" "umask 077 && mkdir '$REMOTE'"
+          scp -i ~/.ssh/forum-theme -P "$PORT" "$RUNNER_TEMP/forum-theme.tgz" "$TARGET:$REMOTE/source.tgz"
+          ssh "${OPTS[@]}" "$TARGET" "sudo install -d -m 700 '$SHARED' &&
+            sudo tar -xzf '$REMOTE/source.tgz' -C '$SHARED' &&
+            sudo chown -R 1000:1000 '$SHARED' &&
+            rm '$REMOTE/source.tgz' && rmdir '$REMOTE'"
+          run_theme() {
+            ssh "${OPTS[@]}" "$TARGET" "sudo docker exec -u discourse -w /var/www/discourse               -e GQ_THEME_RELEASE='$CONTAINER' -e GQ_THEME_MODE='$1'               graviquest bundle exec rails runner '$CONTAINER/deploy_theme.rb'"
+          }
+          rollback() {
+            status=$?
+            if [ "$status" -ne 0 ]; then
+              echo 'Theme acceptance failed. Restoring the previous theme.'
+              run_theme rollback
+            fi
+          }
+          trap rollback EXIT
+          run_theme apply
+          export PLAYWRIGHT_MODULE="$RUNNER_TEMP/forum-browser/node_modules/playwright/index.mjs"
+          export GQ_BROWSER_OUTPUT="$RUNNER_TEMP/forum-theme-screenshots"
+          node ops/discourse/thread-browser.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: public-thread-design
+          path: ${{ runner.temp }}/forum-theme-screenshots
+          if-no-files-found: ignore
+          retention-days: 14
