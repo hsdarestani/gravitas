@@ -9,7 +9,8 @@ from .operating_models import OperatingTask, OperatingTaskWorkflow, WorkflowStat
 from .platform_access import can_comment, can_edit, can_view
 from .task_consolidation import canonical_id
 from .task_workflows import (
-    MAX_ITEMS, MAX_TEXT, TEMPLATES, WorkflowRequestError, complete_task, finalize, steps_for, update_part,
+    MAX_ITEMS, MAX_TEXT, TEMPLATES, WorkflowRequestError, complete_task, finalize, install_workflow, steps_for,
+    update_part, workflow_plan,
 )
 
 
@@ -68,7 +69,7 @@ def task_workflow(request, task_id, project_id=None):
             return workflow_error(WorkflowRequestError('core_workspace_required', 403))
         queryset = queryset.filter(workspace=workspace)
 
-    task = queryset.exclude(workflow_state=WorkflowState.NONE).filter(pk=task_id).first()
+    task = queryset.filter(pk=task_id).first()
     user = request.user
     if not task or not can_view(user, task) or (project_id is not None and not can_view(user, task.project)):
         return workflow_error(WorkflowRequestError('task_not_found', 404))
@@ -76,17 +77,51 @@ def task_workflow(request, task_id, project_id=None):
         can_edit(user, task.project) if project_id is not None else base._editable(request, task.workspace)
     )
     comment = can_comment(user, task)
+    payload = None
+    if write:
+        try:
+            payload = json.loads(request.body)
+        except (TypeError, ValueError, UnicodeDecodeError):
+            payload = None
+        if not isinstance(payload, dict):
+            return workflow_error(WorkflowRequestError('invalid_payload'))
+
+    # Older tasks predate Workflow & QA. Attach a template to the original
+    # record instead of duplicating a task and losing history/attachments.
+    # The parent row is locked for POST: simultaneous attach attempts cannot
+    # create duplicate steps, and failed validation rolls back all writes.
+    if task.workflow_state == WorkflowState.NONE:
+        if not write or payload.get('action') != 'install':
+            return workflow_error(WorkflowRequestError('task_not_found', 404))
+        if not edit:
+            return workflow_error(WorkflowRequestError('permission_denied', 403))
+        if canonical_id(task.pk) != task.pk:
+            return workflow_error(WorkflowRequestError('task_consolidated_read_only', 409))
+        if (task.status in (WorkStatus.DONE, WorkStatus.ARCHIVED)
+                or task.parent_id is not None or task.workflow_position is not None):
+            return workflow_error(WorkflowRequestError('workflow_open_task_required'))
+        if OperatingTaskWorkflow.objects.filter(task=task).exists():
+            return workflow_error(WorkflowRequestError('workflow_already_installed', 409))
+        try:
+            plan = workflow_plan(
+                {'status': task.status, 'workflow': payload.get('workflow')},
+                user, f'legacy-task:{task.pk}',
+            )
+            if plan is None:
+                raise WorkflowRequestError('workflow_invalid_template')
+            install_workflow(task, plan)
+        except WorkflowRequestError as error:
+            return workflow_error(error)
+        task.refresh_from_db(fields=['workflow_state'])
+        workflow = OperatingTaskWorkflow.objects.get(task=task)
+        return _serialize(task, workflow, list(steps_for(task)), user, edit, comment)
+
+    if write and payload.get('action') == 'install':
+        return workflow_error(WorkflowRequestError('workflow_already_installed', 409))
     workflow = OperatingTaskWorkflow.objects.get(task=task)
     steps = list(steps_for(task))
     if not write:
         return _serialize(task, workflow, steps, user, edit, comment)
-
-    try:
-        payload = json.loads(request.body)
-    except (TypeError, ValueError, UnicodeDecodeError):
-        payload = None
-    if not isinstance(payload, dict):
-        return workflow_error(WorkflowRequestError('invalid_payload'))
     try:
         _apply(task, workflow, steps, user, edit, comment, payload)
     except WorkflowRequestError as error:

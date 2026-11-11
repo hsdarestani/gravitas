@@ -461,6 +461,9 @@ export const operatingTaskCreationStatus = (parentId, requestId) => call(
 );
 export const operatingTaskPreview = (id) => call(`/operating/task-board/${id}/?mode=preview`);
 export const operatingTaskCard = (id) => call(`/operating/task-board/${id}/`);
+export const installOperatingTaskWorkflow = (id, workflow) => call(`/operating/tasks/${id}/workflow/`, {
+  method: 'POST', body: { action: 'install', workflow },
+});
 export const updateOperatingTaskCard = async (id, body) => {
   const data = await call(`/operating/task-board/${id}/`, { method: 'PATCH', body });
   if (!data.task || Number(data.task.id) !== Number(id) || !data.task.updated_at) {

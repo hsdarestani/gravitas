@@ -1180,6 +1180,45 @@ export function renderCoreTasks(host, { go, openTaskId = null, onTaskChange = nu
       advancedActions.append(el('summary', null, 'Advanced actions'));
       const advancedActionItems = el('div', 'task-card-dialog__advanced-action-items');
       advancedActionItems.append(refTask);
+      if (!task.workflow_state && task.workflow_position == null
+          && !task.parent_id && !['done', 'archived'].includes(task.status) && detailData.can_edit) {
+        const attach = makeButton('Attach workflow', () => {
+          // This is an explicit opt-in for legacy tasks. Do not recreate the
+          // task: attachments, comments, deadlines and historical IDs remain.
+          const setup = makeDialog('Attach workflow');
+          const modal = setup.dialog;
+          const modalBody = setup.body;
+          const intro = el('p', 'fl-muted', 'Add execution steps and independent QA to this existing task. Its content, comments and history will stay intact.');
+          const kind = select([
+            ['video', 'Video'],
+            ['development', 'Development'],
+            ['essay', 'Essay'],
+          ], 'video');
+          kind.setAttribute('aria-label', 'Workflow template');
+          const note = el('p', 'fl-muted', 'New QA checklists start unchecked. Nothing will be approved automatically.');
+          const action = makeButton('Attach to task', async () => {
+            action.disabled = true;
+            action.textContent = 'Attaching…';
+            try {
+              await P.installOperatingTaskWorkflow(task.id, { template: kind.value });
+              closeDialog(modal);
+              closeDialog(dialog);
+              // Opening the existing task fetches the just-installed workflow.
+              await openTaskDialog(task.id, () => P.operatingTaskDependencies(), reloadBoard);
+              void Promise.resolve().then(() => reloadBoard?.({ keepDialog: true }))
+                .catch(error => console.warn('Could not refresh task board', error));
+            } catch (error) {
+              action.disabled = false;
+              action.textContent = 'Attach to task';
+              errorText.textContent = workflowError(error);
+            }
+          });
+          const errorText = el('p', 'fl-muted');
+          modalBody.append(intro, kind, note, action, errorText);
+          kind.focus();
+        });
+        advancedActionItems.append(attach);
+      }
       advancedActions.append(advancedActionItems);
       moreItems.append(advancedActions);
       // A project task is the SAME OperatingTask in Core and Research.
