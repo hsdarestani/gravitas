@@ -1,7 +1,17 @@
 /* Public conversations are anonymous Discourse reads through Django. We never
    copy the redesign's fixtures or make a local vote look persisted. Reading
    private rooms and every write use Discourse's own authenticated application.
-   Render only the changing feed: controls, focus and drafts survive refreshes. */
+   Render only the changing feed: controls, focus and drafts survive refreshes.
+
+   Three things here are presentation, not data, and each answers a fault on
+   the first live page. A Discourse title can carry an emoji shortcode
+   (":wave:"), which Discourse draws as a picture and a plain feed prints as
+   punctuation, so shortcodes are dropped from titles. Official threads are
+   posted by Discourse's "system" account, which has no picture and read as a
+   member called SY; it is shown as GraviQuest with the site's own mark. And a
+   room named "Topic 01 · AI in Research" is drawn the way the design's room
+   pill was, a mono number before the name, with rooms that hold no public
+   thread left out of the row, since choosing one shows an empty list. */
 (function () {
   'use strict';
   var configJob;
@@ -28,10 +38,13 @@
     return parsed.href;
   }
   function count(value) { return Number.isInteger(value) && value >= 0 ? String(value) : '—'; }
+  function title(value) { return String(value || '').replace(/:[a-z0-9_+-]+:/g, '').replace(/\s{2,}/g, ' ').trim(); }
+  function official(p) { return p && p.username === 'system'; }
+  function nameOf(p) { return official(p) ? 'GraviQuest' : (p.name || p.username); }
   function tableRow(t) {
     var li = el('li'), a = link('', forumURL(t.url), 'fm-row');
     var main = el('span', 'fm-row__main');
-    main.append(el('span', 'fm-room', t.category), el('span', 'fm-row__title', t.title));
+    main.append(el('span', 'fm-room', t.category), el('span', 'fm-row__title', title(t.title)));
     if (t.tags && t.tags.length) {
       var tags = el('span', 'fm-row__tags');
       t.tags.forEach(function (tag) { tags.append(el('span', 'g-tag', tag)); }); main.append(tags);
@@ -39,15 +52,15 @@
     var who = el('span', 'fm-c-who'), people = el('span', 'fm-who');
     (t.participants || []).forEach(function (p) {
       var avatar;
-      if (p.avatar_url) {
-        avatar = el('img', 'avatar fm-av'); avatar.src = forumURL(p.avatar_url);
+      if (official(p) || p.avatar_url) {
+        avatar = el('img', 'avatar fm-av'); avatar.src = official(p) ? '/assets/favicon.svg' : forumURL(p.avatar_url);
         avatar.alt = ''; avatar.width = 28; avatar.height = 28; avatar.loading = 'lazy';
         avatar.addEventListener('error', function () { avatar.replaceWith(initials(p)); }, {once:true});
       } else avatar = initials(p);
-      avatar.title = p.name || p.username; people.append(avatar);
+      avatar.title = nameOf(p); people.append(avatar);
     });
     who.append(people);
-    if (people.children.length) who.append(el('span', 'g-visually-hidden', (t.participants || []).map(function (p) { return p.name || p.username; }).join(', ')));
+    if (people.children.length) who.append(el('span', 'g-visually-hidden', (t.participants || []).map(nameOf).join(', ')));
     var replies = el('span', 'fm-c-n', count(t.reply_count)), views = el('span', 'fm-c-n fm-c-views', count(t.view_count));
     replies.append(el('span', 'g-visually-hidden', ' replies')); views.append(el('span', 'g-visually-hidden', ' views'));
     var activity = el('time', 'fm-c-n fm-c-age', '—'), date = new Date(t.last_posted_at || 'invalid');
@@ -61,7 +74,7 @@
   }
   function initials(p) {
     var avatar = el('span', 'avatar fm-av', Array.from(p.name || p.username || '?').slice(0, 2).join('').toUpperCase());
-    avatar.title = p.name || p.username; return avatar;
+    avatar.title = nameOf(p); return avatar;
   }
   function row(t, layout) {
     if (layout === 'table') return tableRow(t);
@@ -72,7 +85,7 @@
     var body = el('div', 'rd-thread__main'), tags = el('div', 'rd-thread__top');
     tags.append(el('span', 'rd-tag', t.category));
     (t.tags || []).forEach(function (tag) { tags.append(el('span', 'rd-tag', tag)); });
-    var heading = el('h3'); heading.append(link(t.title, forumURL(t.url)));
+    var heading = el('h3'); heading.append(link(title(t.title), forumURL(t.url)));
     body.append(tags, heading);
     if (t.excerpt) body.append(el('p', '', t.excerpt));
     var foot = el('div', 'rd-thread__foot', count(t.reply_count) + (t.reply_count === 1 ? ' reply' : ' replies'));
@@ -112,7 +125,10 @@
       rooms.replaceChildren();
       if (layout !== 'table') rooms.append(el('h2', '', 'Rooms'));
       [{id:0, name:layout === 'table' ? 'All' : 'All rooms'}].concat(categories).forEach(function (c) {
-        var b = el('button', layout === 'table' ? 'chip fm-step' : 'rd-room', c.name); b.type = 'button';
+        if (c.id && !c.topic_count && c.id !== category) return;
+        var numbered = layout === 'table' && /^Topic\s+(\d+)\s+\S\s+(.+)$/.exec(c.name);
+        var b = el('button', layout === 'table' ? 'chip fm-step' : 'rd-room', numbered ? '' : c.name); b.type = 'button';
+        if (numbered) { b.append(el('span', '', numbered[1]), numbered[2]); b.setAttribute('aria-label', c.name); }
         b.dataset.categoryId = c.id;
         b.setAttribute('aria-pressed', String(category === c.id));
         if (c.parent_category_id) b.classList.add('gq-subroom');
@@ -204,7 +220,7 @@
       function load() {
         json('/api/forum/discussions/' + encodeURIComponent(key) + '/').then(function (data) {
           host.replaceChildren(); var topic = data.discussion;
-          host.append(link(topic.title, forumURL(topic.url), 'gq-discussion-title'));
+          host.append(link(title(topic.title), forumURL(topic.url), 'gq-discussion-title'));
           if (data.polls && data.polls.length) {
             var poll = data.polls[0], total = Number(poll.voters || 0);
             (poll.options || []).forEach(function (option) {
@@ -219,7 +235,7 @@
             host.append(link('Vote in the Forum', forumURL(topic.url), 'g-btn g-btn--secondary g-btn--sm'));
           } else {
             (data.posts || []).slice(1, 4).forEach(function (p) {
-              var article = el('article'); article.append(el('b', '', p.username), el('p', '', p.text.length > 400 ? p.text.slice(0,400) + '…' : p.text)); host.append(article);
+              var article = el('article'); article.append(el('b', '', nameOf(p)), el('p', '', p.text.length > 400 ? p.text.slice(0,400) + '…' : p.text)); host.append(article);
             });
             host.append(link('Read and reply in the Forum', forumURL(topic.url), 'g-btn g-btn--secondary g-btn--sm'));
           }

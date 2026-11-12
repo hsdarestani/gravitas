@@ -241,3 +241,307 @@ input,textarea,.select-kit .select-kit-header{background:var(--g-bg);border:1px 
     .gq-thread-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   }
 }
+
+/* ---- Fixes after the first port (2026-11-12) -------------------------------
+   Plain CSS on purpose: every rule here was tried against the live forum by
+   injecting this block into the page, which a nested Sass rule would not
+   allow. Each one answers a fault seen on the public pages.
+
+   Two stray hairlines crossed every page. The closed composer is a fixed,
+   zero-height box at the bottom of the window and still drew its top border;
+   the empty user and group cards drew theirs as a 2px rule under the page. */
+#reply-control.closed{border-top:0;box-shadow:none}
+#user-card:not(.show),#group-card:not(.show){border:0;background:none}
+
+/* A category is a mono accent label, as .fm-room is; the coloured square is
+   Discourse's. A tag is the site's g-tag pill, not a second blue link. */
+.badge-category.--style-square::before,.badge-category__wrapper .badge-category::before{display:none}
+.badge-category__wrapper .badge-category__name{font-family:"DM Mono",monospace;letter-spacing:.04em;color:var(--g-accent)}
+.discourse-tags{display:inline-flex;flex-wrap:wrap;gap:.35rem;align-items:center}
+.discourse-tags .discourse-tag,.discourse-tags .discourse-tag.simple{display:inline-flex;align-items:center;padding:.15rem .6rem;border:1px solid var(--g-border);border-radius:99px;font-size:.75rem;line-height:1.5;color:var(--g-text-muted)!important;background:none}
+.discourse-tags .discourse-tag:hover{color:var(--g-text)!important;border-color:var(--g-text-subtle)}
+.discourse-tags .discourse-tag::before,.discourse-tags .discourse-tag::after{content:none}
+
+/* The list. The rooms above it already are the category filter, so the native
+   category and tag drop-downs under them said the same thing twice. Latest,
+   Hot and Categories take the room pill's look: outlined in the accent when
+   chosen, never a filled blue tab. */
+.navigation-container .category-breadcrumb{display:none}
+.navigation-container{margin-block:1rem 1.5rem}
+#navigation-bar.nav-pills>li>a,#navigation-bar.nav-pills>li>a.active{display:inline-flex;align-items:center;min-height:40px;padding:.45rem .8rem;border:1px solid var(--g-hairline);border-radius:99px;background:none;color:var(--g-text-muted);font-size:.875rem;font-weight:500}
+#navigation-bar.nav-pills>li>a:hover{border-color:var(--g-text-subtle);color:var(--g-text);background:none}
+#navigation-bar.nav-pills>li>a.active{border-color:var(--g-accent);background:var(--g-surface-raised);color:var(--g-text)}
+#navigation-bar.nav-pills>li>a.active::after,#navigation-bar.nav-pills>li>a::after{display:none}
+.gq-room-links{scrollbar-width:none;margin-bottom:0}
+.gq-room-links::-webkit-scrollbar{display:none}
+.gq-forum-heading{margin-bottom:1rem}
+.topic-list .topic-list-data.posters{width:7rem}
+.topic-list thead th{font-weight:400;color:var(--g-text-subtle);border-bottom:1px solid var(--g-hairline)}
+.topic-list .topic-statuses .d-icon{color:var(--g-text-subtle)}
+
+/* The panels under the list fill their row whether the poll is there or not,
+   and the poll reads as the site's own choices: no bullets, no grey slabs. */
+.gq-community-sidebar{grid-template-columns:repeat(auto-fit,minmax(16rem,1fr))}
+.gq-community-poll .poll ul,.gq-community-poll .poll ol{list-style:none;margin:0;padding:0}
+.gq-community-poll .poll li{display:flex;align-items:center;margin:0 0 .5rem;padding:0;background:none;color:var(--g-text-muted)}
+.gq-community-poll .poll li button,.gq-community-poll .poll li .btn{display:flex;align-items:center;justify-content:flex-start;gap:.6rem;width:100%;min-height:44px;padding:.6rem .8rem;border:1px solid var(--g-hairline);border-radius:.6rem;background:none;color:var(--g-text-muted);font-weight:500;text-align:left;white-space:normal}
+.gq-community-poll .poll li button:hover{border-color:var(--g-text-subtle);color:var(--g-text);background:none}
+.gq-community-poll .poll li button .d-icon{color:var(--g-text-subtle);flex:none}
+.gq-community-poll .poll .poll-info,.gq-community-poll .poll .poll-info_counts{font:.8125rem "DM Mono",monospace;color:var(--g-text-subtle)}
+.powered-by-discourse{border:0;margin-top:2rem;font-size:.75rem;color:var(--g-text-subtle);opacity:.7}
+
+/* A thread. */
+.archetype-regular #topic-title .topic-category{display:flex;flex-wrap:wrap;align-items:center;gap:.5rem .75rem;margin-top:.6rem}
+.archetype-regular #topic-title .topic-category .badge-category__wrapper{font-size:.8125rem}
+.archetype-regular .gq-thread-byline .relative-date{margin-left:.15em}
+.archetype-regular .gq-thread-byline .relative-date::before{content:"· "}
+/* Who wrote it: the name in the text colour and semibold, as .fm-post__who b. */
+.archetype-regular .topic-post .names .first a,.archetype-regular .topic-post .names .second a{color:var(--g-text);font-weight:600;font-size:.875rem}
+.archetype-regular .topic-post .names .svg-icon-title .d-icon{color:var(--g-text-subtle)}
+.archetype-regular .topic-post .read-state{display:none}
+/* Like and Reply sit under the words, on the left, where the design had them. */
+.archetype-regular .container.posts:has(.gq-thread-rail) .topic-post nav.post-controls{justify-content:flex-start;margin-left:-.6rem}
+.archetype-regular .container.posts:has(.gq-thread-rail) .topic-post nav.post-controls .actions{margin-left:0;justify-content:flex-start}
+.archetype-regular .container.posts:has(.gq-thread-rail) .topic-post nav.post-controls .btn{color:var(--g-text-muted)}
+.archetype-regular .container.posts:has(.gq-thread-rail) .topic-post nav.post-controls .btn:hover{color:var(--g-text);background:var(--g-surface)}
+/* With nothing but a view count in it, the topic map was an empty box saying
+   what the facts beside the post already say. */
+.archetype-regular .container.posts:has(.gq-thread-rail) .topic-map:has(.topic-map__stats.--single-stat){display:none}
+/* Answer Back: the reply control in the post column, as the design's closing
+   callout, rather than a button hanging off the column's right edge. */
+html body.archetype-regular #topic-footer-buttons{box-sizing:border-box;display:flex;flex-direction:row;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:1rem;width:100%;max-width:44rem;margin:1.5rem 0 0;padding:1.25rem 1.5rem;border:1px solid var(--g-hairline);border-radius:12px;background:var(--g-surface)}
+.archetype-regular #topic-footer-buttons::before{content:"Answer back. A moderator reads every post before it appears.";flex:1 1 14rem;font-size:.875rem;line-height:1.6;color:var(--g-text-muted)}
+html body.archetype-regular #topic-footer-buttons .topic-footer-main-buttons{margin:0;flex:none;flex-wrap:wrap;gap:.5rem}
+.archetype-regular #topic-footer-buttons+br{display:none}
+/* More in the Forum: the list's own rows, inside the page's measure. */
+.archetype-regular .more-topics__container{max-width:100%;margin-top:4rem}
+.archetype-regular .more-topics__list-title{margin:0 0 1rem;font-size:1.5rem;font-weight:600;letter-spacing:-.02em}
+.archetype-regular .more-topics__browse-more{margin-top:1.5rem;font-size:.875rem;font-weight:400;color:var(--g-text-muted)}
+.archetype-regular .more-topics__browse-more .badge-category__wrapper{font-size:.8125rem;vertical-align:baseline}
+
+/* Phones. The facts take the full width; Discourse's own "1 / 1" jump box,
+   which sat on top of them, goes back to being a small control on its own
+   line. Rows lose the 48px poster and the italic reply badge. */
+.mobile-view.mobile-view .archetype-regular .container.posts:has(.gq-thread-rail) .topic-navigation{display:block}
+.mobile-view .archetype-regular .gq-thread-rail{width:100%}
+.mobile-view .archetype-regular #topic-progress-wrapper{position:static;display:flex;justify-content:flex-end;margin:.75rem 0 0;width:auto}
+.mobile-view .archetype-regular #topic-progress{min-width:0;border:1px solid var(--g-hairline);border-radius:99px;background:none;box-shadow:none}
+.mobile-view .archetype-regular #topic-progress .nums{font:400 .8125rem "DM Mono",monospace;color:var(--g-text-muted)}
+.mobile-view .archetype-regular #topic-progress .bg{display:none}
+.mobile-view .topic-list .topic-list-item .pull-left{display:none}
+.mobile-view .topic-list .topic-item-metadata.right{margin-left:0;width:100%}
+.mobile-view .topic-list .badge-posts{font:.875rem "DM Mono",monospace;font-style:normal;font-weight:400;color:var(--g-text-muted)}
+.mobile-view .topic-list .badge-posts .number{font-size:.875rem;font-style:normal;font-weight:400}
+.mobile-view .topic-list .num.activity{font:.8125rem "DM Mono",monospace;color:var(--g-text-subtle)}
+.mobile-view .archetype-regular #topic-footer-buttons{padding:1rem}
+.mobile-view .archetype-regular #topic-footer-buttons .btn{font-size:.875rem;min-height:44px}
+.mobile-view .archetype-regular .more-topics__list-title{font-size:1.25rem;padding:0}
+.mobile-view .archetype-regular .more-topics__browse-more{padding:0}
+
+/* ---- The brand ramp (2026-11-12) -------------------------------------------
+   Discourse builds every grey it uses (borders, quote boxes, default buttons,
+   badges, menu headers, sidebar rows) by mixing its "primary" and "secondary"
+   colours. With White Tint over the deep ground that mix came out brown,
+   rgb(60 54 44), and the brown was on every screen that opened from a thread.
+   These are brand.html's own tokens, flattened onto the ground where
+   Discourse needs an opaque colour, so the forum's greys are the site's.
+
+     hairline   tint 16% over the ground   #22313a
+     border     tint 30%                   #404a4f
+     strong     tint 55%                   #757877
+     subtle     --g-text-subtle            #9aa8ac
+     muted      --g-text-muted (Sisal)     #d4c9be
+
+   Doubled :root so it outranks the colour scheme's own :root block whatever
+   order the two stylesheets load in. */
+:root:root{
+ --g-bg:#00141f;--g-surface:#00263a;--g-surface-raised:#003049;--g-surface-hover:#013a58;--g-surface-sunken:#00101a;
+ --g-text:#f1efec;--g-text-muted:#d4c9be;--g-text-subtle:#9aa8ac;--g-accent:#7fb6dc;
+ --g-hairline:rgb(212 201 190 / .16);--g-border:rgb(212 201 190 / .30);--g-border-strong:rgb(212 201 190 / .55);--g-focus:#f1efec;
+ --g-shadow:0 18px 40px -24px rgb(3 3 3 / .85);--g-glow-md:0 10px 28px -14px rgb(0 0 0 / .70);
+
+ --primary-very-low:#00263a;--primary-50:#00263a;--primary-very-low-rgb:0, 38, 58;
+ --primary-100:#003049;
+ --primary-low:#22313a;--primary-200:#22313a;--primary-low-rgb:34, 49, 58;
+ --primary-300:#404a4f;
+ --primary-low-mid:#757877;--primary-400:#757877;--primary-or-primary-low-mid:#757877;
+ --primary-500:#9aa8ac;--primary-medium:#9aa8ac;--primary-600:#9aa8ac;
+ --primary-700:#b7b8b5;
+ --primary-high:#d4c9be;--primary-800:#d4c9be;
+ --primary-very-high:#e6e0d9;--primary-900:#e6e0d9;
+ --blend-primary-secondary-5:#00263a;
+ --content-border-color:#22313a;
+ --title-color--read:#d4c9be;
+ --love:#d4c9be;--love-low:#003049;
+ --highlight:#003049;--highlight-bg:#00263a;--highlight-low:#00263a;--highlight-medium:#003049;--highlight-high:#013a58;
+ --mention-background-color:#003049;
+ --inline-code-bg:#00101a;
+ --d-font-family--monospace:"DM Mono",ui-monospace,Menlo,Consolas,monospace;
+ --d-hover:#013a58;--d-selected:#003049;
+
+ --d-button-default-bg-color:transparent;--d-button-default-bg-color--hover:rgb(212 201 190 / .08);
+ --d-button-default-text-color:#f1efec;--d-button-default-text-color--hover:#f1efec;
+ --d-button-default-icon-color:#d4c9be;--d-button-default-icon-color--hover:#f1efec;
+ --d-button-default-border:1px solid rgb(212 201 190 / .55);--d-button-default-border--hover:1px solid #7fb6dc;
+ --d-button-primary-bg-color:#d4c9be;--d-button-primary-bg-color--hover:#f1efec;
+ --d-button-primary-text-color:#00141f;--d-button-primary-text-color--hover:#00141f;
+ --d-button-primary-icon-color:#00141f;--d-button-primary-icon-color--hover:#00141f;
+ --d-button-flat-icon-color:#9aa8ac;--d-button-flat-bg-color--hover:#00263a;--d-button-flat-bg-color--focus:#00263a;
+ --d-button-flat-close-icon-color:#d4c9be;--d-button-flat-close-text-color:#d4c9be;
+ --d-button-transparent-icon-color:#d4c9be;--d-button-transparent-icon-color--hover:#f1efec;--d-button-transparent-text-color--hover:#f1efec;
+ --d-post-control-icon-color:#9aa8ac;--d-post-control-text-color:#9aa8ac;--d-post-control-background--hover:#00263a;
+ --d-post-control-create-icon-color:#d4c9be;--d-post-control-create-text-color:#d4c9be;
+ --d-post-aside-background:#00263a;--d-post-aside-border-left:0;
+
+ --d-input-bg-color:#00101a;--d-input-border:1px solid rgb(212 201 190 / .30);--d-input-border-radius:6px;--d-input-focused-color:#7fb6dc;
+ --d-input-bg-color--disabled:#00263a;--d-input-border--disabled:1px solid rgb(212 201 190 / .16);--d-input-text-color--disabled:#9aa8ac;
+
+ --d-header-icon-color:#d4c9be;--d-header-icon-color--hover:#f1efec;--d-header-icon-background--hover:rgb(212 201 190 / .08);--d-header-icon-background--active:rgb(212 201 190 / .12);
+ --d-sidebar-background:#00141f;--d-sidebar-border-color:#22313a;--d-sidebar-section-border-color:#22313a;
+ --d-sidebar-link-color:#d4c9be;--d-sidebar-link-icon-color:#9aa8ac;--d-sidebar-header-color:#9aa8ac;--d-sidebar-header-icon-color:#9aa8ac;
+ --d-sidebar-highlight-background:rgb(212 201 190 / .08);--d-sidebar-highlight-hover-background:rgb(212 201 190 / .08);--d-sidebar-highlight-color:#f1efec;
+ --d-sidebar-active-background:#003049;--d-sidebar-active-color:#f1efec;--d-sidebar-active-icon-color:#7fb6dc;
+ --d-sidebar-prefix-background:#22313a;--d-sidebar-highlight-prefix-background:#22313a;--d-sidebar-active-prefix-background:#22313a;
+
+ --d-tag-border-radius:999px;
+ --shadow-card:0 18px 40px -24px rgb(3 3 3 / .85),0 1px 2px rgb(0 0 0 / .3);
+ --shadow-dropdown:0 18px 40px -24px rgb(3 3 3 / .85),0 1px 2px rgb(0 0 0 / .3);
+ --shadow-menu-panel:0 18px 40px -24px rgb(3 3 3 / .85),0 1px 2px rgb(0 0 0 / .3);
+ --shadow-modal:0 24px 60px -20px rgb(3 3 3 / .9);
+ --shadow-header:0 0 0 1px rgb(212 201 190 / .16);
+ --hover-shadow:none;
+}
+/* The focus ring is White Tint in brand.html, not the accent. */
+:focus-visible{outline:2px solid var(--g-focus);outline-offset:3px}
+
+/* Inputs: brand.html's .g-input. */
+input[type=text],input[type=search],input[type=email],input[type=password],input[type=url],input[type=number],textarea{background:var(--g-surface-sunken);border:1px solid var(--g-border);border-radius:6px;color:var(--g-text)}
+input[type=text]:hover,input[type=search]:hover,textarea:hover{border-color:var(--g-border-strong)}
+input[type=text]:focus,input[type=search]:focus,input[type=email]:focus,input[type=password]:focus,textarea:focus{outline:none;border-color:var(--g-accent);box-shadow:0 0 0 3px rgb(212 201 190 / .22)}
+input[type=checkbox],input[type=radio]{accent-color:var(--g-accent)}
+::placeholder{color:var(--g-text-subtle)}
+
+/* Buttons: .g-btn. Sisal for the one primary action, an outline for the rest,
+   the same lift on hover. */
+.btn{font-weight:600;letter-spacing:.01em}
+.btn-primary:not(.btn-flat),.btn-default:not(.btn-flat){transition:transform 220ms cubic-bezier(.16,1,.3,1),box-shadow 220ms cubic-bezier(.16,1,.3,1),background-color 220ms,border-color 220ms}
+.btn-primary:not(.btn-flat):hover,.btn-default:not(.btn-flat):hover{transform:translateY(-2px);box-shadow:var(--g-glow-md)}
+.btn-primary:not(.btn-flat):active,.btn-default:not(.btn-flat):active{transform:none;box-shadow:none}
+@media(prefers-reduced-motion:reduce){.btn-primary:not(.btn-flat):hover,.btn-default:not(.btn-flat):hover{transform:none}}
+
+/* Header. The site has one solid account control, Workspace; Log In beside it
+   is the secondary outline, so the two pills stop competing. The icons take
+   the header's own muted ink. */
+.d-header .login-button,.d-header .login-button:visited{background:transparent;color:var(--g-text);border:1px solid var(--g-border-strong)}
+.d-header .login-button .d-icon{color:var(--g-text-muted)}
+.d-header .login-button:hover,.d-header .login-button:focus-visible,.d-header .login-button.active{background:rgb(212 201 190 / .08);border-color:var(--g-accent);color:var(--g-text)}
+.d-header .sign-up-button{background:var(--g-solid-bg,#d4c9be);color:#00141f}
+
+/* Cards, menus and pop-ups: one surface, the brand's card. */
+.user-card,.group-card,.menu-panel,.search-menu .search-menu-container,.fk-d-menu,.fk-d-tooltip__content,.popup-menu,.select-kit .select-kit-body,.autocomplete,.d-modal__container{background:var(--g-surface-raised);border:1px solid var(--g-hairline);border-radius:12px;box-shadow:var(--shadow-card);color:var(--g-text)}
+.fk-d-menu .fk-d-menu__inner-content,.fk-d-tooltip__inner-content{background:transparent}
+.d-modal__container{border-radius:20px}
+.d-modal__header{border-bottom:1px solid var(--g-hairline)}
+.d-modal__header .d-modal__title-text,.d-modal__title-text{font-weight:600;letter-spacing:-.014em}
+.d-modal__backdrop,.modal-backdrop{background:rgb(0 10 16 / .72)}
+.d-modal__footer{border-top:1px solid var(--g-hairline)}
+
+/* User card: the 128px avatar hung half outside the card and over the name. */
+.user-card .card-content{padding:1.25rem;background:none}
+.user-card .first-row{align-items:center;gap:1rem}
+.user-card .user-card-avatar{margin-top:0!important}
+.user-card .user-card-avatar,.user-card .card-huge-avatar,.user-card .card-huge-avatar img,.user-card .user-card-avatar img{width:4rem!important;height:4rem!important;position:static!important;top:auto!important}
+.user-card .names{padding-left:0!important}
+.user-card .names__primary{font-size:1.25rem;font-weight:600;letter-spacing:-.014em}
+.user-card .metadata{font-size:.8125rem;color:var(--g-text-subtle)}
+.user-card .metadata span,.user-card .metadata .desc{color:var(--g-text-subtle)}
+.user-card .metadata .relative-date,.user-card .metadata strong{color:var(--g-text-muted);font-weight:500}
+.user-card .card-row+.card-row{margin-top:.75rem}
+.mobile-view .user-card{max-width:calc(100vw - 2rem);margin-inline:1rem}
+
+/* Badges, tags and kbd keys: the site's pill and key. */
+.user-badge,.user-card-badge-link .user-badge{background:transparent;border:1px solid var(--g-border);border-radius:999px;color:var(--g-text-muted);padding:.15rem .6rem;font-size:.8125rem;font-weight:500}
+kbd{font-family:"DM Mono",monospace;font-size:.8em;color:var(--g-text);background:var(--g-surface-raised);border:1px solid var(--g-border);border-bottom-width:2px;border-radius:6px;box-shadow:none;padding:.15em .4em}
+
+/* Keyboard shortcuts: section heads were brown slabs. */
+.keyboard-shortcuts-modal .shortcut-category,.keyboard-shortcuts-modal .keyboard-shortcuts-help__container section{border:1px solid var(--g-hairline);border-radius:12px;background:transparent;overflow:hidden}
+.keyboard-shortcuts-modal h4,.keyboard-shortcuts-modal .shortcut-category h4{background:transparent;border-bottom:1px solid var(--g-hairline);font:500 .75rem "DM Mono",monospace;letter-spacing:.1em;text-transform:uppercase;color:var(--g-text-subtle)}
+.keyboard-shortcuts-modal li,.keyboard-shortcuts-modal .shortcut-category li{border-color:var(--g-hairline);color:var(--g-text-muted)}
+
+/* What members write. A quote is a quiet card, not a grey slab with a bar
+   down its left edge (no coloured edge stripes anywhere on GraviQuest). */
+.cooked blockquote,.cooked aside.quote .title+blockquote,.cooked aside.onebox{background:var(--g-surface);border:1px solid var(--g-hairline);border-left:1px solid var(--g-hairline);border-radius:12px;padding:1rem 1.25rem;margin:1rem 0;color:var(--g-text-muted)}
+.cooked aside.quote .title{background:transparent;border:0;border-left:0;padding:0 0 .4rem;font:500 .8125rem var(--font-family);color:var(--g-text-subtle)}
+.cooked aside.quote>blockquote{border-radius:0 0 12px 12px}
+.cooked blockquote h1,.cooked blockquote h2,.cooked blockquote h3,.cooked h1,.cooked h2,.cooked h3,.cooked h4{font-family:var(--font-family);color:var(--g-text);letter-spacing:-.014em}
+.cooked blockquote>:first-child{margin-top:0}.cooked blockquote>:last-child{margin-bottom:0}
+.cooked ul li::marker,.cooked ol li::marker{color:var(--g-accent)}
+.cooked a:not(.mention):not(.hashtag-cooked){color:var(--g-text);text-decoration:underline;text-decoration-color:var(--g-accent);text-underline-offset:.15em}
+.cooked a:not(.mention):not(.hashtag-cooked):hover{color:var(--g-accent)}
+.cooked :not(pre)>code{background:var(--g-surface-sunken);border:1px solid var(--g-hairline);border-radius:6px;padding:.1em .35em}
+.cooked pre code{background:var(--g-surface-sunken);border:1px solid var(--g-hairline);border-radius:12px}
+.cooked hr{border:0;border-top:1px solid var(--g-hairline)}
+.cooked .mention,.cooked .hashtag-cooked{background:var(--g-surface-raised);color:var(--g-text);border-radius:999px;padding:.05em .45em}
+
+/* Post header: the edit-history marker and the name. */
+.topic-post .post-info.edits .widget-button,.topic-post .post-info.edits button{color:var(--g-text-subtle)}
+.topic-post .post-info.edits .d-icon{color:var(--g-text-subtle)}
+.topic-post .names .first a,.topic-post .names .second a,.topic-post .names .first,.topic-post .names span a{color:var(--g-text)}
+
+/* The copy-link check mark slides in beside the button and pushed the row
+   wider than the post, which showed a scrollbar under every post. */
+.topic-post nav.post-controls{overflow:visible}
+.topic-post nav.post-controls .actions{overflow:visible}
+
+/* Menus. Every room shares the brand's dark blue, which made Discourse's
+   coloured room squares invisible; they go, and the names do the work. */
+.sidebar-section-link-prefix.square,.sidebar-section-link-prefix.span,.sidebar-section-link-prefix .prefix-span,.sidebar-section-link-prefix .prefix-square{display:none}
+.menu-panel .sidebar-section-link{border-radius:8px;color:var(--g-text-muted)}
+.menu-panel .sidebar-section-link:hover{background:rgb(212 201 190 / .08);color:var(--g-text)}
+.menu-panel .sidebar-section-header-text,.sidebar-section-header-text{font:500 .75rem "DM Mono",monospace;letter-spacing:.1em;text-transform:uppercase;color:var(--g-text-subtle)}
+.menu-panel hr,.menu-panel .sidebar-section+.sidebar-section{border-color:var(--g-hairline)}
+.menu-panel .sidebar-footer-wrapper,.menu-panel .sidebar-footer-container{background:transparent;border-top:1px solid var(--g-hairline)}
+.mobile-view .menu-panel.drop-down,.mobile-view .menu-panel.slide-in{border-radius:0 20px 20px 0}
+
+/* Search. The quick results take the menu rows' look; the empty results box
+   on the full search page is hidden until it has something in it. */
+.search-menu .results .search-link,.search-menu .search-result-topic a{border-radius:8px}
+.search-menu .results .search-link:hover,.search-menu .results .search-link:focus{background:rgb(212 201 190 / .08)}
+.search-menu .search-input{background:var(--g-surface-sunken);border:1px solid var(--g-border);border-radius:999px}
+.search-menu .search-input:focus-within{border-color:var(--g-accent);box-shadow:0 0 0 3px rgb(212 201 190 / .22)}
+.search-menu .search-input input,.search-menu .search-input input:focus{background:transparent;border:0;box-shadow:none}
+.search-container .search-header{background:transparent}
+.search-container .search-advanced:not(:has(.fps-result,h3,.search-advanced-options,.no-results-container)),.search-container .search-results:empty,.search-container .search-results:not(:has(*)),.search-container .search-results:has(> .loading-container:empty),.search-container .search-info:empty,.search-container .search-notice:empty{display:none}
+.search-container .search-advanced-options{background:var(--g-surface);border:1px solid var(--g-hairline);border-radius:12px}
+.search-highlight{color:var(--g-text);font-weight:600}
+
+/* Share and the views chart. */
+.share-topic-modal .link-share-container input,.share-and-invite .link-share-container input{background:var(--g-surface-sunken);border:1px solid var(--g-border);border-radius:6px;color:var(--g-text)}
+.share-topic-modal .link-share-actions .btn,.share-and-invite .link-share-actions .btn{border:1px solid var(--g-border-strong);background:transparent}
+.share-topic-modal .d-modal__title .post-date,.share-topic-modal .relative-date{font:400 .8125rem "DM Mono",monospace;color:var(--g-text-subtle)}
+.topic-map__views-content,.topic-views__container{color:var(--g-text-muted)}
+
+/* Composer, for members. */
+#reply-control{background:var(--g-surface);border-top:1px solid var(--g-border)}
+#reply-control .reply-area,#reply-control .composer-fields{background:transparent}
+#reply-control .d-editor-button-bar{border-color:var(--g-hairline);background:transparent}
+#reply-control .d-editor-preview-wrapper{border-left:1px solid var(--g-hairline)}
+#reply-control .d-editor-preview{font-family:Literata,Georgia,serif}
+
+/* Notices and empty states. */
+.alert,.alert-info{background:var(--g-surface);border:1px solid var(--g-hairline);border-radius:12px;color:var(--g-text-muted)}
+.alert-error{border-color:var(--danger)}
+
+/* User page (opened from any name): the site's surfaces, not the default. */
+.user-main .about,.user-main .about .details,.user-main .about .secondary,.user-main .staff-counters{background:var(--g-surface);border-color:var(--g-hairline)}
+.user-main .about .primary .user-profile-avatar img{border-radius:50%}
+.user-main .user-navigation .nav-pills>li>a,.user-nav .nav-pills>li>a{border-radius:999px}
+.user-content .stats-section .user-stat,.top-sub-section{border-color:var(--g-hairline)}
+
+/* Official threads are posted by Discourse's system account, whose picture is
+   the Discourse logo sketch. It is drawn as the GraviQuest mark instead, the
+   same mark forum.html shows for it: the original image is pushed out of its
+   box and the mark painted behind, which works in every engine where
+   content:url() on an <img> does not. Uploading the mark as the system
+   account's avatar in Discourse makes this rule a no-op. */
+img.avatar[src*="discourse-logo-sketch"],img.avatar[src*="/user_avatar/forum.graviquest.com/system/"],img[src*="/images/discourse-logo-sketch"]{object-position:-9999px 0;background:#003049 url("data:image/svg+xml,%3Csvg%20id%3D%22Layer_1%22%20data-name%3D%22Layer%201%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20540%20540%22%3E%3Cdefs%3E%3Cstyle%3E%20.cls-1%20%7B%20fill%3A%20%23fff%3B%20%7D%20.cls-2%20%7B%20fill%3A%20%23003049%3B%20%7D%20%3C%2Fstyle%3E%3C%2Fdefs%3E%3Ccircle%20class%3D%22cls-2%22%20cx%3D%22270%22%20cy%3D%22270%22%20r%3D%22270%22%2F%3E%3Cg%3E%3Cpath%20class%3D%22cls-1%22%20d%3D%22M241.35%2C405h54.54c0-60.26%2C48.84-109.11%2C109.11-109.11v-54.54c-90.37%2C0-163.65%2C73.28-163.65%2C163.65Z%22%2F%3E%3Cpath%20class%3D%22cls-1%22%20d%3D%22M298.65%2C135h-54.54c0%2C60.26-48.84%2C109.11-109.11%2C109.11v54.54c90.37%2C0%2C163.65-73.28%2C163.65-163.65Z%22%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E") center/100% no-repeat;border-radius:50%}
