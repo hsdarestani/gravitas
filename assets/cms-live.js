@@ -21,7 +21,9 @@
       items.forEach(function(item,index){
         var topic=item.topic_data||{};
         var parts=[];
-        if((topic.video||{}).duration)parts.push((topic.video||{}).duration+' video');
+        var videos=Array.isArray(topic.videos)?topic.videos:[];
+        if(videos.length>1)parts.push(videos.length+' videos');
+        else if((topic.video||{}).duration)parts.push((topic.video||{}).duration+' video');
         if((topic.essay||{}).overview_html|| (topic.essay||{}).indepth_html||topic.essay_source==='publication')parts.push('Essay');
         if((topic.timeline||[]).length)parts.push('Timeline');
         if((topic.sources||[]).length)parts.push('Sources');

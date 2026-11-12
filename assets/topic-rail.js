@@ -172,6 +172,19 @@
     });
     var card = panel.querySelector('[data-set-poster]');
     if (card && link.hasAttribute('data-poster')) setPoster(card, link.getAttribute('data-poster'));
+    /* Chapters belong to one video, so they follow the choice, and a video
+       without any shows none rather than the previous one's. */
+    var chapters = panel.querySelector('.trail__chap');
+    if (chapters && link.hasAttribute('data-chapters')) {
+      var names = [];
+      try { names = JSON.parse(link.getAttribute('data-chapters')) || []; } catch (err) { names = []; }
+      chapters.replaceChildren.apply(chapters, names.map(function (name) {
+        var row = document.createElement('li');
+        row.textContent = name;
+        return row;
+      }));
+      chapters.hidden = !names.length;
+    }
   }
 
   rail.addEventListener('click', function (e) {

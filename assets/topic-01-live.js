@@ -198,6 +198,11 @@
       return '<li><b>' + esc(line.speaker) + '</b><span>' + esc(line.text) + '</span></li>';
     }).join(''));
     if (transcriptNode && !transcript.length) transcriptNode.closest('details').hidden = true;
+    /* The cast, stills and transcript are the first video's. With more than
+       one video, the transcript says whose it is. */
+    if (transcriptNode && list.length > 1 && list[0].title) {
+      transcriptNode.closest('details').querySelector('summary').textContent = 'Read the transcript of ' + list[0].title;
+    }
 
     fill('sources-intro', esc(data.sources_intro));
     fill('sources', sourceLevels(data));
@@ -251,14 +256,22 @@
     var landing = data.landing || {};
     var list = videos(data);
     var first = list[0] || {};
-    side(node, item.title, landing.video_say);
-    node.querySelector('.trail__chap').innerHTML = (landing.chapters || []).map(function (name) { return '<li>' + esc(name) + '</li>'; }).join('');
+    /* With one video the panel speaks for the Topic. With several, the panel
+       is about the video chosen in its list, so it opens on the first one's
+       own title and the home-page wording written for it. */
+    var several = list.length > 1;
+    var say = landing.video_say || first.description || '';
+    side(node, several ? first.title || item.title : item.title, say);
+    var chapters = node.querySelector('.trail__chap');
+    chapters.innerHTML = (landing.chapters || []).map(function (name) { return '<li>' + esc(name) + '</li>'; }).join('');
+    chapters.hidden = !chapters.children.length;
     var card = node.querySelector('.trail__video');
     card.insertAdjacentHTML('afterbegin', poster(first));
     if (safeUrl(first.poster_url)) card.classList.add('has-thumb');
     card.setAttribute('aria-label', (first.title || item.title) + ': chapters and full transcript on the Topic page');
-    node.querySelector('[data-set-meta]').innerHTML = (landing.video_runtime ? '<span class="g-nums">' + esc(landing.video_runtime) + '</span> &middot; ' : '') + esc(landing.video_status);
-    if (list.length < 2) return;
+    var tag = node.querySelector('[data-set-meta]');
+    tag.innerHTML = (landing.video_runtime ? '<span class="g-nums">' + esc(landing.video_runtime) + '</span> &middot; ' : '') + esc(landing.video_status);
+    if (!several) return;
     var set = document.createElement('ol');
     set.className = 'trail__set';
     set.setAttribute('aria-label', 'Videos in this Topic');
@@ -266,10 +279,13 @@
       var row = document.createElement('li');
       var link = document.createElement('a');
       link.href = PAGE + '#video-' + (index + 1);
-      link.dataset.title = video.title || '';
-      link.dataset.say = video.description || '';
-      link.dataset.meta = video.duration || '';
+      /* The first row restores exactly what the panel opened with. A video
+         without a runtime or a public source says "Soon", which is true. */
+      link.dataset.title = video.title || item.title;
+      link.dataset.say = index ? video.description || '' : say;
+      link.dataset.meta = index ? (video.duration ? video.duration + ' · ' : '') + (video.source_type === 'youtube' ? 'On YouTube' : 'Soon') : tag.textContent;
       link.dataset.poster = safeUrl(video.poster_url);
+      link.dataset.chapters = JSON.stringify(index ? video.chapters || [] : landing.chapters || []);
       if (!index) link.setAttribute('aria-current', 'true');
       link.innerHTML = '<span class="trail__set-n">' + String(index + 1).padStart(2, '0') + '</span><span class="trail__set-t">' + esc(video.title) + '</span>';
       row.append(link);

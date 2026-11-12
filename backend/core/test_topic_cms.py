@@ -26,6 +26,13 @@ class TopicCmsTests(TestCase):
         slugs = [row['slug'] for row in self.client.get('/api/content/?kind=topic').json()['items']]
         self.assertEqual(slugs, [self.topic.slug])
 
+    def test_topic_01_carries_its_video_and_a_labelled_placeholder(self):
+        videos = self.topic.topic_data['videos']
+        self.assertEqual([video['title'] for video in videos],
+                         ['The Answer That Looked Right', 'Placeholder: the second video'])
+        self.assertEqual(videos[1]['source_type'], 'none')
+        self.assertEqual(self.topic.topic_data['video']['title'], videos[0]['title'])
+
     def test_every_seeded_picture_is_served_by_the_backend(self):
         data = self.topic.topic_data
         urls = [data['videos'][0]['poster_url'], data['timeline_figure']['image_url']]
