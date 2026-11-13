@@ -50,26 +50,29 @@ CHECKPOINT="$(sudo python3 - <<'PY'
 import json
 from pathlib import Path
 base=Path('/var/backups/gravitas-canonical')
-good=[]
+complete=[]
 for p in base.iterdir():
     if not p.is_dir() or p.is_symlink():
         continue
     try:
         m=json.loads((p/'manifest.json').read_text())
-        r=json.loads((p/'rehearsal.json').read_text())
-        if m.get('state')=='complete' and r.get('state')=='passed' and r.get('database_fingerprints_match'):
-            good.append((p.stat().st_mtime, str(p)))
+        if m.get('schema')==1 and m.get('state')=='complete':
+            complete.append((p.stat().st_mtime, str(p)))
     except (OSError, ValueError, TypeError):
-        pass
-if good:
-    print(sorted(good)[-1][1])
+        continue
+if complete:
+    print(sorted(complete)[-1][1])
 PY
 )"
 test -n "$CHECKPOINT" || {
-  echo "::error::No complete native checkpoint with successful restore rehearsal."
+  echo "::error::No complete native checkpoint to restore-rehearse. Publication refused."
   exit 1
 }
+# Do not trust a previous rehearsal marker: verify content and rehearse an
+# isolated restore NOW against the selected matching production snapshot.
 sudo python3 "$FRONT/ops/canonical_checkpoint.py" verify --checkpoint "$CHECKPOINT"
+sudo python3 "$FRONT/ops/canonical_checkpoint.py" rehearse --checkpoint "$CHECKPOINT" --apply
+sudo test -f "$CHECKPOINT/rehearsal.json"
 echo "RESTORABLE_NATIVE_CHECKPOINT_VERIFIED"
 
 # Targeted Lab-only snapshot is stored outside canonical backup pruning.
