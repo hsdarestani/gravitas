@@ -158,7 +158,7 @@ export function renderLibrary(host, ctx) {
   const doc = docShell(
     host,
     'Library',
-    'What you kept from the public site, including anything you saved before this account existed.',
+    'Everything you kept from the public site, including what you saved before you joined.',
   );
 
   const holder = el('div');
@@ -203,7 +203,7 @@ export function renderLibrary(host, ctx) {
     if (!saved.length && !following.length && !paths.length) {
       holder.append(empty(
         'Nothing kept yet',
-        'The bookmark on any topic, dossier, essay, learning path or interactive on the public site lands here. ' +
+        'Tap the bookmark on any Topic, essay, Learning Path or Lab on the public site and it lands here. ' +
         'It works without an account too — this is where it arrives once you have one.',
       ));
       const browse = el('a', 'ws-btn ws-btn--solid', 'Open the public archive');
@@ -221,7 +221,7 @@ export function renderLibrary(host, ctx) {
     if (following.length) {
       const box = panel(`Following · ${following.length}`);
       box.body.append(el('p', 'ws-doc__meta',
-        'Topics you asked for more of. New dossiers and essays under them are what the GraviQuest newsletter leads with.'));
+        'Topics you asked for more of. New Topics and essays under them are what the GraviQuest newsletter leads with.'));
       for (const item of following) box.body.append(followRow(item, draw));
       holder.append(box);
     }

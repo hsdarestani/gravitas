@@ -161,7 +161,7 @@ export async function renderMemberProgress(host, { go }) {
     );
     const topicItems = data.topic_progress?.items || [];
     if (!topicItems.length) {
-      topics.body.append(emptyLine('No topic progress yet. Open a Topic and interact with its published components.'));
+      topics.body.append(emptyLine('No Topic progress yet. Open a Topic and watch, vote or join the discussion; each one counts here.'));
     } else {
       const rows = [];
       for (const item of topicItems) {
@@ -226,7 +226,7 @@ export async function renderMemberProgress(host, { go }) {
     }
 
     if (data.research?.access) {
-      const research = dashboardCard('Research participation', 'Project-level access stays authoritative.', 6);
+      const research = dashboardCard('Research participation', 'The research projects you own or have joined.', 6);
       const projects = data.research?.recent || [];
       if (!projects.length) {
         research.body.append(emptyLine('No research projects yet. Projects you join will appear here.'));

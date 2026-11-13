@@ -112,7 +112,7 @@ export function renderKmsOverview(host, ctx) {
     focus.append(el('h2', 'v-next__title',
       `${queue.length} ${queue.length === 1 ? 'card is' : 'cards are'} due`));
     focus.append(el('p', 'v-next__body',
-      'About a minute each. Reviewing them now is worth more than reading anything new today, because these are the ones that are about to go.'));
+      'About a minute each. These are the ones starting to drift away, so a quick look now will hold them in place.'));
     const start = el('button', 'ws-btn ws-btn--solid', 'Start the review');
     start.type = 'button';
     start.addEventListener('click', () => ctx.go('/workspace/kms/recall'));
@@ -130,7 +130,7 @@ export function renderKmsOverview(host, ctx) {
     focus.append(el('p', 'v-next__kicker', 'Clear'));
     focus.append(el('h2', 'v-next__title', 'Nothing due, nothing queued'));
     focus.append(el('p', 'v-next__body',
-      'Add something you have been meaning to read, or start a path. An empty knowledge workspace is a fine state to be in for a day and a bad one to be in for a month.'));
+      'Add something you have been meaning to read, or start a path. A quiet day is fine; we’ll be here when something catches your interest.'));
     const add = el('button', 'ws-btn ws-btn--solid', 'Add a source');
     add.type = 'button';
     add.addEventListener('click', () => ctx.go('/workspace/kms/sources'));
@@ -162,7 +162,7 @@ export function renderKmsOverview(host, ctx) {
     if (queued.length > 3) {
       const warn = el('p', 'v-note');
       warn.dataset.tone = 'warn';
-      warn.textContent = `${queued.length} sources are queued and unopened. A queue this long is a decision being avoided, not a reading list: park the ones you are not going to read.`;
+      warn.textContent = `${queued.length} sources are waiting, unopened. It might be time to set aside the ones that no longer pull at you.`;
       shelf.body.append(warn);
     }
   } else {
@@ -223,7 +223,7 @@ export function renderKmsPaths(host, ctx) {
   const doc = docShell(
     host,
     'Learning Paths',
-    'A path is a curriculum with an aim you could be tested on. It is the only screen here that plans; everything else executes.',
+    'A path gives your learning a direction: an aim you could be tested on, and the steps that get you there.',
   );
 
   const bar = el('div', 'v-toolbar');
@@ -394,7 +394,7 @@ export function renderKmsPath(host, id, ctx) {
     if (progress.done === progress.total && progress.total) {
       const finished = el('p', 'v-note');
       finished.dataset.tone = 'ok';
-      finished.textContent = 'Every step is done. The path has told you what it can; the level in Skills now depends on whether the cards hold.';
+      finished.textContent = 'Every step is done, well done. From here, your level in Skills grows as the cards hold.';
       holder.append(finished);
     }
   };
@@ -414,7 +414,7 @@ export function renderKmsSources(host, ctx) {
   const doc = docShell(
     host,
     'Sources',
-    'Things to read, each with the question it was opened for. A source with no question is a source you will skim.',
+    'Things to read, each with the question that drew you to it. A question gives your reading something to land on.',
   );
 
   const bar = el('div', 'v-toolbar');
@@ -625,7 +625,7 @@ export function renderKmsBase(host, ctx) {
   }).catch(() => {
     if (!body.isConnected) return;
     status.textContent = 'Unavailable';
-    body.append(notice('Knowledge base unavailable', 'The account-backed note service did not answer. No sample notes were substituted.', true));
+    body.append(notice('Knowledge base unavailable', 'Your notes didn’t load this time. Nothing was changed; reload to try again.', true));
   });
 }
 
@@ -644,7 +644,7 @@ function notice(title, detail, bad = false) {
    ========================================================================== */
 
 export function renderKmsRecall(host, ctx) {
-  const doc = docShell(host, 'Recall & Review', 'Account-backed spaced review. Every grade changes the real review schedule and is available on your other devices.');
+  const doc = docShell(host, 'Recall & Review', 'Meet each card again just before it slips away. Every answer reshapes your schedule, on every device you use.');
   const body = el('div');
   doc.append(body);
   body.append(notice('Loading review queue', 'Reading your saved recall schedule…'));
@@ -707,7 +707,7 @@ export function renderKmsRecall(host, ctx) {
   }).catch(() => {
     if (!body.isConnected) return;
     body.innerHTML = '';
-    body.append(notice('Review queue unavailable', 'Your saved KMS state could not be loaded. No demo cards were substituted.', true));
+    body.append(notice('Review queue unavailable', 'Your review cards didn’t load this time. Nothing was changed; reload to try again.', true));
   });
 }
 
@@ -723,7 +723,7 @@ export function renderKmsSkills(host, ctx) {
   const doc = docShell(
     host,
     'Skills',
-    'What the reading and the rehearsing add up to. Levels are computed from cards held and path steps finished, never typed in.',
+    'What your reading and rehearsing add up to. Levels grow from the cards you hold and the path steps you finish.',
   );
 
   const list = el('div', 'v-grid');

@@ -52,7 +52,7 @@ def snapshot():
         ('essay', 'The Essays', 'The essays of this Topic.'),
         # The order is the page's. The exercise left the page on 2026-11-12;
         # its record stays, but Pulsar should not send a reader to it.
-        ('timeline', 'How the Question Developed', _plain(_join(_rows(data, 'timeline'), 'date', 'title', 'description', 'why'))),
+        ('timeline', 'How the Question Gathered Weight', _plain(_join(_rows(data, 'timeline'), 'date', 'title', 'description', 'why'))),
         ('views', 'Viewpoints', ' '.join([
             str(data.get('viewpoints_intro') or ''), _join(_rows(views, 'items'), 'label', 'text', 'cite'),
             _join(polls, 'question'),

@@ -281,7 +281,7 @@ function overviewView(doc, cockpit, { go, projectId, refresh } = {}) {
 }
 
 function milestonesView(doc, milestones) {
-  const box = section('Milestones', 'Project milestones share the canonical Core operating plan and remain actionable inside Research.');
+  const box = section('Milestones', 'The milestones this project is working towards, kept in step with the team’s plan.');
   if (!milestones.length) box.body.append(empty('No milestones linked', 'Create a milestone here or link one from Core planning.'));
   for (const item of milestones) {
     box.body.append(row({
@@ -310,7 +310,7 @@ function tasksView(doc, cockpit, context) {
   doc.append(box.box);
 
   const requests = section('Research requests', 'Requests handed into this project from content or Core execution.');
-  if (!cockpit.research_requests.length) requests.body.append(empty('No research requests', 'Cross-layer requests linked to this project appear here.'));
+  if (!cockpit.research_requests.length) requests.body.append(empty('No research requests', 'When someone asks this project for research help, the request lands here.'));
   for (const item of cockpit.research_requests) requests.body.append(row({
     title: item.title,
     meta: P.meta([label(item.status), label(item.priority), item.due_date ? `Due ${date(item.due_date)}` : '']),
@@ -408,7 +408,7 @@ function filesView(doc, cockpit) {
   }
   doc.append(structure.box);
 
-  const box = section('Files & Data Room', 'Project files are backed by Nextcloud and remain inside the project ACL.');
+  const box = section('Files & Data Room', 'Files for this project, stored in your Nextcloud and shared only with its members.');
   if (!items.length) box.body.append(empty('No files yet', 'Files attached to this project appear here.'));
   items.forEach((item) => box.body.append(resourceRow(item)));
   doc.append(box.box);
@@ -442,9 +442,9 @@ function select(options, value) {
 }
 
 function discussionView(doc, projectId, messages, project, rerender) {
-  const box = section('Private discussion', 'Messages inherit this project’s ACL. They are not public-site comments.');
+  const box = section('Private discussion', 'Only this project’s members can read these messages. Nothing here reaches the public site.');
   const roots = messages.filter((item) => !item.parent_id);
-  if (!roots.length) box.body.append(empty('No discussion yet', 'Start a project-scoped thread for decisions and questions that belong with the research.'));
+  if (!roots.length) box.body.append(empty('No discussion yet', 'Start a thread for the decisions and questions that belong with this research.'));
 
   const byParent = new Map();
   for (const message of messages) {
@@ -560,7 +560,7 @@ function experimentsView(doc, projectId, experiments, cockpit, rerender) {
 }
 
 function activityView(doc, cockpit) {
-  const box = section('Project activity', 'Audit and knowledge events scoped to this project.');
+  const box = section('Project activity', 'Everything that has happened on this project, newest first.');
   if (!cockpit.activity.length) box.body.append(empty('No activity yet', 'Project changes and knowledge activity appear here.'));
   for (const item of cockpit.activity) {
     const detail = item.detail || {};

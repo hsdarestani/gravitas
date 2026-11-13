@@ -439,7 +439,7 @@ function passwordPanel() {
   const form = el('form', 'v-form');
 
   const current = field({ label: 'Current password', type: 'password', autocomplete: 'current-password' });
-  const next = field({ label: 'New password', type: 'password', autocomplete: 'new-password', help: 'At least eight characters, and not one of the common ones.' });
+  const next = field({ label: 'New password', type: 'password', autocomplete: 'new-password', help: 'At least ten characters, and not one of the common ones.' });
   const again = field({ label: 'Repeat the new password', type: 'password', autocomplete: 'new-password' });
 
   const save = el('button', 'ws-btn ws-btn--solid', 'Change password');

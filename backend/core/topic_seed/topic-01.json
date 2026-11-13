@@ -46,7 +46,7 @@
   },
   "essays": [],
   "essay": {},
-  "sources_intro": "Pick the level you want to enter at, and move up when you feel like it. Every link resolves.",
+  "sources_intro": "Start wherever feels comfortable, and climb when you’re ready. Every link holds.",
   "sources": [
    {
     "level": "start",
@@ -217,7 +217,7 @@
     {
      "id": "where-do-you-land",
      "question": "Where do you land?",
-     "note": "Make your case in the discussion below.",
+     "note": "Tell us why in the discussion below.",
      "options": [
       {
        "id": "check-every-answer-that-leaves-the-lab",
@@ -249,7 +249,7 @@
      "label": "Trust a track record, and audit a sample"
     }
    ],
-   "poll_note": "Make your case in the discussion below."
+   "poll_note": "Tell us why in the discussion below."
   },
   "cast": [
    {
@@ -796,7 +796,7 @@
   },
   "discussion": {
    "question": "If an assistant has been right ninety-nine times in a row, what should make you check the hundredth?",
-   "corrections": "None yet. Anything we get wrong is logged here, with what changed and when."
+   "corrections": "Nothing yet. If you catch something we got wrong, it’s logged here with what changed and when, and our thanks."
   },
   "next": [
    {
@@ -869,13 +869,13 @@
    },
    "essays_intro": "Two essays on how to check AI-generated research.",
    "sources_title": "Three levels, every link checked",
-   "sources_say": "Enter at the level you want, and move up when you feel like it. Nine sources, every DOI resolved.",
+   "sources_say": "Start wherever feels comfortable, and climb when you’re ready. Nine sources, every DOI checked.",
    "timeline_title": "Fifty years of checking",
    "timeline_say": "From a principle in 1973 to a Nobel Prize in 2024, and the citations that looked right in between.",
    "viewpoints_title": "Two readings, both defensible",
    "viewpoints_say": "We publish the strongest case against our own reading. If the objection is weak, that is our failure, and you can say so.",
    "discussion_title": "This week’s question",
-   "discussion_say": "Replies are read by a moderator before they appear. Reading needs no account."
+   "discussion_say": "Read along without an account. A moderator reads each reply before it appears."
   }
  }
 }

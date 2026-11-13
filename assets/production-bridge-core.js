@@ -219,7 +219,7 @@
           '</div>';
         setNote(form, data.newsletter_pending
           ? 'Your account and newsletter both need email confirmation.'
-          : 'Your account is ready once you confirm your email.');
+          : 'Almost there. Confirm your email and your account is ready.');
       });
     } else if (isLogin) {
       setNote(form, 'Signing in…');
@@ -230,7 +230,7 @@
       }).then(function (data) {
         try { localStorage.removeItem(PENDING_EMAIL); } catch (err) {}
         markAccount(data.user && data.user.email);
-        setNote(form, 'Signed in. Opening your workspace…');
+        setNote(form, 'Welcome back. Opening your workspace…');
         return adoptReaderLibrary().then(function (adopted) {
           if (adopted) setNote(form, 'Signed in. Your saved items came with you — opening your library…');
           window.setTimeout(function () {
@@ -264,7 +264,7 @@
       var field = form.querySelector('textarea');
       var body = field && field.value.trim();
       if (!body) {
-        setNote(form, 'Write something first.');
+        setNote(form, 'Add a few words first.');
         if (field) field.focus();
         setBusy(form, false);
         return;
@@ -277,7 +277,7 @@
       job = apiPost('/api/community/comments/' + encodeURIComponent(commentKey) + '/', {
         body: body
       }).then(function () {
-        setNote(form, 'Posted. A moderator reads it before it appears.');
+        setNote(form, 'Thanks for adding your voice. A moderator reads it before it appears.');
         form.reset();
       }).catch(function (err) {
         if (err && err.error === 'authentication_required') {
@@ -372,7 +372,7 @@
 
   if (params.get('email_verified') === '1') {
     var ev1 = document.querySelector('[data-form-note]');
-    if (ev1) ev1.textContent = 'Email confirmed. Sign in to open your workspace.';
+    if (ev1) ev1.textContent = 'Email confirmed, and welcome in. Sign in to open your workspace.';
   } else if (params.get('email_verified') === '0') {
     var ev0 = document.querySelector('[data-form-note]');
     if (ev0) ev0.textContent = 'That account confirmation link is invalid or has expired.';

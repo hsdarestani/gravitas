@@ -8,4 +8,4 @@ open_question_topic_id:
   type: integer
   default: 0
   min: 0
-  description: "Official native Open Question topic. Zero hides the pinned band."
+  description: "Official native Weighty Question topic. Zero hides the pinned band."

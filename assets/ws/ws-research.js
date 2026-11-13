@@ -86,7 +86,7 @@ export function renderCalendar(host, ctx) {
       draw(journalDays, events);
     } catch (error) {
       body.innerHTML = '';
-      body.append(notice('Calendar unavailable', 'The Research calendar could not be loaded. No placeholder deadlines were shown.', true));
+      body.append(notice('Calendar unavailable', 'The Research calendar didn’t load this time. Nothing was changed; reload to try again.', true));
     }
   };
 
@@ -190,9 +190,9 @@ export function renderCalendar(host, ctx) {
 }
 
 export function renderProjects(host, { go }) {
-  const doc = shell(host, 'Research Projects', 'Portfolio views built from the same live projects, tasks, links and activity.');
+  const doc = shell(host, 'Research Projects', 'Every project you’re part of, and how the work around them is moving.');
   spaceProjectToolbar(doc.querySelector(':scope > .ws-doc__head'), { go, onCreated: () => { host.innerHTML = ''; renderProjects(host, { go }); } });
-  const body = el('div'); doc.append(body); body.append(notice('Loading projects', 'Reading accessible projects…'));
+  const body = el('div'); doc.append(body); body.append(notice('Loading projects', 'Gathering your projects…'));
   const draw = (records) => {
     body.innerHTML = '';
     const totals = records.reduce((acc, { cockpit }) => {
@@ -207,13 +207,13 @@ export function renderProjects(host, { go }) {
     // them is the grid's own gap rather than two grids butted together.
     const complete = records.every(({ cockpit }) => cockpit);
     const summary = dashboardSummary([
-      { value: records.length, label: 'Projects', icon: 'projects', note: 'Accessible portfolio' },
+      { value: records.length, label: 'Projects', icon: 'projects', note: 'Yours and shared with you' },
       { value: complete ? totals.tasks : '…', label: 'Tasks', icon: 'tasks', note: 'Across all projects' },
       { value: complete ? totals.notes : '…', label: 'Notes', icon: 'notes', note: 'Project knowledge' },
       { value: complete ? totals.links : '…', label: 'Connections', icon: 'link', note: 'Cross-project links' },
     ]);
     if (complete) summary.append(
-      dashboardBars('Research activity', 'Live object counts across the accessible portfolio.', [
+      dashboardBars('Research activity', 'What has gathered across your projects so far.', [
         { label: 'Tasks', value: totals.tasks, series: '1' },
         { label: 'Notes', value: totals.notes, series: '2' },
         { label: 'Files & data', value: totals.files, series: '3' },
@@ -257,7 +257,7 @@ export function renderProjects(host, { go }) {
 
 function drawProjectView(host, records, view, go) {
   host.innerHTML = '';
-  if (!records.length) { host.append(notice('No projects yet', 'Projects appear here once created.')); return; }
+  if (!records.length) { host.append(notice('No projects yet', 'Start one, or join a colleague’s, and it will appear here.')); return; }
   if (view === 'cards') {
     const grid = el('div', 'v-grid');
     for (const { project, cockpit } of records) {
@@ -376,7 +376,7 @@ export function renderFolders(host, { go }) {
         if (prior) prior.remove();
         const box = notice(
           'Nextcloud has newer changes',
-          `${error.data?.conflicts?.length || 1} path${error.data?.conflicts?.length === 1 ? '' : 's'} changed outside Gravitas. Choose which copy should win.`,
+          `${error.data?.conflicts?.length || 1} path${error.data?.conflicts?.length === 1 ? '' : 's'} changed outside GraviQuest. Choose which copy to keep.`,
           true,
         );
         box.dataset.syncConflict = '';
@@ -440,7 +440,7 @@ export function renderFolders(host, { go }) {
 
       const rooms = el('section', 'v-panel');
       const roomsHead = el('div', 'v-panel__head');
-      roomsHead.append(el('h2', 'v-panel__title', 'Project data rooms'), el('p', 'v-note', 'Each project opens its own structured GRV Team Folder, never the generic Nextcloud home.'));
+      roomsHead.append(el('h2', 'v-panel__title', 'Project data rooms'), el('p', 'v-note', 'Each project keeps its files in its own shared folder, separate from your personal ones.'));
       rooms.append(roomsHead);
       if (!projects.length) rooms.append(notice('No accessible projects', 'Project data rooms appear here as soon as you own or join a Research project.'));
       for (const project of projects) {
@@ -493,7 +493,7 @@ export function renderFolders(host, { go }) {
       body.append(library);
 
       body.append(C.bento([
-        dashboardBars('Personal Space', 'Your private filing tree and managed Markdown/index layer.', [
+        dashboardBars('Personal Space', 'Your private folders and notes, visible only to you.', [
           { label: 'Folders', value: folders.length, series: '1' },
           { label: 'Managed items', value: items.length, series: '2' },
           { label: 'Notes & links', value: notes.length, series: '4' },
@@ -548,7 +548,7 @@ export function renderFolders(host, { go }) {
       }
       body.append(panel);
     } catch {
-      body.innerHTML = ''; body.append(notice('Folder service unavailable', 'The live Space tree could not be read. No local imitation was substituted.', true));
+      body.innerHTML = ''; body.append(notice('Folder service unavailable', 'Your folders didn’t load this time. Nothing was changed; reload to try again.', true));
     }
   };
   load();
@@ -602,9 +602,9 @@ function taskList(body, records, go) {
 
 export function renderTasks(host, { go }) {
   if (new URLSearchParams(location.search).get('show') === 'requests') return renderRequests(host, { go });
-  const doc = shell(host, 'Research Tasks', 'One board aggregated from tasks in every accessible research project.');
+  const doc = shell(host, 'Research Tasks', 'Tasks from all your research projects, on one board.');
   doc.querySelector(':scope > .ws-doc__head').after(researchCreateBar({ go }));
-  const body = el('div'); doc.append(body); body.append(notice('Loading tasks', 'Reading project cockpits…'));
+  const body = el('div'); doc.append(body); body.append(notice('Loading tasks', 'Gathering your tasks…'));
   projectData().then((rows) => {
     body.innerHTML = '';
     const records = rows.flatMap(({ project, cockpit }) => (cockpit?.tasks || [])
@@ -657,7 +657,7 @@ export function renderTasks(host, { go }) {
       if (mode === 'list') taskList(content, visible, go); else taskBoard(content, visible, go);
     };
     query.addEventListener('input', draw); filter.addEventListener('change', draw); sort.addEventListener('change', draw); draw();
-  }).catch(() => { body.innerHTML = ''; body.append(notice('Tasks unavailable', 'The project service did not answer. No local task board was created.', true)); });
+  }).catch(() => { body.innerHTML = ''; body.append(notice('Tasks unavailable', 'Your tasks didn’t load this time. Nothing was changed; reload to try again.', true)); });
 }
 
 /* Requests and handoffs waiting for research, opened from the Core and
@@ -791,7 +791,7 @@ export function renderSearch(host, ctx) {
       }
     } catch {
       results.innerHTML = '';
-      results.append(notice('Search unavailable', 'The research service did not answer. No local or unfiltered results were substituted.', true));
+      results.append(notice('Search unavailable', 'Search didn’t answer this time. Your search text is still here; try again in a moment.', true));
       count.textContent = 'Search failed';
     } finally {
       submit.disabled = false;

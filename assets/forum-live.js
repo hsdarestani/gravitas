@@ -163,7 +163,7 @@
             }
           });
           status.replaceChildren();
-          if (!host.children.length) status.append(el('p', 'rd-empty', 'No public discussions here yet. Start the first conversation.'));
+          if (!host.children.length) status.append(el('p', 'rd-empty', 'This room is quiet so far. Why not start the first conversation?'));
           more.hidden = !data.has_more;
           if (counter) counter.textContent = host.children.length + (data.has_more ? '+' : '') + (host.children.length === 1 ? ' thread' : ' threads');
           var query = new URL(location.href); query.searchParams.delete('room');
@@ -286,10 +286,10 @@
     form.addEventListener('submit', function (e) {
       e.preventDefault();
       var stance = form.querySelector('[name="stance"]:checked'), body = form.elements.body.value.trim();
-      if (!stance || body.length < 20 || body.length > 1000) { note.textContent = 'Choose a position and add 20–1,000 characters of reasoning.'; return; }
+      if (!stance || body.length < 20 || body.length > 1000) { note.textContent = 'Pick a position, then tell us why in 20 to 1,000 characters.'; return; }
       config().then(function (c) {
         var params = new URLSearchParams({title:body.slice(0, 100), category:'open-question',
-          body:'Position: ' + stance.value + '\n\n' + body + '\n\n[The Open Question](https://graviquest.com/community#this-week)'});
+          body:'Position: ' + stance.value + '\n\n' + body + '\n\n[The Weighty Question](https://graviquest.com/community#this-week)'});
         var target = forumURL(c.new_topic_url) + '?' + params;
         if (target.length > 7500) { note.textContent = 'Please shorten this reply, or open the Forum to write a longer post. Your reasoning is still here.'; return; }
         location.assign(target);

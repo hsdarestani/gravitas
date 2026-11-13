@@ -65,6 +65,10 @@ end
 def category(name, slug, permissions, parent: nil)
   existing = Category.find_by(slug: slug)
   if existing
+    # A room keeps its slug for life; its display name follows this list, so
+    # a copy rename (The Open Question -> The Weighty Question, 2026-11-14)
+    # reaches a forum that already has the room.
+    existing.update!(name: name) if existing.name != name
     # Fail rather than silently changing an existing category's security.
     # Discourse deliberately stores public/full access as an empty ACL rather
     # than an everyone row. Compare the core's normalized representation.
@@ -80,7 +84,7 @@ end
 
 rooms = {}
 [
-  ["The Open Question", "open-question"],
+  ["The Weighty Question", "open-question"],
   ["Topic 01 · AI in Research", "ai-in-research"],
   ["Topic 03 · Discovery", "discovery"],
   ["Corrections", "corrections"], ["Propose a Topic", "propose-a-topic"],
@@ -108,7 +112,7 @@ end
 
 links = []
 question = official_topic("weekly-thought-experiment", "Has science been done when prediction works but explanation is missing?",
-  "**Official GraviQuest Open Question**\n\nThis is a thought experiment, not a report of a research finding.\n\nA model predicts a material’s behaviour correctly, repeatedly, and nobody, including its authors, can say why. Has science been done?\n\nChoose a position, then say why. Cite evidence where you make an empirical claim. Member posts are reviewed before publication.\n\n[Community](https://graviquest.com/community#this-week)", rooms.fetch("open-question"))
+  "**Official GraviQuest Weighty Question**\n\nThis is a thought experiment, not a report of a research finding.\n\nA model predicts a material’s behaviour correctly, repeatedly, and nobody, including its authors, can say why. Has science been done?\n\nChoose a position, then say why. Cite evidence where you make an empirical claim. Member posts are reviewed before publication.\n\n[Community](https://graviquest.com/community#this-week)", rooms.fetch("open-question"))
 links << {key: "weekly-thought-experiment", topic_id: question.id, category_id: question.category_id}
 poll = official_topic("next-topic-poll", "Which question should GraviQuest explore next?",
   "**Official GraviQuest editorial poll**\n\nThese are proposed Topics, not published findings. No votes or engagement have been seeded.\n\n[poll type=regular results=always]\n* What does peer review actually catch?\n* Who pays for science, and what does that buy?\n* Can we model a living cell?\n* Why do most findings shrink when someone repeats them?\n[/poll]\n\nHave another question? Start a discussion in Propose a Topic and explain why it matters.", rooms.fetch("propose-a-topic"))

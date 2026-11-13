@@ -103,7 +103,7 @@ function workspaceOverviewHead(scope, user) {
     title: isCore ? 'Core' : 'Research',
     meta: isCore
       ? 'Execution, content, planning and operating work in one view.'
-      : 'Projects, knowledge and collaboration in one view.',
+      : 'Your projects, your knowledge and the people you work with, gathered in one place.',
     mark: C.markSlot(isCore ? 'space-core' : 'space-research'),
     name: greeting(now.getHours()),
     detail: now.toLocaleDateString('en-GB', {
@@ -404,7 +404,7 @@ function projectsPanel(projects, ctx) {
   const box = card('Projects', 'Owned or joined, by deadline',
     hasResearch ? linkBtn('All projects', '/workspace/research/projects', ctx) : null);
   if (!projects.length) {
-    box.body.append(C.note('No projects yet. Projects you own or have been added to appear here.'));
+    box.body.append(C.note('No projects yet. Start one, or join a colleague’s, and it will appear here.'));
   }
   if (!hasResearch) {
     // An active new account deliberately opts into Research by creating its
@@ -547,7 +547,7 @@ function fillLearning(box, ctx) {
   if (counts.due) {
     const node = row({
       title: `${counts.due} ${counts.due === 1 ? 'card is' : 'cards are'} due for review`,
-      sub: 'Roughly a minute each. These are the ones closest to being forgotten.',
+      sub: 'Roughly a minute each. These are the ones starting to drift away.',
       onClick: () => ctx.go('/workspace/kms/recall'),
     });
     box.body.append(node);
@@ -560,7 +560,7 @@ function fillLearning(box, ctx) {
         onClick: () => ctx.go(`/workspace/kms/paths/${next.item.id}`),
       }));
     } else {
-      box.body.append(empty('Nothing due', 'The review queue is empty and every path is finished.'));
+      box.body.append(empty('Nothing due', 'Nothing to review, and every path is finished. Nicely done.'));
     }
   }
 }

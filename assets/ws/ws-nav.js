@@ -41,7 +41,7 @@ export const WORKSPACES = {
     long: 'Scientific research, client projects, secure data rooms, notes, datasets and researcher collaboration.',
     icon: 'space-research',
     home: '/workspace/research',
-    note: 'Research collaboration workspace. Personal work stays private; project notes and files follow each project ACL.',
+    note: 'Where your research comes together. Personal work stays private; project notes and files are shared with each project’s members.',
   },
   kms: {
     id: 'kms',

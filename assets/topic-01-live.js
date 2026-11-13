@@ -691,13 +691,13 @@
           if (total) total.textContent = plural(payload.poll.total_votes, 'vote', 'votes');
           if (!reason) return 'Answer saved.';
           return post('/api/community/comments/' + SLUG + '-poll-' + encodeURIComponent(live.id) + '/', { body: reason })
-            .then(function () { return 'Answer saved. Your reason appears once a moderator has read it.'; })
+            .then(function () { return 'Thanks, your answer counts. Your reason appears once a moderator has read it.'; })
             .catch(function (error) { return error && error.error === 'authentication_required' ? 'Answer saved. Sign in to add a reason.' : 'Answer saved. The reason could not be sent.'; });
         }).then(function (message) {
           draw(index, true);
           var fresh = panel.querySelector('[data-poll-note]');
           if (fresh) fresh.textContent = message;
-        }).catch(function () { note.textContent = 'Your answer could not be saved. Try again.'; });
+        }).catch(function () { note.textContent = 'We couldn’t save your answer. Please try again.'; });
       });
     }
 

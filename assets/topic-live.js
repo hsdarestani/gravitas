@@ -219,7 +219,7 @@
     });
     if (!rows.length) html += '<p class="g-muted">Timeline coming soon.</p>';
     html += '</div>';
-    return section('04', 'timeline', 'How the Question Developed', html);
+    return section('04', 'timeline', 'How the Question Gathered Weight', html);
   }
 
   function simulationDocument(code) {

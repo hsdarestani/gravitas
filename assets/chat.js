@@ -54,7 +54,7 @@
     },
     {
       k: 'lab game simulation interactive play experiment tool sandbox try',
-      a: 'The GraviQuest Lab holds interactive models you can change and question, each tied to the scientific sources behind it. It is open to every Topic rather than part of one, and its format is still being defined. The public page explains what a Lab is and lists only the models that have been published.',
+      a: 'The GraviQuest Lab holds models you can nudge and question, each one anchored to the scientific sources behind it. It is open to every Topic rather than part of one, and its format is still being defined. The public page explains what a Lab is and lists only the models that have been published.',
       l: [['Lab', 'lab.html']]
     },
     {
@@ -69,7 +69,7 @@
     },
     {
       k: 'newsletter email subscribe weekly mailing list',
-      a: 'One edited email a week: what mattered, why, and what to be sceptical about. No link dumps.',
+      a: 'One letter a week, picked by hand: what carried real weight in science, why it mattered, and where to stay sceptical.',
       l: [['Newsletter', 'newsletter.html']]
     },
     {
@@ -79,7 +79,7 @@
     },
     {
       k: 'about who what is gravitas team behind contact mission why',
-      a: 'GraviQuest is a community working through the open questions in science and AI, with a workspace to think them through: one question at a time, with graded sources and the strongest case against our own reading. The About page has the editorial rules, which are the interesting part.',
+      a: 'GraviQuest is a community drawn together by the weighty questions in science and AI, with a workspace to think them through: one question at a time, with graded sources and the strongest case against our own reading. The About page has the editorial rules, which are the interesting part.',
       l: [['About', 'about.html']]
     },
     {

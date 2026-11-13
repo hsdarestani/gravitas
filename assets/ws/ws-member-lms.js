@@ -372,7 +372,7 @@ function nextCard(data, go) {
   const items = data.next_actions || [];
 
   if (!items.length) {
-    box.body.append(C.note('Nothing waiting. Pick something up:'));
+    box.body.append(C.note('Nothing waiting. Here is something to pick up:'));
     box.body.append(C.actions([
       action('Browse the library', () => go('/workspace/dashboard/library'), true),
       action('Topics', () => go('/workspace/dashboard/progress')),
@@ -456,7 +456,7 @@ function savedCard(data, go) {
   });
 
   if (!items.length) {
-    box.body.append(C.note('Nothing saved yet. Use Save on any article, dossier or lab.'));
+    box.body.append(C.note('Nothing saved yet. Use Save on any Topic, essay or Lab and it settles here.'));
     return box.box;
   }
   box.body.append(C.list(items.slice(0, 4).map((item) => C.listItem({
@@ -499,7 +499,7 @@ function discussionCard(data, go) {
   });
 
   if (!count(talk.total)) {
-    box.body.append(C.note('No comments yet. Discussion opens under every published topic.'));
+    box.body.append(C.note('No comments yet. Every published Topic has a discussion waiting for your first one.'));
     return box.box;
   }
   box.body.append(C.stackedMeter([
@@ -597,7 +597,7 @@ export async function renderMemberLibrary(host, { go }) {
     );
     wrap.append(metrics);
 
-    if (!data.library.recent_saved.length) saved.body.append(empty('Your library is empty', 'Use Save on public articles, dossiers and learning material.'));
+    if (!data.library.recent_saved.length) saved.body.append(empty('Your library is empty', 'Use Save on any Topic, essay or Learning Path on the public site, and it will be waiting here.'));
     for (const item of data.library.recent_saved) {
       const tools = [];
       if (item.url) {
@@ -621,7 +621,7 @@ export async function renderMemberLibrary(host, { go }) {
     }
     wrap.append(saved.box);
 
-    if (!data.library.following.length) following.body.append(empty('Not following anything yet', 'Follow a topic on the public site to keep it in your account.'));
+    if (!data.library.following.length) following.body.append(empty('Not following anything yet', 'Follow a Topic on the public site and its new layers will find their way here.'));
     for (const item of data.library.following) {
       const tools = [];
       if (item.url) {
@@ -711,7 +711,7 @@ export async function renderMemberProgress(host, { go }) {
 
     const research = section('Research participation');
     research.head.append(link(go, 'Research workspace', '/workspace/research'));
-    if (!data.research.recent.length) research.body.append(empty('No research projects yet', 'Projects you own or join appear here independently of LMS access.'));
+    if (!data.research.recent.length) research.body.append(empty('No research projects yet', 'Projects you start or join will appear here.'));
     for (const item of data.research.recent) {
       research.body.append(row({
         title: item.title,
@@ -782,7 +782,7 @@ export async function renderLearningOverview(host, { go }) {
 
     const wrap = overviewDoc(host, {
       title: 'Learning',
-      meta: 'Courses, learning paths, assessments and certificates. Learning access is independent from Research.',
+      meta: 'Your courses, paths, assessments and certificates, all in one place.',
       mark: C.markSlot('space-knowledge'),
       name: greeting(),
       detail: longDate(),
@@ -973,7 +973,7 @@ export async function renderLearningCatalog(host, { go }) {
   loading(host, 'Course Catalog');
   try {
     const data = await P.lmsCourses();
-    const wrap = doc(host, 'Course Catalog', 'Published GraviQuest courses. Enrollment and Research access remain separate.');
+    const wrap = doc(host, 'Course Catalog', 'Every published GraviQuest course. Pick one that pulls you in.');
     const toolbar = el('div', 'fl-toolbar');
     const search = el('input', 'v-input fl-input');
     search.type = 'search';
