@@ -494,3 +494,14 @@ body:has(#lab-experiences[data-lab-slug="science-universe"]) :is(.page-head,.g-f
   grid-template-columns:minmax(0,1fr) 152px;
  }
 }
+
+@media(min-width:901px){
+ #lab-experiences.learning-split.companion-collapsed .lab-pulsar-widget {
+  height:auto;align-self:start;border-radius:0 0 0 var(--g-radius);
+ }
+ #lab-experiences.learning-split.companion-collapsed .lab-chat-head {
+  gap:7px;padding-inline:8px;
+ }
+ #lab-experiences.learning-split.companion-collapsed .lab-chat-name small {display:none}
+ #lab-experiences.learning-split.companion-collapsed .lab-chat-avatar {width:25px;height:25px}
+}

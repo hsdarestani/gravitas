@@ -69,6 +69,8 @@ const server=http.createServer((req,res)=>{
     await run.waitFor();
     assert.equal(await shell.getByRole('button',{name:'Enter simulation'}).count(),0);
     assert.equal(await shell.getByRole('button',{name:/Open Pulsar conversation/}).getAttribute('aria-expanded'),'false');
+    const pulsarDock=await shell.locator('.lab-pulsar-widget').boundingBox();
+    assert.ok(pulsarDock.height<80,'collapsed desktop Pulsar occupies one row');
     fs.mkdirSync('qa-artifacts',{recursive:true});
     if(prior){
       const before=await browser.newPage({reducedMotion:'reduce'});
@@ -118,6 +120,7 @@ const server=http.createServer((req,res)=>{
     await frame.locator('#focus-time').press('End');
     for(const [width,height] of [[1440,900],[390,844]]){
       await shell.setViewportSize({width,height});
+      await frame.locator('#focus-pipeline').evaluate(el=>window.scrollTo(0,0));
       await shell.screenshot({path:'qa-artifacts/science-universe-after-completed-'+width+'.png'});
     }
     await shell.setViewportSize({width:1440,height:900});
