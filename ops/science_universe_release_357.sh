@@ -110,7 +110,7 @@ PUBLIC_OK=false
 for attempt in 1 2 3 4 5; do
   API_VERSION="$(curl -fsSL --connect-timeout 7 --max-time 15 \
     https://graviquest.com/api/labs/science-universe/ \
-    | python3 -c 'import json,sys; print(json.load(sys.stdin).get("published_version",""))' 2>/dev/null || true)"
+    | python3 -c 'import json,sys; print(json.load(sys.stdin).get("lab",{}).get("published_version",""))' 2>/dev/null || true)"
   if [ "$API_VERSION" = "$EXPECTED" ] &&
      curl -fsSL --connect-timeout 7 --max-time 15 \
        https://graviquest.com/lab-run/science-universe/ | grep -q 'focus-pipeline'; then
