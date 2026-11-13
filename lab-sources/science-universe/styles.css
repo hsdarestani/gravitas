@@ -704,7 +704,6 @@ th{position:sticky;top:0;background:var(--raised);font-family:var(--font);font-w
   .lifecycle-track {margin-block:8px 3px}
   #focus-pipeline .focus-workflow button {min-height:61px}
 }
-@media(prefers-reduced-motion:reduce){#lifecycle-token {transition:none}}
 
 /* Science Universe visual workspace */
 :root {
@@ -912,7 +911,6 @@ th{position:sticky;top:0;background:var(--raised);font-family:var(--font);font-w
 #focus-pipeline .focus-workflow button[aria-pressed="true"] {color:var(--field-ink);border-color:var(--border);background:var(--field-bg)}
 #focus-pipeline .station-name {font-size:clamp(12px,1.3vw,16px)}
 #focus-pipeline .station-count {font-size:11px;color:var(--field-muted)}
-#lifecycle-token {visibility:hidden}
 .flow-key {display:flex;flex-wrap:wrap;gap:3px 14px;margin:0 0 6px;color:var(--field-muted);font-size:11px}
 .flow-key span::before {display:inline-block;min-width:1.2em;font:500 12px var(--font-mono)}
 .key-study::before {content:"●";color:var(--world-a)}
@@ -922,7 +920,8 @@ th{position:sticky;top:0;background:var(--raised);font-family:var(--font);font-w
 .lifecycle-annotation {min-height:0;padding:5px 0 0}
 #focus-stage-detail,#lifecycle-event {font-size:11px}
 #lifecycle-activity {gap:2px 8px;font-size:10px}
-#focus-worlds {grid-template-columns:repeat(2,minmax(0,1fr))}
+#focus-worlds {position:relative;grid-template-columns:repeat(2,minmax(0,1fr))}
+#world-clock {position:absolute;top:9px;left:50%;transform:translateX(-50%);margin:0;padding:2px 6px;background:var(--field-bg);color:var(--field-ink);font:11px var(--font-mono);white-space:nowrap}
 #focus-worlds>.flow-key {grid-column:1/-1;padding:2px 12px}
 .research-world {padding:10px 14px 0}
 .research-world h2 {font-size:clamp(17px,2.1vw,28px)}
@@ -999,7 +998,8 @@ th{position:sticky;top:0;background:var(--raised);font-family:var(--font);font-w
  #focus-pipeline .station-count {font-size:10px}
  #flow-empty {bottom:0;font-size:10px}
  .flow-key {font-size:10px;gap:2px 8px}
- .research-world {padding:7px 6px 0}
+ #world-clock {top:4px;font-size:9px}
+ .research-world {padding:13px 6px 0}
  .research-world header {display:block}
  .research-world h2 {font-size:17px}
  .world-field {min-height:clamp(200px,36dvh,330px)}

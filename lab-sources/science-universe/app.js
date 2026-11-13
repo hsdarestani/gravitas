@@ -1239,7 +1239,7 @@ function traceStudy(world,recorded){
  };
  for(const event of events){
   const step=stages[event.type];
-  if(step)trace.push({day:event.day,stage:step[0],label:step[1],failed:/reject|failed|retracted/.test(event.type)});
+  if(step)trace.push({day:event.day,stage:step[0],label:step[1]});
  }
  return trace.sort((a,b)=>a.day-b.day);
 }
@@ -1251,13 +1251,7 @@ function drawLifecycle(run){
  text('lifecycle-mode',current?trace[0].label.replace(/ proposed$/,''):'From idea to evidence');
  text('lifecycle-clock',run?'Day '+focusDay+' / '+FOCUS_DAYS:'Ready to run');
  $('flow-empty').hidden=!!run;
- const token=$('lifecycle-token');
- token.hidden=!current;
- if(current){
-  token.dataset.stagePosition=Object.keys(FOCUS_STAGES).indexOf(current.stage);
-  token.style.setProperty('--station',token.dataset.stagePosition);
-  token.classList.toggle('is-failure',Boolean(current.failed));
- }
+ $('research-flow').dataset.traceStage=current?current.stage:'';
  const event=$('lifecycle-event');
  event.hidden=!run;
  text(event,current?'Day '+current.day+' · '+visited.filter(step=>step.day===current.day).map(step=>step.label).join(' → '):'Waiting for the traced hypothesis');
@@ -1384,7 +1378,9 @@ function recordResearchDay(world,events,previous){
   if(!movements.has(change.id))movements.set(change.id,[]);
   movements.get(change.id).push(change);
  }
- return {testing,review,replication,published,movements};
+ const repeats=events.filter(event=>event.type==='replication_passed'||event.type==='replication_failed')
+  .map(({hypothesisId,type})=>({id:hypothesisId,passed:type==='replication_passed'}));
+ return {testing,review,replication,published,movements,repeats:[...(previous?.repeats||[]),...repeats]};
 }
 const FLOW_COLORS={get wait(){return ink['flow-wait'];},get pass(){return ink['flow-pass'];},get stop(){return ink['flow-stop'];}};
 const curve=(a,b,bend)=>({x:(a.x+b.x)/2+bend*(b.y-a.y),y:(a.y+b.y)/2-bend*(b.x-a.x)});
@@ -1405,7 +1401,7 @@ function drawResearchToken(ctx,x,y,r,color,kind){
 function drawResearchRun(canvas,run,side,progress){
  const g=canvasGeometry(canvas);if(!g)return;
  const {ctx,w,h}=g,world=side!==null,vertical=!world&&innerWidth<=620;
- const day=run?.research[focusDay],previous=run?.research[focusDay-1];
+ const day=run?.research[focusDay];
  const at=(x,y)=>({x:w*x,y:h*y});
  const stations=world?[at(.17,.5),at(.38,.52),at(.61,.49),at(.81,.32),at(.83,.65),at(.67,.86),at(.94,.80)]:
   vertical?[at(.34,.10),at(.44,.30),at(.34,.51),at(.47,.70),at(.55,.89),at(.84,.59),at(.82,.91)]:
@@ -1462,7 +1458,7 @@ function drawResearchRun(canvas,run,side,progress){
  const cohorts=[[day.testing,1,'study'],[day.review,2,'wait'],[day.replication,4,'wait'],[day.published,3,'paper']];
  for(const [studies,stage,kind] of cohorts){
   const color=kind==='wait'?FLOW_COLORS.wait:kind==='paper'?shade(accent,57):shade(accent,76);
-  const columns=world?5:vertical?7:10,spacing=world?Math.min(7,w*.026):vertical?7:9;
+  const columns=world?7:vertical?7:12,spacing=world?Math.min(7,w*.027):vertical?7:9;
   for(const [i,study] of studies.entries()){
    if(progress<1&&active.has(study.id))continue;
    const p=world&&stage===1?labPositions[study.labId]:stations[stage];
@@ -1476,12 +1472,19 @@ function drawResearchRun(canvas,run,side,progress){
    if(stage===2){x=p.x+offset.cross;y=p.y+12+offset.along;}
    if(stage===4){x=p.x+offset.cross;y=p.y-offset.along;}
 
-   if(stage===3){x=p.x+offset.cross;y=p.y-offset.along;}
+   if(stage===3){x=p.x+offset.cross;y=p.y+offset.along+7;}
    if(world&&stage===1){x=p.x+offset.cross*.45;y=p.y+offset.along*.55-4;}
    if(x<5||x>w-5||y<5||y>h-5)continue;
    drawResearchToken(ctx,x,y,kind==='wait'?2.9:2.2,color,kind);
   }
  }
+ // Archived repeat outcomes use the same per-mark scale in both worlds.
+ day.repeats.forEach((repeat,i)=>{
+  if(progress<1&&active.has(repeat.id))return;
+  const p=stations[6],gap=world?3.8:5.4,cols=world?7:11;
+  const x=p.x-(i%cols)*gap,y=p.y+13+Math.floor(i/cols)*gap;
+  if(y<h-3)drawResearchToken(ctx,x,y,world?1.65:2.3,repeat.passed?FLOW_COLORS.pass:FLOW_COLORS.stop,repeat.passed?'pass':'stop');
+ });
  for(const transitions of day.movements.values()){
   const index=Math.min(transitions.length-1,Math.floor(progress*transitions.length));
   const {id,labId,type,route:[from,to]}=transitions[index];
@@ -1502,7 +1505,7 @@ function drawResearchRun(canvas,run,side,progress){
  canvas.dataset.studies=String(day.testing.length+day.review.length+day.replication.length);
  canvas.dataset.day=String(focusDay);canvas.dataset.progress=progress.toFixed(2);
  canvas.dataset.queue=String(day.review.length);
- canvas.dataset.previousQueue=String(previous?.review.length||0);
+
 }
 function drawFocusedAnimation(progress){
  if(level==='simple')drawResearchRun($('research-flow'),focusedRuns?.a,null,progress);
@@ -1543,6 +1546,7 @@ function drawWorldFields(a,b){
   const item=FLOW_EVENTS[event.type];
   if(item?.metric===inspectedMetric)counts.set(item.label,(counts.get(item.label)||0)+1);
  }
+ text('world-clock',a?'Day '+focusDay+' / '+FOCUS_DAYS:'Ready to run');
  text('world-inspection','World '+inspectedWorld.toUpperCase()+' · '+metric[2]+
   (inspected?' · '+(counts.size?[...counts].map(([label,count])=>label+' × '+count).join(' · '):'No recorded events at this station today.'):' · Run to observe'));
 }

@@ -82,7 +82,7 @@ async function recordDemos(browser,address){
       await page.evaluate(()=>document.fonts.ready);
       const frames=[], started=performance.now(), metrics={};
       const append=({data,sessionId,metadata})=>{
-        frames.push({data,time:metadata.timestamp});
+        frames.push({data,time:metadata.timestamp??Date.now()/1000});
         void session.send('Page.screencastFrameAck',{sessionId}).catch(()=>{});
       };
       session.on('Page.screencastFrame',append);
@@ -97,6 +97,7 @@ async function recordDemos(browser,address){
           await page.locator('#play').click();
           await page.waitForFunction(()=>Number(document.querySelector('#day').textContent)>=18);
           await page.locator('#play').click();
+          assert.ok(Number(await page.locator('#day').innerText())>=18);
         }else{
           const canvas=mode==='Simple'?'#research-flow':'#focus-world-a canvas';
           const before=await page.locator(canvas).evaluate(el=>el.toDataURL());
@@ -118,7 +119,7 @@ async function recordDemos(browser,address){
           assert.notEqual(await page.locator(canvas).evaluate(el=>el.toDataURL()),before);
           metrics.animation=samples;
           if(mode==='Medium'){
-            assert.equal(await page.locator('#focus-world-a canvas').getAttribute('data-day'),await page.locator('#focus-world-b canvas').getAttribute('data-day'));
+            assert.ok(await page.evaluate(()=>document.querySelector('#focus-world-a canvas').dataset.day===document.querySelector('#focus-world-b canvas').dataset.day));
             await page.waitForFunction(()=>{
               const a=document.querySelector('#focus-world-a canvas'),b=document.querySelector('#focus-world-b canvas');
               return a.dataset.day===b.dataset.day&&a.dataset.queue!==b.dataset.queue;
@@ -220,7 +221,7 @@ async function recordDemos(browser,address){
     assert.equal(await frame.locator('#lifecycle-mode').innerText(),firstRepeated.topic);
     const dayWorld=E.step(E.make(20261029,{verification:10}),repeat.day);
     assert.equal(await frame.locator('#research-flow').getAttribute('data-queue'),String(dayWorld.queues.review.length));
-    assert.equal(await frame.locator('#lifecycle-token').getAttribute('data-stage-position'),'4');
+    assert.equal(await frame.locator('#research-flow').getAttribute('data-trace-stage'),'replicated');
     await frame.locator('#focus-time').press('End');
     for(const [width,height] of [[1440,900],[390,844]]){
       await shell.setViewportSize({width,height});

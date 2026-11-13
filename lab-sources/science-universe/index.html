@@ -29,7 +29,6 @@
         <div class="lifecycle-track">
           <canvas id="research-flow" aria-hidden="true"></canvas>
           <p id="flow-empty">Run the model to follow individual studies.</p>
-          <span id="lifecycle-token" hidden aria-hidden="true"></span>
         <ol class="focus-workflow">
           <li><button type="button" data-stage="generated" aria-pressed="true"><span class="station-name">Hypothesis</span></button></li>
           <li><button type="button" data-stage="tested" aria-pressed="false"><span class="station-name">Testing</span></button></li>
@@ -49,6 +48,7 @@
           <header><div><span class="eyebrow">World B</span><h2>Intervention</h2></div><span class="world-state" id="world-b-state">Settings ready</span></header>
           <div class="world-field"><canvas class="world-flow" aria-hidden="true"></canvas></div>
         </div>
+        <p id="world-clock">Ready to run</p>
         <p class="flow-key"><span class="key-study">Active study</span><span class="key-queue">Waiting</span><span class="key-pass">Repeat passed</span><span class="key-stop">Rejected, failed or withdrawn</span></p>
         <p id="world-inspection"></p>
       </section>
