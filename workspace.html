@@ -22,7 +22,7 @@
   <link rel="stylesheet" href="/assets/local-fonts.css?v=up-f706806e3a02-g1df6ff09-lit1">
   <link rel="stylesheet" href="/assets/gravitas.css?v=up-f706806e3a02-g1df6ff09-lit1">
   <link rel="stylesheet" href="/assets/chat.css?v=20261010-pulsar8">
-  <link rel="stylesheet" href="/assets/ws/ws.css?v=20261016-task1&patch=20261027stability1">
+  <link rel="stylesheet" href="/assets/ws/ws.css?v=20261016-task1&patch=20261114seam1">
   <link rel="stylesheet" href="/assets/ws/ws-five-layer.css?v=20261016-task1">
   <link rel="stylesheet" href="/assets/ws/ws-work-reports.css?v=20261016-task1">
   <link rel="stylesheet" href="/assets/ws/ws-charts.css?v=20261016-task1">
@@ -91,13 +91,16 @@
           <div class="ws-pane__body" id="ws-index-body"></div>
           <div class="ws-pane__foot" id="ws-index-count"></div>
         </div>
-        <div class="ws-grip" id="ws-grip-index" aria-label="Resize the index"></div>
       </div>
+      <!-- The grips are the body's, not the panes': a pane clips what it
+           holds, and a closed pane is hidden, and the grip has to outlive
+           both to be the way back in. -->
+      <div class="ws-grip" id="ws-grip-index" data-side="index" aria-label="Resize the index"></div>
 
       <main class="ws-main" id="ws-main"><div class="ws-view" id="ws-view" tabindex="-1"></div></main>
 
+      <div class="ws-grip" id="ws-grip-dock" data-side="dock" aria-label="Resize the side panel"></div>
       <div class="ws__dock">
-        <div class="ws-grip" id="ws-grip-dock" aria-label="Resize the side panel"></div>
         <div class="ws-pane">
           <div class="ws-tabs" id="ws-dock-tabs" role="tablist" aria-label="Side panel"></div>
           <div class="ws-pane__body" id="ws-dock-body"></div>
@@ -122,7 +125,7 @@
   </noscript>
 
   <script type="module">
-    import { start } from '/assets/ws/ws-app.js?v=20261016-task1&patch=20261110qa1&taskux=20261110compact1&workflowattach=20261111';
+    import { start } from '/assets/ws/ws-app.js?v=20261016-task1&patch=20261110qa1&taskux=20261110compact1&workflowattach=20261111&seam=20261114';
     import { platform } from '/assets/ws/ws-platform.js?v=20261016-task1&patch=20261027reliability1';
     import { installNextcloudSsoBridge } from '/assets/ws/ws-nextcloud-sso.js?v=20261016-task1';
     import { installMathRendering } from '/assets/ws/ws-math.js?v=20261016-task1';

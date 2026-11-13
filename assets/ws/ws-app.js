@@ -1359,72 +1359,236 @@ function updateStatus() {
 }
 
 /* ==========================================================================
-   PANE RESIZE
+   PANE GRIPS
    ========================================================================== */
 
-/* A grip also closes its pane: dragged well past the pane's minimum width,
-   the pane dims to say it will close on release, and dragging back out
-   cancels that. The threshold sits below the minimum rather than at it, so
+/* One grip per side resizes its pane, closes it, and opens it again. They
+   used to do the first two only: a closed pane's grip went with it, so the
+   edge that had just closed a pane could not bring it back, and the only
+   way in was the topbar button. A closed pane now leaves a seam
+   (--ws-seam in ws.css) and the grip stays on it.
+
+   Every drag works the same way in both directions. The pane is laid out
+   at its own width and the drag moves only its track (--ws-*-track), so a
+   pane being pulled out is uncovered rather than squeezed, and one being
+   pushed shut retreats under the pointer instead of stopping dead at its
+   minimum. Release decides: far enough, or flicked, and it settles open;
+   otherwise it settles shut, and either way the settle is the same eased
+   track animation the toggle plays, starting from where the pointer let go.
+
+   The close threshold sits below the minimum rather than at it, so
    somebody narrowing a pane to its smallest width does not lose it by
    overshooting a few pixels. On close the width goes back to what it was
-   when the drag began, so the toggle reopens the pane the reader had, not
+   when the drag began, so the pane reopens as the reader had it, not as
    the sliver it was dragged down to. */
-const CLOSE_BELOW = 0.5;
+const SEAM = 10;            // --ws-seam
+const CLOSE_BELOW = 0.5;    // of the minimum, on a pane that was open
+const OPEN_ABOVE = 0.35;    // of the pane's width, on a pane that was closed
+const FLICK = 0.5;          // px per ms: a throw decides on its own
+const NEAR = 56;            // px from a seam at which it starts to answer
 
-function wireGrip(grip, { variable, min, max, from, close }) {
+const CHEVRON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m10 7 5 5-5 5"/></svg>';
+
+function wireGrip(grip, { side, variable, min, max, from, open, close }) {
+  const shell = $('#ws');
+  const pane = $(side === 'index' ? '.ws__index' : '.ws__dock');
+  const track = side === 'index' ? '--ws-index-track' : '--ws-dock-track';
+  const name = side === 'index' ? 'the index' : 'the side panel';
+  const root = document.documentElement.style;
+  const sign = from === 'right' ? -1 : 1;
   const read = () => parseInt(getComputedStyle(document.documentElement).getPropertyValue(variable), 10);
-  const pane = grip.closest('.ws__index, .ws__dock');
+  const isOpen = () => shell.dataset[side] === 'on';
+  const clamp01 = (n) => Math.min(1, Math.max(0, n));
 
+  grip.innerHTML = `<span class="ws-grip__line"></span><span class="ws-grip__knob">${CHEVRON}</span><span class="ws-grip__hint" aria-hidden="true"></span>`;
+  const hint = grip.querySelector('.ws-grip__hint');
   grip.tabIndex = 0;
-  grip.setAttribute('role', 'separator');
-  grip.setAttribute('aria-orientation', 'vertical');
-  grip.setAttribute('aria-valuemin', String(min));
-  grip.setAttribute('aria-valuemax', String(max));
 
-  // A focusable separator is a range widget, so it has to report its
-  // position. Without aria-valuenow a screen reader announces a handle with
-  // no value and no bounds, which is worse than announcing nothing.
+  /* Open, the grip is a separator, a range widget, so it reports where it
+     is: without aria-valuenow a screen reader announces a handle with no
+     value and no bounds. Closed, it is a button that opens the pane. The
+     shell's attribute is the state, so the grip follows it rather than
+     every caller remembering to tell it. */
   const publish = () => {
+    if (!isOpen()) return;
     const width = read();
     grip.setAttribute('aria-valuenow', String(width));
     grip.setAttribute('aria-valuetext', `${width} pixels`);
   };
-  publish();
+  const sync = () => {
+    if (isOpen()) {
+      grip.setAttribute('role', 'separator');
+      grip.setAttribute('aria-orientation', 'vertical');
+      grip.setAttribute('aria-valuemin', String(min));
+      grip.setAttribute('aria-valuemax', String(max));
+      grip.setAttribute('aria-label', `Resize ${name}`);
+      hint.textContent = 'Drag to resize · drag in or double-click to close';
+      publish();
+    } else {
+      grip.setAttribute('role', 'button');
+      for (const a of ['aria-orientation', 'aria-valuemin', 'aria-valuemax', 'aria-valuenow', 'aria-valuetext']) grip.removeAttribute(a);
+      grip.setAttribute('aria-label', `Open ${name}`);
+      hint.textContent = 'Click or drag to open';
+    }
+  };
+  sync();
+  new MutationObserver(sync).observe(shell, { attributes: true, attributeFilter: [`data-${side}`] });
+
+  // The knob and the lit span follow the pointer up and down the edge.
+  const setY = (clientY) => {
+    const box = grip.getBoundingClientRect();
+    const y = Math.min(box.height - 40, Math.max(40, clientY - box.top));
+    grip.style.setProperty('--y', `${Math.round(y)}px`);
+  };
+
+  // The label waits, so brushing past the edge says nothing.
+  let hintTimer = 0;
+  const hideHint = () => { clearTimeout(hintTimer); grip.removeAttribute('data-hint'); };
+  grip.addEventListener('pointerenter', (event) => {
+    if (event.pointerType !== 'mouse') return;
+    clearTimeout(hintTimer);
+    hintTimer = setTimeout(() => grip.setAttribute('data-hint', ''), 650);
+  });
+  grip.addEventListener('pointerleave', hideHint);
+  grip.addEventListener('pointermove', (event) => {
+    if (!grip.hasAttribute('data-active')) setY(event.clientY);
+  });
+
+  /* A closed seam answers before it is reached: --near goes from 0 to 1
+     over the last NEAR pixels, which grows the capsule and lights the
+     edge, so the reader sees there is something to take hold of on the
+     way to it. Read once a frame, and only for a mouse. */
+  const body = $('.ws__body');
+  let frame = 0;
+  let px = 0;
+  let py = 0;
+  let near = -1;
+  const setNear = (value) => {
+    if (value === near) return;
+    near = value;
+    grip.style.setProperty('--near', String(value));
+  };
+  const measureNear = () => {
+    frame = 0;
+    if (isOpen() || grip.hasAttribute('data-active') || !grip.offsetParent) { setNear(0); return; }
+    const x = grip.getBoundingClientRect().left;
+    const centre = x - (SEAM / 2) * sign;
+    const distance = Math.max(0, Math.abs(px - centre) - SEAM / 2);
+    const value = Math.round(clamp01(1 - distance / NEAR) * 100) / 100;
+    if (value > 0) setY(py);
+    setNear(value);
+  };
+  body.addEventListener('pointermove', (event) => {
+    if (event.pointerType !== 'mouse') return;
+    px = event.clientX;
+    py = event.clientY;
+    if (!frame) frame = requestAnimationFrame(measureNear);
+  }, { passive: true });
+  body.addEventListener('pointerleave', () => setNear(0));
+
+  let openedAt = 0;
+  const settle = (shut, { wasOpen, startWidth, clicked }) => {
+    shell.removeAttribute('data-resizing');
+    pane.removeAttribute('data-peeking');
+    pane.style.removeProperty('--ws-reveal');
+    root.removeProperty(track);
+    if (shut && wasOpen) {
+      close();
+      writePrefs({ [variable]: `${startWidth}px` });
+      // Restored once the pane is out of sight, so it does not re-wrap on
+      // the way out.
+      setTimeout(() => {
+        if (!isOpen()) root.setProperty(variable, `${startWidth}px`);
+      }, 400);
+    } else if (shut) {
+      root.setProperty(variable, `${startWidth}px`);
+      paintPaneState();
+    } else if (!wasOpen) {
+      openedAt = performance.now();
+      open({ reveal: clicked });
+      writePrefs({ [variable]: `${read()}px` });
+    } else {
+      writePrefs({ [variable]: `${read()}px` });
+    }
+    publish();
+  };
 
   grip.addEventListener('pointerdown', (event) => {
+    if (event.button !== 0) return;
     event.preventDefault();
     grip.setPointerCapture(event.pointerId);
-    grip.setAttribute('data-active', '');
-    $('#ws').setAttribute('data-resizing', '');
+    hideHint();
+    setY(event.clientY);
 
+    const wasOpen = isOpen();
     const startX = event.clientX;
     const startWidth = read();
-    let closing = false;
+    // The pane's outer edge: where it grows from when it is pulled open.
+    const box = pane.getBoundingClientRect();
+    const origin = from === 'right' ? box.right : box.left;
+    // The width the pane holds while the drag only uncovers it.
+    const keep = wasOpen ? min : startWidth;
+    let raw = wasOpen ? startWidth : SEAM;
+    let moved = false;
+    let velocity = 0;
+    let lastX = startX;
+    let lastT = event.timeStamp;
+
+    grip.setAttribute('data-active', '');
+    shell.setAttribute('data-resizing', '');
+    if (!wasOpen) {
+      pane.setAttribute('data-peeking', '');
+      pane.style.setProperty('--ws-reveal', '0');
+      root.setProperty(track, `${SEAM}px`);
+      shell.dataset[side] = 'on';
+    }
+
+    // Whether letting go now closes the pane (or leaves it closed).
+    const decide = (now) => {
+      if (!wasOpen && !moved) return false;   // a click opens
+      const throwing = now - lastT < 80 && Math.abs(velocity) > FLICK;
+      if (throwing && (!wasOpen || raw < min)) return velocity * sign < 0;
+      return wasOpen ? raw < min * CLOSE_BELOW : raw < startWidth * OPEN_ABOVE;
+    };
 
     const move = (moveEvent) => {
-      const delta = (moveEvent.clientX - startX) * (from === 'right' ? -1 : 1);
-      const raw = startWidth + delta;
-      closing = Boolean(close) && raw < min * CLOSE_BELOW;
-      pane?.toggleAttribute('data-closing', closing);
-      const width = Math.min(max, Math.max(min, raw));
-      document.documentElement.style.setProperty(variable, width + 'px');
+      const dt = moveEvent.timeStamp - lastT;
+      if (dt > 0) velocity = 0.7 * ((moveEvent.clientX - lastX) / dt) + 0.3 * velocity;
+      lastX = moveEvent.clientX;
+      lastT = moveEvent.timeStamp;
+      if (Math.abs(moveEvent.clientX - startX) > 3) moved = true;
+      setY(moveEvent.clientY);
+
+      raw = wasOpen
+        ? startWidth + (moveEvent.clientX - startX) * sign
+        : (moveEvent.clientX - origin) * sign;
+
+      if (raw >= keep) {
+        root.setProperty(variable, `${Math.min(max, Math.round(raw))}px`);
+        root.removeProperty(track);
+        pane.removeAttribute('data-peeking');
+      } else {
+        root.setProperty(variable, `${keep}px`);
+        root.setProperty(track, `${Math.max(SEAM, Math.round(raw))}px`);
+        pane.setAttribute('data-peeking', '');
+        pane.style.setProperty('--ws-reveal', String(clamp01((raw - SEAM) / (keep - SEAM))));
+      }
+      const shut = decide(moveEvent.timeStamp);
+      grip.toggleAttribute('data-closing', shut);
+      pane.toggleAttribute('data-closing', shut);
       publish();
     };
     const up = (upEvent) => {
-      grip.releasePointerCapture(event.pointerId);
-      grip.removeAttribute('data-active');
-      pane?.removeAttribute('data-closing');
-      $('#ws').removeAttribute('data-resizing');
+      if (grip.hasPointerCapture(event.pointerId)) grip.releasePointerCapture(event.pointerId);
       grip.removeEventListener('pointermove', move);
       grip.removeEventListener('pointerup', up);
       grip.removeEventListener('pointercancel', up);
-      if (closing && upEvent.type === 'pointerup') {
-        document.documentElement.style.setProperty(variable, startWidth + 'px');
-        publish();
-        close();
-        return;
-      }
-      writePrefs({ [variable]: read() + 'px' });
+      grip.removeAttribute('data-active');
+      grip.removeAttribute('data-closing');
+      pane.removeAttribute('data-closing');
+      // A cancelled drag goes back to where it started.
+      const shut = upEvent.type === 'pointerup' ? decide(upEvent.timeStamp) : !wasOpen;
+      settle(shut, { wasOpen, startWidth, clicked: !moved });
     };
 
     grip.addEventListener('pointermove', move);
@@ -1432,16 +1596,38 @@ function wireGrip(grip, { variable, min, max, from, close }) {
     grip.addEventListener('pointercancel', up);
   });
 
-  // Keyboard resize, because a handle that only takes a pointer is a pane
-  // width nobody on a keyboard can change.
+  // Double-click closes an open pane. Not one the first click of the pair
+  // has just opened: the pointer is still where the seam was.
+  grip.addEventListener('dblclick', () => {
+    if (!isOpen() || performance.now() - openedAt < 500) return;
+    hideHint();
+    close();
+  });
+
+  /* The keyboard gets all of it: arrows resize an open pane, Enter or
+     Space closes it, and on a closed seam Enter, Space or the arrow that
+     points into the page opens it. */
   grip.addEventListener('keydown', (event) => {
+    const into = from === 'right' ? 'ArrowLeft' : 'ArrowRight';
+    if (!isOpen()) {
+      if (event.key === 'Enter' || event.key === ' ' || event.key === into) {
+        event.preventDefault();
+        open({ reveal: true });
+      }
+      return;
+    }
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      close();
+      return;
+    }
     if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
     event.preventDefault();
-    const step = (event.shiftKey ? 40 : 12) * (event.key === 'ArrowRight' ? 1 : -1) * (from === 'right' ? -1 : 1);
+    const step = (event.shiftKey ? 40 : 12) * (event.key === 'ArrowRight' ? 1 : -1) * sign;
     const width = Math.min(max, Math.max(min, read() + step));
-    document.documentElement.style.setProperty(variable, width + 'px');
+    root.setProperty(variable, `${width}px`);
     publish();
-    writePrefs({ [variable]: width + 'px' });
+    writePrefs({ [variable]: `${width}px` });
   });
 }
 
@@ -1523,13 +1709,16 @@ export async function start() {
      machine the reader works on, not to the phone they checked it from.
      The toggles and the drag-to-close grips share these two, so a pane
      closed either way is remembered the same way. */
-  const setIndex = (open) => {
+  /* reveal: false when a grip pulled the pane out by hand, because its
+     rows are already on screen and replaying their entrance would make
+     them jump. */
+  const setIndex = (open, { reveal = true } = {}) => {
     const opening = open && !ui.index;
     ui.index = open;
     if (ui.index && NARROW.matches) ui.dock = false;
     if (!NARROW.matches) writePrefs({ index: ui.index });
     paintPaneState();
-    if (opening) revealIndex();
+    if (opening && reveal) revealIndex();
   };
   const setDock = (open) => {
     ui.dock = open;
@@ -1539,8 +1728,14 @@ export async function start() {
     renderDock();
   };
 
-  wireGrip($('#ws-grip-index'), { variable: '--ws-index-w', min: 200, max: 460, from: 'left', close: () => setIndex(false) });
-  wireGrip($('#ws-grip-dock'), { variable: '--ws-dock-w', min: 260, max: 520, from: 'right', close: () => setDock(false) });
+  wireGrip($('#ws-grip-index'), {
+    side: 'index', variable: '--ws-index-w', min: 200, max: 460, from: 'left',
+    open: (options) => setIndex(true, options), close: () => setIndex(false),
+  });
+  wireGrip($('#ws-grip-dock'), {
+    side: 'dock', variable: '--ws-dock-w', min: 260, max: 520, from: 'right',
+    open: () => setDock(true), close: () => setDock(false),
+  });
 
   $('#ws-toggle-index').addEventListener('click', () => setIndex(!ui.index));
   $('#ws-toggle-dock').addEventListener('click', () => setDock(!ui.dock));

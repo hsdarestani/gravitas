@@ -45,6 +45,12 @@
     --ws-dock-min: 260px;
     --ws-dock-max: 520px;
 
+    /* What a closed pane leaves behind: a strip at the edge it folded into,
+       which is where the grip waits to pull it back out. Closed to zero, as
+       it was, there was nothing to find, and at the right the only edge left
+       was the page's own scrollbar. ws-app.js reads the same 10. */
+    --ws-seam: 10px;
+
     --ws-row-h: 28px;
     --ws-list-row-h: 32px;
     --ws-gutter: 12px;
@@ -60,6 +66,10 @@
     /* The brand's house easing, named locally so a reader of this file can
        see at a glance that the workspace does not invent its own motion. */
     --ws-ease: var(--g-ease-orbit);
+    /* The one exception, and a small one: the grip's knob overshoots a
+       touch when it changes shape, so a tab stepping out of a seam reads
+       as something with weight rather than a rectangle being resized. */
+    --ws-ease-pop: cubic-bezier(0.34, 1.4, 0.64, 1);
 
     /* How long a side pane takes to open or close. Every part of that one
        movement reads this: the track, the pane's slide and fade, the drawer
@@ -170,14 +180,24 @@
   }
 
   .ws__body {
+    /* A pane's track is normally its width. While a pane is being pulled
+       open or pushed shut, ws-app.js sets --ws-*-track to where the pointer
+       is and the pane stays laid out at its own width, so the drag uncovers
+       it rather than squeezing it. Resolved here, on the element, so the
+       inline value on :root is picked up when it exists. */
+    --_iw: var(--ws-index-track, var(--ws-index-w));
+    --_dw: var(--ws-dock-track, var(--ws-dock-w));
     display: grid;
     grid-template-columns:
       var(--ws-rail-w)
-      var(--ws-index-w)
+      var(--_iw)
       minmax(0, 1fr)
-      var(--ws-dock-w);
+      var(--_dw);
     min-height: 0;
   }
+  /* One row, named, because the grips share their pane's column: left to
+     auto-placement, a second item in the same column starts a second row. */
+  .ws__body > * { grid-row: 1; }
 
   /* Each pane names its own track. Auto-placement would do the same thing
      right up until a pane leaves the flow: at phone width the rail becomes
@@ -190,12 +210,11 @@
 
   /* Panes collapse by zeroing their track. The pane keeps its own styles,
      which is what makes reopening it free of layout surprises. */
-  .ws[data-index="off"] .ws__body { grid-template-columns: var(--ws-rail-w) 0 minmax(0, 1fr) var(--ws-dock-w); }
-  .ws[data-dock="off"]  .ws__body { grid-template-columns: var(--ws-rail-w) var(--ws-index-w) minmax(0, 1fr) 0; }
-  .ws[data-index="off"][data-dock="off"] .ws__body { grid-template-columns: var(--ws-rail-w) 0 minmax(0, 1fr) 0; }
+  .ws[data-index="off"] .ws__body { grid-template-columns: var(--ws-rail-w) var(--ws-seam) minmax(0, 1fr) var(--_dw); }
+  .ws[data-dock="off"]  .ws__body { grid-template-columns: var(--ws-rail-w) var(--_iw) minmax(0, 1fr) var(--ws-seam); }
+  .ws[data-index="off"][data-dock="off"] .ws__body { grid-template-columns: var(--ws-rail-w) var(--ws-seam) minmax(0, 1fr) var(--ws-seam); }
 
-  /* Relative, because each holds an absolutely positioned resize handle on
-     its inner edge. */
+  /* Clipped, because the track uncovers a pane laid out at its own width. */
   .ws__index, .ws__dock { overflow: hidden; position: relative; }
 
   /* A closed pane is hidden only once its track has finished closing.
@@ -507,31 +526,203 @@
     font-size: var(--ws-fs-xs); color: var(--g-text-subtle);
   }
 
-  /* ---- Resize handles ---------------------------------------------------
-     Four pixels wide with a sixteen-pixel hit area either side, because a
-     4px target is a pointer-accuracy test nobody asked to sit. */
+  /* ---- Grips: resize, close, and open again -----------------------------
+     One control per side does all three, because they are one gesture seen
+     from two states. Open, the grip sits on the pane's inner edge: drag to
+     resize, drag in past half the minimum to close, double-click to close.
+     Closed, it is the seam the pane folded into: click it, or drag the pane
+     back out by its edge.
+
+     It used to be a 2px line that appeared on hover inside a pane that
+     clipped half its hit area, and it vanished with the pane. Nothing on
+     screen said the edge could be dragged, and once a pane was closed the
+     only way back was the topbar button. So the grip now answers before it
+     is touched: a closed seam carries a small capsule that grows and turns
+     accent as the pointer comes near, and becomes a tab with a chevron
+     under it; an open edge lights along a short span around the pointer
+     and puts a knob where the pointer is. Nothing here is a new colour:
+     accent, hairline and the raised surface, from gravitas.css.
+
+     The grip is a zero-width item on the line itself. Its hit area leans
+     into the pane, not into the page, because the page's scrollbar runs
+     down the page's edge and a grip laid over it takes the scrollbar away. */
   .ws-grip {
-    position: absolute; inset-block: 0; width: 0;
+    --y: 50%;
+    --near: 0;
+    position: relative; width: 0;
     z-index: var(--g-z-raised);
+    touch-action: none;
+    outline: none;
   }
-  .ws__index .ws-grip { right: 0; }
-  .ws__dock  .ws-grip { left: 0; }
+  #ws-grip-index { grid-column: 2; justify-self: end; }
+  #ws-grip-dock  { grid-column: 4; justify-self: start; }
+
+  /* Hit area. */
   .ws-grip::after {
     content: ""; position: absolute; inset-block: 0;
-    left: -8px; width: 16px;
     cursor: col-resize;
   }
+  #ws-grip-index::after { left: -9px; width: 13px; }
+  #ws-grip-dock::after  { left: -3px; width: 13px; }
+
+  /* The seam's own surface, drawn only while the pane is closed. */
   .ws-grip::before {
     content: ""; position: absolute; inset-block: 0;
-    left: -1px; width: 2px;
+    width: var(--ws-seam);
+    background: var(--g-surface-sunken);
+    opacity: 0; transition: opacity var(--g-dur) var(--ws-ease);
+    pointer-events: none;
+  }
+  #ws-grip-index::before { right: 0; border-right: 1px solid var(--g-hairline); }
+  #ws-grip-dock::before  { left: 0;  border-left: 1px solid var(--g-hairline); }
+
+  /* The line: lit only near the pointer while hovering, the whole height
+     while dragging. */
+  .ws-grip__line {
+    position: absolute; inset-block: 0; left: -1px; width: 2px;
     background: var(--g-accent);
     opacity: 0;
+    -webkit-mask-image: linear-gradient(to bottom, transparent calc(var(--y) - 150px), #000 calc(var(--y) - 36px), #000 calc(var(--y) + 36px), transparent calc(var(--y) + 150px));
+            mask-image: linear-gradient(to bottom, transparent calc(var(--y) - 150px), #000 calc(var(--y) - 36px), #000 calc(var(--y) + 36px), transparent calc(var(--y) + 150px));
     transition: opacity var(--g-dur) var(--ws-ease);
+    pointer-events: none;
   }
-  .ws-grip[data-active]::before { opacity: 1; }
+
+  /* The knob rides the line at the pointer's height. --kx moves it off the
+     line: into the seam's middle when closed, out onto the page as a tab
+     when the seam is hovered. */
+  .ws-grip__knob {
+    --kx: 0px;
+    position: absolute; left: 0; top: 0;
+    display: grid; place-items: center;
+    width: 4px; height: 30px;
+    border: 1px solid transparent;
+    border-radius: var(--g-radius-pill);
+    background: var(--g-accent);
+    color: var(--g-accent);
+    box-sizing: border-box;
+    opacity: 0;
+    transform: translate(calc(-50% + var(--kx)), calc(var(--y) - 50%)) scale(0.7);
+    transition:
+      transform 260ms var(--ws-ease-pop),
+      width 260ms var(--ws-ease-pop),
+      height 260ms var(--ws-ease-pop),
+      opacity var(--g-dur-fast) var(--ws-ease),
+      background-color var(--g-dur) var(--ws-ease),
+      border-color var(--g-dur) var(--ws-ease),
+      box-shadow var(--g-dur) var(--ws-ease);
+    pointer-events: none;
+  }
+  .ws-grip__knob svg {
+    width: 14px; height: 14px;
+    opacity: 0;
+    transform: rotate(var(--chev, 0deg)) scale(0.6);
+    transition: opacity var(--g-dur-fast) var(--ws-ease), transform 260ms var(--ws-ease-pop);
+  }
+
+  /* The label, after a pause: what the edge does, said once, beside the
+     knob and on the page side so a pane never covers it. */
+  .ws-grip__hint {
+    position: absolute; top: 0;
+    padding: 4px 8px; border-radius: var(--ws-r-control);
+    background: var(--g-cosmos-800); color: var(--g-text);
+    border: 1px solid var(--g-hairline);
+    font-size: var(--ws-fs-xs); white-space: nowrap;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 140ms var(--ws-ease), transform 140ms var(--ws-ease);
+  }
+  :root[data-theme="light"] .ws-grip__hint { background: var(--g-cosmos-600); color: var(--g-white-tint); }
+  #ws-grip-index .ws-grip__hint { left: 14px;  transform: translate(-3px, calc(var(--y) - 50%)); }
+  #ws-grip-dock  .ws-grip__hint { right: 14px; transform: translate(3px,  calc(var(--y) - 50%)); }
+  .ws-grip[data-hint]:not([data-active]) .ws-grip__hint { opacity: 1; }
+  #ws-grip-index[data-hint]:not([data-active]) .ws-grip__hint,
+  #ws-grip-dock[data-hint]:not([data-active])  .ws-grip__hint { transform: translate(0, calc(var(--y) - 50%)); }
+
+  /* -- Open: resize and close -- */
   @media (hover: hover) and (pointer: fine) {
-    .ws-grip:hover::before { opacity: 0.55; }
+    .ws-grip:hover .ws-grip__line { opacity: 0.7; transition-delay: 80ms; }
+    .ws-grip:hover .ws-grip__knob {
+      opacity: 1;
+      transform: translate(calc(-50% + var(--kx)), calc(var(--y) - 50%)) scale(1);
+      transition-delay: 80ms, 80ms, 80ms, 80ms, 0ms, 0ms, 0ms;
+    }
   }
+  .ws-grip:focus-visible .ws-grip__line { opacity: 1; -webkit-mask-image: none; mask-image: none; }
+  .ws-grip:focus-visible .ws-grip__knob { opacity: 1; transform: translate(calc(-50% + var(--kx)), calc(var(--y) - 50%)) scale(1); }
+
+  .ws-grip[data-active] .ws-grip__line { opacity: 1; -webkit-mask-image: none; mask-image: none; }
+  .ws-grip[data-active] .ws-grip__knob {
+    opacity: 1; width: 6px; height: 44px;
+    transform: translate(calc(-50% + var(--kx)), calc(var(--y) - 50%)) scale(1);
+    box-shadow: 0 0 0 4px rgb(var(--g-tint) / 0.08);
+  }
+
+  /* Release here closes: the knob becomes a disc with an arrow pointing
+     the way the pane will go, and the line goes quiet. */
+  .ws-grip[data-closing] .ws-grip__line { opacity: 0.35; }
+  .ws-grip[data-closing] .ws-grip__knob {
+    width: 26px; height: 26px;
+    background: var(--g-surface-raised);
+    border-color: var(--g-border);
+    box-shadow: var(--g-shadow);
+  }
+  .ws-grip[data-closing] .ws-grip__knob svg { opacity: 1; transform: rotate(var(--chev, 0deg)) scale(1); }
+  #ws-grip-index { --chev: 180deg; }
+  #ws-grip-dock  { --chev: 0deg; }
+
+  /* -- Closed: the seam -- */
+  .ws[data-index="off"] #ws-grip-index,
+  .ws[data-dock="off"]  #ws-grip-dock { --kx: 0px; }
+  .ws[data-index="off"] #ws-grip-index::before,
+  .ws[data-dock="off"]  #ws-grip-dock::before { opacity: 1; }
+  .ws[data-index="off"] #ws-grip-index::after { left: calc(-1 * var(--ws-seam)); width: calc(var(--ws-seam) + 6px); cursor: e-resize; }
+  .ws[data-dock="off"]  #ws-grip-dock::after  { left: 0; width: var(--ws-seam); cursor: w-resize; }
+  .ws[data-index="off"] #ws-grip-index { --chev: 0deg; }
+  .ws[data-dock="off"]  #ws-grip-dock  { --chev: 180deg; }
+
+  /* At rest, a short capsule in the middle of the seam says something is
+     folded here. As the pointer approaches it grows and takes the accent,
+     following the pointer up and down the edge. */
+  .ws[data-index="off"] #ws-grip-index .ws-grip__knob,
+  .ws[data-dock="off"]  #ws-grip-dock  .ws-grip__knob {
+    opacity: calc(0.55 + 0.45 * var(--near));
+    width: 3px; height: calc(22px + 16px * var(--near));
+    background: color-mix(in srgb, var(--g-accent) calc(var(--near) * 100%), var(--g-border-strong));
+    transform: translate(calc(-50% + var(--kx)), calc(var(--y) - 50%)) scale(1);
+  }
+  .ws[data-index="off"] #ws-grip-index .ws-grip__knob { --kx: calc(var(--ws-seam) / -2); }
+  .ws[data-dock="off"]  #ws-grip-dock  .ws-grip__knob { --kx: calc(var(--ws-seam) / 2); }
+  .ws[data-index="off"] #ws-grip-index .ws-grip__line,
+  .ws[data-dock="off"]  #ws-grip-dock  .ws-grip__line { opacity: calc(0.6 * var(--near)); transition: none; }
+
+  /* Under the pointer, the capsule steps out of the seam as a tab with a
+     chevron: this pulls open. */
+  @media (hover: hover) and (pointer: fine) {
+    .ws[data-index="off"] #ws-grip-index:hover .ws-grip__knob,
+    .ws[data-dock="off"]  #ws-grip-dock:hover  .ws-grip__knob {
+      opacity: 1;
+      width: 20px; height: 46px;
+      background: var(--g-surface-raised);
+      border-color: var(--g-border);
+      box-shadow: var(--g-shadow);
+      transition-delay: 0ms;
+    }
+    .ws[data-index="off"] #ws-grip-index:hover .ws-grip__knob { --kx: 8px; }
+    .ws[data-dock="off"]  #ws-grip-dock:hover  .ws-grip__knob { --kx: -8px; }
+    .ws[data-index="off"] #ws-grip-index:hover .ws-grip__knob svg,
+    .ws[data-dock="off"]  #ws-grip-dock:hover  .ws-grip__knob svg { opacity: 1; transform: rotate(var(--chev)) scale(1); }
+    .ws[data-index="off"] #ws-grip-index:hover .ws-grip__hint { left: 26px; }
+    .ws[data-dock="off"]  #ws-grip-dock:hover  .ws-grip__hint { right: 26px; }
+  }
+  .ws[data-index="off"] #ws-grip-index:focus-visible .ws-grip__knob,
+  .ws[data-dock="off"]  #ws-grip-dock:focus-visible  .ws-grip__knob {
+    width: 20px; height: 46px; opacity: 1;
+    background: var(--g-surface-raised); border-color: var(--g-focus);
+  }
+  .ws[data-index="off"] #ws-grip-index:focus-visible .ws-grip__knob svg,
+  .ws[data-dock="off"]  #ws-grip-dock:focus-visible  .ws-grip__knob svg { opacity: 1; transform: rotate(var(--chev)) scale(1); }
+
   .ws[data-resizing] { cursor: col-resize; user-select: none; }
 
   /* ---- Opening and closing ----------------------------------------------
@@ -574,11 +765,23 @@
     .ws-node__kids[data-entering] > * { animation-delay: calc(var(--ws-i, 0) * 30ms); }
   }
 
-  /* Dragged past its minimum, a pane dims to say release will close it. */
+  /* While a drag only uncovers a pane, it fades with how much of it is
+     showing (--ws-reveal, 0 to 1, from ws-app.js) and slides the last few
+     pixels, the same entrance the toggle plays, held under the pointer.
+     Past the point where release would close it, it dims further, so the
+     outcome is on screen before the button comes up. */
   .ws[data-resizing] .ws__index > .ws-pane,
   .ws[data-resizing] .ws__dock  > .ws-pane { transition: opacity var(--g-dur-fast) linear; }
+  .ws__index[data-peeking] > .ws-pane {
+    opacity: calc(0.2 + 0.8 * var(--ws-reveal, 1));
+    transform: translateX(calc((1 - var(--ws-reveal, 1)) * -14px));
+  }
+  .ws__dock[data-peeking] > .ws-pane {
+    opacity: calc(0.2 + 0.8 * var(--ws-reveal, 1));
+    transform: translateX(calc((1 - var(--ws-reveal, 1)) * 14px));
+  }
   .ws__index[data-closing] > .ws-pane,
-  .ws__dock[data-closing]  > .ws-pane { opacity: 0.35; }
+  .ws__dock[data-closing]  > .ws-pane { opacity: 0.3; }
 
   /* ---- Index tree -------------------------------------------------------
      Depth is drawn with a guide line rather than with padding alone, so a
@@ -1128,9 +1331,9 @@ body .gchat {
      open state is the only condition there ever was. */
   @media (max-width: 1100px) {
     .ws .ws__body,
-    .ws[data-dock="on"] .ws__body { grid-template-columns: var(--ws-rail-w) var(--ws-index-w) minmax(0, 1fr) 0; }
+    .ws[data-dock="on"] .ws__body { grid-template-columns: var(--ws-rail-w) var(--_iw) minmax(0, 1fr) 0; }
     .ws[data-index="off"] .ws__body,
-    .ws[data-index="off"][data-dock="on"] .ws__body { grid-template-columns: var(--ws-rail-w) 0 minmax(0, 1fr) 0; }
+    .ws[data-index="off"][data-dock="on"] .ws__body { grid-template-columns: var(--ws-rail-w) var(--ws-seam) minmax(0, 1fr) 0; }
     /* The drawer is fixed in both states, so it can slide. It used to become
        fixed only when opened and fall back into its zero track when closed,
        which left nothing to animate between: it appeared and vanished. Out
@@ -1155,7 +1358,7 @@ body .gchat {
     .ws .ws__dock > .ws-pane { width: 100%; margin-left: 0; opacity: 1; transform: none; }
     /* Nothing to drag once the pane is fixed. The index grip stays, because
        the index is still a real column at this width. */
-    .ws__dock .ws-grip { display: none; }
+    #ws-grip-dock { display: none; }
 
     /* The topbar stays above the scrim and above the panel, because it holds
        the button that closes them. Dimming the only way out and making it
@@ -1415,6 +1618,9 @@ body .gchat {
    ========================================================================== */
 @media (prefers-reduced-motion: reduce) {
   .ws:not([data-resizing]) .ws__body { transition: none; }
+  /* The grip's knob changes shape in place instead of springing out. */
+  .ws-grip__knob, .ws-grip__knob svg, .ws-grip__hint { transition-property: opacity, background-color, border-color, color; }
+  .ws .ws__index[data-peeking] > .ws-pane, .ws .ws__dock[data-peeking] > .ws-pane { transform: none; }
   /* The panes and drawers stop travelling and only fade. Unlayered, so
      these win over every layered rule above without !important. */
   .ws .ws__index, .ws .ws__dock,
@@ -2559,10 +2765,10 @@ body .gchat {
 .ws[data-member-only] .ws__body,
 .ws[data-member-only][data-dock="off"] .ws__body,
 .ws[data-member-only][data-index="off"] .ws__body {
-  grid-template-columns: var(--ws-rail-w) 0 minmax(0, 1fr) var(--ws-dock-w);
+  grid-template-columns: var(--ws-rail-w) 0 minmax(0, 1fr) var(--_dw);
 }
 .ws[data-member-only][data-dock="off"] .ws__body {
-  grid-template-columns: var(--ws-rail-w) 0 minmax(0, 1fr) 0;
+  grid-template-columns: var(--ws-rail-w) 0 minmax(0, 1fr) var(--ws-seam);
 }
 
 
