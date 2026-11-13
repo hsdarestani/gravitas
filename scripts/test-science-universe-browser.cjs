@@ -5,13 +5,14 @@ const fs=require('node:fs');
 const path=require('node:path');
 const E=require('../lab-sources/science-universe/engine.js');
 const {execFileSync}=require('node:child_process');
+const viewportSizes=[[1440,900],[1280,720],[768,900],[390,844],[360,740]];
 const playwright=require('playwright-core');
 const root=process.cwd();
 const prior=process.env.SCIENCE_UX_BEFORE;
 const beforeSources=new Map(prior?['index.html','app.js','styles.css','engine.js'].map(name=>[
   name,execFileSync('git',['show',prior+':lab-sources/science-universe/'+name],{encoding:'utf8'})
 ]):[]);
-const types={'.html':'text/html','.js':'application/javascript','.css':'text/css','.svg':'image/svg+xml'};
+const types={'.html':'text/html','.js':'application/javascript','.css':'text/css','.svg':'image/svg+xml','.ttf':'font/ttf','.webp':'image/webp'};
 const server=http.createServer((req,res)=>{
   const pathname=decodeURIComponent(new URL(req.url,'http://localhost').pathname);
   const published=pathname.startsWith('/lab-run/science-universe/');
@@ -89,7 +90,7 @@ const server=http.createServer((req,res)=>{
     assert.equal(await frame.locator('#focus-chart').isHidden(),true,'pre-run does not show an empty chart');
     assert.equal(await frame.locator('#focus-pipeline strong').count(),0,'stage buttons are process illustrations');
     assert.equal(await frame.locator('#lifecycle-token').isHidden(),true,'no hypothesis token before a real run');
-    for(const [width,height] of [[1440,900],[1280,720],[768,900],[390,844],[360,740]]){
+    for(const [width,height] of viewportSizes){
       await shell.setViewportSize({width,height});
       for(const element of [run,slider,frame.locator('#focus-pipeline')]){
         const rect=await element.boundingBox();
@@ -99,11 +100,13 @@ const server=http.createServer((req,res)=>{
       if(width===1440||width===390)await shell.screenshot({path:'qa-artifacts/science-universe-after-initial-'+width+'.png'});
     }
     await shell.setViewportSize({width:1440,height:900});
+    assert.match(await slider.evaluate(el=>el.style.getPropertyValue('--fill')),/44\.444/);
     await run.click();
     const baseline=E.summary(E.step(E.make(20261029),45)).reviewBacklog;
     assert.equal(await frame.locator('#focus-results strong').innerText(),String(baseline));
     await frame.getByLabel('Smaller').check();
     await slider.press('End');
+    assert.equal(await slider.evaluate(el=>el.style.getPropertyValue('--fill')),'calc(100% + -10px)');
     assert.match(await frame.locator('#focus-status').innerText(),/Settings changed/);
     assert.equal(await frame.locator('#focus-results strong').innerText(),String(baseline));
     await run.click();
@@ -137,12 +140,21 @@ const server=http.createServer((req,res)=>{
     await frame.locator('#focus-medium-controls').waitFor();
     await run.click();
     assert.match(await frame.locator('#focus-io-caption').innerText(),/World A.*World B/);
-    await frame.getByRole('slider',{name:'Peer review capacity in World B'}).press('End');
+    assert.deepEqual(await frame.locator('#focus-world-a .world-station strong').allTextContents(),
+      ['activeStudies','reviewBacklog','published','replicated'].map(key=>String(E.summary(E.step(E.make(20261029),45))[key])));
+    assert.equal(await frame.locator('#focus-world-a').getAttribute('data-day'),'45');
+    assert.equal(await frame.locator('#focus-world-b').getAttribute('data-day'),'45');
+    await frame.locator('#focus-policy-disclosure summary').click();
+    const worldReview=frame.getByRole('slider',{name:'Peer-review policy in World B'});
+    await worldReview.press('End');
+    assert.equal(await worldReview.evaluate(el=>el.style.getPropertyValue('--fill')),'calc(100% + -10px)');
+    assert.match(await frame.locator('#focus-causal-warning').innerText(),/combined effect/);
     await run.click();
     assert.match(await frame.locator('#focus-io-caption').innerText(),/Multiple changes/);
     await frame.getByRole('button',{name:'Simple',exact:true}).click();
     await frame.locator('#focus-reset').click();
     assert.equal(await slider.inputValue(),'5');
+    assert.match(await slider.evaluate(el=>el.style.getPropertyValue('--fill')),/44\.444/);
     await shell.reload();
     await run.waitFor();
     await shell.goto(host+'/lab.html');
@@ -171,6 +183,10 @@ const server=http.createServer((req,res)=>{
     assert.equal(day,'010');
     const generated=Number((await page.locator('#hypotheses').innerText()).replaceAll(',',''));
     assert.ok(generated>0,'real engine generates ideas after time advance');
+    await page.locator('#zoom-in').click();
+    await page.waitForFunction(()=>Number(document.querySelector('#network-a').dataset.zoom)>1);
+    await page.locator('#network-a').press('0');
+    await page.waitForFunction(()=>document.querySelector('#network-a').dataset.zoom==='1');
     const labPicture=await page.locator('#network-a').evaluate(x=>x.toDataURL());
     await page.locator('#view-papers').click();
     assert.match(await page.locator('#map-explanation').innerText(),/Small dots are published claims/);
@@ -218,8 +234,10 @@ const server=http.createServer((req,res)=>{
     assert.ok(policyLayout.mapRight<=policyLayout.panelLeft,'policies dock beside the map');
     assert.equal(policyLayout.hit,'network-a','there is no dark or blocking policy overlay');
     const range=page.locator('input[data-policy=pressure]');
+    assert.match(await range.evaluate(el=>el.style.getPropertyValue('--fill')),/44\.444/);
     await range.evaluate(el=>{el.value='10';el.dispatchEvent(new Event('input',{bubbles:true}));});
-    assert.match(await page.locator('input[data-policy=pressure]').inputValue(),/10/);
+    assert.equal(await range.inputValue(),'10');
+    assert.equal(await range.evaluate(el=>el.style.getPropertyValue('--fill')),'calc(100% + -10px)');
     await page.locator('#policy-advance').click();
     assert.equal(await page.locator('#day').innerText(),'020','model continues while the policy panel is open');
     await page.locator('#close-settings').click();
@@ -271,6 +289,22 @@ const server=http.createServer((req,res)=>{
     await page.screenshot({path:'qa-artifacts/science-universe-mobile.png',fullPage:true});
     const overflow=await page.evaluate(()=>document.documentElement.scrollWidth-document.documentElement.clientWidth);
     assert.ok(overflow<=2,'mobile horizontal overflow: '+overflow);
+    for(const [width,height] of viewportSizes){
+      await page.setViewportSize({width,height});
+      for(const [name,selector] of [['Simple','#focus-pipeline'],['Medium','#focus-worlds'],['Advanced','#canvases']]){
+        await page.getByRole('button',{name,exact:true}).click();
+        await page.locator(selector).waitFor();
+        const geometry=await page.locator(selector).evaluate(el=>{
+          const box=el.getBoundingClientRect();
+          return {left:box.left,right:box.right,screen:document.documentElement.clientWidth};
+        });
+        assert.ok(geometry.left>=0&&geometry.right<=geometry.screen+1,name+' workspace fits '+width+'px');
+        if(width===1440||width===390){
+          await page.evaluate(()=>window.scrollTo(0,0));
+          await page.screenshot({path:'qa-artifacts/science-universe-'+name.toLowerCase()+'-'+width+'.png'});
+        }
+      }
+    }
     assert.deepEqual(errors,[],'browser must have no JavaScript runtime errors');
     console.log('BROWSER PASS: 100+ agents, 12 policies, model-driven generation, lab interventions, fork, dual worlds, charts, model limitations, mobile.');
   }finally{await browser.close();}

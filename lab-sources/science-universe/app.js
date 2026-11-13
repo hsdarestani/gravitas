@@ -29,7 +29,33 @@ let show={links:true,flows:true,labels:true},drag=null,lastSimulation=performanc
 let eventLimit=40,fieldFilter=null,mapKeyView='',inspectorListKey='',feedKey='',historyKey='';
 let selectionDeferred=false,claimOptionsKey='';
 const paperNodeCache=new WeakMap();
+const cameras=Array.from({length:2},()=>({scale:1,x:0,y:0}));
+const reducedMotion=matchMedia('(prefers-reduced-motion: reduce)');
+let mapFrame=0, mapMotionUntil=0;
+function queueMap(){
+ if(!mapFrame)mapFrame=requestAnimationFrame(time=>{mapFrame=0;drawMap(time);});
+}
+function moveCamera(index,scale,anchor){
+ const camera=cameras[index],canvas=$('network-'+(index?'b':'a')),g=canvasGeometry(canvas);
+ if(!g)return;
+ const {x,y}=anchor||{x:g.w/2,y:g.h/2};
+ const next=Math.max(1,Math.min(4,scale)),ratio=next/camera.scale;
+ camera.x=Math.min(0,Math.max(g.w*(1-next),x-(x-camera.x)*ratio));
+ camera.y=Math.min(0,Math.max(g.h*(1-next),y-(y-camera.y)*ratio));
+ camera.scale=next;canvas.dataset.zoom=String(next);queueMap();
+}
 const text=(id,value)=>{const el=typeof id==='string'?$(id):id;const next=String(value);if(el&&el.textContent!==next)el.textContent=next;};
+// The thumb travels between its radius and the opposite inset, including at the endpoints.
+function syncRange(range,value=range.value,baseline){
+ if(range.value!==String(value))range.value=value;
+ const min=range.min===''?0:Number(range.min),max=range.max===''?100:Number(range.max);
+ const stop=value=>{
+  const fraction=max>min?Math.max(0,Math.min(1,(Number(value)-min)/(max-min))):0;
+  return 'calc('+100*fraction+'% + '+(10-20*fraction)+'px)';
+ };
+ range.style.setProperty('--fill',stop(range.value));
+ if(baseline!==undefined)range.style.setProperty('--baseline',stop(baseline));
+}
 function readingSelection(){const selection=window.getSelection();return !!selection&&!selection.isCollapsed&&String(selection).length>0;}
 function shellAction(action){if(G.shellAction)G.shellAction(action);}
 function showDialog(id){const dialog=$(id);if(!dialog.open)dialog.showModal();}
@@ -39,7 +65,7 @@ let currentSection='observe',lastBridge=0,lastStateSent=0,drawerOpen=false,lates
 
 const policyDescriptions={
   generation:['Hypothesis generation','Rate of candidate research questions'],
-  verification:['Peer review capacity','Sets daily throughput and scrutiny. At 7+, one failed repeat can trigger withdrawal.'],
+  verification:['Peer-review policy','Changes review throughput and methodological scrutiny together. At 7+, one failed repeat can trigger withdrawal.'],
   replication:['Replication capacity','Number of independent repeat tests'],
   funding:['Research funding','Daily flow of research credits'],
   aiAdoption:['AI workforce','AI share of idea generation'],
@@ -201,7 +227,12 @@ const nowWorld=()=>worlds[active];
 function trackUsage(kind,data={}){if(G.usage)G.usage(kind,{world:active?'B':'A',day:nowWorld().day,...data});}
 const runningWorlds=()=>worlds[1]?worlds:[nowWorld()];
 let lesson=null,lessonCheckpoint=null;
-function ensureComparison(){if(worlds[1])return true;$('comparison-setup').hidden=false;$('setup-status').textContent='First create World B, then advance both worlds together.';$('comparison-setup').scrollIntoView({block:'start'});return false;}
+function updateSetupBaseline(){
+ const baseline=nowWorld().policy[$('setup-policy').value];
+ text('setup-baseline','A · '+baseline+'/10');
+ syncRange($('setup-value'),$('setup-value').value,baseline);
+}
+function ensureComparison(){if(worlds[1])return true;$('comparison-setup').hidden=false;updateSetupBaseline();$('setup-status').textContent='First create World B, then advance both worlds together.';$('comparison-setup').scrollIntoView({block:'start'});return false;}
 function emit(event,s=nowWorld(),section=currentSection){
   if(performance.now()-lastBridge<650&&event!=='policy_changed')return;
   lastBridge=performance.now();
@@ -257,7 +288,11 @@ function play(on){
   if(on&&!ensureComparison())return;
   const wasPlaying=playing;
   playing=!!on;
-  if(wasPlaying!==playing)trackUsage(playing?'play':'pause');
+  if(wasPlaying!==playing){
+    trackUsage(playing?'play':'pause');
+    if(playing){lastSimulation=performance.now();raf=requestAnimationFrame(animation);}
+    else{cancelAnimationFrame(raf);queueMap();}
+  }
   $('play').innerHTML=(playing?PAUSE_ICON:PLAY_ICON)+'<span>'+(playing?'Pause':'Play')+'</span>';
   $('status-label').textContent=playing?'SIMULATION RUNNING':'SIMULATION PAUSED';
   $('session-state').classList.toggle('spinning',playing);
@@ -266,6 +301,7 @@ function play(on){
 }
 function reset(){
  for(let i=0;i<2;i++)if(worlds[i]){const s=worlds[i];worlds[i]=E.make(s.seed,{...s.policy},{...s.design});selected[i]=null;selectedPaper[i]=null;eventSeen[i].clear();}
+ cameras.forEach(camera=>Object.assign(camera,{x:0,y:0,scale:1}));
  play(false);render();emit('world_reset',nowWorld(),'observe');trackUsage('reset');
 }
 function arrangeCanvases(){
@@ -573,6 +609,7 @@ function comparison(){
     worlds[1].policy.verification+'/10, replication '+worlds[1].policy.replication+'/10';
 }
 function render(){
+ if(level==='advanced'){mapMotionUntil=performance.now()+300;queueMap();}
  // Keep the user's selected text and reading position intact while the numerical model continues.
  if(readingSelection()){selectionDeferred=true;publishContext();drawChart();return;}
  selectionDeferred=false;renderPipeline();summary();inspector();feed();drawChart();comparison();renderMetricTrends();renderDomainResults();mapLegend();publishContext();
@@ -713,25 +750,38 @@ function drawArrow(ctx,a,b,color){
 function draw(canvas,s,index,t){
  if(!s)return;
  const g=canvasGeometry(canvas);if(!g)return;
- const {ctx,w,h}=g,papers=view==='papers',nodes=papers?livePaperNodes(s,g):[],byPaper=new Map(nodes.map(n=>[n.paper.id,n]));
+ const {ctx,w,h}=g,camera=cameras[index],papers=view==='papers',nodes=papers?livePaperNodes(s,g):[],byPaper=new Map(nodes.map(n=>[n.paper.id,n]));
  ctx.clearRect(0,0,w,h);ctx.fillStyle=ink['map-bg'];ctx.fillRect(0,0,w,h);
  ctx.strokeStyle=ink['map-grid'];ctx.lineWidth=.7;
- for(let x=0;x<w;x+=40){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,h);ctx.stroke();}
- for(let y=0;y<h;y+=40){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(w,y);ctx.stroke();}
+ for(let x=0;x<w;x+=32)for(let y=0;y<h;y+=32){ctx.fillStyle=ink['map-grid'];ctx.fillRect(x,y,2,2);}
+ ctx.save();ctx.translate(camera.x,camera.y);ctx.scale(camera.scale,camera.scale);
+ canvas.dataset.zoom=String(camera.scale);
+ const pulse=!reducedMotion.matches&&Number.isFinite(t)?Math.min(1,Math.max(0,1-(mapMotionUntil-t)/300)):1;
+ const radius=(r)=>r/Math.sqrt(camera.scale);
  if(!papers)for(let domain=0;domain<4;domain++){
   const group=s.labs.filter(l=>l.domain===domain).map(l=>position(l,g));if(!group.length)continue;
   const x=group.reduce((sum,p)=>sum+p.x,0)/group.length,y=group.reduce((sum,p)=>sum+p.y,0)/group.length;
   const rx=Math.max(48,...group.map(p=>Math.abs(p.x-x)+24)),ry=Math.max(44,...group.map(p=>Math.abs(p.y-y)+24));
   ctx.save();const aura=ctx.createRadialGradient(x,y,0,x,y,Math.max(rx,ry));
   aura.addColorStop(0,domainColors[domain]);aura.addColorStop(1,'transparent');
-  ctx.globalAlpha=(fieldFilter===null||fieldFilter===domain) ? .19 : .04;ctx.fillStyle=aura;ctx.beginPath();ctx.ellipse(x,y,rx,ry,0,0,Math.PI*2);ctx.fill();ctx.restore();
-  ctx.fillStyle=domainColors[domain];ctx.globalAlpha=.7;ctx.font='600 11px '+FONT;ctx.textAlign='left';ctx.fillText(domainNames[domain],Math.max(10,x-rx+12),Math.max(18,y-ry+16));ctx.globalAlpha=1;
+  ctx.globalAlpha=(fieldFilter===null||fieldFilter===domain) ? .26 : .045;
+  ctx.fillStyle=aura;ctx.strokeStyle=domainColors[domain];ctx.lineWidth=.65;
+  for(const ring of [1,.78,.56]){
+   ctx.beginPath();ctx.ellipse(x,y,rx*ring,ry*ring,0,0,Math.PI*2);
+   if(ring===1)ctx.fill();
+   ctx.stroke();
+  }
+  ctx.restore();
+  ctx.fillStyle=domainColors[domain];ctx.globalAlpha=.7;ctx.font='600 '+radius(13)+'px '+FONT;ctx.textAlign='center';ctx.fillText(domainNames[domain].toUpperCase(),x,Math.max(20,y-ry-8));ctx.globalAlpha=1;
  }
  if(show.links&&!papers)for(const edge of s.links){
   if(fieldFilter!==null&&s.labs[edge.a].domain!==fieldFilter&&s.labs[edge.b].domain!==fieldFilter)continue;
   const a=position(s.labs[edge.a],g),b=position(s.labs[edge.b],g);
   ctx.strokeStyle=s.labs[edge.a].domain!==s.labs[edge.b].domain?ink['map-cross']:ink['map-link'];
-  ctx.lineWidth=1.2;ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke();
+  const highlighted=edge.a===selected[index]||edge.b===selected[index];
+  ctx.globalAlpha=selected[index]===null||highlighted?1:.36;
+  ctx.lineWidth=radius(highlighted?1.7:.95);ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke();
+  ctx.globalAlpha=1;
  }
  if(papers){
   const layout=paperLayout(s,g),focus=byPaper.get(selectedPaper[index]),sources=(s.citationEdges||[]).filter(e=>focus&&e.paperId===focus.paper.id);
@@ -752,19 +802,24 @@ function draw(canvas,s,index,t){
   });
  }
  if(!papers&&show.flows)for(const flow of (s.citationEdges||[]).filter(e=>s.day-e.day<=8)){
-  const a=position(s.labs[flow.from],g),b=position(s.labs[flow.to],g),f=Math.min(1,Math.max(0,(s.day-flow.day)/8));
+  if(fieldFilter!==null&&s.labs[flow.from].domain!==fieldFilter&&s.labs[flow.to].domain!==fieldFilter)continue;
+  const a=position(s.labs[flow.from],g),b=position(s.labs[flow.to],g),f=Math.min(1,Math.max(0,(s.day-flow.day+pulse)/8));
   drawArrow(ctx,a,b,ink['map-flow-line']);ctx.fillStyle=ink['map-flow'];ctx.beginPath();ctx.arc(a.x+(b.x-a.x)*f,a.y+(b.y-a.y)*f,2.5,0,6.283);ctx.fill();
  }
  if(!papers)s.labs.forEach((l,i)=>{
   ctx.globalAlpha=fieldFilter===null||l.domain===fieldFilter?1:.18;
-  const p=position(l,g),isSelected=selected[index]===i,r=papers?5:Math.min(18,9+Math.sqrt(l.active+1)*1.8);
+  const p=position(l,g),isSelected=selected[index]===i,r=radius(Math.min(20,8+Math.sqrt(l.active)*2.6));
   if(isSelected){ctx.strokeStyle=ink['map-select'];ctx.lineWidth=1.5;ctx.beginPath();ctx.arc(p.x,p.y,r+8,0,6.283);ctx.stroke();}
   ctx.fillStyle=l.locked?ink['map-node-locked']:ink['map-node'];ctx.strokeStyle=domainColors[l.domain];ctx.lineWidth=papers?1:1.5;
   ctx.beginPath();ctx.arc(p.x,p.y,r,0,6.283);ctx.fill();ctx.stroke();
-  if(!papers){ctx.fillStyle=domainColors[l.domain];ctx.beginPath();ctx.arc(p.x,p.y,2.8,0,6.283);ctx.fill();}
+  if(l.active>0){
+   ctx.save();ctx.globalAlpha*=.35+.35*pulse;ctx.strokeStyle=domainColors[l.domain];
+   ctx.beginPath();ctx.arc(p.x,p.y,r+radius(4),0,Math.PI*2);ctx.stroke();ctx.restore();
+  }
+  ctx.fillStyle=domainColors[l.domain];ctx.beginPath();ctx.arc(p.x,p.y,radius(isSelected?4:2.7),0,Math.PI*2);ctx.fill();
   if(!papers&&show.flows){
    const agents=s.agents.filter(a=>a.labId===i);
-   agents.forEach((a,j)=>{const ang=-Math.PI/2+j*2*Math.PI/agents.length,orbit=r+9;
+   agents.forEach((a,j)=>{const ang=-Math.PI/2+j*2*Math.PI/agents.length,orbit=r+radius(7);
     ctx.fillStyle=a.role==='AI'?ink['agent-ai']:ink['agent-human'];ctx.beginPath();ctx.arc(p.x+Math.cos(ang)*orbit,p.y+Math.sin(ang)*orbit,1.9,0,6.283);ctx.fill();});
   }
   if(show.labels&&(isSelected||fieldFilter===l.domain||w>850)){
@@ -779,7 +834,9 @@ function draw(canvas,s,index,t){
   if(paper.domain!==s.labs[paper.labId].domain){ctx.strokeStyle=ink['map-cross-solid'];ctx.lineWidth=1;ctx.beginPath();ctx.arc(n.x,n.y,n.r+3,0,6.283);ctx.stroke();}
   if(selectedPaper[index]===paper.id){ctx.strokeStyle=ink['map-select'];ctx.lineWidth=1.6;ctx.beginPath();ctx.arc(n.x,n.y,n.r+5,0,6.283);ctx.stroke();if(show.labels){ctx.fillStyle=ink['map-label-strong'];ctx.font='11px '+FONT;ctx.textAlign='left';ctx.fillText('#'+paper.id,n.x+10,n.y-8);}}
  }
+ ctx.restore();
  canvas.dataset.mapView=view;canvas.dataset.visiblePapers=String(nodes.length);
+ if(playing&&!reducedMotion.matches&&Number.isFinite(t)&&t<mapMotionUntil&&s.citationEdges?.length)queueMap();
 }
 function drawMap(time){
   if(compareMode&&worlds[1]){
@@ -788,56 +845,91 @@ function drawMap(time){
   }else draw(active===0?$('network-a'):$('network-b'),worlds[active],active,time);
 }
 function nearest(s,g,x,y){
-  let best=-1,d=24;
-  for(const l of s.labs){const p=position(l,g),r=Math.hypot(p.x-x,p.y-y);if(r<d){best=l.id;d=r;}}
+  let best=-1,d=24/Math.sqrt(g.scale||1);
+  for(const l of s.labs){if(fieldFilter!==null&&l.domain!==fieldFilter)continue;const p=position(l,g),r=Math.hypot(p.x-x,p.y-y);if(r<d){best=l.id;d=r;}}
   return best;
 }
 function canvasEvents(index){
   const canvas=$('network-'+(index?'b':'a'));canvas.tabIndex=0;
+  const camera=cameras[index];
   const local=e=>{const b=canvas.getBoundingClientRect();return {x:e.clientX-b.left,y:e.clientY-b.top};};
+  const mapPoint=p=>({x:(p.x-camera.x)/camera.scale,y:(p.y-camera.y)/camera.scale});
+  canvas.addEventListener('wheel',e=>{
+    if(!e.ctrlKey&&!e.metaKey)return;
+    e.preventDefault();moveCamera(index,camera.scale*Math.exp(-e.deltaY*.005),local(e));
+  },{passive:false});
   canvas.addEventListener('pointerdown',e=>{
-    if(index===1&&!worlds[1])return;
-    chooseWorld(index);
+    if(drag||e.button!==0||(index===1&&!worlds[1]))return;
+    if(index!==active)chooseWorld(index);
+    const start=local(e),p=mapPoint(start),g=canvasGeometry(canvas);
+    if(!g)return;
     if(view==='papers'){
-      const p=local(e),g=canvasGeometry(canvas);
-      const hit=livePaperNodes(nowWorld(),g).filter(n=>Math.hypot(n.x-p.x,n.y-p.y)<n.r+5).sort((a,b)=>Math.hypot(a.x-p.x,a.y-p.y)-Math.hypot(b.x-p.x,b.y-p.y))[0];
+      const hit=livePaperNodes(nowWorld(),g).map(node=>({node,distance:Math.hypot(node.x-p.x,node.y-p.y)}))
+        .filter(({node,distance})=>distance<node.r+5).sort((a,b)=>a.distance-b.distance)[0]?.node;
       if(hit){selected[index]=hit.paper.labId;selectedPaper[index]=hit.paper.id;inspector();drawMap();publishContext(true);return;}
     }
-    const p=local(e),id=nearest(nowWorld(),canvasGeometry(canvas),p.x,p.y);
-    selected[index]=id<0?null:id;selectedPaper[index]=null;
-    if(id>=0){drag={index,id,start:p,startPosition:{x:nowWorld().labs[id].x,y:nowWorld().labs[id].y},moved:false,wasPlaying:playing,before:networkFacts(nowWorld(),id)};play(false);canvas.setPointerCapture(e.pointerId);}
-    inspector();publishContext(true);
+    const id=view==='labs'?nearest(nowWorld(),{...g,scale:camera.scale},p.x,p.y):-1;
+    if(id<0){
+      if(camera.scale>1||e.pointerType!=='touch'){
+        drag={index,pointer:e.pointerId,start,pan:true,x:camera.x,y:camera.y};
+        canvas.setPointerCapture(e.pointerId);
+      }
+      return;
+    }
+    const lab=nowWorld().labs[id];
+    selected[index]=id;selectedPaper[index]=null;
+    drag={index,pointer:e.pointerId,id,start,startPosition:{x:lab.x,y:lab.y},moved:false,wasPlaying:playing,before:networkFacts(nowWorld(),id)};
+    play(false);canvas.setPointerCapture(e.pointerId);
+    inspector();publishContext(true);queueMap();
   });
   canvas.addEventListener('pointermove',e=>{
-    if(!drag||drag.index!==index)return;
-    const p=local(e);
-    if(Math.hypot(p.x-drag.start.x,p.y-drag.start.y)>8)drag.moved=true;
-    if(drag.moved){
-      const g=canvasGeometry(canvas),l=nowWorld().labs[drag.id];if(!g)return;
-      l.x=Math.max(.04,Math.min(.96,(p.x-g.pad)/(g.w-g.pad*2)));
-      l.y=Math.max(.07,Math.min(.93,(p.y-g.pad)/(g.h-g.pad*2)));
+    if(!drag||drag.index!==index||drag.pointer!==e.pointerId)return;
+    const p=local(e),g=canvasGeometry(canvas);
+    if(!g)return;
+    const dx=p.x-drag.start.x,dy=p.y-drag.start.y;
+    if(drag.pan){
+      camera.x=Math.min(0,Math.max(g.w*(1-camera.scale),drag.x+dx));
+      camera.y=Math.min(0,Math.max(g.h*(1-camera.scale),drag.y+dy));
+    }else{
+      if(Math.hypot(dx,dy)>8)drag.moved=true;
+      if(!drag.moved)return;
+      const lab=nowWorld().labs[drag.id];
+      lab.x=Math.max(.04,Math.min(.96,drag.startPosition.x+dx/camera.scale/(g.w-g.pad*2)));
+      lab.y=Math.max(.07,Math.min(.93,drag.startPosition.y+dy/camera.scale/(g.h-g.pad*2)));
     }
+    queueMap();
   });
-  canvas.addEventListener('pointerup',()=>{
-    if(!drag||drag.index!==index)return;
-    if(drag.moved){
-      const l=worlds[index].labs[drag.id];
-      E.intervention(worlds[index],'move',drag.id,{x:l.x,y:l.y});
-      trackUsage('laboratory_moved',{laboratory:drag.id+1});
-      const after=networkFacts(worlds[index],drag.id);
-      $('intervention-status').textContent=l.name+': links '+drag.before.selectedLinks+' → '+after.selectedLinks+'; across communities '+drag.before.selectedCrossLinks+' → '+after.selectedCrossLinks+'. This changes future citation preferences, not existing evidence.';
-      mapLegend();
-      emit('collaboration_changed',worlds[index],'network');
+  function finishDrag(e,canceled){
+    if(!drag||drag.index!==index||drag.pointer!==e.pointerId)return;
+    const gesture=drag;drag=null;
+    if(gesture.pan)return;
+    if(gesture.moved){
+      const lab=worlds[index].labs[gesture.id];
+      if(canceled)Object.assign(lab,gesture.startPosition);
+      else{
+        E.intervention(worlds[index],'move',gesture.id,{x:lab.x,y:lab.y});
+        trackUsage('laboratory_moved',{laboratory:gesture.id+1});
+        const after=networkFacts(worlds[index],gesture.id);
+        $('intervention-status').textContent=lab.name+': links '+gesture.before.selectedLinks+' → '+after.selectedLinks+'; across communities '+gesture.before.selectedCrossLinks+' → '+after.selectedCrossLinks+'.';
+        mapLegend();emit('collaboration_changed',worlds[index],'network');
+      }
     }
-    const resume=drag.wasPlaying;drag=null;inspector();publishContext(true);if(resume)play(true);
-  });
-  canvas.addEventListener('pointercancel',()=>{const resume=drag?.wasPlaying;if(drag)Object.assign(worlds[drag.index].labs[drag.id],drag.startPosition);drag=null;if(resume)play(true);});
+    inspector();publishContext(true);queueMap();if(gesture.wasPlaying)play(true);
+  }
+  canvas.addEventListener('pointerup',e=>finishDrag(e,false));
+  canvas.addEventListener('pointercancel',e=>finishDrag(e,true));
+  canvas.addEventListener('lostpointercapture',e=>finishDrag(e,true));
   canvas.addEventListener('keydown',e=>{
+    if(['+','=','-','0'].includes(e.key)){
+      e.preventDefault();moveCamera(index,e.key==='0'?1:camera.scale*(e.key==='-'?1/1.4:1.4));return;
+    }
     if(!['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(e.key))return;
     e.preventDefault();chooseWorld(index);
     const delta=e.key==='ArrowLeft'||e.key==='ArrowUp'?-1:1;
-    selected[index]=selected[index]===null?0:(selected[index]+delta+worlds[index].labs.length)%worlds[index].labs.length;
-    selectedPaper[index]=null;inspector();publishContext(true);
+    const labs=worlds[index].labs.filter(lab=>fieldFilter===null||lab.domain===fieldFilter);
+    const current=labs.findIndex(lab=>lab.id===selected[index]);
+    selected[index]=labs[current<0?0:(current+delta+labs.length)%labs.length]?.id??null;
+    selectedPaper[index]=null;inspector();publishContext(true);queueMap();
   });
 }
 function changeLab(action){
@@ -857,23 +949,23 @@ function renderPolicies(){
     const head=make('div','policy-name');
     head.append(make('strong','',name),make('output','',value+'/10'));
     const range=make('input');range.type='range';range.min=1;range.max=10;range.step=1;range.value=value;
+    syncRange(range,value,active?worlds[0].policy[key]:E.DEFAULTS[key]);
     range.dataset.policy=key;range.setAttribute('aria-label',name);
     range.addEventListener('input',()=>{
-      if(!ensureComparison()){range.value=nowWorld().policy[key];return;}
-      if(lesson&&active!==1){range.value=nowWorld().policy[key];return;}
+      if(!ensureComparison()){syncRange(range,nowWorld().policy[key]);return;}
+      if(lesson&&active!==1){syncRange(range,nowWorld().policy[key]);return;}
       if(lesson?.observed){worlds[0]=E.fork(lessonCheckpoint);worlds[1]=E.fork(lessonCheckpoint);lesson.observed=false;lesson.startDay=worlds[0].day;render();}
-      E.editPolicy(nowWorld(),key,range.value);
+      E.editPolicy(nowWorld(),key,range.value);syncRange(range);
+      const current=$('policy-controls').querySelector('[data-policy='+key+']');
+      if(current!==range){syncRange(current,range.value);text(current.closest('.policy-control').querySelector('output'),range.value+'/10');}
       trackUsage('parameter_changed',{parameter:key,value:Number(range.value)});
       head.querySelector('output').textContent=range.value+'/10';
       $('policy-live-status').textContent=name+' is now '+range.value+'/10 in World '+(active?'B':'A')+'. '+(playing?'Watch future model days; the effect can take time to appear.':'The model is paused. Advance days or press Play to observe the effect.');
-      publishContext(true);emit('policy_changed',nowWorld(),'intervene');comparison();renderMetricTrends();
+      publishContext(true);emit('policy_changed',nowWorld(),'intervene');comparison();renderMetricTrends();queueMap();
       if(lesson)reportLesson(false);
       const spark=line.querySelector('svg');if(spark)spark.replaceWith(sparkline(series(nowWorld()).map(x=>x['policy_'+key]),name));
     });
-    // The filled part of the track is drawn from --fill (styles.css).
-    const fill=()=>range.style.setProperty('--fill',((range.value-1)/9*100)+'%');
-    fill();range.addEventListener('input',fill);
-    line.append(head,make('p','',hint),range);
+    line.append(head,make('p','',hint),range,make('small','policy-reference','Applied immediately · Baseline '+(active?worlds[0].policy[key]:E.DEFAULTS[key])+'/10'));
     const provenance=policyEvidence[key]||['Assumed simulation rule',null];
     const policyAudit=POLICY_RATIONALE[key];
     const evidence=make('small','policy-evidence',
@@ -1026,7 +1118,7 @@ function setView(name){
 /* Experiment recipes are transparent, authored model interventions, not
    generated science. The user explicitly chooses to advance both worlds. */
 const REVIEW_CAPACITY={
- name:'Can peer review keep up with faster research?',key:'verification',label:'Peer review capacity',metric:'reviewBacklog',
+ name:'Can peer review keep up with faster research?',key:'verification',label:'Peer-review policy',metric:'reviewBacklog',
  outcome:'Studies waiting for review',low:E.DEFAULTS.verification,high:8
 };
 const GUIDED_EXPERIMENTS={
@@ -1059,20 +1151,22 @@ const METRIC_INPUTS={
   replicated:['replication','verification'], retracted:['replication','verification']
 };
 let mediumValues={...E.DEFAULTS,verification:REVIEW_CAPACITY.high};
-let focusDay=FOCUS_DAYS,focusReplay=0,focusStage='generated';
+let focusDay=0,focusReplay=0,focusStage='generated';
+let simpleSetting=REVIEW_CAPACITY.low;
+const mediumDrafts=new Map();
 const FOCUS_STAGES={
  generated:['Ideas generated','Teams propose hypotheses to test.'],
- tested:['Studies tested','Only studies with a detectable effect move into review.'],
+ tested:['Studies tested','Studies with a statistically detectable effect enter the review queue.'],
  reviewBacklog:['Studies waiting for review','Manuscripts wait while reviewers check their methods.'],
  published:['Studies published','Studies that pass review become papers.'],
  replicated:['Independent repeats completed','Some papers are tested again with a fresh sample.']
 };
-function traceStudy(world){
+function traceStudy(world,recorded){
  // Follow the first study to receive an independent repeat in this run.
- const repeat=world.events.findLast(e=>e.type==='replication_passed'||e.type==='replication_failed');
+ const repeat=recorded.findLast(e=>e.type==='replication_passed'||e.type==='replication_failed');
  const study=world.hypotheses.find(h=>h.id===repeat?.hypothesisId)||world.hypotheses[0];
  if(!study)return [];
- const events=world.events.filter(e=>e.hypothesisId===study.id);
+ const events=recorded.filter(e=>e.hypothesisId===study.id);
  const trace=[
   {day:study.created,stage:'generated',label:study.topic+' proposed'},
   {day:study.created,stage:'tested',label:'Initial test begins'}
@@ -1088,7 +1182,7 @@ function traceStudy(world){
  };
  for(const event of events.reverse()){
   const step=stages[event.type];
-  if(step)trace.push({day:event.day,stage:step[0],label:step[1]});
+  if(step)trace.push({day:event.day,stage:step[0],label:step[1],failed:/reject|failed|retracted/.test(event.type)});
  }
  return trace.sort((a,b)=>a.day-b.day);
 }
@@ -1097,37 +1191,73 @@ function drawLifecycle(run){
  const visited=trace.filter(step=>step.day<=focusDay);
  const current=visited.at(-1);
  const reached=new Set(visited.map(step=>step.stage));
- text('lifecycle-mode',run?(trace[0]?.label.replace(/ proposed$/,'')||'No hypothesis generated'):'Model workflow');
- text('lifecycle-clock',run?'Day '+focusDay+' / '+FOCUS_DAYS:'Before the run');
+ text('lifecycle-mode',current?trace[0].label.replace(/ proposed$/,''):'From idea to evidence');
+ text('lifecycle-clock',run?'Day '+focusDay+' / '+FOCUS_DAYS:'Ready to run');
  const token=$('lifecycle-token');
  token.hidden=!current;
- if(current)token.dataset.stagePosition=Object.keys(FOCUS_STAGES).indexOf(current.stage);
+ if(current){
+  token.dataset.stagePosition=Object.keys(FOCUS_STAGES).indexOf(current.stage);
+  token.style.setProperty('--station',token.dataset.stagePosition);
+  token.classList.toggle('is-failure',Boolean(current.failed));
+ }
  const event=$('lifecycle-event');
  event.hidden=!run;
- text(event,current?'Day '+current.day+' · '+visited.filter(step=>step.day===current.day).map(step=>step.label).join(' → '):'Waiting for the first hypothesis');
+ text(event,current?'Day '+current.day+' · '+visited.filter(step=>step.day===current.day).map(step=>step.label).join(' → '):'Waiting for the traced hypothesis');
+ const activity=$('lifecycle-activity');
+ activity.hidden=!run;
+ const daily=run?.events[focusDay]||[];
+ const counts=new Map();
+ for(const item of daily){
+  const label=WORLD_EVENTS[item.type]?.[1];
+  if(label)counts.set(label,(counts.get(label)||0)+1);
+ }
+ if(activity.frame!==run?.days[focusDay]){
+  activity.frame=run?.days[focusDay];
+  activity.replaceChildren(...[...counts].map(([label,count])=>make('span','activity-count',label+' '+count)));
+ }
+
  for(const button of document.querySelectorAll('[data-stage]')){
+  const count=button.querySelector('.station-count');
+  text(count,run?run.days[focusDay][button.dataset.stage]:'—');
+  const marks=button.querySelector('.station-events');
+  if(marks.frame!==run?.days[focusDay]){
+   marks.frame=run?.days[focusDay];
+   const stage=button.dataset.stage;
+   const matches=daily.filter(item=>{const metric=WORLD_EVENTS[item.type]?.[0];return metric===stage||(metric==='activeStudies'&&stage===(item.type==='hypothesis_generated'?'generated':'tested'));});
+   marks.replaceChildren(...matches.slice(0,8).map(item=>make('i',WORLD_EVENTS[item.type]?.[2]||'')));
+  }
   button.classList.toggle('is-reached',reached.has(button.dataset.stage));
   button.classList.toggle('is-current',current?.stage===button.dataset.stage);
   button.setAttribute('aria-pressed',String(button.dataset.stage===focusStage));
  }
- text('focus-stage-detail',FOCUS_STAGES[focusStage][1]);
+ text('focus-stage-detail',FOCUS_STAGES[focusStage][0]+' · '+FOCUS_STAGES[focusStage][1]);
 }
 function stopFocusedReplay(){
  cancelAnimationFrame(focusReplay);
- focusReplay=0;
+ focusReplay=0;$('focus-pause').hidden=true;$('focus-replay').hidden=false;
 }
 function focusPending(){
- const baseline=E.DEFAULTS.verification,setting=Number($('focus-setting').value);
+ const baseline=E.DEFAULTS.verification,setting=simpleSetting;
  const inputs=level==='medium'?mediumValues:{verification:setting};
  const reference=focusedRuns?.b?.world.policy||focusedRuns?.a.world.policy||E.DEFAULTS;
  const dirty=Object.keys(inputs).some(key=>inputs[key]!==reference[key]);
  text('focus-run',level==='medium'?'Compare worlds':!simpleRuns.size?
-  (setting===baseline?'Run baseline':'Run baseline and trial'):'Run experiment');
+  (setting===baseline?'Run baseline':'Run baseline and trial'):setting===baseline?'Replay baseline':'Run trial');
  const capacity=Math.floor(1+setting*.55);
- text('focus-setting-hint','Up to '+capacity+' reviews/day. Higher settings tighten scrutiny; at 7+, one failed repeat can trigger withdrawal.');
+ syncRange($('focus-setting'),setting,baseline);
+ text('focus-setting-value',setting+' / 10');
+ text('focus-setting-hint','Up to '+capacity+' reviews per day. This policy couples throughput and scrutiny. At 7+, one failed repeat can trigger withdrawal.');
+ text('focus-setting-applied','Baseline '+baseline+'/10 · Applied '+(focusedRuns?reference.verification+'/10':'after run'));
  $('focus-setting').setAttribute('aria-valuetext',setting+' out of 10, up to '+capacity+' model reviews per day');
- text('focus-status',dirty?'Settings changed. Run to measure the new settings.':focusedRuns?
-  'Run complete · 45 model days.':'Synthetic teaching model · 45 model days per run.');
+ const count=MEDIUM_KEYS.filter(key=>mediumValues[key]!==E.DEFAULTS[key]).length;
+ $('focus-world-b').classList.toggle('is-pending',dirty);
+ $('focus-causal-warning').hidden=count<2;
+ text('focus-causal-warning','Multiple policies differ from World A. This comparison measures their combined effect.');
+ text('focus-state',dirty?'Pending':focusedRuns?'Applied':'Ready');
+ text('world-b-state',dirty?'Pending':focusedRuns?'Applied':'Settings ready');
+ document.querySelector('.experiment-console').classList.toggle('is-pending',dirty);
+ text('focus-status',dirty?'Settings changed. Run to measure.':focusedRuns?
+  'Same seed · '+FOCUS_DAYS+' model days':'Synthetic teaching model');
  publishFocusedContext();
 }
 function focusInputs(metric){
@@ -1138,25 +1268,115 @@ function focusInputs(metric){
 }
 function focusMetricLabel(metric){return metricInfo(metric)[0];}
 function renderMediumControls(){
- const medium=level==='medium',host=$('focus-policy-grid');
+ const medium=level==='medium',host=$('focus-policy-grid'),primary=$('focus-main-policy');
  $('focus-medium-controls').hidden=!medium;
  document.querySelector('.focus-slider').hidden=medium;
  if(!medium)return;
- host.replaceChildren();
+ host.replaceChildren();primary.replaceChildren();
  for(const key of MEDIUM_KEYS){
-  const [name,hint]=policyDescriptions[key];
+  const [name,hint]=policyDescriptions[key],baseline=E.DEFAULTS[key];
   const label=make('label','focus-policy'),head=make('span','focus-policy-header');
-  const value=make('output','',mediumValues[key]+'/10');
+  const value=make('span','policy-value',mediumValues[key]+'/10');
   head.append(make('strong','',name),value);
   const input=make('input');
   input.type='range';input.min='1';input.max='10';input.step='1';
-  input.value=String(mediumValues[key]);input.setAttribute('aria-label',name+' in World B');
+  syncRange(input,mediumValues[key],baseline);
+  input.setAttribute('aria-label',name+' in World B');
+  const applied=make('small','policy-reference','Baseline '+baseline+'/10 · Applied '+(focusedRuns?.b?focusedRuns.b.world.policy[key]+'/10':'after run'));
   input.addEventListener('input',()=>{
-   mediumValues[key]=Number(input.value);value.textContent=input.value+'/10';focusPending();
+   syncRange(input);mediumValues[key]=Number(input.value);text(value,input.value+'/10');focusPending();
   });
-  label.append(head,input,make('small','',hint));
-  host.append(label);
+  input.dataset.guidedPolicy=key;
+  label.append(head,input,make('small','',hint),applied);
+  (key===focusedRecipe().key?primary:host).append(label);
  }
+}
+const WORLD_METRICS=[
+ ['activeStudies','Testing','Studies currently running'],['reviewBacklog','Review queue','Manuscripts waiting at the end of the day'],
+ ['published','Published','Cumulative accepted papers'],['replicated','Repeated','Cumulative independent repeats']
+];
+const WORLD_EVENTS={
+ hypothesis_generated:['activeStudies','Study started'],hypothesis_rejected:['activeStudies','No detectable effect','loss'],
+ review_rejected:['reviewBacklog','Rejected in review','loss'],paper_published:['published','Paper published'],
+ replication_passed:['replicated','Repeat passed'],replication_failed:['replicated','Repeat failed','loss'],paper_retracted:['replicated','Paper withdrawn','loss']
+};
+let inspectedWorld='a',inspectedMetric='reviewBacklog';
+function mountWorldFields(){
+ for(const side of ['a','b']){
+  const field=$('focus-world-'+side).querySelector('.world-field');
+  for(const [key,label] of WORLD_METRICS){
+   const station=make('button','world-station');
+   station.type='button';station.dataset.metric=key;
+   const meter=make('span','world-meter');meter.setAttribute('aria-hidden','true');
+   const activity=make('span','world-events');activity.setAttribute('aria-hidden','true');
+   station.append(make('span','world-metric',label),make('strong','','—'),meter,activity);
+   station.addEventListener('click',()=>{inspectedWorld=side;inspectedMetric=key;drawFocusDay();publishFocusedContext();});
+   field.append(station);
+  }
+ }
+ for(const station of document.querySelectorAll('[data-stage]')){
+  const count=make('span','station-count','—'),events=make('span','station-events');
+  count.setAttribute('aria-hidden','true');events.setAttribute('aria-hidden','true');station.append(count,events);
+ }
+}
+// A ring is a measured stock or total. Flow marks are recorded arrivals and outcomes for this day.
+function drawWorldFlow(field,run,side){
+ const canvas=field.querySelector('canvas'),g=canvasGeometry(canvas);
+ if(!g)return;
+ const {ctx,w,h}=g,margin=w<240?18:30;
+ ctx.clearRect(0,0,w,h);
+ const points=[[.23,.25],[.77,.25],[.77,.75],[.23,.75]].map(([x,y])=>({x:x*w,y:y*h}));
+ const color=ink['world-'+side];
+ for(const [index,[key]] of WORLD_METRICS.entries()){
+  const {x,y}=points[index],next=points[index+1];
+  const maximum=field.querySelectorAll('.world-station')[index].style.getPropertyValue('--volume');
+  ctx.strokeStyle=color;ctx.lineWidth=1;ctx.globalAlpha=.22;
+  const chamber=margin+Math.min(w*.12,38);
+  ctx.beginPath();ctx.arc(x,y,chamber,0,Math.PI*2);ctx.stroke();
+  if(Number(maximum)>0){
+   ctx.globalAlpha=.85;ctx.lineWidth=2;ctx.beginPath();
+   ctx.arc(x,y,chamber,-Math.PI/2,-Math.PI/2+2*Math.PI*Number(maximum));ctx.stroke();
+  }
+  ctx.globalAlpha=1;ctx.strokeStyle=ink['map-link'];
+  if(next){
+   ctx.setLineDash([3,4]);ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(next.x,next.y);ctx.stroke();ctx.setLineDash([]);
+  }
+  const events=(run?.events[focusDay]||[]).filter(event=>WORLD_EVENTS[event.type]?.[0]===key);
+  events.slice(0,10).forEach((event,i)=>{
+   const angle=-Math.PI/2+i*Math.PI/5,r=chamber+5;
+   ctx.fillStyle=WORLD_EVENTS[event.type][2]?ink['claim-fail']:color;
+   ctx.fillRect(x+Math.cos(angle)*r-2,y+Math.sin(angle)*r-2,4,4);
+  });
+ }
+}
+function drawWorldFields(a,b){
+ const left=a?.days[focusDay],right=b?.days[focusDay];
+ for(const [side,run,row] of [['a',a,left],['b',b,right]]){
+  const host=$('focus-world-'+side);
+  host.dataset.day=row?.day??'';
+  const field=host.querySelector('.world-field');
+  for(const station of host.querySelectorAll('[data-metric]')){
+   const key=station.dataset.metric,scale=Math.max(1,...[a,b].flatMap(run=>run?.days.map(day=>day[key])||[]));
+   text(station.querySelector('strong'),row?.[key]??'—');
+   station.style.setProperty('--volume',(row?.[key]||0)/scale);
+   station.setAttribute('aria-pressed',String(side===inspectedWorld&&key===inspectedMetric));
+   const events=station.querySelector('.world-events'),frame=run?.days[focusDay];
+   if(events.frame===frame)continue;
+   events.frame=frame;
+   const visible=(run?.events[focusDay]||[]).map(event=>WORLD_EVENTS[event.type]).filter(event=>event?.[0]===key);
+   events.replaceChildren(...visible.slice(0,12).map(event=>make('i',event[2]||'')));
+  }
+  drawWorldFlow(field,run,side);
+ }
+ const inspected=inspectedWorld==='a'?a:b;
+ const metric=WORLD_METRICS.find(([key])=>key===inspectedMetric);
+ const counts=new Map();
+ for(const event of inspected?.events[focusDay]||[]){
+  const item=WORLD_EVENTS[event.type];
+  if(item?.[0]===inspectedMetric)counts.set(item[1],(counts.get(item[1])||0)+1);
+ }
+ text('world-inspection','World '+inspectedWorld.toUpperCase()+' · '+metric[2]+
+  (inspected?' · '+(counts.size?[...counts].map(([label,count])=>label+' × '+count).join(' · '):'No recorded events at this station today.'):' · Run to observe'));
 }
 function focusedChartCard(metric,a,b){
  const card=make('article','focus-trend-card');
@@ -1210,13 +1430,14 @@ function focusedRecipe(){return level==='simple'?REVIEW_CAPACITY:GUIDED_EXPERIME
 function selectLevel(next,scenario,focus=false){
  if(!['simple','medium','advanced'].includes(next))return;
  stopFocusedReplay();focusDay=FOCUS_DAYS;
+ if(level==='medium')mediumDrafts.set(mediumScenario,mediumValues);
  if(level==='advanced'&&next!==level){play(false);if(drawerOpen)settings(false,false);}
  if(next==='medium'&&(scenario==='review_capacity'||Object.hasOwn(GUIDED_EXPERIMENTS,scenario))){
   mediumScenario=scenario;
   const selected=GUIDED_EXPERIMENTS[scenario]||REVIEW_CAPACITY;
   // Guided scenarios start with one clearly labeled intervention.
   // A visitor may then explore up to six input policies deliberately.
-  mediumValues={...E.DEFAULTS,[selected.key]:selected.high};
+  mediumValues=mediumDrafts.get(scenario)||{...E.DEFAULTS,[selected.key]:selected.high};
  }
  level=next;$('universe-app').dataset.level=level;
  document.querySelectorAll('[data-level-choice]').forEach(button=>{
@@ -1225,15 +1446,15 @@ function selectLevel(next,scenario,focus=false){
  if(level==='advanced'){render();drawMap();}
  else{
   focusedRuns=level==='simple'?[...simpleRuns.values()].at(-1):mediumRuns.get(mediumScenario);
-  if(scenario&&focusedRuns?.b)mediumValues={...focusedRuns.b.world.policy};
+  if(!focusedRuns)focusDay=0;
   $('focus-scenario').value=mediumScenario;
   const recipe=focusedRecipe(),medium=level==='medium';
   renderMediumControls();
+  text('focus-kicker',medium?'Science Universe / Parallel Worlds':'Science Universe / Research Journey');
   text('focus-title',recipe.name);
-  text('focus-description',medium?'Keep World A fixed. Change one policy in World B and compare the same 45 model days.':'Run a baseline, then change review capacity and compare the queues.');
+  text('focus-description',medium?'Change World B and watch both worlds run on the same clock.':'Follow a study through the research lifecycle, then try a different peer-review policy.');
   text('focus-setting-label','Peer-review policy');
-  $('focus-setting').value=focusedRuns?.value??(medium?recipe.high:recipe.low);
-  text('focus-setting-value',$('focus-setting').value+' / 10');
+  syncRange($('focus-setting'),simpleSetting,REVIEW_CAPACITY.low);
   drawFocused();focusPending();
   if(focus){const control=$(medium?'focus-scenario':'focus-setting');control.focus({preventScroll:true});control.scrollIntoView({block:'nearest'});}
  }
@@ -1241,12 +1462,13 @@ function selectLevel(next,scenario,focus=false){
 }
 function modelRun(recipe,value){
  const world=E.make(FOCUS_SEED,typeof value==='object'?value:{[recipe.key]:value});
- const days=[E.summary(world)];
+ const days=[E.summary(world)],events=[[]];
  for(let day=1;day<=FOCUS_DAYS;day++){
   E.step(world,1);
   days.push(E.summary(world));
+  events.push(world.events.filter(event=>event.day===day));
  }
- return {world,days,summary:days.at(-1),trace:traceStudy(world)};
+ return {world,days,events,summary:days.at(-1),trace:traceStudy(world,[...events].reverse().flat())};
 }
 function runFocused(){
  if(level==='advanced')return;
@@ -1259,6 +1481,10 @@ function runFocused(){
   focusedRuns={value:mediumValues[recipe.key],
    a:modelRun(recipe,E.DEFAULTS),b:modelRun(recipe,mediumValues),changes:changed};
   mediumRuns.set(mediumScenario,focusedRuns);
+  for(const input of document.querySelectorAll('[data-guided-policy]')){
+   const key=input.dataset.guidedPolicy;
+   text(input.parentElement.querySelector('.policy-reference'),'Baseline '+E.DEFAULTS[key]+'/10 · Applied '+mediumValues[key]+'/10');
+  }
  }else{
   const baseline=recipe.low;
   if(!simpleRuns.has(baseline))simpleRuns.set(baseline,{value:baseline,a:modelRun(recipe,baseline),changes:[]});
@@ -1275,15 +1501,16 @@ function replayFocused(){
  if(!focusedRuns)return;
  stopFocusedReplay();
  if(matchMedia('(prefers-reduced-motion: reduce)').matches){focusDay=FOCUS_DAYS;drawFocusDay();return;}
- const start=performance.now();
+ const start=performance.now(),from=focusDay>=FOCUS_DAYS?0:focusDay;
  function tick(now){
-  const day=Math.min(FOCUS_DAYS,Math.floor((now-start)/(level==='simple'?135:65)));
+  const day=Math.min(FOCUS_DAYS,from+Math.floor((now-start)/(level==='simple'?200:170)));
   if(day!==focusDay){focusDay=day;drawFocusDay();}
-  focusReplay=day<FOCUS_DAYS?requestAnimationFrame(tick):0;
-  if(!focusReplay){focusPending();}
+  if(day<FOCUS_DAYS)focusReplay=requestAnimationFrame(tick);
+  else{stopFocusedReplay();focusPending();}
  }
- focusDay=0;drawFocusDay();
- text('focus-status','Replaying the completed run.');
+ focusDay=from;drawFocusDay();
+ $('focus-replay').hidden=true;$('focus-pause').hidden=false;
+ text('focus-status','Playing recorded model days.');
  focusReplay=requestAnimationFrame(tick);
 }
 function focusComparison(){
@@ -1307,7 +1534,7 @@ function drawFocusDay(){
  const left=a?.days[focusDay],right=b?.days[focusDay];
  const host=$('focus-results');
  text('focus-metric',medium?recipe.outcome:FOCUS_STAGES[metric][0]);
- if(!medium)drawLifecycle(b||a);
+ if(medium)drawWorldFields(a,b);else drawLifecycle(b||a);
  const scores=medium?[['World A · baseline',left],['World B · intervention',right]]:
   right?[[baseline.value+'/10 · baseline',left],[focusedRuns.value+'/10 · trial',right]]:
   [[a?focusedRuns.value+'/10 · baseline':'Day 0',left||{[metric]:0}]];
@@ -1325,13 +1552,20 @@ function drawFocusDay(){
   end.toggleAttribute('hidden',!xy.length);
   if(xy.length){end.setAttribute('cx',xy.at(-1)[0]);end.setAttribute('cy',xy.at(-1)[1]);}
  }
- $('focus-time').value=focusDay;
+ syncRange($('focus-time'),focusDay);
+ text('focus-replay',focusDay>0&&focusDay<FOCUS_DAYS?'Resume':'Replay');
+ document.querySelector('.focus-stage').hidden=!focusedRuns||focusDay<1;
+ $('focus-more').hidden=!focusedRuns||focusDay<FOCUS_DAYS;
+ $('focus-io-caption').hidden=$('focus-more').hidden;
+ $('focus-comparison').hidden=focusDay<FOCUS_DAYS||!focusComparison();
+ $('focus-next').hidden=$('focus-comparison').hidden;
  text('focus-time-label',focusDay);
 }
 function drawFocused(){
  const a=focusedRuns?.a,b=focusedRuns?.b;
  const simple=level==='simple';
  $('focus-pipeline').hidden=!simple;
+ $('focus-worlds').hidden=simple;
  document.querySelector('.focus-stage').hidden=simple&&!focusedRuns;
  $('focus-more').hidden=!focusedRuns;
  $('focus-io-caption').hidden=simple&&!focusedRuns;
@@ -1347,7 +1581,7 @@ function drawFocused(){
 function resetFocused(){
  stopFocusedReplay();focusDay=FOCUS_DAYS;
  if(level==='simple'){
-  simpleRuns.clear();focusStage='generated';
+  simpleRuns.clear();focusStage='generated';simpleSetting=REVIEW_CAPACITY.low;
   for(const option of document.querySelectorAll('[name="queue-prediction"]'))option.checked=false;
  }else{
   mediumRuns.delete(mediumScenario);
@@ -1375,7 +1609,7 @@ function publishFocusedContext(){
  G.context({level,world:b?'B':'A',day:observed?.day||0,hasFork:!!b,view:'focused',
   policies:applied,metrics:observed||{},seed:FOCUS_SEED,policyEditing:!!changes.length,
   comparison:b?{a:a.summary,b:b.summary}:baseline&&a&&baseline!==a?{a:baseline.summary,b:a.summary}:null,
-  lesson:{policy:recipe.key,observed:!!run},focusedMetric:level==='simple'?focusStage:recipe.metric,
+  lesson:{policy:recipe.key,observed:!!run},focusedMetric:level==='simple'?focusStage:inspectedMetric,
   changes:changes.length?changes.map(key=>({key,before:applied[key],after:inputs[key],day:run?.world.day||0})):
    (focusedRuns?.changes||[]).map(key=>({key,before:E.DEFAULTS[key],after:applied[key],day:0}))});
 }
@@ -1435,7 +1669,7 @@ function bridge(){
   });
   G.onLayer(({key,enabled})=>{
     if(Object.prototype.hasOwnProperty.call(show,key)){
-      show[key]=!!enabled;$('layer-'+key).checked=!!enabled;
+      show[key]=!!enabled;$('layer-'+key).checked=!!enabled;queueMap();
     }
   });
   G.onExperiment(id=>{selectLevel('advanced');runGuidedExperiment(id);});
@@ -1462,10 +1696,11 @@ function bind(){
   $('guide-knowledge').addEventListener('click',()=>{setView('papers');$('map-dialog').close();});
   $('back-labs').addEventListener('click',event=>{if(window.parent!==window){event.preventDefault();shellAction('catalog');}});
   document.querySelectorAll('[data-level-choice]').forEach(button=>button.addEventListener('click',()=>selectLevel(button.dataset.levelChoice)));
-  $('focus-setting').addEventListener('input',event=>{text('focus-setting-value',event.target.value+' / 10');focusPending();});
+  $('focus-setting').addEventListener('input',event=>{simpleSetting=Number(event.target.value);focusPending();});
   $('plot-ask').addEventListener('click',()=>G.askPulsar?.('Explain the '+metricInfo(plot)[0]+' chart. '+$('plot-io-caption').textContent+'. Explain the causal uncertainty of this simulated outcome.'));
   $('focus-run').addEventListener('click',runFocused);
   $('focus-replay').addEventListener('click',replayFocused);
+  $('focus-pause').addEventListener('click',()=>{stopFocusedReplay();text('focus-status','Paused at day '+focusDay+'.');$('focus-replay').focus();});
   $('focus-reset').addEventListener('click',resetFocused);
   $('focus-next').addEventListener('click',()=>selectLevel('medium','review_bottleneck',true));
   $('focus-scenario').addEventListener('change',event=>selectLevel('medium',event.target.value,true));
@@ -1504,9 +1739,10 @@ function bind(){
   $('speed').addEventListener('change',e=>speed=Number(e.target.value)||1);
   $('world-a').addEventListener('click',()=>chooseWorld(0));
   $('world-b').addEventListener('click',()=>chooseWorld(1));
-  $('fork').addEventListener('click',()=>{$('comparison-setup').hidden=false;$('comparison-setup').scrollIntoView({block:'start'});});
-  $('setup-policy').addEventListener('change',()=>text('setup-baseline','A · '+nowWorld().policy[$('setup-policy').value]+'/10'));
-  $('setup-value').addEventListener('input',()=>text('setup-output',$('setup-value').value+'/10'));
+  $('fork').addEventListener('click',()=>{$('comparison-setup').hidden=false;updateSetupBaseline();$('comparison-setup').scrollIntoView({block:'start'});});
+  $('setup-policy').addEventListener('change',updateSetupBaseline);
+  $('setup-value').addEventListener('input',()=>{syncRange($('setup-value'));text('setup-output',$('setup-value').value+'/10');});
+  syncRange($('setup-value'),$('setup-value').value,nowWorld().policy.verification);
   $('start-comparison').addEventListener('click',()=>{const key=$('setup-policy').value,value=Number($('setup-value').value);const checkpoint=E.fork(nowWorld());if(value===checkpoint.policy[key]){text('setup-status','Choose a value different from World A.');return;}play(false);worlds[0]=E.fork(checkpoint);fork();E.editPolicy(worlds[1],key,value);lesson=null;$('comparison-setup').hidden=true;renderPolicies();render();emit('policy_changed',worlds[1],'intervene');});
   $('compare').addEventListener('click',()=>compare(!compareMode));
   $('close-compare').addEventListener('click',()=>compare(!compareMode));
@@ -1518,7 +1754,11 @@ function bind(){
   $('audit-lab').addEventListener('click',()=>changeLab('audit'));
   $('freeze-lab').addEventListener('click',()=>changeLab('freeze'));
   for(const name of ['links','flows','labels'])
-    $('layer-'+name).addEventListener('change',e=>show[name]=e.target.checked);
+    $('layer-'+name).addEventListener('change',e=>{show[name]=e.target.checked;queueMap();});
+  $('zoom-in').addEventListener('click',()=>moveCamera(active,cameras[active].scale*1.4));
+  $('zoom-out').addEventListener('click',()=>moveCamera(active,cameras[active].scale/1.4));
+  $('zoom-reset').addEventListener('click',()=>moveCamera(active,1));
+  new ResizeObserver(()=>{if(level==='advanced')queueMap();}).observe($('canvases'));
   document.querySelectorAll('[data-plot]').forEach(b=>b.addEventListener('click',()=>{
     plot=b.dataset.plot;document.querySelectorAll('[data-plot]').forEach(x=>{
       x.classList.toggle('active',x===b);x.setAttribute('aria-pressed',String(x===b));
@@ -1557,9 +1797,7 @@ function animation(now){
     for(const s of runningWorlds())E.step(s,chunks);
     render();interesting();snapshotInsight();
   }
-  if(!playing)lastSimulation=now;
-  if(level==='advanced')drawMap(nowWorld().day);
-  raf=requestAnimationFrame(animation);
+   if(playing)raf=requestAnimationFrame(animation);
 }
 /* Dropdowns. The list a browser draws for <select> belongs to the operating
    system (a white-on-blue strip on Windows) and CSS cannot reach it, so the
@@ -1647,12 +1885,13 @@ function installSelects(){
   document.addEventListener('scroll',e=>{if(cur&&!cur.pop.contains(e.target))close();},true);
   addEventListener('resize',()=>close());
 }
-mountWorkspace();bind();render();bridge();installSelects();selectLevel('simple');
-if(G.onTheme)G.onTheme(()=>{readInk();drawChart();drawMap(nowWorld().day);});
+mountWorkspace();mountWorldFields();bind();render();bridge();installSelects();selectLevel('simple');
+if(G.onTheme)G.onTheme(()=>{readInk();drawChart();if(level==='advanced')queueMap();else if(level==='medium')drawFocusDay();});
+new ResizeObserver(()=>{if(level==='medium')drawFocusDay();}).observe($('focus-worlds'));
 // The host hides Pulsar while a dialog in here dims the workspace, so the
 // companion never floats undimmed over a modal backdrop.
 if(G.modal)new MutationObserver(()=>G.modal(!!document.querySelector('dialog[open]')))
   .observe(document.body,{subtree:true,attributes:true,attributeFilter:['open']});
-raf=requestAnimationFrame(animation);
-window.addEventListener('pagehide',()=>cancelAnimationFrame(raf),{once:true});
+window.addEventListener('pagehide',()=>{cancelAnimationFrame(raf);cancelAnimationFrame(mapFrame);mapFrame=0;stopFocusedReplay();});
+window.addEventListener('pageshow',event=>{if(event.persisted){if(playing){lastSimulation=performance.now();raf=requestAnimationFrame(animation);}if(level==='advanced')queueMap();}});
 })();
