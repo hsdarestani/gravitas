@@ -52,8 +52,8 @@ def load_snapshot(path):
 def snapshot():
     with transaction.atomic():
         lab = live(lock=True)
-        if lab.published_version != BASELINE or lab.version != BASELINE:
-            raise RuntimeError("Refusing snapshot: published version and draft version must both be 15")
+        if lab.published_version != BASELINE or lab.version < BASELINE:
+            raise RuntimeError("Refusing snapshot: published version must be 15 and draft version must not be older")
         data = {
             "release": 357,
             "slug": SLUG,
@@ -83,7 +83,7 @@ def check_before(path):
     data = load_snapshot(path)
     with transaction.atomic():
         lab = live(lock=True)
-        if lab.pk != data["lab_id"] or lab.version != BASELINE or lab.published_version != BASELINE:
+        if lab.pk != data["lab_id"] or lab.version != data["version"] or lab.published_version != BASELINE:
             raise RuntimeError("Live Lab identity/version changed since the snapshot")
         for key in ("published_files", "files", "title", "summary", "duration_text"):
             if getattr(lab, key) != data[key]:
@@ -101,13 +101,13 @@ def check_after(path):
     expected = upgrade_file_set(data["published_files"], replacement)
     with transaction.atomic():
         lab = live(lock=True)
-        if lab.pk != data["lab_id"] or lab.published_version != BASELINE + 1 or lab.version != BASELINE + 1:
+        if lab.pk != data["lab_id"] or lab.published_version != data["version"] + 1 or lab.version != data["version"] + 1:
             raise RuntimeError("Unexpected version or Lab identity after publication")
         if lab.published_files != expected:
             raise RuntimeError("Published Lab files differ from the approved source")
         if lab.files != expected_draft(data, replacement):
             raise RuntimeError("Author draft changed unexpectedly")
-    print("PUBLISHED_VERIFIED: version 16 and complete approved source matched; drafts preserved")
+    print("PUBLISHED_VERIFIED: approved source matched; drafts preserved")
 
 
 def rollback(path):
@@ -117,7 +117,7 @@ def rollback(path):
     expected_author = expected_draft(data, replacement)
     with transaction.atomic():
         lab = live(lock=True)
-        if lab.pk != data["lab_id"] or lab.published_version != BASELINE + 1 or lab.version != BASELINE + 1:
+        if lab.pk != data["lab_id"] or lab.published_version != data["version"] + 1 or lab.version != data["version"] + 1:
             raise RuntimeError("Unsafe rollback: Lab version changed. Requires manual reconciliation.")
         if lab.published_files != expected_published:
             raise RuntimeError("Unsafe rollback: published files changed. Requires manual reconciliation.")
