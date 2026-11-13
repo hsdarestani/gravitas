@@ -5,7 +5,7 @@
   "component": false,
   "minimum_discourse_version": "2026.7.0",
   "authors": "GraviQuest",
-  "theme_version": "1.0.0",
+  "theme_version": "1.1.0",
   "theme_site_settings": {
     "enable_welcome_banner": false
   },
