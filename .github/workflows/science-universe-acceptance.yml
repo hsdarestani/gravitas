@@ -17,6 +17,8 @@ jobs:
     timeout-minutes: 12
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
@@ -33,6 +35,7 @@ jobs:
         env:
           NODE_PATH: ${{ runner.temp }}/gq-science-browser/node_modules
           CHROME_PATH: /usr/bin/google-chrome
+          SCIENCE_UX_BEFORE: 0f48e0343bdd7c935a8bae5f69fd085f9d9075a5
         run: node scripts/test-science-universe-browser.cjs
       - uses: actions/upload-artifact@v4
         if: always()

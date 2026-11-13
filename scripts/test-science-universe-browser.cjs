@@ -4,12 +4,18 @@ const http=require('node:http');
 const fs=require('node:fs');
 const path=require('node:path');
 const E=require('../lab-sources/science-universe/engine.js');
+const {execFileSync}=require('node:child_process');
 const playwright=require('playwright-core');
 const root=process.cwd();
+const prior=process.env.SCIENCE_UX_BEFORE;
+const beforeSources=new Map(prior?['index.html','app.js','styles.css','engine.js'].map(name=>[
+  name,execFileSync('git',['show',prior+':lab-sources/science-universe/'+name],{encoding:'utf8'})
+]):[]);
 const types={'.html':'text/html','.js':'application/javascript','.css':'text/css','.svg':'image/svg+xml'};
 const server=http.createServer((req,res)=>{
   const pathname=decodeURIComponent(new URL(req.url,'http://localhost').pathname);
   const published=pathname.startsWith('/lab-run/science-universe/');
+  const priorSource=pathname.startsWith('/science-ux-before/');
   if(pathname==='/api/labs/'){
     res.setHeader('Content-Type','application/json');
     res.end(JSON.stringify({labs:[{slug:'science-universe',ready:true,title:'Science Ecosystem',
@@ -21,6 +27,11 @@ const server=http.createServer((req,res)=>{
     res.end(JSON.stringify({authenticated:false,remaining:5}));return;
   }
   const source=published?pathname.replace('/lab-run/','/lab-sources/').replace(/\/$/,'/index.html'):pathname;
+  if(priorSource&&prior){
+    const name=pathname.split('/').at(-1)||'index.html';
+    res.setHeader('Content-Type',types[path.extname(name)]||'text/plain');
+    res.end(beforeSources.get(name)||'');return;
+  }
   const file=path.resolve(root,'.'+source);
   if(!file.startsWith(root+path.sep)||!fs.existsSync(file)||!fs.statSync(file).isFile()){
     res.writeHead(404);res.end('Not found');return;
@@ -59,14 +70,31 @@ const server=http.createServer((req,res)=>{
     assert.equal(await shell.getByRole('button',{name:'Enter simulation'}).count(),0);
     assert.equal(await shell.getByRole('button',{name:/Open Pulsar conversation/}).getAttribute('aria-expanded'),'false');
     fs.mkdirSync('qa-artifacts',{recursive:true});
+    if(prior){
+      const before=await browser.newPage({reducedMotion:'reduce'});
+      for(const [width,height] of [[1440,900],[390,844]]){
+        await before.setViewportSize({width,height});
+        await before.goto(host+'/science-ux-before/');
+        await before.locator('#focus-run').waitFor();
+        await before.screenshot({path:'qa-artifacts/science-universe-before-initial-'+width+'.png'});
+        await before.locator('#focus-run').click();
+        await before.locator('#focus-setting').press('End');
+        await before.locator('#focus-run').click();
+        await before.screenshot({path:'qa-artifacts/science-universe-before-completed-'+width+'.png',fullPage:true});
+      }
+      await before.close();
+    }
+    assert.equal(await frame.locator('#focus-chart').isHidden(),true,'pre-run does not show an empty chart');
+    assert.equal(await frame.locator('#focus-pipeline strong').count(),0,'stage buttons are process illustrations');
+    assert.equal(await frame.locator('#lifecycle-token').isHidden(),true,'no hypothesis token before a real run');
     for(const [width,height] of [[1440,900],[1280,720],[768,900],[390,844],[360,740]]){
       await shell.setViewportSize({width,height});
-      for(const element of [run,slider,frame.locator('#focus-chart')]){
+      for(const element of [run,slider,frame.locator('#focus-pipeline')]){
         const rect=await element.boundingBox();
         assert.ok(rect&&rect.x>=0&&rect.x+rect.width<=width+1&&rect.y>=0&&rect.y+rect.height<=height,
           'Primary experiment controls fit at '+width+'px: '+JSON.stringify(rect));
       }
-      if(width===1440||width===390)await shell.screenshot({path:'qa-artifacts/science-universe-after-'+width+'.png'});
+      if(width===1440||width===390)await shell.screenshot({path:'qa-artifacts/science-universe-after-initial-'+width+'.png'});
     }
     await shell.setViewportSize({width:1440,height:900});
     await run.click();
@@ -80,6 +108,19 @@ const server=http.createServer((req,res)=>{
     const trial=E.summary(E.step(E.make(20261029,{verification:10}),45)).reviewBacklog;
     assert.deepEqual(await frame.locator('#focus-results strong').allTextContents(),[String(baseline),String(trial)]);
     assert.match(await frame.locator('#focus-comparison').innerText(),/prediction/);
+    assert.match(await frame.locator('#lifecycle-mode').innerText(),/^Hypothesis /);
+    const trialWorld=E.step(E.make(20261029,{verification:10}),45);
+    const repeat=trialWorld.events.findLast(e=>['replication_passed','replication_failed'].includes(e.type));
+    assert.ok(repeat);
+    await frame.locator('#focus-time').fill(String(repeat.day));
+    assert.match(await frame.locator('#lifecycle-event').innerText(),/Independent repeat/);
+    assert.equal(await frame.locator('#lifecycle-token').getAttribute('data-stage-position'),'4');
+    await frame.locator('#focus-time').press('End');
+    for(const [width,height] of [[1440,900],[390,844]]){
+      await shell.setViewportSize({width,height});
+      await shell.screenshot({path:'qa-artifacts/science-universe-after-completed-'+width+'.png'});
+    }
+    await shell.setViewportSize({width:1440,height:900});
     await frame.getByRole('button',{name:'Testing'}).click();
     await frame.locator('#focus-time').press('Home');
     assert.deepEqual(await frame.locator('#focus-results strong').allTextContents(),['0','0']);

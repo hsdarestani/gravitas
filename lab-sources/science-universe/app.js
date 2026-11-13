@@ -39,7 +39,7 @@ let currentSection='observe',lastBridge=0,lastStateSent=0,drawerOpen=false,lates
 
 const policyDescriptions={
   generation:['Hypothesis generation','Rate of candidate research questions'],
-  verification:['Peer review capacity','Number of manuscript reviews per day'],
+  verification:['Peer review capacity','Sets daily throughput and scrutiny. At 7+, one failed repeat can trigger withdrawal.'],
   replication:['Replication capacity','Number of independent repeat tests'],
   funding:['Research funding','Daily flow of research credits'],
   aiAdoption:['AI workforce','AI share of idea generation'],
@@ -1059,14 +1059,59 @@ const METRIC_INPUTS={
   replicated:['replication','verification'], retracted:['replication','verification']
 };
 let mediumValues={...E.DEFAULTS,verification:REVIEW_CAPACITY.high};
-let focusDay=FOCUS_DAYS,focusReplay=0,focusStage='reviewBacklog';
+let focusDay=FOCUS_DAYS,focusReplay=0,focusStage='generated';
 const FOCUS_STAGES={
- generated:['Ideas generated','Total hypotheses proposed by research teams.'],
- tested:['Studies tested','Total studies that have finished initial testing.'],
- reviewBacklog:['Studies waiting for review','Studies currently waiting for a review decision.'],
- published:['Studies published','Total studies accepted for publication.'],
- replicated:['Independent repeats completed','Total repeat tests completed, including unsuccessful repeats.']
+ generated:['Ideas generated','Teams propose hypotheses to test.'],
+ tested:['Studies tested','Only studies with a detectable effect move into review.'],
+ reviewBacklog:['Studies waiting for review','Manuscripts wait while reviewers check their methods.'],
+ published:['Studies published','Studies that pass review become papers.'],
+ replicated:['Independent repeats completed','Some papers are tested again with a fresh sample.']
 };
+function traceStudy(world){
+ // Follow the first study to receive an independent repeat in this run.
+ const repeat=world.events.findLast(e=>e.type==='replication_passed'||e.type==='replication_failed');
+ const study=world.hypotheses.find(h=>h.id===repeat?.hypothesisId)||world.hypotheses[0];
+ if(!study)return [];
+ const events=world.events.filter(e=>e.hypothesisId===study.id);
+ const trace=[
+  {day:study.created,stage:'generated',label:study.topic+' proposed'},
+  {day:study.created,stage:'tested',label:'Initial test begins'}
+ ];
+ if(study.significant)trace.push({day:study.complete,stage:'reviewBacklog',label:'Study enters peer review'});
+ const stages={
+  hypothesis_rejected:['tested','Initial test finds no detectable effect'],
+  review_rejected:['reviewBacklog','Manuscript rejected in peer review'],
+  paper_published:['published','Manuscript accepted and published'],
+  replication_passed:['replicated','Independent repeat succeeds'],
+  replication_failed:['replicated','Independent repeat fails'],
+  paper_retracted:['replicated','Paper withdrawn after a failed repeat']
+ };
+ for(const event of events.reverse()){
+  const step=stages[event.type];
+  if(step)trace.push({day:event.day,stage:step[0],label:step[1]});
+ }
+ return trace.sort((a,b)=>a.day-b.day);
+}
+function drawLifecycle(run){
+ const trace=run?.trace||[];
+ const visited=trace.filter(step=>step.day<=focusDay);
+ const current=visited.at(-1);
+ const reached=new Set(visited.map(step=>step.stage));
+ text('lifecycle-mode',run?(trace[0]?.label.replace(/ proposed$/,'')||'No hypothesis generated'):'Model workflow');
+ text('lifecycle-clock',run?'Day '+focusDay+' / '+FOCUS_DAYS:'Before the run');
+ const token=$('lifecycle-token');
+ token.hidden=!current;
+ if(current)token.dataset.stagePosition=Object.keys(FOCUS_STAGES).indexOf(current.stage);
+ const event=$('lifecycle-event');
+ event.hidden=!run;
+ text(event,current?'Day '+current.day+' · '+visited.filter(step=>step.day===current.day).map(step=>step.label).join(' → '):'Waiting for the first hypothesis');
+ for(const button of document.querySelectorAll('[data-stage]')){
+  button.classList.toggle('is-reached',reached.has(button.dataset.stage));
+  button.classList.toggle('is-current',current?.stage===button.dataset.stage);
+  button.setAttribute('aria-pressed',String(button.dataset.stage===focusStage));
+ }
+ text('focus-stage-detail',FOCUS_STAGES[focusStage][1]);
+}
 function stopFocusedReplay(){
  cancelAnimationFrame(focusReplay);
  focusReplay=0;
@@ -1079,7 +1124,7 @@ function focusPending(){
  text('focus-run',level==='medium'?'Compare worlds':!simpleRuns.size?
   (setting===baseline?'Run baseline':'Run baseline and trial'):'Run experiment');
  const capacity=Math.floor(1+setting*.55);
- text('focus-setting-hint','Model scale. Up to '+capacity+' manuscript reviews per day. Higher settings also tighten review.');
+ text('focus-setting-hint','Up to '+capacity+' reviews/day. Higher settings tighten scrutiny; at 7+, one failed repeat can trigger withdrawal.');
  $('focus-setting').setAttribute('aria-valuetext',setting+' out of 10, up to '+capacity+' model reviews per day');
  text('focus-status',dirty?'Settings changed. Run to measure the new settings.':focusedRuns?
   'Run complete · 45 model days.':'Synthetic teaching model · 45 model days per run.');
@@ -1186,7 +1231,7 @@ function selectLevel(next,scenario,focus=false){
   renderMediumControls();
   text('focus-title',recipe.name);
   text('focus-description',medium?'Keep World A fixed. Change one policy in World B and compare the same 45 model days.':'Run a baseline, then change review capacity and compare the queues.');
-  text('focus-setting-label',recipe.label);
+  text('focus-setting-label','Peer-review policy');
   $('focus-setting').value=focusedRuns?.value??(medium?recipe.high:recipe.low);
   text('focus-setting-value',$('focus-setting').value+' / 10');
   drawFocused();focusPending();
@@ -1201,7 +1246,7 @@ function modelRun(recipe,value){
   E.step(world,1);
   days.push(E.summary(world));
  }
- return {world,days,summary:days.at(-1)};
+ return {world,days,summary:days.at(-1),trace:traceStudy(world)};
 }
 function runFocused(){
  if(level==='advanced')return;
@@ -1232,7 +1277,7 @@ function replayFocused(){
  if(matchMedia('(prefers-reduced-motion: reduce)').matches){focusDay=FOCUS_DAYS;drawFocusDay();return;}
  const start=performance.now();
  function tick(now){
-  const day=Math.min(FOCUS_DAYS,Math.floor((now-start)/65));
+  const day=Math.min(FOCUS_DAYS,Math.floor((now-start)/(level==='simple'?135:65)));
   if(day!==focusDay){focusDay=day;drawFocusDay();}
   focusReplay=day<FOCUS_DAYS?requestAnimationFrame(tick):0;
   if(!focusReplay){focusPending();}
@@ -1262,11 +1307,7 @@ function drawFocusDay(){
  const left=a?.days[focusDay],right=b?.days[focusDay];
  const host=$('focus-results');
  text('focus-metric',medium?recipe.outcome:FOCUS_STAGES[metric][0]);
- for(const button of document.querySelectorAll('[data-stage]')){
-  button.setAttribute('aria-pressed',String(button.dataset.stage===metric));
-  text(button.querySelector('strong'),(right||left)?.[button.dataset.stage]??0);
- }
- text('focus-stage-detail',medium?'':FOCUS_STAGES[metric][1]);
+ if(!medium)drawLifecycle(b||a);
  const scores=medium?[['World A · baseline',left],['World B · intervention',right]]:
   right?[[baseline.value+'/10 · baseline',left],[focusedRuns.value+'/10 · trial',right]]:
   [[a?focusedRuns.value+'/10 · baseline':'Day 0',left||{[metric]:0}]];
@@ -1291,6 +1332,9 @@ function drawFocused(){
  const a=focusedRuns?.a,b=focusedRuns?.b;
  const simple=level==='simple';
  $('focus-pipeline').hidden=!simple;
+ document.querySelector('.focus-stage').hidden=simple&&!focusedRuns;
+ $('focus-more').hidden=!focusedRuns;
+ $('focus-io-caption').hidden=simple&&!focusedRuns;
  $('focus-timeline').hidden=!focusedRuns;
  $('focus-prediction').hidden=!simple||!simpleRuns.size;
  const comparison=focusComparison();
@@ -1303,7 +1347,7 @@ function drawFocused(){
 function resetFocused(){
  stopFocusedReplay();focusDay=FOCUS_DAYS;
  if(level==='simple'){
-  simpleRuns.clear();focusStage='reviewBacklog';
+  simpleRuns.clear();focusStage='generated';
   for(const option of document.querySelectorAll('[name="queue-prediction"]'))option.checked=false;
  }else{
   mediumRuns.delete(mediumScenario);
