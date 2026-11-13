@@ -1170,3 +1170,51 @@ html body .search-container .search-advanced-options .controls>.select-kit:not(:
   html body .search-container .search-bar>.select-kit,html body .search-container .search-bar>.btn{flex:1 1 100%;width:100%!important}
   html body .search-container .search-advanced-options{grid-template-columns:minmax(0,1fr)}
 }
+/* ---- A profile summary (2026-11-13) -----------------------------------------
+   The page read as loose parts: a 36px name over an 18px second name, a full
+   outlined button for what is only a disclosure, mono numerals with slashed
+   zeros running in one line until the last stat fell onto a row of its own,
+   and 40px gaps between sections that held one sentence each. It now uses the
+   same pieces as a thread's facts: the number large in DM Sans, what it
+   counts small under it, sections in a two-column grid under a hairline. */
+html body .user-main .about .details{padding:1.75rem 2rem!important}
+html body .user-main .about .primary{align-items:center;gap:1.25rem}
+html body .user-main .about .user-profile-avatar img.avatar{margin:0!important}
+html body .user-main .about .user-profile-names__primary{font:600 clamp(1.5rem,1.2rem + 1vw,2rem)/1.15 "DM Sans",sans-serif!important;letter-spacing:-.02em;color:var(--g-text)}
+html body .user-main .about .user-profile-names__secondary{margin-top:.25rem;font:400 1rem/1.4 "DM Sans",sans-serif!important;color:var(--g-text-muted)!important}
+html body .user-main .about .user-profile-names__tertiary,html body .user-main .about .user-profile-names .title{font-size:.875rem!important;color:var(--g-text-subtle)!important}
+html body #main-outlet .user-main .about .user-profile-toggle-btn{border-color:transparent!important;background:transparent!important;color:var(--g-text-muted)!important}
+html body #main-outlet .user-main .about .user-profile-toggle-btn:hover{background:var(--g-surface-raised)!important;color:var(--g-text)!important}
+html body .user-main .about .secondary{margin:1.5rem -2rem 0!important;padding:1.25rem 2rem 0!important;border-top:1px solid var(--g-hairline)!important}
+html body .user-main .about .secondary dl{border:0!important;display:flex;flex-wrap:wrap;gap:1rem 2.5rem;margin:0;padding:0!important}
+html body .user-main .about .secondary dl>div{display:flex;flex-direction:column;gap:.25rem;margin:0!important}
+html body .user-main .about .secondary dt{margin:0!important;font:400 .75rem/1.3 "DM Mono",monospace!important;color:var(--g-text-subtle)!important}
+html body .user-main .about .secondary dd{margin:0!important;font:500 .9375rem/1.4 "DM Sans",sans-serif!important;color:var(--g-text)!important}
+html body .user-main .about .secondary dd *{font:inherit!important;color:inherit}
+
+/* Stats: one panel, equal columns. */
+html body .user-content .stats-section ul{display:grid!important;grid-template-columns:repeat(auto-fit,minmax(6.75rem,1fr));gap:1.5rem 1rem;margin:.75rem 0 0!important;padding:1.5rem!important;list-style:none;border:1px solid var(--g-hairline);border-radius:12px;background:var(--g-surface)}
+html body .user-content .stats-section li{display:block!important;margin:0!important;padding:0!important}
+html body .user-content .stats-section li>a{display:block;padding:0!important;color:inherit}
+html body .user-content .stats-section .user-stat{display:flex;flex-direction:column;gap:.2rem}
+html body .user-content .stats-section .user-stat .value,html body .user-content .stats-section .user-stat .number{font:600 1.5rem/1.15 "DM Sans",sans-serif!important;letter-spacing:-.01em;color:var(--g-text)!important}
+html body .user-content .stats-section .user-stat .label{display:inline-flex;align-items:center;gap:.25rem;font:400 .8125rem/1.3 "DM Sans",sans-serif!important;color:var(--g-text-subtle)!important}
+html body .user-content .stats-section .linked-stat a:hover .label{color:var(--g-text)!important}
+
+/* The rest: two columns, each block under a hairline, gaps that match. */
+html body .user-content .top-section{margin:2.5rem 0 0!important}
+html body .user-content .top-section:has(>.top-sub-section){display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr));gap:2.5rem 3rem}
+html body .user-content .top-section::before,html body .user-content .top-section::after{content:none!important;display:none!important}
+html body .user-content .top-sub-section{float:none!important;width:auto!important;margin:0!important;padding-top:1rem;border-top:1px solid var(--g-hairline)}
+html body .user-content .top-sub-section>h3,html body .user-content .top-section>h3{margin:0 0 .75rem!important}
+html body .user-content .top-sub-section :is(.no-items,p){margin:0;font:400 .9375rem/1.5 "DM Sans",sans-serif;color:var(--g-text-subtle)}
+html body .user-content .top-sub-section :is(ul,ol){margin:0;padding:0}
+html body .user-content .top-sub-section li{border:0!important;padding:.5rem 0!important;margin:0!important}
+html body .user-content .badges-section{display:block!important;padding-top:1rem;border-top:1px solid var(--g-hairline)}
+html body .user-content .badges-section>:not(h3){max-width:26rem}
+@media (max-width:700px){
+  html body .user-main .about .details{padding:1.25rem!important}
+  html body .user-main .about .secondary{margin-inline:-1.25rem!important;padding-inline:1.25rem!important}
+  html body .user-content .top-section:has(>.top-sub-section){grid-template-columns:minmax(0,1fr);gap:2rem}
+  html body .user-content .stats-section ul{grid-template-columns:repeat(2,minmax(0,1fr));padding:1.25rem!important}
+}
