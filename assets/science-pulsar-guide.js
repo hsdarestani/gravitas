@@ -24,7 +24,7 @@
     policies:{},metrics:{},delta:{},design:{},graph:{},interval:{},focusEvent:null,policyEditing:raw.policyEditing===true,events:[],changes:[],lab:null,paper:null};
   c.comparison=null;c.lesson=null;
   if(['simple','medium'].includes(raw.level))c.level=raw.level;
-  if(['reviewBacklog','falsePublished','replicated'].includes(raw.focusedMetric))c.focusedMetric=raw.focusedMetric;
+  if(['reviewBacklog','falsePublished','replicated','generated','tested','published'].includes(raw.focusedMetric))c.focusedMetric=raw.focusedMetric;
   if(raw.comparison&&typeof raw.comparison==='object'){c.comparison={a:{},b:{}};for(const side of ['a','b'])for(const [key,value] of Object.entries(raw.comparison[side]||{}).slice(0,40))if(typeof value==='number'&&Number.isFinite(value))c.comparison[side][key]=value;}
   if(raw.lesson&&typeof raw.lesson.policy==='string')c.lesson={policy:raw.lesson.policy.slice(0,30),observed:raw.lesson.observed===true};
   for(var key of ['policies','metrics','delta','design','graph','interval']){

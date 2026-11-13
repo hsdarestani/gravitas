@@ -28,6 +28,7 @@ EXPECTED = {
         '5a2fdf34fe6c2597d505542db3b85aa967a20e47',
     ),
     'index.html': (
+        '94145fad269641da4b810c6bbe7dcadf668b9cf5',  # Verified repository baseline at 7adcfb9.
         'e66a0cb0ed6775b4755469c7df6b85ad765c1739',
         'd91fbaeee14f21237436243ca54449d0cc41c409',
         '89096637e4815d6a49418637b567536bbaa386a4',
@@ -41,6 +42,7 @@ EXPECTED = {
         '6580855aabe78f7324ba5a5131255ad9a7ef0430',
     ),
     'app.js': (
+        '39c597107bf72773382a514f0d9bfa0b922cb1d3',  # Verified repository baseline at 7adcfb9.
         '2654ebdb6151f94eba575baf1b4eea684366b18f',
         '1a9c9660dd90059808bf7065f2bca9d25515ae4a',
         'acce9e10746b7e41975b2768fb9c9a78d33fa01b',
@@ -56,6 +58,7 @@ EXPECTED = {
         '07bf2406f956803b8b0adbebccf989680ccec766',
     ),
     'styles.css': (
+        '7cc87d5fdff48c3b063f482cbf28595b23fa9bfa',  # Verified repository baseline at 7adcfb9.
         '519d741558a4d57ef6116bc7f445e09bda52f84e',
         '70f556635f4927634cc17e3a8119b1ad47f1d261',
         'cdb4ff31fd508e36c0854653f366e5aae26e60e6',
@@ -115,7 +118,9 @@ class Command(BaseCommand):
     help = 'Safely apply reviewed science equations directly to the existing Science Universe Lab.'
 
     def add_arguments(self, parser):
-        parser.add_argument('--apply', action='store_true', help='Apply only when exact v1 baseline is present')
+        parser.add_argument('--apply', action='store_true', help='Apply against a reviewed baseline')
+        parser.add_argument('--approved-publication', action='store_true',
+                            help='Enable an explicitly approved Lab Studio release')
 
     def handle(self, *args, **options):
         try:
@@ -126,6 +131,9 @@ class Command(BaseCommand):
             }
         except (OSError, ValueError) as exc:
             raise CommandError('Missing science model source: ' + str(exc)) from exc
+        if manifest.get('requires_publication_approval') and options['apply'] and not options['approved_publication']:
+            self.stdout.write('Science Universe changes require explicit publication approval. Published Lab left intact.')
+            return
         if 'SCIENCE-MODEL v2' not in replacements['engine.js']:
             raise CommandError('Source is not the reviewed science engine')
 

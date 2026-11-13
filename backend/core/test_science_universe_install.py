@@ -88,3 +88,23 @@ class ScienceUniverseInstallTests(TestCase):
         with self.assertRaises(CommandError):
             call_command('install_science_universe_lab', '--apply', '--user', 'member@example.test',
                          '--source', str(SOURCE), stdout=StringIO())
+
+    def test_ordinary_deploy_preserves_public_snapshot_for_pending_release(self):
+        self.install()
+        lab = InteractiveLab.objects.get(slug='science-universe')
+        lab.status = InteractiveLab.Status.PUBLISHED
+        lab.studio_enabled = True
+        lab.published_version = 1
+        lab.published_files = [{**row, 'content': 'Live baseline'} for row in lab.files]
+        lab.published_config = lab.config
+        lab.save()
+        snapshot = lab.published_files
+        output = StringIO()
+
+        call_command('upgrade_science_universe_science', '--apply', stdout=output)
+
+        lab.refresh_from_db()
+        self.assertIn('require explicit publication approval', output.getvalue())
+        self.assertEqual(lab.published_version, 1)
+        self.assertEqual(lab.published_files, snapshot)
+        self.assertEqual(LabRevision.objects.filter(lab=lab).count(), 1)

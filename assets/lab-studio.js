@@ -302,7 +302,15 @@ function renderReplies(){
   {label:label('Compare stored runs','مقایسه‌های ذخیره‌شده'),action:openAtlas}
  ];
  if(!canAsk)actions=[{label:label('Guide a comparison','یک مقایسه را راهنمایی کن'),action:()=>learning?.startGuide()},{label:label('Compare stored runs','مقایسه‌های ذخیره‌شده'),action:openAtlas}];
- if(labLevel!=='advanced'&&!learning?.atlasContext())actions=replyFailed&&lastQuestion?[{label:label('Try again','دوباره تلاش کن'),ai:true,action:()=>askPulsar(lastQuestion,'ask')}]:[];
+ if(labLevel!=='advanced'&&!learning?.atlasContext()&&canAsk&&replyFailed&&lastQuestion){
+  actions=[{label:label('Try again','دوباره تلاش کن'),ai:true,action:()=>askPulsar(lastQuestion,'ask')}];
+ }
+ if(labLevel!=='advanced'&&!learning?.atlasContext()&&canAsk&&!replyFailed){
+  const observed=scienceGuide?.context()?.lesson?.observed;
+  actions=[{label:observed?label('What changed?','چه چیزی تغییر کرد؟'):label('What should I measure?','چه چیزی را اندازه بگیرم؟'),ai:true,
+    action:()=>askPulsar(observed?'Explain the last completed comparison and the result that changed.':'What should I measure in this experiment, and why?','ask')},
+   {label:label('Read model sources','منابع مدل'),action:openKnowledge}];
+ }
  if(canAsk&&!replyFailed&&chatHistory.some(m=>m.role==='pulsar'&&m.provider==='ai'&&m.text.trim())){
   actions.push({label:label('Explain in more detail','مفصل‌تر توضیح بده'),ai:true,action:()=>askPulsar(fa?'پاسخ قبلی‌ات را با جزئیات بیشتری توضیح بده.':'Explain your previous answer in more detail.','ask',null,'detailed')});
  }
@@ -375,7 +383,7 @@ function mountPulsarChat(sidebar){
  sidebar.append(box);
  if(active.config.pulsar_enabled===false){input.disabled=true;send.disabled=true;input.placeholder='AI explanations are disabled for this Lab';tools.hidden=true;}
  chat={box,body,sidebar,panes,history,log,status,input,send,toggle,badge,arrow,observation,starters,mission,notices:noticeStack};
- chatOpen=true;
+ chatOpen=active.slug!=='science-universe';
  try{
    var old=JSON.parse(localStorage.getItem(CHAT_KEY)||'[]');
    if(active.slug!=='science-universe'&&Array.isArray(old))chatHistory=old.slice(-70).filter(function(m){
@@ -627,8 +635,28 @@ function runLab(lab,initialScenario){
   // The fragment never reaches the server; lab-bridge.js reads it before first paint.
   iframe.src=lab.run_url+'#theme='+siteTheme();
   canvas.classList.add('is-loading');
+  if(lab.slug==='science-universe'){
+    const frame=iframe,status=node('div','lab-frame-state');
+    const message=node('p','','Loading the simulation…');
+    message.setAttribute('role','status');
+    const retry=btn('Retry simulation',function(){runLab(lab,initialScenario);});
+    retry.hidden=true;
+    status.append(message,retry);canvas.append(status);
+    const timeout=setTimeout(function(){
+      if(iframe!==frame)return;
+      canvas.classList.remove('is-loading');canvas.classList.add('has-load-error');
+      message.textContent='The simulation did not start. Please retry.';
+      retry.hidden=false;
+    },12000);
+    canvas.simulationReady=function(){
+      clearTimeout(timeout);
+      canvas.classList.remove('is-loading','has-load-error');
+      status.remove();
+    };
+  }
   iframe.addEventListener('load',function(){
-    canvas.classList.remove('is-loading');adjustFrameForViewport();focusTour();
+    if(!canvas.simulationReady)canvas.classList.remove('is-loading');
+    adjustFrameForViewport();focusTour();
     if(initialScenario)tellIframe('lab:level',{level:'medium',scenario:initialScenario});
     // The simulator reports its dock as soon as it lays out; this only covers
     // a Lab that never does, so Pulsar cannot stay hidden.
@@ -918,7 +946,7 @@ window.addEventListener('message',function(e){
     }
     return;
   }
-  if(active.slug==='science-universe'&&data.type==='lab:learning-progress'){updateMission(data.progress);return;}
+  if(active.slug==='science-universe'&&data.type==='lab:learning-progress'){shell?.canvas.simulationReady?.();updateMission(data.progress);return;}
   if(active.slug==='science-universe'&&data.type==='lab:lesson-state'){learning?.updateLesson(data.lesson);return;}
   if(active.slug==='science-universe'&&data.type==='lab:open-atlas'){openAtlas();return;}
   if(active.slug==='science-universe'&&data.type==='lab:save-snapshot'){saveSnapshot(data.seed);return;}
@@ -977,13 +1005,28 @@ window.addEventListener('message',function(e){
   }
 });
 var labs=[];
+var directSlug=new URLSearchParams(location.search).get('lab');
+function showUnavailableLab(){
+ var status=node('div','lab-entry-state');
+ var message=node('p','','The Science Ecosystem experiment is currently unavailable.');
+ message.setAttribute('role','status');
+ status.append(message,btn('Retry',function(){location.reload();}));
+ root.replaceChildren(status);root.hidden=false;
+}
+if(directSlug==='science-universe'){
+ var entryStatus=node('p','lab-entry-state','Loading the Science Ecosystem experiment…');
+ entryStatus.setAttribute('role','status');
+ root.replaceChildren(entryStatus);root.hidden=false;
+}
 fetch('/api/labs/',{credentials:'same-origin',cache:'no-store'})
   .then(function(res){if(!res.ok)throw Error('registry unavailable');return res.json();})
   .then(function(payload){
     labs=(Array.isArray(payload.labs)?payload.labs:[]).filter(function(l){return l.ready;});
-    if(!labs.length)return; // Intentionally EMPTY until first explicit publication.
-    var slug=new URLSearchParams(location.search).get('lab');
-    var requested=labs.find(function(l){return l.slug===slug;});
-    if(requested){if(enteredLab(requested.slug))runLab(requested);else{showCatalog();previewLab(requested);}}else showCatalog();
-  }).catch(function(){ /* Silence is intentional on an unpublished surface. */ });
+    var requested=labs.find(function(l){return l.slug===directSlug;});
+    if(directSlug==='science-universe'){
+      if(requested)runLab(requested);else showUnavailableLab();
+    }else if(requested){
+      if(enteredLab(requested.slug))runLab(requested);else{showCatalog();previewLab(requested);}
+    }else if(labs.length)showCatalog();
+  }).catch(function(){if(directSlug==='science-universe')showUnavailableLab();});
 })();

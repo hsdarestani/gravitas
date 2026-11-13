@@ -1,0 +1,88 @@
+name: Publish approved Science Universe PR 357
+
+# Separate from normal deploy: only reviewed PR ancestry and a successful
+# production deployment can reach the explicit Lab Studio publication flag.
+on:
+  workflow_run:
+    workflows: ["Deploy Gravitas to Strato"]
+    types: [completed]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gravitas-production
+  cancel-in-progress: false
+
+jobs:
+  approved-science-release:
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.head_branch == 'main' &&
+      github.event.workflow_run.event == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Check out exact successfully deployed revision
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          fetch-depth: 0
+
+      - name: Check explicit approval and production release source
+        shell: bash
+        run: |
+          set -euo pipefail
+          APPROVED=3325e2aa13e04e89080cf4e6fa09cec900c35123
+          git merge-base --is-ancestor "$APPROVED" HEAD
+          test "$(git rev-parse HEAD)" = "${{ github.event.workflow_run.head_sha }}"
+          python3 -m py_compile ops/science_universe_release_357.py
+          bash -n ops/science_universe_release_357.sh
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          manifest=json.loads(Path('lab-sources/science-universe/manifest.json').read_text())
+          assert manifest['slug']=='science-universe'
+          assert manifest['requires_publication_approval'] is True
+          PY
+
+      - name: Authenticate using existing production GitHub Actions secrets
+        shell: bash
+        env:
+          SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          LOGIN: ${{ secrets.DEPLOY_USER }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+        run: |
+          set -euo pipefail
+          test -n "$SSH_KEY" && test -n "$HOST"
+          if [ -z "$PORT" ]; then PORT=22; fi
+          if [ -z "$LOGIN" ]; then LOGIN=deploy; fi
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/science_release
+          chmod 600 ~/.ssh/science_release
+          ssh-keyscan -p "$PORT" -H "$HOST" >> ~/.ssh/known_hosts
+          if ! ssh -i ~/.ssh/science_release -p "$PORT" -o BatchMode=yes \
+            -o ConnectTimeout=10 "$LOGIN@$HOST" true 2>/dev/null; then
+            if [ "$LOGIN" != root ] &&
+               ssh -i ~/.ssh/science_release -p "$PORT" -o BatchMode=yes \
+                 -o ConnectTimeout=10 "root@$HOST" true 2>/dev/null; then
+              LOGIN=root
+            else
+              echo "::error::Existing production SSH credentials failed."
+              exit 1
+            fi
+          fi
+          echo "RELEASE_LOGIN=$LOGIN" >> "$GITHUB_ENV"
+          echo "RELEASE_PORT=$PORT" >> "$GITHUB_ENV"
+
+      - name: Verify backup and live baseline, publish, verify and preserve rollback
+        shell: bash
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          TARGET_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          set -euo pipefail
+          ssh -i ~/.ssh/science_release -p "$RELEASE_PORT" -o BatchMode=yes \
+            -o ConnectTimeout=10 "$RELEASE_LOGIN@$HOST" \
+            bash -s -- "$TARGET_SHA" < ops/science_universe_release_357.sh

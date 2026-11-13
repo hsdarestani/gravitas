@@ -634,3 +634,90 @@ th{position:sticky;top:0;background:var(--raised);font-family:var(--font);font-w
  .focus-controls .btn{width:100%}
  .focus-trend-card{padding:12px}
 }
+
+/* The focused experiment keeps its inputs next to the model, ahead of detail charts. */
+#focused-model [hidden] {display:none}
+#focused-model {max-width:1100px;width:100%;margin-inline:auto}
+#focused-model .focus-stage {
+  min-height:0;height:clamp(150px,26dvh,300px);background:var(--map-bg);
+}
+.focus-readout {padding:10px 14px 0}
+#focused-model .focus-controls {gap:10px 22px}
+#focused-model .focus-controls .btn {min-height:44px}
+#focused-model input[type="range"] {min-height:36px}
+.focus-slider small {grid-column:1/-1;color:var(--muted);font-size:12px;font-weight:400}
+.focus-workflow {display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:4px;list-style:none;padding:0;margin:0}
+.focus-workflow li {min-width:0}
+.focus-workflow button {
+  width:100%;min-height:62px;display:grid;gap:2px;text-align:start;padding:6px 8px;
+  color:var(--muted);background:var(--sunken);border:1px solid var(--border);border-radius:6px;
+}
+.focus-workflow button[aria-pressed="true"] {color:var(--text);border-color:var(--world-a);background:var(--hover)}
+.focus-workflow button strong {font:500 20px var(--font-mono);color:var(--world-a)}
+.focus-workflow button span {font-size:clamp(9px,1.45vw,13px)}
+#focus-stage-detail {margin:4px 0 0;color:var(--muted);font-size:12px}
+#focus-results .focus-world-value strong {font-size:clamp(25px,4vw,48px)}
+#focus-prediction {margin:0;padding:5px 9px 8px;border:1px solid var(--border);border-radius:6px;color:var(--muted)}
+#focus-prediction label {display:inline-flex;align-items:center;gap:4px;margin-inline-end:12px;min-height:34px}
+#focus-timeline,#focus-actions {display:flex;align-items:center;flex-wrap:wrap;gap:8px 16px}
+#focus-timeline input {flex:1;min-width:84px}
+#focus-actions button,#focus-more summary {min-height:36px}
+#focus-comparison {padding:10px 12px;border-inline-start:2px solid var(--world-b);background:var(--sunken)}
+#focus-scenario {margin:0 0 12px;max-width:100%;min-height:40px}
+#focus-more summary {cursor:pointer}
+#focus-more[open] summary {margin-bottom:6px}
+@media(max-width:540px){
+  .focus-workflow button {padding:4px;min-height:53px;text-align:center}
+  .focus-workflow button strong {font-size:16px}
+  #focused-model .focus-stage {height:clamp(120px,23dvh,185px)}
+  #focus-stage-detail {font-size:11px}
+  .focus-slider small {font-size:11px}
+}
+
+/* Simple follows one study on a continuous track. Aggregate measurements
+   appear after a run, below the experiment controls. */
+.universe[data-level="simple"] .focused-model {max-width:960px;gap:14px}
+.universe[data-level="simple"] .focus-heading h1 {max-width:19ch;text-wrap:balance}
+#focus-pipeline {
+  padding:clamp(12px,2.4vw,28px);border:1px solid var(--border);
+  border-radius:var(--radius-lg);background:var(--map-bg);
+}
+.lifecycle-caption {display:flex;justify-content:space-between;gap:10px;color:var(--muted);font:11px var(--font-mono)}
+.lifecycle-track {position:relative;margin-block:12px 8px}
+.lifecycle-track::before {content:"";position:absolute;left:10%;right:10%;top:25px;border-top:1px solid var(--border)}
+#focus-pipeline .focus-workflow {gap:0}
+#focus-pipeline .focus-workflow button {
+  position:relative;justify-items:center;align-content:start;gap:8px;
+  padding:5px 2px;min-height:68px;border:0;background:none;text-align:center;
+}
+.focus-workflow svg {
+  display:block;width:40px;height:40px;padding:7px;overflow:visible;
+  background:var(--map-bg);border:1px solid var(--border);border-radius:50%;
+  fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;
+}
+.focus-workflow button:is([aria-pressed="true"],.is-current) svg {border-color:var(--world-a);color:var(--world-a)}
+.focus-workflow button.is-reached span {color:var(--text)}
+#lifecycle-token {
+  position:absolute;z-index:2;top:43px;left:10%;width:8px;height:8px;transform:translateX(-50%);
+  background:var(--world-b);border-radius:50%;pointer-events:none;transition:left .28s ease;
+}
+#lifecycle-token[data-stage-position="1"] {left:30%}
+#lifecycle-token[data-stage-position="2"] {left:50%}
+#lifecycle-token[data-stage-position="3"] {left:70%}
+#lifecycle-token[data-stage-position="4"] {left:90%}
+#focus-stage-detail {text-align:center;margin:0;min-height:1.5em}
+#lifecycle-event {margin:10px 0 0;padding-top:8px;border-top:1px solid var(--border);font-size:12px;color:var(--world-b)}
+.universe[data-level="simple"] .focus-controls {align-items:end;padding:4px 0}
+.universe[data-level="simple"] .focus-controls .primary {min-width:145px}
+.universe[data-level="simple"] .focus-stage {border-radius:0;border-width:1px 0;background:transparent}
+.universe[data-level="medium"] #focus-medium-controls {
+  border-inline-start:3px solid var(--world-b);background:var(--sunken)
+}
+@media(max-width:540px){
+  .universe[data-level="simple"] .focused-model {gap:9px}
+  .universe[data-level="simple"] .focus-heading h1 {max-width:22ch}
+  .lifecycle-track {margin-block:8px 3px}
+  #focus-pipeline .focus-workflow button {min-height:61px}
+  #focus-pipeline .focus-workflow span {font-size:10px}
+}
+@media(prefers-reduced-motion:reduce){#lifecycle-token {transition:none}}

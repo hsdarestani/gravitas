@@ -39,7 +39,7 @@ let currentSection='observe',lastBridge=0,lastStateSent=0,drawerOpen=false,lates
 
 const policyDescriptions={
   generation:['Hypothesis generation','Rate of candidate research questions'],
-  verification:['Peer review capacity','Number of manuscript reviews per day'],
+  verification:['Peer review capacity','Sets daily throughput and scrutiny. At 7+, one failed repeat can trigger withdrawal.'],
   replication:['Replication capacity','Number of independent repeat tests'],
   funding:['Research funding','Daily flow of research credits'],
   aiAdoption:['AI workforce','AI share of idea generation'],
@@ -1026,7 +1026,7 @@ function setView(name){
 /* Experiment recipes are transparent, authored model interventions, not
    generated science. The user explicitly chooses to advance both worlds. */
 const REVIEW_CAPACITY={
- name:'Can peer review keep up?',key:'verification',label:'Peer review capacity',metric:'reviewBacklog',
+ name:'Can peer review keep up with faster research?',key:'verification',label:'Peer review capacity',metric:'reviewBacklog',
  outcome:'Studies waiting for review',low:E.DEFAULTS.verification,high:8
 };
 const GUIDED_EXPERIMENTS={
@@ -1059,18 +1059,84 @@ const METRIC_INPUTS={
   replicated:['replication','verification'], retracted:['replication','verification']
 };
 let mediumValues={...E.DEFAULTS,verification:REVIEW_CAPACITY.high};
-let focusInputTimer=0;
+let focusDay=FOCUS_DAYS,focusReplay=0,focusStage='generated';
+const FOCUS_STAGES={
+ generated:['Ideas generated','Teams propose hypotheses to test.'],
+ tested:['Studies tested','Only studies with a detectable effect move into review.'],
+ reviewBacklog:['Studies waiting for review','Manuscripts wait while reviewers check their methods.'],
+ published:['Studies published','Studies that pass review become papers.'],
+ replicated:['Independent repeats completed','Some papers are tested again with a fresh sample.']
+};
+function traceStudy(world){
+ // Follow the first study to receive an independent repeat in this run.
+ const repeat=world.events.findLast(e=>e.type==='replication_passed'||e.type==='replication_failed');
+ const study=world.hypotheses.find(h=>h.id===repeat?.hypothesisId)||world.hypotheses[0];
+ if(!study)return [];
+ const events=world.events.filter(e=>e.hypothesisId===study.id);
+ const trace=[
+  {day:study.created,stage:'generated',label:study.topic+' proposed'},
+  {day:study.created,stage:'tested',label:'Initial test begins'}
+ ];
+ if(study.significant)trace.push({day:study.complete,stage:'reviewBacklog',label:'Study enters peer review'});
+ const stages={
+  hypothesis_rejected:['tested','Initial test finds no detectable effect'],
+  review_rejected:['reviewBacklog','Manuscript rejected in peer review'],
+  paper_published:['published','Manuscript accepted and published'],
+  replication_passed:['replicated','Independent repeat succeeds'],
+  replication_failed:['replicated','Independent repeat fails'],
+  paper_retracted:['replicated','Paper withdrawn after a failed repeat']
+ };
+ for(const event of events.reverse()){
+  const step=stages[event.type];
+  if(step)trace.push({day:event.day,stage:step[0],label:step[1]});
+ }
+ return trace.sort((a,b)=>a.day-b.day);
+}
+function drawLifecycle(run){
+ const trace=run?.trace||[];
+ const visited=trace.filter(step=>step.day<=focusDay);
+ const current=visited.at(-1);
+ const reached=new Set(visited.map(step=>step.stage));
+ text('lifecycle-mode',run?(trace[0]?.label.replace(/ proposed$/,'')||'No hypothesis generated'):'Model workflow');
+ text('lifecycle-clock',run?'Day '+focusDay+' / '+FOCUS_DAYS:'Before the run');
+ const token=$('lifecycle-token');
+ token.hidden=!current;
+ if(current)token.dataset.stagePosition=Object.keys(FOCUS_STAGES).indexOf(current.stage);
+ const event=$('lifecycle-event');
+ event.hidden=!run;
+ text(event,current?'Day '+current.day+' · '+visited.filter(step=>step.day===current.day).map(step=>step.label).join(' → '):'Waiting for the first hypothesis');
+ for(const button of document.querySelectorAll('[data-stage]')){
+  button.classList.toggle('is-reached',reached.has(button.dataset.stage));
+  button.classList.toggle('is-current',current?.stage===button.dataset.stage);
+  button.setAttribute('aria-pressed',String(button.dataset.stage===focusStage));
+ }
+ text('focus-stage-detail',FOCUS_STAGES[focusStage][1]);
+}
+function stopFocusedReplay(){
+ cancelAnimationFrame(focusReplay);
+ focusReplay=0;
+}
+function focusPending(){
+ const baseline=E.DEFAULTS.verification,setting=Number($('focus-setting').value);
+ const inputs=level==='medium'?mediumValues:{verification:setting};
+ const reference=focusedRuns?.b?.world.policy||focusedRuns?.a.world.policy||E.DEFAULTS;
+ const dirty=Object.keys(inputs).some(key=>inputs[key]!==reference[key]);
+ text('focus-run',level==='medium'?'Compare worlds':!simpleRuns.size?
+  (setting===baseline?'Run baseline':'Run baseline and trial'):'Run experiment');
+ const capacity=Math.floor(1+setting*.55);
+ text('focus-setting-hint','Up to '+capacity+' reviews/day. Higher settings tighten scrutiny; at 7+, one failed repeat can trigger withdrawal.');
+ $('focus-setting').setAttribute('aria-valuetext',setting+' out of 10, up to '+capacity+' model reviews per day');
+ text('focus-status',dirty?'Settings changed. Run to measure the new settings.':focusedRuns?
+  'Run complete · 45 model days.':'Synthetic teaching model · 45 model days per run.');
+ publishFocusedContext();
+}
 function focusInputs(metric){
  const keys=METRIC_INPUTS[metric]||['verification'];
- const values=level==='medium'?mediumValues:{verification:Number($('focus-setting').value)};
+ const values=focusedRuns?.b?.world.policy||focusedRuns?.a?.world.policy||(level==='medium'?mediumValues:{verification:Number($('focus-setting').value)});
  return keys.filter(key=>values[key]!==undefined).map(key=>
   policyDescriptions[key][0]+': '+values[key]+'/10').join(' · ');
 }
 function focusMetricLabel(metric){return metricInfo(metric)[0];}
-function scheduleFocusedRun(){
- clearTimeout(focusInputTimer);
- focusInputTimer=setTimeout(runFocused,230);
-}
 function renderMediumControls(){
  const medium=level==='medium',host=$('focus-policy-grid');
  $('focus-medium-controls').hidden=!medium;
@@ -1086,7 +1152,7 @@ function renderMediumControls(){
   input.type='range';input.min='1';input.max='10';input.step='1';
   input.value=String(mediumValues[key]);input.setAttribute('aria-label',name+' in World B');
   input.addEventListener('input',()=>{
-   mediumValues[key]=Number(input.value);value.textContent=input.value+'/10';scheduleFocusedRun();
+   mediumValues[key]=Number(input.value);value.textContent=input.value+'/10';focusPending();
   });
   label.append(head,input,make('small','',hint));
   host.append(label);
@@ -1102,7 +1168,7 @@ function focusedChartCard(metric,a,b){
  const ns='http://www.w3.org/2000/svg',svg=document.createElementNS(ns,'svg');
  svg.setAttribute('viewBox','0 0 640 110');svg.setAttribute('preserveAspectRatio','none');
  svg.setAttribute('role','img');svg.setAttribute('aria-label',title+' over 45 model days');
- const runs=[a,b].filter(Boolean),lines=runs.map(run=>[...run.world.history,run.summary]);
+ const runs=[a,b].filter(Boolean),lines=runs.map(run=>run.days);
  const maximum=Math.max(1,...lines.flat().map(row=>Number(row[metric])||0));
  lines.forEach((rows,i)=>{
   const line=document.createElementNS(ns,'polyline');
@@ -1143,7 +1209,7 @@ function renderFocusedCharts(a,b){
 function focusedRecipe(){return level==='simple'?REVIEW_CAPACITY:GUIDED_EXPERIMENTS[mediumScenario]||REVIEW_CAPACITY;}
 function selectLevel(next,scenario,focus=false){
  if(!['simple','medium','advanced'].includes(next))return;
- clearTimeout(focusInputTimer);
+ stopFocusedReplay();focusDay=FOCUS_DAYS;
  if(level==='advanced'&&next!==level){play(false);if(drawerOpen)settings(false,false);}
  if(next==='medium'&&(scenario==='review_capacity'||Object.hasOwn(GUIDED_EXPERIMENTS,scenario))){
   mediumScenario=scenario;
@@ -1159,63 +1225,135 @@ function selectLevel(next,scenario,focus=false){
  if(level==='advanced'){render();drawMap();}
  else{
   focusedRuns=level==='simple'?[...simpleRuns.values()].at(-1):mediumRuns.get(mediumScenario);
+  if(scenario&&focusedRuns?.b)mediumValues={...focusedRuns.b.world.policy};
+  $('focus-scenario').value=mediumScenario;
   const recipe=focusedRecipe(),medium=level==='medium';
   renderMediumControls();
   text('focus-title',recipe.name);
-  text('focus-description',medium?'Six adjustable input policies · matched World A/B runs · four outcome charts.':'One adjustable input, three outcome charts. Move the slider to see how results respond.');
-  text('focus-setting-label',recipe.label);
+  text('focus-description',medium?'Keep World A fixed. Change one policy in World B and compare the same 45 model days.':'Run a baseline, then change review capacity and compare the queues.');
+  text('focus-setting-label','Peer-review policy');
   $('focus-setting').value=focusedRuns?.value??(medium?recipe.high:recipe.low);
   text('focus-setting-value',$('focus-setting').value+' / 10');
-  text('focus-run',medium?'Compare both worlds':'Run simulation');
-  drawFocused();
-  if(focus){$('focus-setting').focus({preventScroll:true});$('focus-setting').scrollIntoView({block:'nearest'});}
+  drawFocused();focusPending();
+  if(focus){const control=$(medium?'focus-scenario':'focus-setting');control.focus({preventScroll:true});control.scrollIntoView({block:'nearest'});}
  }
  publishContext(true);reportFocusedProgress();
 }
 function modelRun(recipe,value){
- const world=E.make(FOCUS_SEED,typeof value==='object'?value:{[recipe.key]:value});E.step(world,FOCUS_DAYS);
- return {world,summary:E.summary(world)};
+ const world=E.make(FOCUS_SEED,typeof value==='object'?value:{[recipe.key]:value});
+ const days=[E.summary(world)];
+ for(let day=1;day<=FOCUS_DAYS;day++){
+  E.step(world,1);
+  days.push(E.summary(world));
+ }
+ return {world,days,summary:days.at(-1),trace:traceStudy(world)};
 }
 function runFocused(){
  if(level==='advanced')return;
  const recipe=focusedRecipe(),value=Number($('focus-setting').value);
+ stopFocusedReplay();
+ focusDay=FOCUS_DAYS;
  if(level==='medium'){
   const changed=MEDIUM_KEYS.filter(key=>mediumValues[key]!==E.DEFAULTS[key]);
   if(!changed.length){text('focus-status','Change at least one input in World B to compare outcomes.');return;}
-  focusedRuns={value:mediumValues[recipe.key]??value,
-   a:modelRun(recipe,{...E.DEFAULTS}),b:modelRun(recipe,{...E.DEFAULTS,...mediumValues}),changes:changed};
+  focusedRuns={value:mediumValues[recipe.key],
+   a:modelRun(recipe,E.DEFAULTS),b:modelRun(recipe,mediumValues),changes:changed};
   mediumRuns.set(mediumScenario,focusedRuns);
  }else{
-  focusedRuns={value,a:modelRun(recipe,value),b:null,changes:['verification']};
-  simpleRuns.delete(value);simpleRuns.set(value,focusedRuns);
+  const baseline=recipe.low;
+  if(!simpleRuns.has(baseline))simpleRuns.set(baseline,{value:baseline,a:modelRun(recipe,baseline),changes:[]});
+  const run=simpleRuns.get(value)||{value,a:modelRun(recipe,value),changes:['verification']};
+  simpleRuns.delete(value);simpleRuns.set(value,run);
+  focusedRuns=run;
+  focusStage='reviewBacklog';
  }
  trackUsage('step',{days:FOCUS_DAYS});
- drawFocused();publishContext(true);reportFocusedProgress();
+ drawFocused();focusPending();reportFocusedProgress();
+ replayFocused();
+}
+function replayFocused(){
+ if(!focusedRuns)return;
+ stopFocusedReplay();
+ if(matchMedia('(prefers-reduced-motion: reduce)').matches){focusDay=FOCUS_DAYS;drawFocusDay();return;}
+ const start=performance.now();
+ function tick(now){
+  const day=Math.min(FOCUS_DAYS,Math.floor((now-start)/(level==='simple'?135:65)));
+  if(day!==focusDay){focusDay=day;drawFocusDay();}
+  focusReplay=day<FOCUS_DAYS?requestAnimationFrame(tick):0;
+  if(!focusReplay){focusPending();}
+ }
+ focusDay=0;drawFocusDay();
+ text('focus-status','Replaying the completed run.');
+ focusReplay=requestAnimationFrame(tick);
+}
+function focusComparison(){
+ const baseline=simpleRuns.get(REVIEW_CAPACITY.low);
+ const trial=focusedRuns;
+ if(level!=='simple'||!baseline||!trial||baseline===trial)return '';
+ const before=baseline.a.summary.reviewBacklog,after=trial.a.summary.reviewBacklog;
+ const change=after-before;
+ const direction=change<0?'smaller':change>0?'larger':'the same size';
+ const prediction=document.querySelector('[name="queue-prediction"]:checked');
+ const check=prediction?' Your prediction '+(Number(prediction.value)===Math.sign(change)?'matched this run.':'differed from this run.'):'';
+ return 'Day 45 queue: '+before+' at '+baseline.value+'/10 → '+after+' at '+trial.value+'/10 ('+direction+').'+check+
+  ' The queue grows when studies arrive faster than reviews finish. These results are from one matched seed.';
+}
+function drawFocusDay(){
+ const recipe=focusedRecipe(),medium=level==='medium';
+ const baseline=simpleRuns.get(REVIEW_CAPACITY.low);
+ const a=medium?focusedRuns?.a:(baseline||focusedRuns)?.a;
+ const b=medium?focusedRuns?.b:focusedRuns&&baseline!==focusedRuns?focusedRuns.a:null;
+ const metric=medium?recipe.metric:focusStage;
+ const left=a?.days[focusDay],right=b?.days[focusDay];
+ const host=$('focus-results');
+ text('focus-metric',medium?recipe.outcome:FOCUS_STAGES[metric][0]);
+ if(!medium)drawLifecycle(b||a);
+ const scores=medium?[['World A · baseline',left],['World B · intervention',right]]:
+  right?[[baseline.value+'/10 · baseline',left],[focusedRuns.value+'/10 · trial',right]]:
+  [[a?focusedRuns.value+'/10 · baseline':'Day 0',left||{[metric]:0}]];
+ host.replaceChildren(...scores.map(([label,row])=>{
+  const score=make('div','focus-world-value');
+  score.append(make('strong','',row?.[metric]??'—'),make('small','',label));
+  return score;
+ }));
+ const maximum=Math.max(1,...[a,b].flatMap(run=>run?.days.map(row=>row[metric])||[]));
+ for(const [side,run] of [['a',a],['b',b]]){
+  const xy=(run?.days||[]).slice(0,focusDay+1).map(row=>
+   [10+row.day/FOCUS_DAYS*620,168-row[metric]/maximum*151]);
+  $('focus-line-'+side).setAttribute('points',xy.map(point=>point.join(',')).join(' '));
+  const end=$('focus-point-'+side);
+  end.toggleAttribute('hidden',!xy.length);
+  if(xy.length){end.setAttribute('cx',xy.at(-1)[0]);end.setAttribute('cy',xy.at(-1)[1]);}
+ }
+ $('focus-time').value=focusDay;
+ text('focus-time-label',focusDay);
 }
 function drawFocused(){
- const recipe=focusedRecipe(),medium=level==='medium',a=focusedRuns?.a,b=focusedRuns?.b;
- const metric=recipe.metric,host=$('focus-results');
- text('focus-metric',recipe.outcome);
- if(medium){
-  const scores=[['World A · baseline',a],['World B'+(b?' · '+focusedRuns.changes.length+' changed input(s)':''),b]];
-  host.replaceChildren(...scores.map(([label,run])=>{
-   const score=make('div','focus-world-value');score.append(make('strong','',run?.summary[metric]??'—'),make('small','',label));return score;
-  }));
- }else host.replaceChildren(make('strong','',a?.summary[metric]??'—'));
- text('focus-status',a?(medium?'Same random seed and duration · '+focusedRuns.changes.length+' input(s) changed. This is a synthetic comparison.':'Completed at '+focusedRuns.value+'/10. Adjust the setting to recalculate.'):'45 model days per run · synthetic teaching model');
- const series=run=>run?[...run.world.history,run.summary]:[];
- const pointsA=series(a),pointsB=series(b);
- const max=Math.max(1,...[...pointsA,...pointsB].map(row=>row[metric]));
- function drawLine(rows,side){
-  const xy=rows.map(row=>[10+row.day/FOCUS_DAYS*620,168-row[metric]/max*151]);
-  $('focus-line-'+side).setAttribute('points',xy.map(p=>p.join(',')).join(' '));
-  const end=$('focus-point-'+side);end.toggleAttribute('hidden',!xy.length);
-  if(xy.length){end.setAttribute('cx',xy.at(-1)[0]);end.setAttribute('cy',xy.at(-1)[1]);}
-  return xy;
- }
- const xy=drawLine(pointsA,'a');drawLine(pointsB,'b');
- $('focus-area').setAttribute('d',!medium&&xy.length?'M'+xy.map(p=>p.join(',')).join(' L')+' L630 168 H10 Z':'');
+ const a=focusedRuns?.a,b=focusedRuns?.b;
+ const simple=level==='simple';
+ $('focus-pipeline').hidden=!simple;
+ document.querySelector('.focus-stage').hidden=simple&&!focusedRuns;
+ $('focus-more').hidden=!focusedRuns;
+ $('focus-io-caption').hidden=simple&&!focusedRuns;
+ $('focus-timeline').hidden=!focusedRuns;
+ $('focus-prediction').hidden=!simple||!simpleRuns.size;
+ const comparison=focusComparison();
+ $('focus-comparison').hidden=!comparison;
+ $('focus-next').hidden=!comparison;
+ text('focus-comparison',comparison);
+ drawFocusDay();
  renderFocusedCharts(a,b);
+}
+function resetFocused(){
+ stopFocusedReplay();focusDay=FOCUS_DAYS;
+ if(level==='simple'){
+  simpleRuns.clear();focusStage='generated';
+  for(const option of document.querySelectorAll('[name="queue-prediction"]'))option.checked=false;
+ }else{
+  mediumRuns.delete(mediumScenario);
+  mediumValues={...E.DEFAULTS,[focusedRecipe().key]:focusedRecipe().high};
+ }
+ selectLevel(level);
 }
 function reportFocusedProgress(){
  if(level==='advanced'){G.learningProgress?.({level});return;}
@@ -1229,11 +1367,17 @@ function reportFocusedProgress(){
 }
 function publishFocusedContext(){
  const a=focusedRuns?.a,b=focusedRuns?.b,run=b||a,recipe=focusedRecipe();
- G.context({level,world:b?'B':'A',day:run?.world.day||0,hasFork:!!b,view:'focused',
-  policies:run?.world.policy||{...E.DEFAULTS},metrics:run?.summary||{},seed:FOCUS_SEED,
-  comparison:b?{a:a.summary,b:b.summary}:null,
-  lesson:{policy:recipe.key,observed:!!run},focusedMetric:recipe.metric,
-  changes:(focusedRuns?.changes||[]).map(key=>({key,before:E.DEFAULTS[key],after:run?.world.policy[key],day:FOCUS_DAYS}))});
+ const baseline=level==='simple'?simpleRuns.get(REVIEW_CAPACITY.low)?.a:null;
+ const observed=run?.days[focusDay];
+ const inputs=level==='medium'?mediumValues:{verification:Number($('focus-setting').value)};
+ const applied=run?.world.policy||E.DEFAULTS;
+ const changes=Object.keys(inputs).filter(key=>inputs[key]!==applied[key]);
+ G.context({level,world:b?'B':'A',day:observed?.day||0,hasFork:!!b,view:'focused',
+  policies:applied,metrics:observed||{},seed:FOCUS_SEED,policyEditing:!!changes.length,
+  comparison:b?{a:a.summary,b:b.summary}:baseline&&a&&baseline!==a?{a:baseline.summary,b:a.summary}:null,
+  lesson:{policy:recipe.key,observed:!!run},focusedMetric:level==='simple'?focusStage:recipe.metric,
+  changes:changes.length?changes.map(key=>({key,before:applied[key],after:inputs[key],day:run?.world.day||0})):
+   (focusedRuns?.changes||[]).map(key=>({key,before:E.DEFAULTS[key],after:applied[key],day:0}))});
 }
 function runGuidedExperiment(id){
   const recipe=GUIDED_EXPERIMENTS[id];
@@ -1318,9 +1462,32 @@ function bind(){
   $('guide-knowledge').addEventListener('click',()=>{setView('papers');$('map-dialog').close();});
   $('back-labs').addEventListener('click',event=>{if(window.parent!==window){event.preventDefault();shellAction('catalog');}});
   document.querySelectorAll('[data-level-choice]').forEach(button=>button.addEventListener('click',()=>selectLevel(button.dataset.levelChoice)));
-  $('focus-setting').addEventListener('input',event=>{text('focus-setting-value',event.target.value+' / 10');scheduleFocusedRun();});
+  $('focus-setting').addEventListener('input',event=>{text('focus-setting-value',event.target.value+' / 10');focusPending();});
   $('plot-ask').addEventListener('click',()=>G.askPulsar?.('Explain the '+metricInfo(plot)[0]+' chart. '+$('plot-io-caption').textContent+'. Explain the causal uncertainty of this simulated outcome.'));
   $('focus-run').addEventListener('click',runFocused);
+  $('focus-replay').addEventListener('click',replayFocused);
+  $('focus-reset').addEventListener('click',resetFocused);
+  $('focus-next').addEventListener('click',()=>selectLevel('medium','review_bottleneck',true));
+  $('focus-scenario').addEventListener('change',event=>selectLevel('medium',event.target.value,true));
+  $('focus-sources').addEventListener('click',()=>{
+   if(window.parent===window)showDialog('method-dialog');
+   else shellAction('sources');
+  });
+  $('focus-explain').hidden=window.parent===window;
+  $('focus-explain').addEventListener('click',()=>{
+   publishFocusedContext();
+   G.askPulsar?.(focusedRuns?'What did this completed experiment show, and why might the result have changed?':'How should I interpret the settings before running this experiment?');
+  });
+  $('focus-time').addEventListener('input',event=>{
+   stopFocusedReplay();
+   focusDay=Number(event.target.value);
+   drawFocusDay();focusPending();
+  });
+  $('focus-prediction').addEventListener('change',()=>text('focus-comparison',focusComparison()));
+  for(const button of document.querySelectorAll('[data-stage]'))button.addEventListener('click',()=>{
+   focusStage=button.dataset.stage;
+   drawFocusDay();publishFocusedContext();
+  });
   $('guided-tour').addEventListener('click',()=>shellAction('tour'));
   $('fullscreen').addEventListener('click',()=>shellAction('fullscreen'));
   $('scientific-sources').addEventListener('click',()=>shellAction('sources'));

@@ -19,19 +19,57 @@
     </nav>
     <main id="focused-model" class="focused-model" aria-labelledby="focus-title">
       <div class="focus-heading">
-        <div><span class="eyebrow">Live research model</span><h1 id="focus-title">Can peer review keep up?</h1></div>
+        <div><span class="eyebrow">Science Ecosystem</span><h1 id="focus-title">Can peer review keep up with faster research?</h1></div>
         <span id="focus-day" class="focus-duration">45 model days</span>
       </div>
-      <p id="focus-description">Set the review capacity, run the model, then watch how many studies are still waiting.</p>
+      <p id="focus-description">Run a baseline and see how many studies are still waiting at day 45.</p>
+      <section id="focus-pipeline" aria-label="Research lifecycle">
+        <div class="lifecycle-caption"><span id="lifecycle-mode">Model workflow</span><span id="lifecycle-clock">Before the run</span></div>
+        <div class="lifecycle-track"><span id="lifecycle-token" hidden aria-hidden="true"></span>
+        <ol class="focus-workflow">
+          <li><button type="button" data-stage="generated" aria-pressed="true"><svg viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="9"/><path d="M16 10v12m-6-6h12"/></svg><span>Hypothesis</span></button></li>
+          <li><button type="button" data-stage="tested" aria-pressed="false"><svg viewBox="0 0 32 32" aria-hidden="true"><path d="M5 24h22M8 19l6-7 5 5 5-9"/><circle cx="24" cy="8" r="2"/></svg><span>Testing</span></button></li>
+          <li><button type="button" data-stage="reviewBacklog" aria-pressed="false"><svg viewBox="0 0 32 32" aria-hidden="true"><path d="M7 8h15M7 13h15M7 18h9"/><circle cx="22" cy="20" r="4"/><path d="m25 23 3 3"/></svg><span>Peer review</span></button></li>
+          <li><button type="button" data-stage="published" aria-pressed="false"><svg viewBox="0 0 32 32" aria-hidden="true"><path d="M9 5h10l5 5v17H9zm10 0v6h5M13 16h7m-7 5h7"/></svg><span>Publication</span></button></li>
+          <li><button type="button" data-stage="replicated" aria-pressed="false"><svg viewBox="0 0 32 32" aria-hidden="true"><path d="M24 12a9 9 0 1 0 0 9M24 6v6h-6m-5 5 2 2 5-5"/></svg><span>Replication</span></button></li>
+        </ol></div>
+        <p id="focus-stage-detail"></p>
+        <p id="lifecycle-event" hidden></p>
+      </section>
+      <p id="focus-comparison" role="status" hidden></p>
+      <fieldset id="focus-prediction" hidden>
+        <legend>Predict how the day 45 queue will change</legend>
+        <label><input type="radio" name="queue-prediction" value="-1"> Smaller</label>
+        <label><input type="radio" name="queue-prediction" value="0"> Same</label>
+        <label><input type="radio" name="queue-prediction" value="1"> Larger</label>
+      </fieldset>
+      <div class="focus-controls">
+        <label class="focus-slider" for="focus-setting"><span id="focus-setting-label">Peer-review policy</span><output id="focus-setting-value" for="focus-setting">5 / 10</output><input id="focus-setting" type="range" min="1" max="10" value="5" aria-describedby="focus-setting-hint"><small id="focus-setting-hint"></small></label>
+        <button id="focus-run" class="btn primary" type="button">Run baseline</button>
+      </div>
+      <section id="focus-medium-controls" class="focus-medium-controls" aria-label="Medium complexity model inputs" hidden>
+        <label for="focus-scenario">Research question</label>
+        <select id="focus-scenario">
+          <option value="review_capacity">Peer review capacity</option>
+          <option value="review_bottleneck">Faster idea generation</option>
+          <option value="selective_reporting">Publication pressure</option>
+          <option value="replication_capacity">Independent repeats</option>
+        </select>
+        <div><h2>Explore six research policies</h2><p>World A keeps its starting values. Adjust up to six inputs for World B, then compare the measured outputs. Change one at a time to understand its effect.</p></div>
+        <div id="focus-policy-grid" class="focus-policy-grid"></div>
+      </section>
+      <div id="focus-timeline" hidden>
+        <button id="focus-replay" class="btn" type="button">Replay</button>
+        <label for="focus-time">Model day <output id="focus-time-label" for="focus-time">45</output></label>
+        <input id="focus-time" type="range" min="0" max="45" value="45">
+      </div>
       <div class="focus-stage">
-        <div class="focus-readout" aria-live="polite">
+        <div class="focus-readout">
           <span id="focus-metric">Studies waiting for review</span>
           <div id="focus-results"><strong id="focus-result">—</strong></div>
         </div>
         <svg id="focus-chart" viewBox="0 0 640 180" preserveAspectRatio="none" aria-hidden="true">
-          <defs><linearGradient id="focus-fill" x1="0" x2="0" y1="0" y2="100%" gradientUnits="objectBoundingBox"><stop stop-color="currentColor" stop-opacity=".27"/><stop offset="1" stop-color="currentColor" stop-opacity="0"/></linearGradient></defs>
           <path class="focus-chart-grid" d="M0 40H640 M0 80H640 M0 120H640 M0 160H640 M128 0V180 M256 0V180 M384 0V180 M512 0V180"/>
-          <path id="focus-area" fill="url(#focus-fill)"/>
           <polyline id="focus-line-a" class="focus-line-a"/>
           <polyline id="focus-line-b" class="focus-line-b"/>
           <circle id="focus-point-a" r="4" hidden/>
@@ -39,17 +77,15 @@
         </svg>
         <div class="focus-axis" aria-hidden="true"><span>Day 0</span><span>Day 45</span></div>
       </div>
-      <section id="focus-extra-charts" class="focus-extra-charts" aria-label="Further model measurements"></section>
-      <div class="focus-controls">
-        <label class="focus-slider" for="focus-setting"><span id="focus-setting-label">Peer review capacity</span><output id="focus-setting-value" for="focus-setting">5 / 10</output><input id="focus-setting" type="range" min="1" max="10" value="5"></label>
-        <button id="focus-run" class="btn primary" type="button">Run simulation</button>
+      <div id="focus-actions">
+        <button id="focus-explain" class="text-btn" type="button">Ask Pulsar</button>
+        <button id="focus-sources" class="text-btn" type="button">Model sources</button>
+        <button id="focus-reset" class="text-btn" type="button">Reset experiment</button>
+        <button id="focus-next" class="text-btn" type="button" hidden>Next experiment</button>
       </div>
-      <section id="focus-medium-controls" class="focus-medium-controls" aria-label="Medium complexity model inputs" hidden>
-        <div><h2>Explore six research policies</h2><p>World A keeps its starting values. Adjust up to six inputs for World B, then compare the measured outputs. Change one at a time to understand its effect.</p></div>
-        <div id="focus-policy-grid" class="focus-policy-grid"></div>
-      </section>
       <p id="focus-io-caption" class="focus-io-caption">Input: review capacity · Output: papers waiting for review.</p>
-      <p id="focus-status" class="focus-status" role="status">A seeded teaching model. Try a different setting and run it again.</p>
+      <p id="focus-status" class="focus-status" role="status">Synthetic teaching model · 45 model days per run.</p>
+      <details id="focus-more"><summary>More measurements</summary><section id="focus-extra-charts" class="focus-extra-charts" aria-label="Further model measurements"></section></details>
     </main>
     <header class="app-header">
       <div class="title-stack">

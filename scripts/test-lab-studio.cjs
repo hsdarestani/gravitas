@@ -17,7 +17,7 @@ assert.match(lab,/id="lab-experiences" hidden/);
 assert.ok(!lab.includes('ai-panel-')&&!lab.includes('ai-path-card')&&!lab.includes('<iframe'),'public Lab must be empty before release');
 assert.match(lab,/assets\/lab-studio\.js/);
 assert.match(runtime,/fetch\('\/api\/labs\/'/);
-assert.match(runtime,/if\(!labs\.length\)return/);
+assert.match(runtime,/else if\(labs\.length\)showCatalog\(\)/);
 assert.match(runtime,/iframe\.sandbox='allow-scripts'/);
 assert.match(runtime,/e\.source!==iframe\.contentWindow\|\|e\.origin!=='null'/);
 for(const key of ['controls','metrics','timeline','compare','layers','charts'])assert.match(runtime,new RegExp("'"+key+"'"));
