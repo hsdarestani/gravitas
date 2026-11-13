@@ -167,6 +167,44 @@ const server=http.createServer((req,res)=>{
     await touchFrame.getByRole('button',{name:/Publication/}).tap();
     assert.equal(await touchFrame.locator('#focus-metric').innerText(),'Studies published');
     await touch.close();
+    const integrated=await browser.newPage({viewport:{width:1280,height:800},reducedMotion:'reduce'});
+    integrated.on('pageerror',e=>errors.push(e.message));
+    let rejectAtlas=false;
+    await integrated.route('**/api/labs/science-universe/coach/',route=>route.fulfill({status:503,json:{error:'coaching_unavailable'}}));
+    const createAtlasRun=value=>{
+      const run=E.make(20261029,{verification:value}),parameters={...run.policy},design=run.design;
+      E.step(run,20);
+      return {parameters,design,result:E.summary(run),signature:'fixture-'+value};
+    };
+    const atlasA=createAtlasRun(3),atlasB=createAtlasRun(9);
+    await integrated.route('**/scenarios/compare/?*',route=>{
+      if(rejectAtlas)return route.fulfill({status:404,json:{error:'unavailable'}});
+      const metrics=Object.fromEntries(['published','falsePublished','replicated','reviewBacklog'].map(key=>{
+        const a=atlasA.result[key],b=atlasB.result[key];return [key,{a,b,delta:b-a,delta_min:b-a,delta_max:b-a}];
+      }));
+      return route.fulfill({json:{policy:'verification',low:3,high:9,matched_seeds:1,days:20,metrics,
+        pairs:[{seed:20261029,design:atlasA.design,a:atlasA,b:atlasB}],trajectory:[],limitations:'Fixture runs use the real seeded engine.'}});
+    });
+    await integrated.goto(host+'/lab.html?lab=science-universe');
+    const embedded=integrated.frameLocator('.lab-frame');
+    await embedded.locator('#focus-run').click();
+    await embedded.locator('#focus-explain').click();
+    await integrated.getByText(/The live model is unavailable/).waitFor();
+    await embedded.getByRole('button',{name:'Advanced',exact:true}).click();
+    await embedded.locator('#atlas').click();
+    await integrated.getByText(/1 matched seeds/).waitFor();
+    rejectAtlas=true;
+    await integrated.getByRole('button',{name:'Compare stored runs'}).click();
+    await integrated.getByText(/A matched comparison is not stored/).waitFor();
+    rejectAtlas=false;
+    await integrated.getByRole('button',{name:'Compare stored runs'}).click();
+    await integrated.getByRole('button',{name:'Try this comparison in the Lab'}).click();
+    assert.match(await embedded.locator('#branch-explainer').innerText(),/Reproduced stored comparison/);
+    assert.equal(await embedded.locator('#day').innerText(),'020');
+    assert.equal(Number(await embedded.locator('#published').innerText()),atlasB.result.published);
+    await embedded.locator('#snapshot').click();
+    await integrated.getByText(/snapshot: .*published/).waitFor();
+    await integrated.close();
     await shell.close();
     await page.getByRole('button',{name:'Advanced',exact:true}).click();
     await page.locator('#agents').waitFor();
@@ -257,9 +295,27 @@ const server=http.createServer((req,res)=>{
     await page.locator('#toggle-data').click();
     assert.ok(await page.locator('#outcome-data tbody tr').count()>0);
     await page.locator('#toggle-data').click();
-    const still=await page.locator('#network-b').evaluate(x=>x.toDataURL());
+    const renderTiming=await page.evaluate(async()=>{
+      const canvas=document.querySelector('#network-b'),times=[];
+      const draw=canvas.getContext('2d').clearRect;
+      const ctx=canvas.getContext('2d');let draws=0;
+      ctx.clearRect=function(...args){draws++;return draw.apply(this,args);};
+      await new Promise(resolve=>setTimeout(resolve,180));
+      const idle=draws;draws=0;
+      for(let i=0;i<6;i++){
+        const start=performance.now();document.querySelector('#advance').click();
+        await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+        times.push(performance.now()-start);
+      }
+      delete ctx.clearRect;
+      return {idle,draws,times:times.map(Math.round)};
+    });
+    assert.equal(renderTiming.idle,0,'a paused map does not continuously redraw');
+    assert.ok(renderTiming.draws>=6,'stepping schedules map rendering');
+    console.log('Advanced frame delivery (Chrome CI, ms):',renderTiming.times.join(', '));
+    const pausedImage=await page.locator('#network-b').evaluate(x=>x.toDataURL());
     await page.waitForTimeout(500);
-    assert.equal(await page.locator('#network-b').evaluate(x=>x.toDataURL()),still,'paused model has no independent visual animation');
+    assert.equal(await page.locator('#network-b').evaluate(x=>x.toDataURL()),pausedImage,'paused model has no independent visual animation');
     await page.locator('#play').click();
     const selectedText=await page.evaluate(()=>{const node=document.getElementById('map-explanation');const range=document.createRange();range.selectNodeContents(node);getSelection().removeAllRanges();getSelection().addRange(range);return String(getSelection());});
     await page.waitForTimeout(1200);
