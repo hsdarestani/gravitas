@@ -4,6 +4,7 @@ import { registerDestructor } from "@ember/destroyable";
 import { action } from "@ember/object";
 import { on } from "@ember/modifier";
 import { service } from "@ember/service";
+import { htmlSafe } from "@ember/template";
 import { popupAjaxError } from "discourse/lib/ajax-error";
 import DiscourseURL from "discourse/lib/url";
 import DRelativeDate from "discourse/ui-kit/d-relative-date";
@@ -60,6 +61,13 @@ export class ThreadRail extends Component {
 
   get positionLabel() {
     return [this.current, this.total].map((n) => String(n).padStart(2, "0")).join(" / ");
+  }
+
+  // How far down the thread the reader is, drawn as the filled part of the
+  // timeline track, as Discourse's own timeline does with its scroller.
+  get progressStyle() {
+    const share = this.total > 1 ? (this.current - 1) / (this.total - 1) : 1;
+    return htmlSafe(`--gq-progress: ${Math.round(share * 100)}%`);
   }
 
   get previousDisabled() {
@@ -128,15 +136,20 @@ export class ThreadRail extends Component {
     {{#if this.topic.category}}
       <aside class="gq-thread-rail" aria-label="This thread">
         <div class="gq-thread-steps" role="group" aria-label="Move between posts">
+          <span class="gq-thread-track" style={{this.progressStyle}} aria-hidden="true"></span>
+          <span class="gq-thread-when"><DRelativeDate @date={{this.topic.created_at}} /></span>
           <span aria-live="polite" class="gq-thread-position">{{this.positionLabel}}</span>
-          <button class="gq-thread-arrow" type="button" aria-label="Previous post"
-            disabled={{this.previousDisabled}} {{on "click" this.previous}}>
-            {{dIcon "chevron-up"}}
-          </button>
-          <button class="gq-thread-arrow" type="button" aria-label="Next post"
-            disabled={{this.nextDisabled}} {{on "click" this.next}}>
-            {{dIcon "chevron-down"}}
-          </button>
+          <span class="gq-thread-when"><DRelativeDate @date={{this.topic.last_posted_at}} /></span>
+          <span class="gq-thread-arrows">
+            <button class="gq-thread-arrow" type="button" aria-label="Previous post"
+              disabled={{this.previousDisabled}} {{on "click" this.previous}}>
+              {{dIcon "chevron-up"}}
+            </button>
+            <button class="gq-thread-arrow" type="button" aria-label="Next post"
+              disabled={{this.nextDisabled}} {{on "click" this.next}}>
+              {{dIcon "chevron-down"}}
+            </button>
+          </span>
         </div>
         <dl class="gq-thread-facts">
           <div><dt>Replies</dt><dd>{{dNumber this.topic.replyCount}}</dd></div>
@@ -152,9 +165,9 @@ export class ThreadRail extends Component {
             <p>Talking</p>
             <ul>
               {{#each this.participants as |participant|}}
-                <li>
-                  {{dBoundAvatarTemplate participant.avatar_template "tiny"}}
-                  <span>{{if participant.name participant.name participant.username}}</span>
+                <li title={{if participant.name participant.name participant.username}}>
+                  {{dBoundAvatarTemplate participant.avatar_template "small"}}
+                  <span class="gq-thread-name">{{if participant.name participant.name participant.username}}</span>
                 </li>
               {{/each}}
             </ul>
