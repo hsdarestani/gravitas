@@ -75,7 +75,7 @@ assert.match(html,/id="plot-io-caption"/,'advanced charts include model inputs a
 assert.match(app,/const MEDIUM_KEYS=\['generation','verification','replication','sampleSize','transparency','pressure'\]/,
   'medium exposes six of the twelve advanced inputs');
 assert.match(app,/renderFocusedCharts\(a,b\)/,'focused charts redraw with simulated results');
-assert.match(app,/scheduleFocusedRun\(\)/,'slider changes recalculate the simulation');
+assert.doesNotMatch(app,/scheduleFocusedRun/,'sliders stage inputs until Run');
 assert.match(app,/G\.askPulsar/,'each result can request a grounded explanation');
 
 const deploy=fs.readFileSync(path.join(__dirname,'..','.github','workflows','deploy.yml'),'utf8');

@@ -3,16 +3,33 @@ const assert=require('node:assert/strict');
 const http=require('node:http');
 const fs=require('node:fs');
 const path=require('node:path');
+const E=require('../lab-sources/science-universe/engine.js');
 const playwright=require('playwright-core');
 const root=process.cwd();
 const types={'.html':'text/html','.js':'application/javascript','.css':'text/css','.svg':'image/svg+xml'};
 const server=http.createServer((req,res)=>{
   const pathname=decodeURIComponent(new URL(req.url,'http://localhost').pathname);
-  const file=path.resolve(root,'.'+pathname);
+  const published=pathname.startsWith('/lab-run/science-universe/');
+  if(pathname==='/api/labs/'){
+    res.setHeader('Content-Type','application/json');
+    res.end(JSON.stringify({labs:[{slug:'science-universe',ready:true,title:'Science Ecosystem',
+      run_url:'/lab-run/science-universe/',config:{components:['stage'],pulsar_enabled:true}}]}));
+    return;
+  }
+  if(pathname==='/api/labs/science-universe/access/'){
+    res.setHeader('Content-Type','application/json');
+    res.end(JSON.stringify({authenticated:false,remaining:5}));return;
+  }
+  const source=published?pathname.replace('/lab-run/','/lab-sources/').replace(/\/$/,'/index.html'):pathname;
+  const file=path.resolve(root,'.'+source);
   if(!file.startsWith(root+path.sep)||!fs.existsSync(file)||!fs.statSync(file).isFile()){
     res.writeHead(404);res.end('Not found');return;
   }
   res.setHeader('Content-Type',types[path.extname(file)]||'text/plain');
+  if(published&&path.extname(file)==='.html'){
+    res.setHeader('Content-Security-Policy',"sandbox allow-scripts; default-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; frame-ancestors 'self'");
+    res.end(fs.readFileSync(file,'utf8').replace('<head>','<head><script src="/assets/lab-bridge.js"></script>'));return;
+  }
   res.end(fs.readFileSync(file));
 });
 (async()=>{
@@ -27,6 +44,74 @@ const server=http.createServer((req,res)=>{
     page.on('pageerror',e=>errors.push(e.message));
     const address='http://127.0.0.1:'+server.address().port+'/lab-sources/science-universe/index.html';
     await page.goto(address,{waitUntil:'networkidle'});
+    const host='http://127.0.0.1:'+server.address().port;
+    const shell=await browser.newPage({viewport:{width:1440,height:900},reducedMotion:'reduce'});
+    shell.on('pageerror',e=>errors.push(e.message));
+    let posted;
+    await shell.route('**/api/labs/science-universe/coach/',route=>{
+      posted=route.request().postDataJSON();
+      return route.fulfill({json:{ok:true,provider:'script',reply:'The fixture received the simulation result.'}});
+    });
+    await shell.goto(host+'/lab.html?lab=science-universe');
+    const frame=shell.frameLocator('.lab-frame');
+    const run=frame.locator('#focus-run'),slider=frame.locator('#focus-setting');
+    await run.waitFor();
+    assert.equal(await shell.getByRole('button',{name:'Enter simulation'}).count(),0);
+    assert.equal(await shell.getByRole('button',{name:/Open Pulsar conversation/}).getAttribute('aria-expanded'),'false');
+    fs.mkdirSync('qa-artifacts',{recursive:true});
+    for(const [width,height] of [[1440,900],[1280,720],[768,900],[390,844],[360,740]]){
+      await shell.setViewportSize({width,height});
+      for(const element of [run,slider,frame.locator('#focus-chart')]){
+        const rect=await element.boundingBox();
+        assert.ok(rect&&rect.x>=0&&rect.x+rect.width<=width+1&&rect.y>=0&&rect.y+rect.height<=height,
+          'Primary experiment controls fit at '+width+'px: '+JSON.stringify(rect));
+      }
+      if(width===1440||width===390)await shell.screenshot({path:'qa-artifacts/science-universe-after-'+width+'.png'});
+    }
+    await shell.setViewportSize({width:1440,height:900});
+    await run.click();
+    const baseline=E.summary(E.step(E.make(20261029),45)).reviewBacklog;
+    assert.equal(await frame.locator('#focus-results strong').innerText(),String(baseline));
+    await frame.getByLabel('Smaller').check();
+    await slider.press('End');
+    assert.match(await frame.locator('#focus-status').innerText(),/Settings changed/);
+    assert.equal(await frame.locator('#focus-results strong').innerText(),String(baseline));
+    await run.click();
+    const trial=E.summary(E.step(E.make(20261029,{verification:10}),45)).reviewBacklog;
+    assert.deepEqual(await frame.locator('#focus-results strong').allTextContents(),[String(baseline),String(trial)]);
+    assert.match(await frame.locator('#focus-comparison').innerText(),/prediction/);
+    await frame.getByRole('button',{name:'Testing'}).click();
+    await frame.locator('#focus-time').press('Home');
+    assert.deepEqual(await frame.locator('#focus-results strong').allTextContents(),['0','0']);
+    await frame.locator('#focus-replay').click();
+    assert.equal(await frame.locator('#focus-time').inputValue(),'45');
+    await frame.locator('#focus-explain').click();
+    await shell.getByText('The fixture received the simulation result.').waitFor();
+    assert.equal(posted.context.focusedMetric,'tested');
+    assert.equal(posted.context.comparison.b.reviewBacklog,trial);
+    await frame.locator('#focus-next').click();
+    await frame.locator('#focus-medium-controls').waitFor();
+    await run.click();
+    assert.match(await frame.locator('#focus-io-caption').innerText(),/World A.*World B/);
+    await frame.getByRole('slider',{name:'Peer review capacity in World B'}).press('End');
+    await run.click();
+    assert.match(await frame.locator('#focus-io-caption').innerText(),/Multiple changes/);
+    await frame.getByRole('button',{name:'Simple',exact:true}).click();
+    await frame.locator('#focus-reset').click();
+    assert.equal(await slider.inputValue(),'5');
+    await shell.reload();
+    await run.waitFor();
+    await shell.goto(host+'/lab.html');
+    await shell.locator('.lab-catalog-card').filter({hasText:'Science Ecosystem'}).click();
+    await shell.getByRole('button',{name:'Enter simulation'}).waitFor();
+    const touch=await browser.newPage({viewport:{width:390,height:844},hasTouch:true,isMobile:true,reducedMotion:'reduce'});
+    await touch.goto(host+'/lab.html?lab=science-universe');
+    const touchFrame=touch.frameLocator('.lab-frame');
+    await touchFrame.locator('#focus-run').tap();
+    await touchFrame.getByRole('button',{name:/Publication/}).tap();
+    assert.equal(await touchFrame.locator('#focus-metric').innerText(),'Studies published');
+    await touch.close();
+    await shell.close();
     await page.getByRole('button',{name:'Advanced',exact:true}).click();
     await page.locator('#agents').waitFor();
     assert.equal(await page.locator('.tiny-metric').count(),6);

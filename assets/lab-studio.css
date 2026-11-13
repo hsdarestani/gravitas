@@ -480,3 +480,17 @@ body:has(#lab-experiences[data-lab-slug="science-universe"]) :is(.page-head,.g-f
 @media(max-width:900px) and (max-height:520px) {
  #lab-experiences.learning-split[data-pulsar-pane="chat"]:not(.companion-collapsed) .lab-runtime-grid {--pulsar-dock:100%}
 }
+
+.lab-entry-state {padding:clamp(16px,5vw,52px)}
+.lab-frame-wrap:has(.lab-frame-state)::before {content:none}
+.lab-frame-state {
+ position:absolute;inset:0;z-index:1;display:grid;align-content:center;justify-items:center;gap:8px;
+ padding:16px;text-align:center;background:var(--g-bg);color:var(--g-text);
+}
+.lab-frame-wrap.has-load-error .lab-frame,.lab-frame-wrap.is-loading:has(.lab-frame-state) .lab-frame {visibility:hidden}
+.lab-frame-state [hidden] {display:none}
+@media(min-width:901px){
+ #lab-experiences.learning-split.companion-collapsed .lab-runtime-grid {
+  grid-template-columns:minmax(0,1fr) 152px;
+ }
+}

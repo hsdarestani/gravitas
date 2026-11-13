@@ -141,7 +141,7 @@ def clean_context(raw):
     return {
         'comparison': {side: clean_numbers((raw.get('comparison') or {}).get(side)) for side in ('a', 'b')} if isinstance(raw.get('comparison'), dict) else None,
         'level': raw.get('level') if raw.get('level') in ('simple', 'medium') else 'advanced',
-        'focusedMetric': raw.get('focusedMetric') if raw.get('focusedMetric') in ('reviewBacklog', 'falsePublished', 'replicated') else None,
+        'focusedMetric': raw.get('focusedMetric') if raw.get('focusedMetric') in ('reviewBacklog', 'falsePublished', 'replicated', 'generated', 'tested', 'published') else None,
         'lesson': small_record(raw.get('lesson') or {}, ('policy', 'observed')) if isinstance(raw.get('lesson'), dict) else None,
         'world': 'B' if raw.get('world') == 'B' else 'A',
         'day': max(0, min(1000000, raw.get('day', 0))) if type(raw.get('day')) is int else 0,

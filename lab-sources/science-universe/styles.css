@@ -634,3 +634,42 @@ th{position:sticky;top:0;background:var(--raised);font-family:var(--font);font-w
  .focus-controls .btn{width:100%}
  .focus-trend-card{padding:12px}
 }
+
+/* The focused experiment keeps its inputs next to the model, ahead of detail charts. */
+#focused-model [hidden] {display:none}
+#focused-model {max-width:1100px;width:100%;margin-inline:auto}
+#focused-model .focus-stage {
+  min-height:0;height:clamp(150px,26dvh,300px);background:var(--map-bg);
+}
+.focus-readout {padding:10px 14px 0}
+#focused-model .focus-controls {gap:10px 22px}
+#focused-model .focus-controls .btn {min-height:44px}
+#focused-model input[type="range"] {min-height:36px}
+.focus-slider small {grid-column:1/-1;color:var(--muted);font-size:12px;font-weight:400}
+.focus-workflow {display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:4px;list-style:none;padding:0;margin:0}
+.focus-workflow li {min-width:0}
+.focus-workflow button {
+  width:100%;min-height:62px;display:grid;gap:2px;text-align:start;padding:6px 8px;
+  color:var(--muted);background:var(--sunken);border:1px solid var(--border);border-radius:6px;
+}
+.focus-workflow button[aria-pressed="true"] {color:var(--text);border-color:var(--world-a);background:var(--hover)}
+.focus-workflow button strong {font:500 20px var(--font-mono);color:var(--world-a)}
+.focus-workflow button span {font-size:clamp(9px,1.45vw,13px)}
+#focus-stage-detail {margin:4px 0 0;color:var(--muted);font-size:12px}
+#focus-results .focus-world-value strong {font-size:clamp(25px,4vw,48px)}
+#focus-prediction {margin:0;padding:5px 9px 8px;border:1px solid var(--border);border-radius:6px;color:var(--muted)}
+#focus-prediction label {display:inline-flex;align-items:center;gap:4px;margin-inline-end:12px;min-height:34px}
+#focus-timeline,#focus-actions {display:flex;align-items:center;flex-wrap:wrap;gap:8px 16px}
+#focus-timeline input {flex:1;min-width:84px}
+#focus-actions button,#focus-more summary {min-height:36px}
+#focus-comparison {padding:10px 12px;border-inline-start:2px solid var(--world-b);background:var(--sunken)}
+#focus-scenario {margin:0 0 12px;max-width:100%;min-height:40px}
+#focus-more summary {cursor:pointer}
+#focus-more[open] summary {margin-bottom:6px}
+@media(max-width:540px){
+  .focus-workflow button {padding:4px;min-height:53px;text-align:center}
+  .focus-workflow button strong {font-size:16px}
+  #focused-model .focus-stage {height:clamp(120px,23dvh,185px)}
+  #focus-stage-detail {font-size:11px}
+  .focus-slider small {font-size:11px}
+}
