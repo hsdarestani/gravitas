@@ -242,6 +242,7 @@ input,textarea,.select-kit .select-kit-header{background:var(--g-bg);border:1px 
   }
 }
 
+/* Released to the forum on 2026-11-13, header and signed-in user menu included. */
 /* ---- Fixes after the first port (2026-11-12) -------------------------------
    Plain CSS on purpose: every rule here was tried against the live forum by
    injecting this block into the page, which a nested Sass rule would not
