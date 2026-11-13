@@ -1424,7 +1424,10 @@ function wireGrip(grip, { side, variable, min, max, from, open, close }) {
      knob straight away. */
   let settleTimer = 0;
   const home = () => {
-    if (grip.hasAttribute('data-active') || grip.matches(':hover')) return;
+    /* Only a closed seam's capsule rests in view. An open edge's knob and
+       light fade out as the pointer leaves, and moving them home during
+       that fade flashed them in the middle of the edge on the way out. */
+    if (isOpen() || grip.hasAttribute('data-active') || grip.matches(':hover')) return;
     clearTimeout(settleTimer);
     grip.setAttribute('data-settling', '');
     grip.style.removeProperty('--y');
