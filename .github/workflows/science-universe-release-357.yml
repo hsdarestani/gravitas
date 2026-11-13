@@ -30,11 +30,19 @@ jobs:
           fetch-depth: 0
 
       - name: Check explicit approval and production release source
+        id: eligibility
         shell: bash
         run: |
           set -euo pipefail
           APPROVED=3325e2aa13e04e89080cf4e6fa09cec900c35123
           git merge-base --is-ancestor "$APPROVED" HEAD
+          # Never run old publication scripts lacking the corrected public API guard.
+          if ! git merge-base --is-ancestor 0c589b7a5f3581279c3f39fbac77ca6ee34bed93 HEAD; then
+            echo 'authorized=false' >> "$GITHUB_OUTPUT"
+            echo '::notice::Older deployment predates final safe release verifier; skipping.'
+            exit 0
+          fi
+          echo 'authorized=true' >> "$GITHUB_OUTPUT"
           test "$(git rev-parse HEAD)" = "${{ github.event.workflow_run.head_sha }}"
           python3 -m py_compile ops/science_universe_release_357.py
           bash -n ops/science_universe_release_357.sh
@@ -47,6 +55,7 @@ jobs:
           PY
 
       - name: Authenticate using existing production GitHub Actions secrets
+        if: steps.eligibility.outputs.authorized == 'true'
         shell: bash
         env:
           SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
@@ -77,6 +86,7 @@ jobs:
           echo "RELEASE_PORT=$PORT" >> "$GITHUB_ENV"
 
       - name: Verify backup and live baseline, publish, verify and preserve rollback
+        if: steps.eligibility.outputs.authorized == 'true'
         shell: bash
         env:
           HOST: ${{ secrets.DEPLOY_HOST }}
