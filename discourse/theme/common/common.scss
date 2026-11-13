@@ -545,3 +545,238 @@ kbd{font-family:"DM Mono",monospace;font-size:.8em;color:var(--g-text);backgroun
    content:url() on an <img> does not. Uploading the mark as the system
    account's avatar in Discourse makes this rule a no-op. */
 img.avatar[src*="discourse-logo-sketch"],img.avatar[src*="/user_avatar/forum.graviquest.com/system/"],img[src*="/images/discourse-logo-sketch"]{object-position:-9999px 0;background:#003049 url("data:image/svg+xml,%3Csvg%20id%3D%22Layer_1%22%20data-name%3D%22Layer%201%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20540%20540%22%3E%3Cdefs%3E%3Cstyle%3E%20.cls-1%20%7B%20fill%3A%20%23fff%3B%20%7D%20.cls-2%20%7B%20fill%3A%20%23003049%3B%20%7D%20%3C%2Fstyle%3E%3C%2Fdefs%3E%3Ccircle%20class%3D%22cls-2%22%20cx%3D%22270%22%20cy%3D%22270%22%20r%3D%22270%22%2F%3E%3Cg%3E%3Cpath%20class%3D%22cls-1%22%20d%3D%22M241.35%2C405h54.54c0-60.26%2C48.84-109.11%2C109.11-109.11v-54.54c-90.37%2C0-163.65%2C73.28-163.65%2C163.65Z%22%2F%3E%3Cpath%20class%3D%22cls-1%22%20d%3D%22M298.65%2C135h-54.54c0%2C60.26-48.84%2C109.11-109.11%2C109.11v54.54c90.37%2C0%2C163.65-73.28%2C163.65-163.65Z%22%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E") center/100% no-repeat;border-radius:50%}
+
+/* ---- Every other page (2026-11-12, round three) -----------------------------
+   The thread and list fixes did not reach the pages a name, a badge or a menu
+   row opens: profile, activity, badges, categories, tags, users, groups,
+   about, guidelines and search. Those were still Discourse's defaults, and a
+   second derived ramp, "secondary", painted their labels and counts a bright
+   #10aaff that is nowhere in the brand. */
+:root:root{
+ --secondary-low:#d4c9be;--secondary-medium:#9aa8ac;--secondary-high:#757877;--secondary-very-high:#22313a;
+ --primary-high-or-secondary-low:#d4c9be;--primary-low-mid-or-secondary-high:#757877;--primary-low-mid-or-secondary-low:#757877;
+ --primary-med-or-secondary-high:#9aa8ac;--primary-med-or-secondary-med:#9aa8ac;
+ --d-nav-color:#d4c9be;--d-nav-color--hover:#f1efec;--d-nav-color--active:#f1efec;--d-nav-bg-color--active:transparent;--d-nav-border-color--active:transparent;--d-nav-underline-height:0;
+ --bronze:#7fb6dc;--silver:#d4c9be;--gold:#f1efec;
+}
+
+/* One page head everywhere: room above the content, headings in DM Sans at
+   the site's weights, never the accent. */
+#main-outlet:not(:has(.gq-forum-heading)):not(:has(.gq-thread-crumb)){padding-top:2rem}
+#main-outlet h1,#main-outlet h2,#main-outlet h3{font-family:var(--font-family);color:var(--g-text);letter-spacing:-.014em}
+#main-outlet a{text-decoration-color:var(--g-accent)}
+
+/* Every pill row is the room pill: an outline, the accent edge when chosen,
+   never a filled sky-blue slab or an underline. */
+.nav-pills>li>a,.nav-pills>li>button,.nav-pills>li a.active,.nav-pills>li button.active{display:inline-flex;align-items:center;gap:.4rem;min-height:40px;padding:.45rem .9rem;border:1px solid var(--g-hairline);border-radius:999px;background:transparent;color:var(--g-text-muted);font-size:.875rem;font-weight:500}
+.nav-pills>li>a:hover,.nav-pills>li>button:hover{border-color:var(--g-text-subtle);color:var(--g-text);background:transparent}
+.nav-pills>li a.active,.nav-pills>li button.active{border-color:var(--g-accent);background:var(--g-surface-raised);color:var(--g-text)}
+.nav-pills>li a.active::after,.nav-pills>li button.active::after,.nav-pills>li>a::after{display:none}
+.nav-pills>li a .d-icon,.nav-pills>li button .d-icon{color:var(--g-text-subtle)}
+.nav-pills>li a.active .d-icon{color:var(--g-accent)}
+.nav-pills{gap:.4rem;flex-wrap:wrap;border-bottom:0}
+.user-navigation,.user-navigation-secondary,.user-navigation .nav-pills,.user-navigation-primary{border-bottom:0;background:transparent}
+.user-navigation .nav-pills>li,.user-nav>li{flex:0 0 auto}
+.user-primary-navigation .nav-pills>li>a,.user-navigation-secondary .nav-pills>li>a{justify-content:center}
+
+/* Profile. The card had no inner space, so the avatar and the stats sat on
+   its edges; the labels were bright blue; each list item had a rule down its
+   left edge. */
+.user-main .about,.user-main .about.no-background{border:1px solid var(--g-hairline);border-radius:20px;background:var(--g-surface);overflow:hidden;margin-bottom:1.5rem}
+.user-main .about .details{background:transparent;padding:1.75rem 2rem 0}
+.user-main .about .primary{display:flex;align-items:center;gap:1.5rem;margin:0}
+.user-main .about .user-profile-avatar{margin:0;flex:none;width:auto}
+.user-main .about .user-profile-avatar img.avatar{width:6rem;height:6rem}
+.user-main .about .primary-textual{padding:0}
+.user-main .about .user-profile-names__primary{font-size:clamp(1.6rem,1.3rem + 1.4vw,2.25rem);font-weight:700;letter-spacing:-.022em;color:var(--g-text)}
+.user-main .about .user-profile-names__secondary{font-size:1rem;color:var(--g-text-subtle);font-weight:400}
+.user-main .about .secondary{background:transparent;border-top:1px solid var(--g-hairline);margin:1.5rem -2rem 0;padding:1rem 2rem}
+.user-main .about .secondary dl{display:flex;flex-wrap:wrap;gap:.5rem 1.75rem;margin:0}
+.user-main .about .secondary dt{color:var(--g-text-subtle);font:400 .8125rem "DM Mono",monospace;letter-spacing:.02em}
+.user-main .about .secondary dd{color:var(--g-text);font-weight:500}
+.user-main .about .secondary dd a{color:var(--g-text)}
+.user-content-wrapper,.user-content{background:transparent}
+.user-summary-page .top-section,.user-summary-page .stats-section{margin-top:2.5rem}
+.user-summary-page h3.stats-title,.user-summary-page .top-section h3{font:500 .75rem "DM Mono",monospace;letter-spacing:.1em;text-transform:uppercase;color:var(--g-text-subtle);margin-bottom:1rem}
+.user-summary-page .stats-section ul{gap:0 2rem}
+.user-summary-page .stats-section li{color:var(--g-text-subtle);font-size:.875rem}
+.user-summary-page .stats-section .value,.user-summary-page .stats-section .value .number{font:500 1.5rem "DM Mono",monospace;color:var(--g-text)}
+.user-summary-page .stats-section .d-icon{color:var(--g-text-subtle)}
+.user-summary-page .top-sub-section li,.user-summary-page .user-summary-topic-list li,.top-sub-section ul li{border-left:0!important;padding-left:0!important;padding-block:.75rem;border-bottom:1px solid var(--g-hairline)}
+.user-summary-page .top-sub-section li a,.user-summary-topic-list a{color:var(--g-text);font-weight:500}
+.user-summary-page .top-sub-section li a:hover{color:var(--g-accent)}
+.user-summary-page .top-sub-section .topic-info,.user-summary-page .top-sub-section .relative-date,.user-summary-page .top-sub-section .like-count{color:var(--g-text-subtle);font:400 .8125rem "DM Mono",monospace}
+.user-summary-page .more{color:var(--g-text-muted)}
+.user-summary-page table{width:100%}
+.user-summary-page table th{font:400 .8125rem "DM Mono",monospace;color:var(--g-text-subtle)}
+.user-summary-page table td{border-top:1px solid var(--g-hairline)}
+.user-summary-page .badge-card,.badge-card{background:var(--g-surface);border:1px solid var(--g-hairline);border-radius:12px;color:var(--g-text)}
+/* Activity stream. */
+.user-stream .user-stream-item,.user-stream-item{background:transparent;border-bottom:1px solid var(--g-hairline);padding-block:1.25rem}
+.user-stream .title a,.user-stream-item .title a{color:var(--g-text);font-weight:600}
+.user-stream .title a:hover{color:var(--g-accent)}
+.user-stream .time,.user-stream-item .time,.user-stream .relative-date{color:var(--g-text-subtle);font:400 .8125rem "DM Mono",monospace}
+.user-stream .excerpt{font-family:Literata,Georgia,serif;color:var(--g-text-muted);line-height:1.7}
+.user-stream .expand-item,.user-stream .collapse-item{color:var(--g-text-subtle)}
+.mobile-view .user-main .about .primary{flex-direction:column;text-align:center}
+.mobile-view .user-main .about .details{padding:1.5rem 1.25rem 0}
+.mobile-view .user-main .about .secondary{margin-inline:-1.25rem;padding-inline:1.25rem}
+.mobile-view .user-main .about .secondary dl{justify-content:center}
+.user-summary-page table td{white-space:normal}.user-summary-page table .badge-category__wrapper{white-space:normal;overflow-wrap:anywhere}
+
+/* Categories. Each room had a stripe of its colour down the left edge. */
+.category-list td.category,.category-list .category,.category-boxes .category-box,.category-list-item,.mobile-view .category-list-item,.category-list .category-list-item{border-left:0!important;border-color:var(--g-hairline)}
+.category-list td.category .category-text-title,.category-title-link .category-name,.category-list .category-name{font:600 1.05rem var(--font-family);letter-spacing:-.01em;color:var(--g-text)}
+.category-list .category-description,.category-list .category-description p{color:var(--g-text-muted);font-size:.875rem}
+.category-list th,.latest-topic-list .table-heading,.categories-and-latest .table-heading{font:400 .8125rem "DM Mono",monospace;color:var(--g-text-subtle);border-bottom:1px solid var(--g-hairline)}
+.category-list td.topics .value,.category-list .topics .value,.mobile-view .category-list-item .totals{font:500 .95rem "DM Mono",monospace;color:var(--g-text-muted)}
+.latest-topic-list .latest-topic-list-item{border-bottom:1px solid var(--g-hairline)}
+.latest-topic-list a.title{color:var(--g-text);font-weight:600}
+.latest-topic-list .badge-posts,.latest-topic-list .posts-map a,.latest-topic-list .topic-stats a{color:var(--g-text-muted)!important;font:400 .875rem "DM Mono",monospace}
+.latest-topic-list .relative-date,.latest-topic-list .last-posted-at a{color:var(--g-text-subtle);font:400 .8125rem "DM Mono",monospace}
+.mobile-view .category-list-item{padding-left:0;background:transparent}
+.mobile-view .category-list-item .category-name{font-weight:600}
+
+/* Badges: Discourse's bronze, silver and gold become the brand's three inks;
+   cards are the site's card. */
+.badge-icon.badge-type-bronze svg,.badge-icon.badge-type-silver svg,.badge-icon.badge-type-gold svg{fill:currentColor!important}
+.badge-icon.badge-type-bronze,.badge-type-bronze .d-icon,.user-badge.badge-type-bronze .d-icon{color:var(--g-accent)!important}
+.badge-icon.badge-type-silver,.badge-type-silver .d-icon,.user-badge.badge-type-silver .d-icon{color:var(--g-text-muted)!important}
+.badge-icon.badge-type-gold,.badge-type-gold .d-icon,.user-badge.badge-type-gold .d-icon{color:var(--g-text)!important}
+.badge-card .badge-contents .badge-info,.badge-card .badge-info{color:var(--g-text)}
+.badge-card .badge-summary,.badge-card .badge-description{color:var(--g-text-muted)}
+.badge-card .badge-contents a,.badge-card a{color:var(--g-text)}
+.badge-card .grant-count,.badge-card .awarded{color:var(--g-text-subtle);font:400 .75rem "DM Mono",monospace}
+a.badge-card:hover,.badge-card:has(a:hover){border-color:var(--g-border)}
+
+/* Tags: the site's tag pill. */
+.tags-list .discourse-tag,.tag-box .discourse-tag{display:inline-flex;align-items:center;padding:.15rem .6rem;border:1px solid var(--g-border);border-radius:999px;color:var(--g-text-muted)!important;font-size:.8125rem}
+.tag-box .tag-count,.tags-list .tag-count{color:var(--g-text-subtle);font:400 .8125rem "DM Mono",monospace}
+.tags-index .sort-by a,.tags-index-header a{color:var(--g-text-muted);text-decoration-color:var(--g-accent)}
+
+/* Users directory: the week label was accent blue. */
+.directory .period-chooser .selected-name,.period-chooser .select-kit-header .selected-name,.period-chooser h2{color:var(--g-text)}
+.directory .period-chooser .date-section,.period-chooser .top-date-string{color:var(--g-text-subtle);font:400 1rem "DM Mono",monospace;text-transform:none}
+.directory .last-updated{color:var(--g-text-subtle);font-size:.8125rem}
+.directory table th{font:400 .8125rem "DM Mono",monospace;color:var(--g-text-subtle)}
+
+/* About and guidelines read like the site's prose: Literata at the reading
+   measure, DM Sans headings in the text colour, links underlined in accent. */
+.body-page,.about__main-content,.about__main .about__main-content{max-width:68ch}
+.body-page p,.body-page li,.about__description,.about-page .about-description{font-family:Literata,Georgia,serif;font-size:1.05rem;line-height:1.75;color:var(--g-text-muted)}
+.body-page h2,.body-page h3{color:var(--g-text);font-weight:600;margin-top:2.5rem}
+.body-page li::marker{color:var(--g-accent)}
+.body-page a,.about__main a{color:var(--g-text);text-decoration:underline;text-decoration-color:var(--g-accent);text-underline-offset:.15em}
+.about__stats,.about-page .about__stats{border-color:var(--g-hairline)}
+.about__activities-item .d-icon,.about__stats-item .d-icon{color:var(--g-accent)}
+.about__activities-item-period,.about__activities-item .period{color:var(--g-text-subtle);font:400 .75rem "DM Mono",monospace}
+.about__right-side h3,.about__header h3{font-size:1rem}
+
+/* Search results: no dark strip inside the panel, no panel at all. */
+.search-container .search-advanced{background:transparent;border:0;border-radius:0}
+.search-container .search-info{background:transparent;border-bottom:1px solid var(--g-hairline)}
+.search-container .fps-result{padding-block:1.25rem;border-bottom:1px solid var(--g-hairline)}
+.search-container .fps-result .topic-title,.search-container .fps-result a.search-link .topic-title{color:var(--g-text);font-weight:600}
+.search-container .fps-result .blurb{color:var(--g-text-muted);font-family:Literata,Georgia,serif;line-height:1.7}
+.search-container .fps-result .blurb .date{color:var(--g-text-subtle);font:400 .8125rem "DM Mono",monospace}
+.search-container .search-title,.search-container h1{font-weight:600}
+.search-container .search-title .term,.search-highlight{background:transparent;color:var(--g-text);font-weight:700}
+
+/* Groups and the not-found page. */
+.groups-header,.groups-boxes .group-box{border-color:var(--g-hairline)}
+.groups-boxes .group-box{background:var(--g-surface);border-radius:12px}
+.page-not-found h1,.not-found-container h1{font-weight:700;letter-spacing:-.022em}
+.not-found-container,.page-not-found{background:transparent;border:0}
+.page-not-found-topics a,.not-found-topics a{color:var(--g-text)}
+
+/* Pill rows that Discourse colours with its own higher-specificity rule. */
+.nav-pills>li>a.active,.nav-pills>li>button.active,.user-navigation .nav-pills>li>a.active,.user-nav>li>a.active{background:var(--g-surface-raised)!important;color:var(--g-text)!important;border-color:var(--g-accent)!important}
+/* In the rooms table a room name is a title, not a label. */
+.category-list .badge-category__name,.category-list .category-title-link .badge-category__name{font:600 1.05rem var(--font-family)!important;letter-spacing:-.01em;color:var(--g-text)!important}
+.category-list .badge-category__wrapper .badge-category::before{display:none}
+/* Section headings in the guidelines are anchor links; they stay headings. */
+.body-page h2 a,.body-page h3 a,.body-page h2 a:hover{color:inherit;text-decoration:none}
+/* Search results sit on the page, not in a panel with a dark strip. */
+.search-advanced{background:transparent!important;border:0!important;box-shadow:none!important}
+.search-advanced .search-info{background:transparent!important}
+.user-summary-page table td a,.user-summary-page table td .value{color:var(--g-text-muted)}
+.badge-icon svg,.badge-icon svg *,.user-badge .d-icon,.user-badge .d-icon *{color:inherit!important;fill:currentColor!important}
+html body .badge-icon.badge-type-bronze svg.d-icon,html body .user-badge.badge-type-bronze svg.d-icon{color:#7fb6dc!important;fill:#7fb6dc!important}
+html body .badge-icon.badge-type-silver svg.d-icon,html body .user-badge.badge-type-silver svg.d-icon{color:#d4c9be!important;fill:#d4c9be!important}
+html body .badge-icon.badge-type-gold svg.d-icon,html body .user-badge.badge-type-gold svg.d-icon{color:#f1efec!important;fill:#f1efec!important}
+
+/* ---- Header: the site's header, not Discourse's (2026-11-12) ---------------
+   Measured against graviquest.com at 1440px. The site's right side is two
+   quiet 40px marks, a hairline, then Workspace as the one filled pill with its
+   enter mark. The forum had Workspace in the middle, a second outlined pill
+   for Log In and Discourse's large white search and menu icons. The nav and
+   Workspace live inside a theme outlet, so the outlet is flattened into the
+   header row and the pieces are put in the site's order. */
+.d-header .contents{display:flex;align-items:center;gap:.5rem}
+.d-header .contents .before-header-panel-outlet,.d-header .contents .gq-header-links{display:contents}
+.d-header .home-logo-wrapper-outlet,.d-header .title{order:0}
+.d-header .gq-site-nav{order:1;margin-inline:auto}
+.d-header .panel{order:2;display:flex;align-items:center;gap:.5rem;margin-left:0}
+.d-header .gq-workspace{order:3;position:relative;margin-left:.75rem;display:inline-flex;align-items:center;min-height:40px;padding:0 1.125rem 0 2.25rem;font-size:.8125rem;font-weight:600;letter-spacing:.01em;line-height:1;background:#d4c9be url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%2301121c%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cg%20transform%3D%22translate(2.7%202.349)%20scale(0.967568)%22%20stroke-width%3D%221.757%22%3E%3Cpath%20d%3D%22M6.55.75h4.75c1.6%2C0%2C2.9%2C1.3%2C2.9%2C2.9v12.7c0%2C1.6-1.3%2C2.9-2.9%2C2.9h-4.75%22%2F%3E%3Cpath%20d%3D%22M3.55%2C10h5.4%22%2F%3E%3Cpath%20d%3D%22M6.55%2C7.3l2.7%2C2.7-2.7%2C2.7%22%2F%3E%3Ccircle%20cx%3D%220.77%22%20cy%3D%2210%22%20r%3D%221.602%22%20fill%3D%22%2301121c%22%20stroke%3D%22none%22%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E") no-repeat .875rem 50%/1rem 1rem;color:#01121c}
+.d-header .gq-workspace:hover{background-color:#f1efec;color:#01121c}
+.d-header .gq-workspace::before{content:"";position:absolute;left:calc(-.75rem - 1px);top:25%;bottom:25%;width:1px;background:var(--g-hairline)}
+.d-header .header-buttons,.d-header .auth-buttons,.d-header .d-header-icons{display:flex;align-items:center;gap:.5rem;margin:0}
+.d-header .d-header-icons .icon,.d-header .d-header-icons .btn,.d-header .header-dropdown-toggle>button,.d-header .header-dropdown-toggle>a{display:grid;place-items:center;width:40px;height:40px;min-height:40px;padding:0;border:0;border-radius:999px;background:transparent;color:var(--g-text-muted)}
+.d-header .d-header-icons .icon:hover,.d-header .d-header-icons .btn:hover,.d-header .header-dropdown-toggle>button:hover,.d-header .d-header-icons .active .icon{background:rgb(212 201 190 / .10);color:var(--g-text)}
+.d-header .d-header-icons .d-icon,.d-header .header-dropdown-toggle .d-icon{width:1.125rem;height:1.125rem;font-size:1.125rem;color:inherit}
+.d-header .header-dropdown-toggle{height:40px;display:flex;align-items:center}
+/* Log In becomes a quiet mark beside search, the way the site's saved and theme
+   controls sit, so Workspace stays the only pill. Its name stays for screen
+   readers and in the tooltip. */
+.d-header .login-button,.d-header .login-button:visited{width:40px;height:40px;min-height:40px;padding:0;justify-content:center;border:0!important;border-radius:999px;background:transparent!important;color:var(--g-text-muted)!important}
+.d-header .login-button:hover,.d-header .login-button:focus-visible{background:rgb(212 201 190 / .10)!important;color:var(--g-text)!important}
+.d-header .login-button .d-icon{width:1.125rem;height:1.125rem;margin:0;color:inherit!important}
+.d-header .login-button .d-button-label{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+.d-header .sign-up-button{display:none}
+/* Below 905px the site keeps the logo and the menu; the sections and
+   Workspace move into it. The forum does the same. */
+@media (max-width:904px){.d-header .contents .gq-site-nav,.d-header .contents .gq-workspace{display:none}}
+.mobile-view .d-header .contents .gq-site-nav,.mobile-view .d-header .contents .gq-workspace{display:none}
+/* The marks are the site's line icons at its 1.8 stroke, drawn in the button's
+   own colour, in place of Discourse's solid glyphs. The row is one 40px line. */
+.d-header .d-header-icons,.d-header .d-header-icons>li,.d-header .header-dropdown-toggle{height:40px;margin:0;display:flex;align-items:center}
+.d-header .search-dropdown .d-icon,.d-header .hamburger-dropdown .d-icon,.d-header .login-button .d-icon{display:none}
+.d-header .search-dropdown>button::before,.d-header .search-dropdown>a::before,.d-header .hamburger-dropdown>button::before,.d-header .hamburger-dropdown>a::before,.d-header .login-button::before{content:"";width:1.125rem;height:1.125rem;background:currentColor;-webkit-mask:var(--gq-mark) center/contain no-repeat;mask:var(--gq-mark) center/contain no-repeat}
+.d-header .search-dropdown{--gq-mark:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%23000%22%20stroke-width%3D%221.8%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Ccircle%20cx%3D%2210.5%22%20cy%3D%2210.5%22%20r%3D%226.5%22%2F%3E%3Cpath%20d%3D%22m15.5%2015.5%204.5%204.5%22%2F%3E%3C%2Fsvg%3E")}
+.d-header .hamburger-dropdown{--gq-mark:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%23000%22%20stroke-width%3D%221.8%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M4%207h16M4%2012h16M4%2017h16%22%2F%3E%3C%2Fsvg%3E")}
+.d-header .login-button{--gq-mark:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%23000%22%20stroke-width%3D%221.8%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Ccircle%20cx%3D%2212%22%20cy%3D%228.5%22%20r%3D%223.8%22%2F%3E%3Cpath%20d%3D%22M4.8%2020c.9-3.6%203.8-5.6%207.2-5.6s6.3%202%207.2%205.6%22%2F%3E%3C%2Fsvg%3E")}
+.d-header .d-header-icons .header-dropdown-toggle>.btn.icon,.d-header .d-header-icons .header-dropdown-toggle>a.icon{width:40px!important;height:40px!important;min-height:0!important;padding:0!important;margin:0!important;display:grid!important;place-items:center;border-radius:999px!important}
+.d-header .search-dropdown>button,.d-header .hamburger-dropdown>button,.d-header .login-button{position:relative}
+.d-header .search-dropdown>button::before,.d-header .hamburger-dropdown>button::before,.d-header .login-button::before{position:absolute;inset:0;margin:auto}
+/* The menu panel ended in a dark fade strip meant for a scrolling sidebar. */
+:root:root{--d-sidebar-footer-fade:transparent}
+.menu-panel .sidebar-footer-wrapper,.menu-panel .sidebar-footer-container,.menu-panel .sidebar-footer-wrapper .sidebar-footer-container::before{background:transparent!important;box-shadow:none!important}
+.menu-panel .sidebar-footer-container::before{display:none}
+
+/* Signed-in user menu: the avatar opens a panel of tabs and links. Discourse
+   draws it with solid white glyphs and a bright toggle; here it takes the same
+   quiet rows, muted line weight and round 40px controls as the site header. */
+.user-menu.revamped{font-family:"DM Sans",system-ui,sans-serif}
+.user-menu.revamped .menu-tabs-container{background:transparent!important;border-left:1px solid var(--g-hairline)!important;padding:.25rem!important}
+.user-menu.revamped .menu-tabs-container .btn.user-menu-tab{width:40px;height:40px;border-radius:999px!important;background:transparent!important;border:1px solid transparent!important;margin:.15rem auto;padding:0!important}
+.user-menu.revamped .menu-tabs-container .btn.user-menu-tab .d-icon{color:var(--g-text-subtle)!important;width:16px;height:16px}
+.user-menu.revamped .menu-tabs-container .btn.user-menu-tab:hover .d-icon{color:var(--g-text)!important}
+.user-menu.revamped .menu-tabs-container .btn.user-menu-tab.active{background:var(--g-surface)!important;border-color:var(--g-border)!important}
+.user-menu.revamped .menu-tabs-container .btn.user-menu-tab.active .d-icon{color:var(--g-text)!important}
+.user-menu.revamped .bottom-tabs{border-top:1px solid var(--g-hairline)!important}
+.user-menu.revamped .badge-notification{background:var(--g-accent)!important;color:#00141f!important;font:500 .6875rem/1 "DM Mono",monospace;min-width:1rem;box-shadow:0 0 0 2px var(--g-surface-raised)}
+.user-menu.revamped .quick-access-panel{background:transparent!important;padding:.5rem}
+.user-menu.revamped .quick-access-panel ul{gap:2px}
+.user-menu.revamped .quick-access-panel li{border:0!important;background:transparent!important}
+.user-menu.revamped .quick-access-panel li a,.user-menu.revamped .quick-access-panel li .btn{border-radius:8px!important;color:var(--g-text-muted)!important;background:transparent!important;font:500 .9375rem/1.3 "DM Sans",sans-serif!important;padding:.55rem .75rem!important}
+.user-menu.revamped .quick-access-panel li a:hover,.user-menu.revamped .quick-access-panel li .btn:hover,.user-menu.revamped .quick-access-panel li a:focus-visible{background:rgb(212 201 190 / .08)!important;color:var(--g-text)!important}
+.user-menu.revamped .quick-access-panel li .d-icon{color:var(--g-text-subtle)!important;width:16px;height:16px;margin-right:.65rem}
+.user-menu.revamped .quick-access-panel li.unread a,.user-menu.revamped .quick-access-panel li.pending a{background:rgb(127 182 220 / .08)!important;color:var(--g-text)!important}
+.user-menu.revamped .quick-access-panel hr,.user-menu.revamped .quick-access-panel .divider,.user-menu.revamped .profile-tab-btn+hr{border-color:var(--g-hairline)!important;background:var(--g-hairline)}
+.user-menu.revamped .quick-access-panel .panel-body-bottom{border-top:1px solid var(--g-hairline);padding-top:.5rem}
+.user-menu.revamped .quick-access-panel .panel-body-bottom .btn{border:1px solid var(--g-border)!important;border-radius:999px!important}
+.user-menu.revamped .d-toggle-switch__checkbox-slider{background:var(--g-border)!important}
+.user-menu.revamped .d-toggle-switch__checkbox[aria-checked=true]+.d-toggle-switch__checkbox-slider,.user-menu.revamped .d-toggle-switch__checkbox:checked+.d-toggle-switch__checkbox-slider{background:var(--g-accent)!important}
+.user-menu.revamped .d-toggle-switch__checkbox-slider::before{background:var(--g-text)!important}
+.user-menu.revamped .empty-state{color:var(--g-text-subtle)}
+.user-menu.revamped .empty-state-title{font-family:Literata,Georgia,serif;color:var(--g-text)}
