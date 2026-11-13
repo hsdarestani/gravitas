@@ -3,3 +3,8 @@ source main verified commit: 121a72bf2041cb43cfa0036a90e076ca61b72010
 release reason: list public topics from live website and guide visible page buttons
 canonical production domain: https://graviquest.com/
 requested: 2026-11-06
+
+release: Science Universe PR #357 guarded publication
+requested: 2026-11-13
+required safety commit: cbe9a88912867f5625e9c9cd482469e873721753
+reason: rerun cancelled post-merge production deploy with corrected nested API version check and rehearsal of native checkpoint
