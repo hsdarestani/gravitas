@@ -103,7 +103,7 @@ const server=http.createServer((req,res)=>{
     args:['--no-sandbox','--disable-dev-shm-usage']});
   let page;const runtimeErrors=[];
   try{
-    page=await browser.newPage({viewport:{width:1200,height:900}});
+    page=await browser.newPage({viewport:{width:1200,height:900},reducedMotion:"reduce"});
     page.on('pageerror',err=>runtimeErrors.push(err.message));
     const url='http://127.0.0.1:'+port+'/lab.html';
     await page.goto(url,{waitUntil:'networkidle'});
@@ -135,24 +135,27 @@ const server=http.createServer((req,res)=>{
     console.log('Browser PASS: empty public Lab, published fixture, sandbox events, reactive slider and metrics, Pulsar scripted fallback, mobile.');
     science=true;
     await page.setViewportSize({width:1440,height:1000});
-    await page.goto(url+'?lab=science-universe',{waitUntil:'networkidle'});
+    await page.goto(url,{waitUntil:'networkidle'});
+    await page.locator('.lab-catalog-card').click();
     assert.equal(await page.locator('.lab-gallery-thumb').count(),6);
     await page.getByRole('button',{name:'Medium · Publication pressure'}).click();
     assert.match(await page.locator('.lab-preview-gallery figcaption').innerText(),/Publication pressure/);
     await page.getByRole('button',{name:'Enter simulation',exact:true}).click();
     const frame=page.frameLocator('.lab-frame');
     await frame.locator('#focused-model').waitFor();
+    assert.equal(await page.locator('.lab-chat-body').isVisible(),false,'Pulsar starts collapsed');
+    await page.getByRole('button',{name:/Open Pulsar conversation/}).click();
     await page.getByText('Try a guided experiment',{exact:true}).waitFor();
     assert.equal(lastScienceRequest,null,'the first mission works without an AI request');
     const simPage=page.frame({url:/\/lab-run\/science-universe\//});
     assert.ok(simPage,'Science Universe frame has completed navigation');
-    assert.equal(await frame.locator('#focused-model input').count(),1);
+    assert.equal(await frame.locator('#focused-model input:visible').count(),1);
     assert.equal(await frame.locator('#focus-results strong').count(),1);
     assert.equal(await frame.locator('#comparison-setup').isVisible(),false);
     const setReview=value=>frame.locator('#focus-setting').evaluate((range,v)=>{range.value=v;range.dispatchEvent(new Event('input',{bubbles:true}));},value);
     for(const [setting,result] of [[2,'21'],[8,'0']]){
       await setReview(setting);await frame.locator('#focus-run').click();
-      assert.equal(await frame.locator('#focus-results').innerText(),result);
+      assert.deepEqual(await frame.locator('#focus-results strong').allInnerTexts(),['4',result]);
     }
     await page.locator('.lab-mission').getByRole('button',{name:'8 / 10'}).click();
     assert.match(await page.locator('.lab-mission-feedback').innerText(),/try again/);
@@ -224,6 +227,7 @@ const server=http.createServer((req,res)=>{
     await page.locator('.lab-frame').waitFor();
     assert.equal(await page.locator('.lab-pulsar-welcome').count(),0,'returning visitors go straight to the simulator');
     assert.equal(await page.locator('.lab-science-preview').count(),0,'refresh stays in the Lab');
+    await page.getByRole('button',{name:/Open Pulsar conversation/}).click();
     await page.locator('.lab-chat-bubble').filter({hasText:'Fixture learning question 25'}).waitFor();
     await page.getByRole('textbox',{name:'Message Pulsar'}).fill('Account-only learning question');
     await page.getByRole('button',{name:'Send to Pulsar'}).click();
@@ -250,8 +254,9 @@ const server=http.createServer((req,res)=>{
     assert.deepEqual(runtimeErrors,[],'Lab runtime must not throw browser errors');
     await page.close();
     guestQuestions=0;detailedFixture=true;
-    const fresh=await browser.newContext({viewport:{width:390,height:700},isMobile:true,hasTouch:true});page=await fresh.newPage();page.on('pageerror',err=>runtimeErrors.push(err.message));
-    await page.goto(url+'?lab=science-universe',{waitUntil:'networkidle'});await page.getByRole('button',{name:'Enter simulation',exact:true}).click();
+    const fresh=await browser.newContext({viewport:{width:390,height:700},isMobile:true,hasTouch:true,reducedMotion:'reduce'});page=await fresh.newPage();page.on('pageerror',err=>runtimeErrors.push(err.message));
+    await page.goto(url+'?lab=science-universe',{waitUntil:'networkidle'});
+    await page.getByRole('button',{name:/Open Pulsar conversation/}).click();
     await page.getByText('Try a guided experiment',{exact:true}).waitFor();
     const mobileFrame=page.frameLocator('.lab-frame');
     const replies=page.getByRole('group',{name:'Suggested replies'});
