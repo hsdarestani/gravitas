@@ -1415,7 +1415,28 @@ function wireGrip(grip, { side, variable, min, max, from, open, close }) {
     grip.setAttribute('aria-valuenow', String(width));
     grip.setAttribute('aria-valuetext', `${width} pixels`);
   };
+  /* At rest the knob belongs in the middle of the edge, not wherever the
+     pointer last left it: a resting mark at some arbitrary height reads as
+     a mistake. home() glides it there (data-settling puts a transition on
+     its height for the trip). It runs whenever the pointer lets go of the
+     edge and whenever the pane closes, however it closed: by drag, by
+     double-click, by the topbar button. A pointer coming back takes the
+     knob straight away. */
+  let settleTimer = 0;
+  const home = () => {
+    if (grip.hasAttribute('data-active') || grip.matches(':hover')) return;
+    clearTimeout(settleTimer);
+    grip.setAttribute('data-settling', '');
+    grip.style.removeProperty('--y');
+    settleTimer = setTimeout(() => grip.removeAttribute('data-settling'), 480);
+  };
+  const leaveHome = () => {
+    clearTimeout(settleTimer);
+    grip.removeAttribute('data-settling');
+  };
+
   const sync = () => {
+    if (!isOpen()) home();
     if (isOpen()) {
       grip.setAttribute('role', 'separator');
       grip.setAttribute('aria-orientation', 'vertical');
@@ -1449,9 +1470,14 @@ function wireGrip(grip, { side, variable, min, max, from, open, close }) {
     clearTimeout(hintTimer);
     hintTimer = setTimeout(() => grip.setAttribute('data-hint', ''), 650);
   });
-  grip.addEventListener('pointerleave', hideHint);
+  grip.addEventListener('pointerleave', () => {
+    hideHint();
+    if (!grip.hasAttribute('data-active') && !(near > 0)) requestAnimationFrame(home);
+  });
   grip.addEventListener('pointermove', (event) => {
-    if (!grip.hasAttribute('data-active')) setY(event.clientY);
+    if (grip.hasAttribute('data-active')) return;
+    leaveHome();
+    setY(event.clientY);
   });
 
   /* A closed seam answers before it is reached: --near goes from 0 to 1
@@ -1463,25 +1489,13 @@ function wireGrip(grip, { side, variable, min, max, from, open, close }) {
   let px = 0;
   let py = 0;
   let near = -1;
-  /* Let go, the capsule goes home to the middle of the seam rather than
-     staying wherever the pointer last left it: a resting mark sitting at
-     some arbitrary height reads as a mistake. It glides there (data-settling
-     puts a transition on its height for the trip) and a pointer coming back
-     takes it straight away. */
-  let settleTimer = 0;
   const setNear = (value) => {
     if (value === near) return;
     const leaving = near > 0 && value === 0;
     near = value;
     grip.style.setProperty('--near', String(value));
-    clearTimeout(settleTimer);
-    if (leaving && !grip.hasAttribute('data-active')) {
-      grip.setAttribute('data-settling', '');
-      grip.style.removeProperty('--y');
-      settleTimer = setTimeout(() => grip.removeAttribute('data-settling'), 480);
-    } else if (value > 0) {
-      grip.removeAttribute('data-settling');
-    }
+    if (leaving) home();
+    else if (value > 0) leaveHome();
   };
   const measureNear = () => {
     frame = 0;
