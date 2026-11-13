@@ -265,8 +265,8 @@ const server=http.createServer((req,res)=>{
     const compact=await page.locator('.lab-pulsar-widget').boundingBox();
     assert.equal(await input.isVisible(),false,'experiment dock gives the simulation more room');
     await views.getByRole('button',{name:'Chat',exact:true}).click();
-    const expanded=await page.locator('.lab-pulsar-widget').boundingBox();
-    assert.ok(expanded.height>=compact.height+100,'the transcript gets a larger dock');
+    await page.waitForFunction(minimum=>
+      document.querySelector('.lab-pulsar-widget').getBoundingClientRect().height>=minimum,compact.height+100);
     assert.equal(await page.getByText('Try a guided experiment',{exact:true}).isVisible(),false,'experiment controls do not crowd the transcript');
     failScienceReply=true;
     await input.fill('Explain this result');await page.getByRole('button',{name:'Send to Pulsar'}).click();
