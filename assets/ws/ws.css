@@ -623,6 +623,14 @@
     transition: opacity var(--g-dur-fast) var(--ws-ease), transform 260ms var(--ws-ease-pop);
   }
 
+  .ws-grip[data-settling] .ws-grip__knob {
+    transition:
+      top 460ms var(--ws-ease),
+      height 260ms var(--ws-ease-pop),
+      opacity var(--g-dur-fast) var(--ws-ease),
+      background-color var(--g-dur) var(--ws-ease);
+  }
+
   /* The label, after a pause: what the edge does, said once, beside the
      knob and on the page side so a pane never covers it. */
   .ws-grip__hint {

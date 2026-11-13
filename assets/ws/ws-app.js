@@ -1463,10 +1463,25 @@ function wireGrip(grip, { side, variable, min, max, from, open, close }) {
   let px = 0;
   let py = 0;
   let near = -1;
+  /* Let go, the capsule goes home to the middle of the seam rather than
+     staying wherever the pointer last left it: a resting mark sitting at
+     some arbitrary height reads as a mistake. It glides there (data-settling
+     puts a transition on its height for the trip) and a pointer coming back
+     takes it straight away. */
+  let settleTimer = 0;
   const setNear = (value) => {
     if (value === near) return;
+    const leaving = near > 0 && value === 0;
     near = value;
     grip.style.setProperty('--near', String(value));
+    clearTimeout(settleTimer);
+    if (leaving && !grip.hasAttribute('data-active')) {
+      grip.setAttribute('data-settling', '');
+      grip.style.removeProperty('--y');
+      settleTimer = setTimeout(() => grip.removeAttribute('data-settling'), 480);
+    } else if (value > 0) {
+      grip.removeAttribute('data-settling');
+    }
   };
   const measureNear = () => {
     frame = 0;
