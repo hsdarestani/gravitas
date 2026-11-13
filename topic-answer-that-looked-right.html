@@ -14,7 +14,7 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
 }catch(e){document.documentElement.setAttribute('data-theme','dark');}})();
 </script>
 <title>Can you trust an answer that looks right? · GraviQuest Topic 01</title>
-<meta name="description" content="An AI assistant gives a correct number in the right format. Our first video, The Answer That Looked Right, asks what that proved, with an essay at two depths, graded sources, a timeline and an exercise.">
+<meta name="description" content="An AI assistant gives a correct number in the right format. Our first video, The Answer That Looked Right, asks what that proved, with essays at three reading levels, a timeline, viewpoints, discussion and sources.">
 <link rel="canonical" href="https://graviquest.com/topic-answer-that-looked-right.html">
 <meta property="og:type" content="article">
 <meta property="og:site_name" content="GraviQuest">
@@ -30,7 +30,7 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
 <link rel="stylesheet" href="assets/gravitas.css?v=up-f706806e3a02-g1df6ff09-lit1">
 <link rel="stylesheet" href="assets/site.css?v=up-f706806e3a02-g1df6ff09-ds11">
 
-<link rel="stylesheet" href="assets/topic-answer.css?v=20261110-t6">
+<link rel="stylesheet" href="assets/topic-answer.css?v=20261113-tq12">
 <link rel="stylesheet" href="assets/chat.css?v=20261010-pulsar8">
 <link rel="stylesheet" href="assets/production-overrides.css?v=up-f706806e3a02-g1df6ff09-rl3">
 </head>
@@ -67,28 +67,42 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
      Every word and picture on this page comes from the Topic's record, which
      the Topic editor under Platform Admin saves. assets/topic-01-live.js fills
      the data-t1 containers; there is no copy of the content in this file. The
-     essays are the exception, published through their own route and written in
-     by assets/topic-01-essay.js. -->
-<section class="page-head"><div class="g-container">
+     essays are the exception: each essay at each reading level is published
+     through its own route and written in by assets/topic-01-essay.js.
+
+     The layout since 2026-11-12: a contents rail on the left, drawn the way the
+     brand book's is (brand.html, .bk-toc), and seven sections in the order the
+     rail lists them. The rail is built from the sections themselves, so its
+     counts are the record's and cannot drift from what the page shows. -->
+<section class="page-head tq-head"><div class="g-container">
   <p class="crumb"><a href="index.html">Home</a> / <a href="topics.html">Topics</a> / <span data-t1="number"></span></p>
+  <p class="g-eyebrow" data-t1="eyebrow"></p>
   <h1 data-t1="title"></h1>
   <p class="g-lead" data-t1="lead"></p>
   <p class="ta-empty" data-t1-status role="status">Loading this Topic&hellip;</p>
-  <div class="g-cluster g-mt-md" data-t1="tags"></div>
+  <div class="tq-head__foot" data-t1-body hidden>
+    <div class="g-cluster" data-t1="tags"></div>
+    <dl class="tq-facts" data-t1="facts"></dl>
+    <button class="g-btn g-btn--secondary g-btn--sm" type="button" data-t1-share>
+      <svg class="g-btn__icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5.5" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="18.5" r="2.5"/><path d="M8.2 10.8l7.6-4M8.2 13.2l7.6 4"/></svg><span>Share</span>
+    </button>
+  </div>
 </div></section>
 
-<div class="topic-nav" data-t1-body hidden><div class="g-container"><nav class="topic-nav__row" aria-label="In this topic">
-  <a href="#video">Video</a><a href="#essay">Essays</a><a href="#sources">Sources</a>
-  <a href="#timeline">Timeline</a><a href="#test">Try It</a>
-  <a href="#views">Viewpoints</a><a href="#talk">Discussion</a>
-</nav></div></div>
+<div class="g-container tq-layout" data-t1-body hidden>
 
-<div class="g-container" data-t1-body hidden>
+<nav class="tq-toc" aria-label="On this Topic" data-t1-toc>
+  <p class="tq-toc__label" data-t1="toc-label">On this Topic</p>
+  <ol data-t1-toc-list></ol>
+</nav>
 
-<section class="layer" id="video">
-  <div class="layer__head"><span class="layer__n">01</span><h2>The Video</h2></div>
+<div class="tq-body">
+
+<section class="layer tq-sec" id="video" data-toc="Videos" data-toc-icon="video" data-toc-hint="Watch the story" aria-labelledby="h-video">
+  <div class="layer__head"><span class="layer__n">01</span><h2 id="h-video">Videos</h2></div>
   <div data-t1="videos"></div>
-  <ul class="ta-cast" aria-label="Who is in it" data-t1="cast"></ul>
+  <h3 class="tq-subhead" id="h-cast" data-t1-cast-head hidden>Who is in it</h3>
+  <ul class="ta-cast" aria-labelledby="h-cast" data-t1="cast"></ul>
   <div class="ta-stills" data-t1="stills"></div>
   <details class="ta-transcript">
     <summary>Read the transcript</summary>
@@ -96,95 +110,50 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
   </details>
 </section>
 
-<section class="layer" id="essay">
-  <div class="layer__head"><span class="layer__n">02</span><h2>The Essays</h2></div>
+<section class="layer tq-sec" id="essay" data-toc="Essays" data-toc-icon="magazine" data-toc-hint="Read it at your level" aria-labelledby="h-essay">
+  <div class="layer__head"><span class="layer__n">02</span><h2 id="h-essay">Essays</h2></div>
+  <!-- topic-01-essay.js draws the picker, the Overview / In depth switch, the
+       three reading levels and the reader from the published route. -->
+  <div data-essays aria-live="polite"><p class="ta-empty">Loading the essays&hellip;</p></div>
+</section>
 
-  <!-- topic-01-essay.js writes the list from the route that publishes the
-       essays. The depth switch is the site's own (.depth, site.js). It stays
-       hidden until the same essay is published at two depths; none is yet. -->
-  <ol class="ta-set" data-essay-set aria-label="Essays in this Topic" hidden></ol>
-  <div class="depthbar" data-essay-depth hidden>
-    <p class="depthbar__note">This essay reads two ways. Pick one.</p>
-    <div class="depth" role="group" aria-label="Reading depth">
-      <button type="button" data-depth="overview" aria-pressed="true">Overview</button>
-      <button type="button" data-depth="deep" aria-pressed="false">In depth</button>
-    </div>
-  </div>
+<section class="layer tq-sec" id="timeline" data-toc="Timeline" data-toc-icon="timeline" data-toc-hint="How the question developed" aria-labelledby="h-timeline">
+  <div class="layer__head"><span class="layer__n">03</span><h2 id="h-timeline">How the Question Developed</h2></div>
+  <div data-t1="timeline"></div>
+</section>
 
-  <div class="split">
-    <article class="g-prose" data-topic-essay-reader>
-      <p data-topic-essay-error role="status" hidden></p>
-      <div data-essay="overview" data-public-context-essay="overview"></div>
-      <div data-essay="deep" data-public-context-essay="deep" hidden></div>
-    </article>
+<section class="layer tq-sec" id="views" data-toc="Viewpoints" data-toc-icon="viewpoint" data-toc-hint="Where people stand, and you" aria-labelledby="h-views">
+  <div class="layer__head"><span class="layer__n">04</span><h2 id="h-views">Viewpoints</h2></div>
+  <p class="tq-intro" data-t1="views-intro"></p>
+  <div class="tq-views" data-t1="views"></div>
+  <div data-t1="polls"></div>
+</section>
 
-    <aside class="aside">
-      <div class="callout">
-        <h4>Try It Yourself</h4>
-        <p><a href="#test">The exercise below</a> gives you five answers that all look right. Decide which ones to check.</p>
-      </div>
-    </aside>
+<section class="layer tq-sec" id="talk" data-toc="Discussion" data-toc-icon="discussion" data-toc-hint="A room for every part" aria-labelledby="h-talk">
+  <div class="layer__head"><span class="layer__n">05</span><h2 id="h-talk">Discussion</h2></div>
+  <p class="tq-intro">Every video, essay and question has its own room in the Forum. Join one, or start with the main conversation.</p>
+  <div data-t1="rooms"></div>
+  <!-- This week's question is the main room's heading, so it is not repeated here. -->
+  <div class="tq-notes g-mt-lg">
+    <div class="g-card"><p class="g-eyebrow g-eyebrow--bare">Corrections</p><p data-t1="corrections"></p></div>
   </div>
 </section>
 
-<section class="layer" id="sources">
-  <div class="layer__head"><span class="layer__n">03</span><h2>Sources, at Three Levels</h2></div>
-  <p class="g-muted" style="font-size:var(--g-fs-small);max-width:60ch;margin-bottom:var(--g-space-md)" data-t1="sources-intro"></p>
-  <div class="levels" data-t1="sources"></div>
+<section class="layer tq-sec" id="sources" data-toc="Sources" data-toc-icon="source" data-toc-hint="Every reference in one list" aria-labelledby="h-sources">
+  <div class="layer__head"><span class="layer__n">06</span><h2 id="h-sources">Sources and Bibliography</h2></div>
+  <p class="tq-intro" data-t1="sources-intro"></p>
+  <div data-sources></div>
 </section>
 
-<section class="layer" id="timeline">
-  <div class="layer__head"><span class="layer__n">04</span><h2>How the Question Developed</h2></div>
-  <div class="split">
-    <div class="tl" data-t1="timeline"></div>
-    <figure style="margin:0" data-t1="timeline-figure"></figure>
-  </div>
-</section>
-
-<section class="layer" id="test">
-  <div class="layer__head"><span class="layer__n">05</span><h2 data-t1="exercise-title"></h2></div>
-  <p class="g-muted" style="font-size:var(--g-fs-small);max-width:62ch;margin-bottom:var(--g-space-md)" data-t1="exercise-intro"></p>
-  <div class="play" id="ta-test" data-t1="exercise"></div>
-</section>
-
-<section class="layer" id="views">
-  <div class="layer__head"><span class="layer__n">06</span><h2>Viewpoints</h2></div>
-  <p class="g-muted" style="font-size:var(--g-fs-small);max-width:60ch;margin-bottom:var(--g-space-md)" data-t1="views-intro"></p>
-  <div class="views" data-t1="views"></div>
-  <div class="stance g-mt-lg" style="max-width:34rem" data-t1="stance"></div>
-</section>
-
-<section class="layer" id="talk">
-  <div class="layer__head"><span class="layer__n">07</span><h2>Discussion</h2></div>
-  <div class="split">
-    <div>
-      <div class="ta-comments" data-comments-for="answer-that-looked-right"></div>
-      <p class="ta-empty" data-comments-empty>Loading replies&hellip;</p>
-      <form class="g-field g-mt-md" data-comment-form="answer-that-looked-right">
-        <label class="g-label" for="c">Add to the discussion</label>
-        <textarea class="g-textarea" id="c" name="body" placeholder="Disagreement is more useful than agreement here."></textarea>
-        <div class="g-cluster g-mt-sm"><button class="g-btn g-btn--primary" type="submit">Post</button>
-          <span class="g-hint" data-form-note>Members can post. A moderator reads every reply before it appears.</span></div>
-      </form>
-    </div>
-    <aside class="aside">
-      <div class="callout"><h4>This Week&rsquo;s Question</h4>
-        <p data-t1="question"></p></div>
-      <div class="callout g-mt-md"><h4>Corrections</h4>
-        <p data-t1="corrections"></p></div>
-    </aside>
-  </div>
-
-  <div class="art__next">
-    <h3>Where This Goes Next</h3>
-    <div class="g-grid g-grid--2" data-t1="next"></div>
-  </div>
+<section class="layer tq-sec" id="related" data-toc="Related" data-toc-icon="related" data-toc-hint="Where this goes next" aria-labelledby="h-related">
+  <div class="layer__head"><span class="layer__n">07</span><h2 id="h-related">Where This Goes Next</h2></div>
+  <div class="tq-related" data-t1="next"></div>
 </section>
 
 </div>
+</div>
 
 </main>
-<section class="g-section" data-forum-topic hidden aria-label="Forum discussion"><div class="g-container"><h2>Discuss this Topic</h2><div data-forum-discussion="answer-that-looked-right"><p>Loading the Forum conversation…</p></div></div></section>
 <footer class="g-footer">
   <div class="g-container">
     <div class="g-footer__grid">
@@ -206,11 +175,10 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
   </div>
 </footer>
 <script src="assets/site.js?v=20261110-live1"></script>
-<script src="assets/topic-01-live.js?v=20261112-live2" defer></script>
-<script src="assets/topic-01-essay.js?v=20261110-essay5" defer></script>
-<script src="assets/topic-answer.js?v=20261110-live1" defer></script>
+<script src="assets/gravitas-icons.js?v=20261112-tq2" defer></script>
+<script src="assets/topic-01-live.js?v=20261113-tq7" defer></script>
+<script src="assets/topic-01-essay.js?v=20261113-tq5" defer></script>
 <script src="assets/chat.js?v=20261109-essay1" defer></script>
 <script src="assets/production-bridge.js?v=20261108-forum2" defer></script>
-<script src="/assets/forum-live.js?v=20261112-forum4" defer></script>
 </body>
 </html>

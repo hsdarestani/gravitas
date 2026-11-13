@@ -150,6 +150,9 @@ def _poll_definitions(topic):
             'id': poll_id,
             'question': str(raw.get('question') or raw.get('poll_question') or '').strip()[:500],
             'note': str(raw.get('note') or raw.get('poll_note') or '').strip()[:1000],
+            # A scale's options are ordered steps (Never … Always), drawn as a
+            # slider; a choice's are separate positions. Votes are stored the same.
+            'kind': 'scale' if raw.get('kind') == 'scale' else 'choice',
             'options': _normalized_poll_options(raw.get('options') if 'options' in raw else raw.get('poll_options')),
         })
     return polls
@@ -190,6 +193,7 @@ def _poll_json(request, topic, poll_id=''):
         'id': poll['id'],
         'question': poll['question'],
         'note': poll['note'],
+        'kind': poll['kind'],
         'options': [{'id': item['id'], 'label': item['label'], 'votes': counts[item['id']]} for item in options],
         'total_votes': sum(counts.values()),
         'selected': selected if selected in valid else None,

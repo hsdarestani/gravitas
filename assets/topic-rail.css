@@ -182,45 +182,6 @@
   padding: .25rem .65rem;
 }
 
-/* 02 — the cast. Each portrait sits on a Cosmos Blue card with the film's
-   grid, which is the ground the artwork was drawn for in both themes. */
-.trail__cast { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--g-space-xs); align-content: center; }
-.trail__cast li { display: grid; gap: var(--g-space-3xs); min-width: 0; }
-.trail__cast img {
-  display: block; width: 100%; height: auto; aspect-ratio: 1;
-  border-radius: var(--g-radius);
-  background-color: var(--g-cosmos-blue);
-  background-image:
-    linear-gradient(rgb(212 201 190 / .09) 1px, transparent 1px),
-    linear-gradient(90deg, rgb(212 201 190 / .09) 1px, transparent 1px);
-  background-size: 12.5% 12.5%;
-  background-position: center;
-}
-.trail__who { margin: var(--g-space-3xs) 0 0; display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 .5em; }
-.trail__who b { font-size: var(--g-fs-body); }
-.trail__who span { font-family: var(--g-font-mono); font-size: var(--g-fs-caption); color: var(--g-text-subtle); text-transform: uppercase; letter-spacing: .08em; }
-.trail__cast li > p:last-child { display: none; margin: 0; font-size: var(--g-fs-caption); color: var(--g-text-muted); line-height: var(--g-lh-snug); }
-
-/* 03 — the exchange, as the transcript has it. Pulsar's lines sit on its
-   own colour; Hulse's line is the one the Topic turns on. */
-.trail__talk { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--g-space-2xs); align-content: center; }
-.trail__talk li {
-  display: grid;
-  grid-template-columns: 4.2rem minmax(0, 1fr);
-  align-items: baseline;
-  gap: var(--g-space-2xs);
-  padding: .45rem .7rem;
-  border-radius: var(--g-radius);
-  font-size: var(--g-fs-small);
-  line-height: var(--g-lh-snug);
-}
-.trail__talk b { font-size: var(--g-fs-caption); font-weight: var(--g-w-semibold); color: var(--g-text-muted); text-transform: uppercase; letter-spacing: .06em; }
-.trail__talk li.is-ai { background: var(--g-surface-sunken); }
-.trail__talk li.is-ai b { color: var(--g-accent); }
-.trail__num { font-family: var(--g-font-mono); font-size: 1.15em; }
-.trail__talk li.is-key { padding-block: .7rem; }
-.trail__talk li.is-key span { font-family: var(--g-font-read); font-style: italic; font-size: var(--g-fs-body); color: var(--g-text); }
-
 /* 04 — three frames: one leads, two follow */
 .trail__gal { flex: 1; min-height: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: minmax(0, 1.4fr) minmax(0, 1fr); gap: var(--g-space-xs); }
 .trail__fig { margin: 0; display: grid; grid-template-rows: minmax(0, 1fr) auto; gap: var(--g-space-3xs); min-width: 0; min-height: 0; }
@@ -230,16 +191,12 @@
 .trail__fig figcaption b { display: block; color: var(--g-text); font-weight: var(--g-w-semibold); }
 .trail__fig figcaption span { display: none; }
 
-/* Phones: the steps give way to the count and arrows, the cast keeps its
-   faces and drops its sentences, and the exchange keeps the four lines that
-   carry it. */
+/* Phones: the steps give way to the count and arrows. */
 @media (max-width: 599px) {
   .trail__steps { display: none; }
   .trail__bar { justify-content: flex-end; }
   .trail__panel { padding: var(--g-space-sm); }
   .trail__act .g-btn { flex: 1 1 auto; justify-content: center; }
-  .trail__talk li { grid-template-columns: 3.8rem minmax(0, 1fr); padding: .4rem .55rem; }
-  .trail__talk li:nth-child(3), .trail__talk li:nth-child(4) { display: none; }
 }
 
 /* Wide: the two-column composition and the detail a phone cannot hold. */
@@ -254,8 +211,6 @@
   .trail__side { padding-bottom: 0; padding-right: var(--g-space-lg); border-bottom: 0; border-right: 1px solid var(--g-hairline); }
   .trail__side h3 { font-size: var(--g-fs-h3); }
   .trail__say { -webkit-line-clamp: 5; }
-    .trail__cast { gap: var(--g-space-md); }
-  .trail__cast li > p:last-child { display: block; }
   .trail__fig figcaption span { display: inline; }
   .trail__fig figcaption b { display: inline; margin-right: .4em; }
   .trail__gal { gap: var(--g-space-sm) var(--g-space-md); }
@@ -291,22 +246,19 @@
 }
 @media (max-width: 599px) {
   .trail { --panel-h: 33rem; }
-  .trail__talk { gap: .3rem; }
-  .trail__talk li { font-size: .82rem; padding: .35rem .5rem; }
-  .trail__talk li.is-key span { font-size: .92rem; }
 }
 
-/* ---- 2026-11-08: eight panels, one per part of the Topic ---------------- */
+/* ---- One panel per section of the Topic page (seven since 2026-11-12) ---- */
 .trail .lp-chap__head { margin-bottom: var(--g-space-lg); }
 .trail__step { padding: .4rem .7rem; }
 .trail__foot { margin: var(--g-space-md) 0 0; display: flex; align-items: center; justify-content: space-between; gap: var(--g-space-md); }
 
-/* 04 — the essays: the opening of the one chosen, set in the reading face */
+/* Essays —: the opening of the one chosen, set in the reading face */
 .trail__essay { display: grid; gap: var(--g-space-sm); align-content: center; }
 .trail__open { margin: 0; }
 .trail__open p { margin: 0; font-family: var(--g-font-read); font-size: clamp(1rem, .9rem + .5vw, 1.3rem); line-height: 1.5; color: var(--g-text); }
 
-/* 05 — the sources as three stairs, the proof strip's own mark made large */
+/* Sources — as three stairs, the proof strip's own mark made large */
 .trail__stairs { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--g-space-xs); align-items: end; }
 .trail__stairs > li { display: flex; flex-direction: column; gap: var(--g-space-2xs); padding: var(--g-space-sm); border: 1px solid var(--g-hairline); border-radius: var(--g-radius); background: var(--g-surface-sunken); }
 .trail__stairs > li:nth-child(1) { min-height: 60%; }
@@ -319,7 +271,7 @@
 .trail__stairs ul { list-style: none; margin: auto 0 0; padding: 0; display: grid; gap: .35rem; }
 .trail__stairs ul li { font-size: var(--g-fs-caption); color: var(--g-text-muted); line-height: var(--g-lh-snug); padding-top: .35rem; border-top: 1px solid var(--g-hairline); }
 
-/* 06 — the timeline, on one line */
+/* Timeline —, on one line */
 .trail__time { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); align-content: center; position: relative; }
 .trail__time::before { content: ""; position: absolute; left: 0; right: 0; top: 2.05rem; height: 1px; background: var(--g-hairline); }
 .trail__time li { display: grid; grid-template-rows: auto auto auto; gap: var(--g-space-2xs); padding-right: var(--g-space-2xs); position: relative; }
@@ -329,13 +281,29 @@
 .trail__time li.is-key::before { background: var(--g-accent); box-shadow: 0 0 0 4px color-mix(in srgb, var(--g-accent) 25%, transparent); }
 .trail__time li.is-key time { color: var(--g-accent); }
 
-/* 07 — the two readings; .view comes from site.css */
+/* Viewpoints — the two readings. Not site.css's .view: that one carries a
+   coloured bar down its left edge, which the brand no longer uses. A reading
+   is a sunken card; the label carries the accent. */
 .trail__views { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--g-space-md); align-content: center; }
-.trail__views .view { display: flex; flex-direction: column; gap: var(--g-space-2xs); }
-.trail__views .view p { margin: 0; font-size: var(--g-fs-small); }
-.trail__views .view cite { margin-top: auto; font-family: var(--g-font-mono); font-size: var(--g-fs-caption); font-style: normal; color: var(--g-text-subtle); }
+.trail__view { display: flex; flex-direction: column; gap: var(--g-space-2xs); padding: var(--g-space-md); border: 1px solid var(--g-hairline); border-radius: var(--g-radius); background: var(--g-surface-sunken); }
+.trail__view p { margin: 0; font-size: var(--g-fs-small); }
+.trail__view .trail__view-k { font-size: var(--g-fs-eyebrow); font-weight: var(--g-w-medium); text-transform: uppercase; letter-spacing: var(--g-track-eyebrow); color: var(--g-accent); }
+.trail__view cite { margin-top: auto; font-family: var(--g-font-mono); font-size: var(--g-fs-caption); font-style: normal; color: var(--g-text-subtle); }
 
-/* 08 — this week's question, set large */
+/* Related — where the Topic leads. A proposed Topic has no page yet, so it
+   is a row without a link. */
+.trail__next { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--g-space-xs); align-content: center; }
+.trail__next li > a, .trail__next li > span {
+  display: grid; gap: .2rem; padding: var(--g-space-sm) var(--g-space-md);
+  border: 1px solid var(--g-hairline); border-radius: var(--g-radius); background: var(--g-surface-sunken);
+  color: var(--g-text); text-decoration: none;
+  transition: border-color var(--g-dur) var(--g-ease-orbit), background-color var(--g-dur) var(--g-ease-orbit);
+}
+.trail__next li > a:hover { border-color: var(--g-border-strong); background: var(--g-surface-hover); }
+.trail__next small { font-size: var(--g-fs-eyebrow); text-transform: uppercase; letter-spacing: var(--g-track-eyebrow); color: var(--g-text-subtle); }
+.trail__next b { font-weight: var(--g-w-semibold); }
+
+/* Discussion — this week's question, set large */
 .trail__q { margin: 0; }
 .trail__q p { margin: 0; font-family: var(--g-font-read); font-size: clamp(1.25rem, 1rem + 1.2vw, 2rem); line-height: 1.35; color: var(--g-text); text-wrap: balance; }
 
@@ -347,8 +315,8 @@
   .trail__time time { grid-column: 1; grid-row: 1; }
   .trail__time span { grid-column: 3; grid-row: 1; }
   .trail__views { grid-template-columns: minmax(0, 1fr); gap: var(--g-space-xs); }
-  .trail__views .view { padding: var(--g-space-sm); }
-  .trail__views .view cite { display: none; }
+  .trail__view { padding: var(--g-space-sm); }
+  .trail__view cite { display: none; }
   .trail__stairs { grid-template-columns: minmax(0, 1fr); height: auto; }
   .trail__stairs > li { min-height: 0 !important; }
   .trail__stairs ul li:nth-child(2) { display: none; }
@@ -370,14 +338,14 @@
    four lines; both panels link to the whole thing on the Topic page. */
 @media (max-width: 599px) {
   .trail__time li:nth-child(2), .trail__time li:nth-child(3), .trail__time li:nth-child(5) { display: none; }
-  .trail__views .view p:not(.view__tag) { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 4; overflow: hidden; }
+  .trail__view p:not(.trail__view-k) { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 4; overflow: hidden; }
 }
 @media (max-width: 599px) {
   .trail__stairs { gap: .4rem; }
   .trail__stairs > li { padding: .55rem .75rem; }
   .trail__stairs ul { display: none; }
-  .trail__views .view p:not(.view__tag) { -webkit-line-clamp: 3; }
-  .trail__views .view .view__tag { margin: 0; }
+  .trail__view p:not(.trail__view-k) { -webkit-line-clamp: 3; }
+  .trail__view .trail__view-k { margin: 0; }
 }
 
 /* ---- A panel holding several videos or essays (2026-11-09) ---------------

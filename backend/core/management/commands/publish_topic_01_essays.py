@@ -12,6 +12,11 @@ from core.platform_access import downloads_allowed
 from core.topic_essay_api import read_essay_markdown
 from core.topic_essay_sources import SOURCE_PATHS
 
+# Only the two essays that existed before the reading levels. A level file is
+# published by an editor after review, never by a deploy, and a deploy must
+# not fail because a level has not been written yet.
+INITIAL_SLOTS = ('overview', 'deep')
+
 
 class Command(BaseCommand):
     help = 'Publish the selected Topic 01 Nextcloud essays into empty publication slots.'
@@ -23,7 +28,8 @@ class Command(BaseCommand):
 
         occupied = set(TopicEssayPublication.objects.values_list('depth', flat=True))
         candidates = {}
-        for slot, path in SOURCE_PATHS.items():
+        for slot in INITIAL_SLOTS:
+            path = SOURCE_PATHS[slot]
             if slot in occupied:
                 continue
             if CanonicalFile.objects.filter(project=project, path=path).exists():

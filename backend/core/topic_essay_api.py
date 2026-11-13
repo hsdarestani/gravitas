@@ -12,11 +12,12 @@ from lxml import html as lxml_html
 
 from . import cloud, nextcloud_bridge
 from .canonical_api import _project, body, clean_path
+from .content_api import _voter_key
 from .canonical_models import CanonicalFile
 from .canonical_projects import acl_object, decode, object_for
-from .models import ResearchProject, TopicEssayPublication
+from .models import ResearchProject, TopicEssayPublication, TopicEssayReaction
 from .platform_access import can_edit, can_manage, downloads_allowed
-from .topic_essay_sources import SOURCE_FILES, SOURCE_PATHS, is_topic_essay_source
+from .topic_essay_sources import ESSAYS, SLOTS, SOURCE_FILES, SOURCE_PATHS, is_topic_essay_source, slot_label
 from .topic_essay_render import render_essay
 
 TOPIC_01_PAGE = '/topic-answer-that-looked-right.html'
@@ -38,7 +39,11 @@ def _public_essay(item):
     label = public_essay_label(item, '')
     if label and not title:
         title = SOURCE_FILES[item.depth][2]
-    return {'title': title, 'label': label, 'html': body_html}
+    essay, level = SLOTS.get(item.depth, (0, ''))
+    # The slot, not the label, says which essay and level this is: a slot can
+    # be bound to a file outside the selected set, which carries no label.
+    return {'title': title, 'label': label, 'html': body_html, 'essay': essay, 'level': level,
+            'published_at': item.published_at.isoformat() if getattr(item, 'published_at', None) else ''}
 
 
 def public_essay_context(item):
@@ -99,12 +104,12 @@ def _state(project, user, path):
         'can_bind': can_manage(user, project),
         'slots': {
             depth: {
-                'label': SOURCE_FILES[depth][1] if is_topic_essay_source(project, path) else label,
+                'label': slot_label(depth),
                 'linked': bool(depth in items and (items[depth].project_id, items[depth].source_path) == (project.pk, path)),
                 'occupied': depth in items,
                 'version': items[depth].published_at.isoformat() if depth in items else '',
             }
-            for depth, label in TopicEssayPublication.Depth.choices
+            for depth, _label in TopicEssayPublication.Depth.choices
             if not is_topic_essay_source(project, path) or SOURCE_PATHS[depth] == path
         },
     }
@@ -170,3 +175,40 @@ def project_topic_essays(request, project_id):
         return JsonResponse({'ok': False, 'error': error}, status=400)
     except (cloud.CloudError, ImproperlyConfigured):
         return JsonResponse({'ok': False, 'error': 'essay_source_unavailable'}, status=503)
+
+
+def _reaction_json(request, essay):
+    counts = {value: 0 for value in TopicEssayReaction.Value.values}
+    for value in TopicEssayReaction.objects.filter(essay=essay).values_list('value', flat=True):
+        if value in counts:
+            counts[value] += 1
+    selected = TopicEssayReaction.objects.filter(
+        essay=essay, voter_key=_voter_key(request),
+    ).values_list('value', flat=True).first()
+    return {'essay': essay, 'useful': counts['useful'], 'not_useful': counts['not_useful'], 'selected': selected or ''}
+
+
+@never_cache
+@require_http_methods(['GET', 'POST'])
+def topic_essay_reaction(request, essay):
+    """"Was this essay useful to you?", answered once per reader and changeable.
+
+    POST {"value": "useful" | "not_useful" | ""}; an empty value withdraws the
+    answer. Only an essay that is published at some level can be answered.
+    """
+    published = {SLOTS[depth][0] for depth in published_essays() if depth in SLOTS}
+    if essay not in ESSAYS or essay not in published:
+        return JsonResponse({'ok': False, 'error': 'essay_not_found'}, status=404)
+    if request.method == 'POST':
+        try:
+            value = body(request).get('value') or ''
+        except ValueError:
+            return JsonResponse({'ok': False, 'error': 'invalid_json'}, status=400)
+        if value and value not in TopicEssayReaction.Value.values:
+            return JsonResponse({'ok': False, 'error': 'invalid_value'}, status=400)
+        key = _voter_key(request)
+        if value:
+            TopicEssayReaction.objects.update_or_create(essay=essay, voter_key=key, defaults={'value': value})
+        else:
+            TopicEssayReaction.objects.filter(essay=essay, voter_key=key).delete()
+    return JsonResponse({'ok': True, 'reaction': _reaction_json(request, essay)})

@@ -134,6 +134,7 @@ function timelineRow(values = {}) {
   const date = K.input(values.date || '', 'text', 'e.g. 1963');
   const title = K.input(values.title || '', 'text', 'Node title');
   const description = K.textarea(values.description || '', 3, 'Short explanation');
+  const why = K.textarea(values.why || '', 2, 'Why this milestone matters to the question of the Topic');
   const image = mediaField('Image', values.image_url || '', 'image/*');
   const alt = K.input(values.image_alt || '', 'text', 'Image alt text');
   const short = K.input(values.short || '', 'text', 'Shorter title for the home page');
@@ -141,9 +142,10 @@ function timelineRow(values = {}) {
   row.append(
     K.fields([K.field('Date', date), K.field('Title', title), K.field('Home page title', short), K.field('Highlight on home page', key)], 2),
     K.field('Description', description, 'A link is written [label](https://…).'),
+    K.field('Why it matters here', why, 'Shown under the milestone on the Topic page. Optional.'),
     K.fields([image.holder, K.field('Image alt text', alt)], 2),
   );
-  row._topicFields = { date, title, description, imageUrl: image.url, alt, short, key };
+  row._topicFields = { date, title, description, why, imageUrl: image.url, alt, short, key };
   return row;
 }
 
@@ -295,8 +297,33 @@ function nextRow(values = {}) {
   renameOnInput(row, title, 'Next link');
   const text = K.input(values.text || '', 'text', 'One line');
   const href = K.input(values.href || '', 'url', '/page.html');
-  row.append(K.fields([K.field('Label', kicker), K.field('Title', title), K.field('Text', text), K.field('Address', href)], 2));
-  row._topicFields = { kicker, title, text, href };
+  const status = K.select([['live', 'Published page'], ['proposed', 'Proposed Topic (no link yet)']], values.status === 'proposed' ? 'proposed' : 'live');
+  const image = mediaField('Picture', values.image_url || '', 'image/*');
+  const alt = K.input(values.image_alt || '', 'text', 'Picture description');
+  row.append(
+    K.fields([K.field('Label', kicker), K.field('Title', title), K.field('Text', text), K.field('Address', href), K.field('Status', status)], 2),
+    K.fields([image.holder, K.field('Picture description', alt)], 2),
+  );
+  row._topicFields = { kicker, title, text, href, status, imageUrl: image.url, alt };
+  return row;
+}
+
+/* A room is a Forum discussion for one part of the Topic. The key is the
+   content key a ForumDiscussion row links to a Discourse topic (Django admin);
+   until that link exists the Topic page shows the room as not open yet. */
+function roomRow(values = {}) {
+  const row = item('Room', values.question || values.label, 'topic-room-row');
+  const label = K.input(values.label || '', 'text', 'e.g. All videos');
+  const section = K.select([['videos', 'Videos'], ['essays', 'Essays'], ['timeline', 'Timeline'], ['viewpoints', 'Viewpoints'], ['sources', 'Sources'], ['other', 'Other']], values.section || 'other');
+  const key = K.input(values.key || '', 'text', 'answer-that-looked-right-videos');
+  const question = K.input(values.question || '', 'text', 'The question the room opens with');
+  renameOnInput(row, question, 'Room');
+  row.append(K.fields([
+    K.field('Question', question, '', { wide: true }), K.field('Label', label),
+    K.field('Section', section, 'The Discuss buttons on the page point at the room of their section.'),
+    K.field('Forum content key', key, 'Lower-case letters, digits and hyphens.'),
+  ], 2));
+  row._topicFields = { label, section, key, question };
   return row;
 }
 
@@ -331,12 +358,13 @@ function pollRow(values = {}, results = null) {
   const question = K.input(values.question || values.poll_question || 'Where do you land?', 'text', 'Poll question');
   renameOnInput(row, question, 'Poll');
   const note = K.input(values.note || values.poll_note || '', 'text', 'Text below poll');
+  const kind = K.select([['choice', 'Choice: separate positions'], ['scale', 'Scale: ordered steps, drawn as a slider']], values.kind === 'scale' ? 'scale' : 'choice');
   const optionList = K.stack();
   optionList.classList.add('topic-poll-options');
   const options = Array.isArray(values.options) ? values.options : (Array.isArray(values.poll_options) ? values.poll_options : []);
   options.forEach((v) => optionList.append(optionRow(v)));
   row.append(
-    K.fields([K.field('Question', question, '', { wide: true }), K.field('Poll ID', id), K.field('Note', note)], 2),
+    K.fields([K.field('Question', question, '', { wide: true }), K.field('Poll ID', id), K.field('Note', note), K.field('Kind', kind, 'For a scale, list the options from one end to the other.')], 2),
     K.heading('Options'), optionList,
     K.cardActions([K.button('Add poll option', () => optionList.append(optionRow()), { tiny: true })]),
   );
@@ -352,7 +380,7 @@ function pollRow(values = {}, results = null) {
     });
     row.append(K.heading(`Live results · ${total} votes`), box);
   }
-  row._topicFields = { id, question, note, optionList };
+  row._topicFields = { id, question, note, kind, optionList };
   return row;
 }
 
@@ -511,20 +539,30 @@ export async function renderAdminContentEditor(host, id, { go }) {
   const figureCaption = K.input(figure.caption || '', 'text', 'Caption');
   if (isTopic01) timeline.card.body.append(K.heading('Picture beside the timeline'), K.fields([figureImage.holder, K.field('Picture description', figureAlt), K.field('Caption', figureCaption)], 2));
   const exercise = jsonField(data.exercise);
-  const exerciseCard = K.card({ title: 'Exercise', note: 'The dataset, the answers and what the reader is told at the end. "correct" says whether an answer is right; "row" is the dataset row it points to.' });
+  const exerciseCard = K.card({ title: 'Exercise', note: 'Not shown on the Topic page since 2026-11-12; kept so the record is not lost. The dataset, the answers and what the reader is told at the end. "correct" says whether an answer is right; "row" is the dataset row it points to.' });
   exerciseCard.body.append(K.field('Exercise (JSON)', exercise));
   const discussionData = data.discussion && typeof data.discussion === 'object' ? data.discussion : {};
   const question = K.textarea(discussionData.question || '', 3, "This week's question");
   const corrections = K.textarea(discussionData.corrections || '', 3, 'Corrections log');
-  const discussionCard = K.card({ title: 'Discussion', note: 'The question also appears on the home page.', span: 6 });
+  const discussionCard = K.card({ title: 'Discussion', note: 'The question also appears on the home page, and opens the main room on the Topic page.', span: 6 });
   discussionCard.body.append(K.field("This week's question", question), K.field('Corrections', corrections));
+  const rooms = listCard('Rooms', 'One Forum room per part of the Topic. A room shows its activity once its key is linked to a Forum discussion.',
+    (Array.isArray(discussionData.rooms) ? discussionData.rooms : []).map((v) => roomRow(v)), 'Add room', () => roomRow());
   const nextLinks = listCard('Where this goes next', 'The cards at the foot of the Topic page.',
     (Array.isArray(data.next) ? data.next : []).map((v) => nextRow(v)), 'Add link', () => nextRow());
   nextLinks.card.box.dataset.span = '6';
   const landing = jsonField(data.landing);
   const landingCard = K.card({ title: 'Home page', note: "The wording of the home page's Topic panels. Everything else in those panels comes from the other tabs." });
   landingCard.body.append(K.field('Home page panels (JSON)', landing));
-  const essayNote = K.card({ title: 'Essays', note: 'This Topic\'s essays are published from the research project\'s files in Nextcloud, with the publish control beside each file. They are not edited here.' });
+  const essayNote = K.card({ title: 'Essays', note: 'This Topic\'s essays are published from the research project\'s files in Nextcloud, one file per essay and reading level (Curious, Undergrad, Researcher), with the publish control beside each file. Their text is not edited here; their cover pictures are.' });
+  const coverData = Array.isArray(data.essay_covers) ? data.essay_covers : [];
+  const covers = [0, 1].map((index) => {
+    const value = coverData[index] || {};
+    const picture = mediaField(`Essay ${index + 1} cover`, value.image_url || '', 'image/*');
+    const alt = K.input(value.image_alt || '', 'text', 'Picture description');
+    essayNote.body.append(K.fields([picture.holder, K.field(`Essay ${index + 1} cover description`, alt)], 2));
+    return { url: picture.url, alt };
+  });
 
   const counted = (name, list) => `${name}${list.children.length ? ` · ${list.children.length}` : ''}`;
   form.append(K.tabs([
@@ -547,7 +585,7 @@ export async function renderAdminContentEditor(host, id, { go }) {
     essays: [isTopic01 ? essayNote.box : essays.card.box],
     cast: [cast.card.box, stills.card.box, transcriptCard.box],
     exercise: [exerciseCard.box],
-    discussion: [discussionCard.box, nextLinks.card.box],
+    discussion: [discussionCard.box, rooms.card.box, nextLinks.card.box],
     landing: [landingCard.box],
     sources: [sources.card.box],
     timeline: [timeline.card.box],
@@ -595,12 +633,22 @@ export async function renderAdminContentEditor(host, id, { go }) {
           transcript: transcriptRows(transcript.value),
           timeline_figure: { image_url: figureImage.url.value.trim(), image_alt: figureAlt.value.trim(), caption: figureCaption.value.trim() },
           exercise: readJson(exercise, 'Exercise'),
-          discussion: { question: question.value.trim(), corrections: corrections.value.trim() },
+          discussion: {
+            question: question.value.trim(), corrections: corrections.value.trim(),
+            rooms: collect(rooms.list, '.topic-room-row', (row) => {
+              const f = row._topicFields; if (!f) return null;
+              return { label: f.label.value.trim(), section: f.section.value, key: f.key.value.trim().toLowerCase(), question: f.question.value.trim() };
+            }).filter((x) => x.question && /^[a-z0-9-]{1,180}$/.test(x.key)),
+          },
           next: collect(nextLinks.list, '.topic-next-row', (row) => {
             const f = row._topicFields; if (!f) return null;
-            return { kicker: f.kicker.value.trim(), title: f.title.value.trim(), text: f.text.value.trim(), href: f.href.value.trim() };
+            return {
+              kicker: f.kicker.value.trim(), title: f.title.value.trim(), text: f.text.value.trim(), href: f.href.value.trim(),
+              status: f.status.value, image_url: f.imageUrl.value.trim(), image_alt: f.alt.value.trim(),
+            };
           }).filter((x) => x.title),
           landing: readJson(landing, 'Home page panels'),
+          essay_covers: covers.map((c) => ({ image_url: c.url.value.trim(), image_alt: c.alt.value.trim() })),
         };
       } catch (error) {
         K.setStatus(statusLine, error.message, 'bad');
@@ -632,7 +680,7 @@ export async function renderAdminContentEditor(host, id, { go }) {
     const timelineRows = collect(timeline.list, '.topic-timeline-row', (row) => {
       const f = row._topicFields; if (!f) return null;
       return {
-        date: f.date.value.trim(), title: f.title.value.trim(), description: f.description.value.trim(),
+        date: f.date.value.trim(), title: f.title.value.trim(), description: f.description.value.trim(), why: f.why.value.trim(),
         image_url: f.imageUrl.value.trim(), image_alt: f.alt.value.trim(), short: f.short.value.trim(), key: f.key.value === '1',
       };
     }).filter((x) => x.title || x.date);
@@ -650,7 +698,7 @@ export async function renderAdminContentEditor(host, id, { go }) {
         const o = option._topicFields;
         return { label: o.label.value.trim(), id: o.id.value.trim() || K.slugify(o.label.value) };
       }).filter((x) => x.label && x.id);
-      return { id: f.id.value.trim() || nextPollId(), question: f.question.value.trim(), note: f.note.value.trim(), options };
+      return { id: f.id.value.trim() || nextPollId(), question: f.question.value.trim(), note: f.note.value.trim(), kind: f.kind.value, options };
     }).filter((x) => x.question || x.options.length);
     const firstView = viewpointRows[0] || {};
     const secondView = viewpointRows[1] || {};

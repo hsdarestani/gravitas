@@ -31,7 +31,7 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
 <link rel="stylesheet" href="assets/site.css?v=up-f706806e3a02-g1df6ff09-ds11">
 <link rel="stylesheet" href="assets/hero.css?v=20261110-align5">
 <link rel="stylesheet" href="assets/landing.css?v=20261108-lp14">
-<link rel="stylesheet" href="assets/topic-rail.css?v=20261110-reel7">
+<link rel="stylesheet" href="assets/topic-rail.css?v=20261112-reel8">
 <link rel="stylesheet" href="assets/forum.css?v=20261108-fm10">
 <link rel="stylesheet" href="assets/chat.css?v=20261010-pulsar8">
 <link rel="stylesheet" href="assets/production-overrides.css?v=up-f706806e3a02-g1df6ff09-rl3">
@@ -141,7 +141,11 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
      2026-11-08 it became the whole of chapter 01: one panel for each part of
      Topic 01, in the Topic page's own order. The layer grid and the Argument
      chapter that used to follow it were the same material said twice, so the
-     two readings and This Week's Question are panels 07 and 08 now.
+     two readings and This Week's Question became panels of the rail.
+     On 2026-11-12 the rail took the Topic page's seven sections exactly:
+     Videos, Essays, Timeline, Viewpoints, Discussion, Sources, Related. The
+     cast and the 9.8 exchange left it, at the owner's request, because the
+     rail already carried enough; the cast is still on the Topic page.
      It does not page itself and does not take the mouse wheel; the named
      steps, the arrows, a swipe or the arrow keys move it, and the next panel
      always shows at the edge. Layout: assets/topic-rail.css. Behaviour:
@@ -170,27 +174,26 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
 
     <div class="trail__bar" data-t1-hide-on-failure>
       <div class="trail__steps" role="group" aria-label="Jump within Topic 01">
-        <button class="chip trail__step" type="button" aria-current="true"><span class="g-nums">01</span>Video</button>
-        <button class="chip trail__step" type="button" aria-current="false"><span class="g-nums">02</span>Cast</button>
-        <button class="chip trail__step" type="button" aria-current="false"><span class="g-nums">03</span>The 9.8</button>
-        <button class="chip trail__step" type="button" aria-current="false"><span class="g-nums">04</span>Essays</button>
-        <button class="chip trail__step" type="button" aria-current="false"><span class="g-nums">05</span>Sources</button>
-        <button class="chip trail__step" type="button" aria-current="false"><span class="g-nums">06</span>Timeline</button>
-        <button class="chip trail__step" type="button" aria-current="false"><span class="g-nums">07</span>Viewpoints</button>
-        <button class="chip trail__step" type="button" aria-current="false"><span class="g-nums">08</span>Discussion</button>
+        <button class="chip trail__step" type="button" aria-current="true"><span class="g-nums">01</span>Videos</button>
+        <button class="chip trail__step" type="button" aria-current="false"><span class="g-nums">02</span>Essays</button>
+        <button class="chip trail__step" type="button" aria-current="false"><span class="g-nums">03</span>Timeline</button>
+        <button class="chip trail__step" type="button" aria-current="false"><span class="g-nums">04</span>Viewpoints</button>
+        <button class="chip trail__step" type="button" aria-current="false"><span class="g-nums">05</span>Discussion</button>
+        <button class="chip trail__step" type="button" aria-current="false"><span class="g-nums">06</span>Sources</button>
+        <button class="chip trail__step" type="button" aria-current="false"><span class="g-nums">07</span>Related</button>
       </div>
       <div class="trail__nav">
-        <span class="trail__count g-nums" data-rail-count aria-live="polite">01 / 08</span>
+        <span class="trail__count g-nums" data-rail-count aria-live="polite">01 / 07</span>
         <button class="trail__arrow" type="button" data-rail-prev aria-label="Previous panel"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5M11 18l-6-6 6-6"/></svg></button>
         <button class="trail__arrow" type="button" data-rail-next aria-label="Next panel"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
       </div>
     </div>
 
-    <div class="trail__rail" data-t1-hide-on-failure tabindex="0" role="region" aria-label="Topic 01, eight panels side by side">
+    <div class="trail__rail" data-t1-hide-on-failure tabindex="0" role="region" aria-label="Topic 01, seven panels side by side">
 
-      <article class="trail__panel" data-t1-panel="video" aria-label="01 of 08: The video">
+      <article class="trail__panel" data-t1-panel="video" aria-label="01 of 07: The videos">
         <div class="trail__side">
-          <p class="trail__n">01 &middot; The video</p>
+          <p class="trail__n">01 &middot; The videos</p>
           <h3 data-set-title></h3>
           <p class="trail__say" data-set-say></p>
           <ol class="trail__chap" aria-label="Chapters"></ol>
@@ -203,34 +206,9 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
         </div>
       </article>
 
-      <article class="trail__panel" data-t1-panel="cast" aria-label="02 of 08: The cast">
+      <article class="trail__panel" data-t1-panel="essays" aria-label="02 of 07: The essays">
         <div class="trail__side">
-          <p class="trail__n">02 &middot; The cast</p>
-          <h3></h3>
-          <p class="trail__say"></p>
-        </div>
-        <div class="trail__body">
-          <ul class="trail__cast"></ul>
-        </div>
-      </article>
-
-      <article class="trail__panel" data-t1-panel="exchange" aria-label="03 of 08: The 9.8">
-        <div class="trail__side">
-          <p class="trail__n">03 &middot; The 9.8</p>
-          <h3></h3>
-          <p class="trail__say"></p>
-          <div class="trail__act">
-            <a class="g-btn g-btn--secondary" href="topic-answer-that-looked-right.html#test"></a>
-          </div>
-        </div>
-        <div class="trail__body">
-          <ol class="trail__talk" aria-label="From the transcript"></ol>
-        </div>
-      </article>
-
-      <article class="trail__panel" data-t1-panel="essays" aria-label="04 of 08: The essays">
-        <div class="trail__side">
-          <p class="trail__n">04 &middot; The essays</p>
+          <p class="trail__n">02 &middot; The essays</p>
           <h3 data-set-title data-topic-essay-title data-public-context-essay="overview"></h3>
           <p class="trail__say" data-topic-essay-intro=""></p>
           <div class="trail__act">
@@ -244,20 +222,9 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
         </div>
       </article>
 
-      <article class="trail__panel" data-t1-panel="sources" aria-label="05 of 08: The sources">
+      <article class="trail__panel" data-t1-panel="timeline" aria-label="03 of 07: The timeline">
         <div class="trail__side">
-          <p class="trail__n">05 &middot; The sources</p>
-          <h3></h3>
-          <p class="trail__say"></p>
-        </div>
-        <div class="trail__body">
-          <ol class="trail__stairs" aria-label="Sources by level"></ol>
-        </div>
-      </article>
-
-      <article class="trail__panel" data-t1-panel="timeline" aria-label="06 of 08: The timeline">
-        <div class="trail__side">
-          <p class="trail__n">06 &middot; The timeline</p>
+          <p class="trail__n">03 &middot; The timeline</p>
           <h3></h3>
           <p class="trail__say"></p>
         </div>
@@ -266,20 +233,23 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
         </div>
       </article>
 
-      <article class="trail__panel" data-t1-panel="views" aria-label="07 of 08: Viewpoints">
+      <article class="trail__panel" data-t1-panel="views" aria-label="04 of 07: Viewpoints">
         <div class="trail__side">
-          <p class="trail__n">07 &middot; Viewpoints</p>
+          <p class="trail__n">04 &middot; Viewpoints</p>
           <h3></h3>
           <p class="trail__say"></p>
+          <div class="trail__act">
+            <a class="g-btn g-btn--secondary" href="topic-answer-that-looked-right.html#views">Say where you stand</a>
+          </div>
         </div>
         <div class="trail__body">
           <div class="trail__views"></div>
         </div>
       </article>
 
-      <article class="trail__panel" data-t1-panel="talk" aria-label="08 of 08: The discussion">
+      <article class="trail__panel" data-t1-panel="talk" aria-label="05 of 07: The discussion">
         <div class="trail__side">
-          <p class="trail__n">08 &middot; Discussion</p>
+          <p class="trail__n">05 &middot; Discussion</p>
           <h3></h3>
           <p class="trail__say"></p>
           <div class="trail__act">
@@ -288,6 +258,28 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
         </div>
         <div class="trail__body">
           <blockquote class="trail__q"><p></p></blockquote>
+        </div>
+      </article>
+
+      <article class="trail__panel" data-t1-panel="sources" aria-label="06 of 07: The sources">
+        <div class="trail__side">
+          <p class="trail__n">06 &middot; The sources</p>
+          <h3></h3>
+          <p class="trail__say"></p>
+        </div>
+        <div class="trail__body">
+          <ol class="trail__stairs" aria-label="Sources by level"></ol>
+        </div>
+      </article>
+
+      <article class="trail__panel" data-t1-panel="related" aria-label="07 of 07: Where this goes next">
+        <div class="trail__side">
+          <p class="trail__n">07 &middot; Related</p>
+          <h3></h3>
+          <p class="trail__say"></p>
+        </div>
+        <div class="trail__body">
+          <ul class="trail__next" aria-label="Where this goes next"></ul>
         </div>
       </article>
 
@@ -536,8 +528,8 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
 <script src="assets/site.js?v=20261110-live1"></script>
 <script src="assets/hero.js?v=20261109-stars2"></script>
 <script src="assets/landing.js?v=20261108-lab1" defer></script>
-<script src="assets/topic-01-live.js?v=20261112-live2" defer></script>
-<script src="assets/topic-01-essay.js?v=20261110-essay5" defer></script>
+<script src="assets/topic-01-live.js?v=20261113-tq7" defer></script>
+<script src="assets/topic-01-essay.js?v=20261113-tq5" defer></script>
 <script src="assets/topic-rail.js?v=20261112-reel7" defer></script>
 <script src="assets/chat.js?v=20261109-essay1" defer></script>
 <script src="assets/production-bridge.js?v=20261108-forum2" defer></script>

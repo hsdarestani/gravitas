@@ -934,8 +934,15 @@ class PublicPageSnapshot(models.Model):
 
 class TopicEssayPublication(models.Model):
     class Depth(models.TextChoices):
-        OVERVIEW = 'overview', 'Overview'
-        DEEP = 'deep', 'In depth'
+        # A slot is one essay at one reading level (topic_essay_sources.SLOTS).
+        # The first two kept their pre-level names: Essay 1 and Essay 2 at the
+        # Researcher level.
+        OVERVIEW = 'overview', 'Essay 1 · Researcher'
+        DEEP = 'deep', 'Essay 2 · Researcher'
+        E1_CURIOUS = 'e1-curious', 'Essay 1 · Curious'
+        E1_UNDERGRAD = 'e1-undergrad', 'Essay 1 · Undergrad'
+        E2_CURIOUS = 'e2-curious', 'Essay 2 · Curious'
+        E2_UNDERGRAD = 'e2-undergrad', 'Essay 2 · Undergrad'
 
     # Only Topic 01 uses this editorial workflow. The project and the file
     # path identify the private source; the Markdown is the public snapshot.
@@ -946,3 +953,27 @@ class TopicEssayPublication(models.Model):
     markdown = models.TextField()
     published_at = models.DateTimeField()
     published_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True)
+
+
+class TopicEssayReaction(models.Model):
+    """One reader's answer to "Was this essay useful to you?" on Topic 01.
+
+    Keyed like a poll vote, by a hash of the session, so a reader can answer
+    without an account and change the answer later. The counts the page shows
+    are these rows and nothing else.
+    """
+    class Value(models.TextChoices):
+        USEFUL = 'useful', 'Useful'
+        NOT_USEFUL = 'not_useful', 'Not for me'
+
+    essay = models.PositiveSmallIntegerField()
+    voter_key = models.CharField(max_length=64)
+    value = models.CharField(max_length=12, choices=Value.choices)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=['essay', 'voter_key'], name='unique_topic_essay_reaction_voter'),
+        ]
+        indexes = [models.Index(fields=['essay', 'value'], name='topic_essay_reaction_value')]

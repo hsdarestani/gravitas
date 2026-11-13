@@ -74,10 +74,15 @@ def _essay_context(page, message, snapshot):
     essays = published_essays()
     legacy = snapshot.get('legacy_essays', {})
     blocks = []
-    for depth, label in (('overview', 'Overview'), ('deep', 'In depth')):
-        if depth in essays:
-            label = public_essay_label(essays[depth], label)
-            text = public_essay_context(essays[depth])
+    # One text per essay: the fullest level that is published. The Researcher
+    # slots kept the names overview and deep; the simpler levels say the same
+    # thing in fewer words, so they would only crowd the context.
+    for depth, label, simpler in (('overview', 'Overview', ('e1-undergrad', 'e1-curious')),
+                                  ('deep', 'In depth', ('e2-undergrad', 'e2-curious'))):
+        chosen = next((slot for slot in (depth,) + simpler if slot in essays), None)
+        if chosen:
+            label = public_essay_label(essays[chosen], label)
+            text = public_essay_context(essays[chosen])
         else:
             text = '\n'.join(legacy.get(depth, []))
         if text:

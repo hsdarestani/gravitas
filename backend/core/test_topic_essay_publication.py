@@ -109,7 +109,7 @@ class TopicEssayPublicationTests(TestCase):
         self.assertEqual(essays['overview']['label'], 'Essay 1')
         self.assertEqual(essays['deep']['label'], 'Essay 2')
         self.assertNotEqual(essays['overview']['title'], essays['deep']['title'])
-        self.assertCountEqual(TopicEssayPublication.objects.values_list('source_path', flat=True), SOURCE_PATHS.values())
+        self.assertCountEqual(TopicEssayPublication.objects.values_list('source_path', flat=True), [SOURCE_PATHS['overview'], SOURCE_PATHS['deep']])
 
         download.reset_mock()
         call_command('publish_topic_01_essays')

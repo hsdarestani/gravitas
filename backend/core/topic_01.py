@@ -39,7 +39,6 @@ def snapshot():
     data = item.topic_data
     views = data.get('viewpoints') if isinstance(data.get('viewpoints'), dict) else {}
     polls = _rows(views, 'polls')
-    exercise = data.get('exercise') if isinstance(data.get('exercise'), dict) else {}
     discussion = data.get('discussion') if isinstance(data.get('discussion'), dict) else {}
     sections = [
         ('', item.title, f'{item.title} {data.get("hero_lead") or item.summary}'),
@@ -51,19 +50,22 @@ def snapshot():
         ])),
         # The essays' own text comes from their published revisions.
         ('essay', 'The Essays', 'The essays of this Topic.'),
-        ('sources', 'Sources, at Three Levels', ' '.join([
-            str(data.get('sources_intro') or ''), _join(_rows(data, 'sources'), 'level_label', 'label'),
-        ])),
-        ('timeline', 'How the Question Developed', _plain(_join(_rows(data, 'timeline'), 'date', 'title', 'description'))),
-        ('test', str(exercise.get('title') or 'Try It'), ' '.join([
-            str(exercise.get('intro') or ''), _join(_rows(exercise, 'answers'), 'question', 'answer', 'verdict'),
-        ])),
+        # The order is the page's. The exercise left the page on 2026-11-12;
+        # its record stays, but Pulsar should not send a reader to it.
+        ('timeline', 'How the Question Developed', _plain(_join(_rows(data, 'timeline'), 'date', 'title', 'description', 'why'))),
         ('views', 'Viewpoints', ' '.join([
             str(data.get('viewpoints_intro') or ''), _join(_rows(views, 'items'), 'label', 'text', 'cite'),
             _join(polls, 'question'),
             ' '.join(_join(_rows(poll, 'options'), 'label') for poll in polls if isinstance(poll, dict)),
         ])),
-        ('talk', 'Discussion', ' '.join([str(discussion.get('question') or ''), str(discussion.get('corrections') or '')])),
+        ('talk', 'Discussion', ' '.join([
+            str(discussion.get('question') or ''), str(discussion.get('corrections') or ''),
+            _join(_rows(discussion, 'rooms'), 'label', 'question'),
+        ])),
+        ('sources', 'Sources and Bibliography', ' '.join([
+            str(data.get('sources_intro') or ''), _join(_rows(data, 'sources'), 'level_label', 'label'),
+        ])),
+        ('related', 'Where This Goes Next', _join(_rows(data, 'next'), 'kicker', 'title', 'text')),
     ]
     return {
         'title': item.title,

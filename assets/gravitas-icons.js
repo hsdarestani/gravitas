@@ -1,6 +1,6 @@
 /* ==========================================================================
    GRAVIQUEST WORKSPACE ICONS
-   Sixty-one marks for the product interface and the home page's method strip, drawn to the same geometry as the
+   Sixty-six marks for the product interface and the home page's method strip, drawn to the same geometry as the
    sixteen in the brand book (section 11) so the workspace and the public site
    speak with one hand.
 
@@ -148,6 +148,33 @@
     balance: "<g transform=\"translate(1.673 1.590) scale(0.860577)\" stroke-width=\"1.975\"><path d=\"M12 7.6V20.4\"/><path d=\"M8 20.4h8\"/><path d=\"M4.4 7.6h15.2\"/><path d=\"M4.4 7.6v4.4\"/><path d=\"M19.6 7.6v4.4\"/><path d=\"M1.6 12h5.6a2.8 2.8 0 0 1-5.6 0z\"/><path d=\"M16.8 12h5.6a2.8 2.8 0 0 1-5.6 0z\"/><circle cx=\"12\" cy=\"4.2\" r=\"1.801\" fill=\"currentColor\" stroke=\"none\"/></g>",
     correction: "<g transform=\"translate(-0.885 -4.025) scale(1.204570)\" stroke-width=\"1.409\"><path d=\"M5.4 18.6 9.29 17.68 17.77 9.2 14.8 6.23 6.32 14.71Z\"/><path d=\"M6.32 14.71 9.29 17.68\"/><path d=\"M12.82 8.21 15.79 11.18\"/><circle cx=\"3.5\" cy=\"20.5\" r=\"1.285\" fill=\"currentColor\" stroke=\"none\"/></g>",
     unlocked: "<g transform=\"translate(0.883 -0.533) scale(0.942619)\" stroke-width=\"1.803\"><rect x=\"3.6\" y=\"10.2\" width=\"16.8\" height=\"11.2\" rx=\"3\"/><path d=\"M7.4 10.2V7a4.6 4.6 0 0 1 8.92-1.57\"/><circle cx=\"12\" cy=\"15.8\" r=\"1.644\" fill=\"currentColor\" stroke=\"none\"/></g>",
+
+    /* ---- The parts of a Topic -----------------------------------------------
+       The Topic page's contents rail took the workspace index's row on
+       2026-11-12, mark and all, so each of its seven parts needed a mark.
+       Two already existed and are used as they are: Essays takes the public
+       Essays mark (magazine) and Discussion the workspace's Discussions mark,
+       because they are the same places. The five below are new, so two rows
+       of the rail never share a drawing.
+
+       Each is a thing, so each carries the dot, and the dot marks what the
+       part is about. Video: the playhead on the bar under the screen.
+       Timeline: the milestone being read, ringed between the one before and
+       the one after, with its caption under it. Viewpoint: where you stand,
+       a pin over a scale between two ends. Source: a citation, the dot held
+       in square brackets on a page. Related: where this goes next, the dot
+       in the second of two tiles the path leads to.
+
+       These were drawn directly on the 24-unit grid at the set's 1.7 stroke
+       and centred by their bounding box inside the 19.6 cap, not fitted by
+       rasterising the ink centroid as the marks above were. They sit within
+       a few tenths of a unit of where that procedure would put them; refit
+       them by it if the set is ever re-cut. */
+    video: "<g stroke-width=\"1.7\"><rect x=\"2.6\" y=\"3\" width=\"18.8\" height=\"13.8\" rx=\"3.2\"/><path d=\"M10.4 7.4v5l4.3-2.5z\"/><path d=\"M2.6 20.6h4.8\"/><path d=\"M11.2 20.6h10.2\"/><circle cx=\"9.3\" cy=\"20.6\" r=\"1.55\" fill=\"currentColor\" stroke=\"none\"/></g>",
+    timeline: "<g stroke-width=\"1.7\"><circle cx=\"12\" cy=\"8.4\" r=\"3.4\"/><circle cx=\"12\" cy=\"8.4\" r=\"1.55\" fill=\"currentColor\" stroke=\"none\"/><circle cx=\"3.9\" cy=\"8.4\" r=\"1.4\"/><circle cx=\"20.1\" cy=\"8.4\" r=\"1.4\"/><path d=\"M5.3 8.4h3.3\"/><path d=\"M15.4 8.4h3.3\"/><path d=\"M7.8 15.4h8.4\"/><path d=\"M9.6 19.2h4.8\"/></g>",
+    viewpoint: "<g stroke-width=\"1.7\"><path d=\"M2.6 19h18.8\"/><path d=\"M2.6 16.8v4.4\"/><path d=\"M21.4 16.8v4.4\"/><path d=\"M14 15.2s-4.3-3.8-4.3-7.2a4.3 4.3 0 0 1 8.6 0c0 3.4-4.3 7.2-4.3 7.2z\"/><circle cx=\"14\" cy=\"8\" r=\"1.55\" fill=\"currentColor\" stroke=\"none\"/></g>",
+    source: "<g stroke-width=\"1.7\"><rect x=\"4.2\" y=\"2.6\" width=\"15.6\" height=\"18.8\" rx=\"2.6\"/><path d=\"M9.2 6.8H7.8v5h1.4\"/><path d=\"M14.8 6.8h1.4v5h-1.4\"/><circle cx=\"12\" cy=\"9.3\" r=\"1.55\" fill=\"currentColor\" stroke=\"none\"/><path d=\"M7.8 15.4h8.4\"/><path d=\"M7.8 18.2h5\"/></g>",
+    related: "<g stroke-width=\"1.7\"><rect x=\"2.6\" y=\"2.6\" width=\"8.4\" height=\"8.4\" rx=\"2.2\"/><rect x=\"13\" y=\"13\" width=\"8.4\" height=\"8.4\" rx=\"2.2\"/><path d=\"M6.8 11v3.4a2.8 2.8 0 0 0 2.8 2.8H13\"/><circle cx=\"17.2\" cy=\"17.2\" r=\"1.55\" fill=\"currentColor\" stroke=\"none\"/></g>",
 
     /* ---- Pulsar -----------------------------------------------------------
        The workspace assistant's mark is Pulsar's own artwork, not a drawing
