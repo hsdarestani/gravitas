@@ -35,15 +35,19 @@ jobs:
         env:
           NODE_PATH: ${{ runner.temp }}/gq-science-browser/node_modules
           CHROME_PATH: /usr/bin/google-chrome
-          SCIENCE_UX_BEFORE: 0f48e0343bdd7c935a8bae5f69fd085f9d9075a5
+          SCIENCE_UX_BEFORE: 2c12435305eda294f99f9f47a6cb602ce6d68af6
+          SCIENCE_RECORD_DEMOS: 1
         run: node scripts/test-science-universe-browser.cjs
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: science-universe-lab-qa
-          path: qa-artifacts/science-universe-*.png
+          path: |
+            qa-artifacts/science-universe-*.png
+            qa-artifacts/science-universe-*.mp4
+            qa-artifacts/science-universe-preview.html
           if-no-files-found: ignore
-          retention-days: 7
+          retention-days: 30
   django-studio:
     runs-on: ubuntu-latest
     timeout-minutes: 12

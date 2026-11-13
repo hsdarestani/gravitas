@@ -44,6 +44,114 @@ const server=http.createServer((req,res)=>{
   }
   res.end(fs.readFileSync(file));
 });
+function portablePreview(){
+  const source=path.join(root,'lab-sources/science-universe');
+  const read=name=>fs.readFileSync(path.join(source,name),'utf8');
+  const css=read('styles.css').replace(/url\("\/assets\/fonts\/([^"]+)"\)/g,(_,name)=>
+    'url("data:font/ttf;base64,'+fs.readFileSync(path.join(root,'assets/fonts',name)).toString('base64')+'")');
+  let html=read('index.html').replace('<link rel="stylesheet" href="styles.css">',()=>'<style>'+css+'</style>');
+  for(const name of ['engine.js','app.js']){
+    html=html.replace('<script src="'+name+'"></script>',()=>'<script>'+read(name).replace(/<\/script/gi,'<\\/script')+'</script>');
+  }
+  fs.writeFileSync('qa-artifacts/science-universe-preview.html',html);
+}
+async function screenshots(browser,host,after){
+  const page=await browser.newPage({reducedMotion:'reduce'});
+  try{
+    for(const [width,height] of [[1440,900],[390,844]])for(const mode of ['Simple','Medium','Advanced']){
+      await page.setViewportSize({width,height});
+      await page.goto(after?host+'/lab-sources/science-universe/index.html':host+'/science-ux-before/');
+      await page.getByRole('button',{name:mode,exact:true}).click();
+      if(mode==='Advanced'){
+        await page.locator('#advance').click();
+        await page.locator('#start-comparison').click();
+        for(let i=0;i<12;i++)await page.locator('#advance').click();
+      }else await page.locator('#focus-run').click();
+      await page.evaluate(async()=>{await document.fonts.ready;window.scrollTo(0,0);});
+      await page.screenshot({path:'qa-artifacts/science-universe-'+(after?'after':'before')+'-'+mode.toLowerCase()+'-'+width+'.png'});
+    }
+  }finally{await page.close();}
+}
+async function recordDemos(browser,address){
+  const page=await browser.newPage({viewport:{width:1280,height:820}});
+  const session=await page.context().newCDPSession(page);
+  try{
+    for(const mode of ['Simple','Medium','Advanced']){
+      await page.goto(address);
+      await page.getByRole('button',{name:mode,exact:true}).click();
+      await page.evaluate(()=>document.fonts.ready);
+      const frames=[], started=performance.now(), metrics={};
+      const append=({data,sessionId,metadata})=>{
+        frames.push({data,time:metadata.timestamp});
+        void session.send('Page.screencastFrameAck',{sessionId}).catch(()=>{});
+      };
+      session.on('Page.screencastFrame',append);
+      try{
+        await session.send('Page.startScreencast',{format:'jpeg',quality:86,maxWidth:1280,maxHeight:820,everyNthFrame:1});
+        await page.waitForTimeout(1200);
+        if(mode==='Advanced'){
+          await page.locator('#advance').click();
+          await page.locator('#start-comparison').click();
+          await page.locator('#speed').selectOption('2');
+          await page.evaluate(()=>window.scrollTo(0,0));
+          await page.locator('#play').click();
+          await page.waitForFunction(()=>Number(document.querySelector('#day').textContent)>=18);
+          await page.locator('#play').click();
+        }else{
+          const canvas=mode==='Simple'?'#research-flow':'#focus-world-a canvas';
+          const before=await page.locator(canvas).evaluate(el=>el.toDataURL());
+          assert.equal(await page.locator(canvas).getAttribute('data-studies'),'0');
+          await page.locator('#focus-run').click();
+          await page.evaluate(()=>window.scrollTo(0,0));
+          await page.waitForFunction(selector=>Number(document.querySelector(selector).dataset.day)>2,canvas);
+          const samples=await page.locator(canvas).evaluate(async el=>{
+            const changes=new Set(),durations=[];
+            for(let i=0;i<45;i++){
+              const start=performance.now();
+              await new Promise(requestAnimationFrame);
+              changes.add(el.dataset.day+':'+el.dataset.progress);
+              durations.push(performance.now()-start);
+            }
+            return {frames:changes.size,slow:durations.filter(ms=>ms>48).length};
+          });
+          assert.ok(samples.frames>=15,mode+' has continuously changing animation frames');
+          assert.notEqual(await page.locator(canvas).evaluate(el=>el.toDataURL()),before);
+          metrics.animation=samples;
+          if(mode==='Medium'){
+            assert.equal(await page.locator('#focus-world-a canvas').getAttribute('data-day'),await page.locator('#focus-world-b canvas').getAttribute('data-day'));
+            await page.waitForFunction(()=>{
+              const a=document.querySelector('#focus-world-a canvas'),b=document.querySelector('#focus-world-b canvas');
+              return a.dataset.day===b.dataset.day&&a.dataset.queue!==b.dataset.queue;
+            });
+          }
+          await page.locator('#focus-replay').waitFor({timeout:20000});
+          assert.equal(await page.locator(canvas).getAttribute('data-day'),'45');
+        }
+        await page.waitForTimeout(1600);
+      }finally{
+        await session.send('Page.stopScreencast');session.off('Page.screencastFrame',append);
+      }
+      assert.ok(frames.length>40,mode+' recording contains real browser frames');
+      const folder=fs.mkdtempSync(path.join(require('node:os').tmpdir(),'science-video-'));
+      try{
+        // Real browser timestamps preserve playback speed and the before/after holds.
+        const manifest=[];
+        for(const [i,frame] of frames.entries()){
+          const name=i+'.jpg';
+          fs.writeFileSync(path.join(folder,name),Buffer.from(frame.data,'base64'));
+          const duration=i===frames.length-1?1.6:Math.max(1/120,frames[i+1].time-frame.time);
+          manifest.push("file '"+name+"'",'duration '+duration.toFixed(5));
+        }
+        manifest.push("file '"+(frames.length-1)+".jpg'");
+        fs.writeFileSync(path.join(folder,'frames.txt'),manifest.join('\n'));
+        execFileSync('ffmpeg',['-v','error','-y','-f','concat','-safe','0','-i',path.join(folder,'frames.txt'),
+          '-vf','fps=30,pad=ceil(iw/2)*2:ceil(ih/2)*2','-c:v','libx264','-pix_fmt','yuv420p','-movflags','+faststart',
+          'qa-artifacts/science-universe-'+mode.toLowerCase()+'.mp4']);
+      }finally{fs.rmSync(folder,{recursive:true,force:true});}
+      console.log(mode+' motion QA',JSON.stringify({...metrics,recordedFrames:frames.length,ms:Math.round(performance.now()-started)}));
+    }
+  }finally{await session.detach();await page.close();}
+}
 (async()=>{
   await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
   const browser=await playwright.chromium.launch({
@@ -73,30 +181,19 @@ const server=http.createServer((req,res)=>{
     const pulsarDock=await shell.locator('.lab-pulsar-widget').boundingBox();
     assert.ok(pulsarDock.height<80,'collapsed desktop Pulsar occupies one row');
     fs.mkdirSync('qa-artifacts',{recursive:true});
-    if(prior){
-      const before=await browser.newPage({reducedMotion:'reduce'});
-      for(const [width,height] of [[1440,900],[390,844]]){
-        await before.setViewportSize({width,height});
-        await before.goto(host+'/science-ux-before/');
-        await before.locator('#focus-run').waitFor();
-        await before.screenshot({path:'qa-artifacts/science-universe-before-initial-'+width+'.png'});
-        await before.locator('#focus-run').click();
-        await before.locator('#focus-setting').press('End');
-        await before.locator('#focus-run').click();
-        await before.screenshot({path:'qa-artifacts/science-universe-before-completed-'+width+'.png',fullPage:true});
-      }
-      await before.close();
-    }
+    if(prior)await screenshots(browser,host,false);
+    portablePreview();
+    await screenshots(browser,host,true);
     assert.equal(await frame.locator('#focus-chart').isHidden(),true,'pre-run does not show an empty chart');
     assert.equal(await frame.locator('#focus-pipeline strong').count(),0,'stage buttons are process illustrations');
-    assert.equal(await frame.locator('#lifecycle-token').isHidden(),true,'no hypothesis token before a real run');
+    assert.equal(await frame.locator('#research-flow').getAttribute('data-studies'),'0','no study marks before a real run');
     for(const [width,height] of viewportSizes){
       await shell.setViewportSize({width,height});
-      for(const element of [run,slider,frame.locator('#focus-pipeline')]){
-        const rect=await element.boundingBox();
-        assert.ok(rect&&rect.x>=0&&rect.x+rect.width<=width+1&&rect.y>=0&&rect.y+rect.height<=height,
-          'Primary experiment controls fit at '+width+'px: '+JSON.stringify(rect));
-      }
+      const field=await frame.locator('#research-flow').boundingBox();
+      const launch=await run.boundingBox();
+      assert.ok(field&&field.width>width*.65&&field.height>=Math.min(250,height*.3),
+        'Science field dominates the initial viewport at '+width+'px');
+      assert.ok(launch&&launch.y+launch.height<=height+15,'Run action is reachable at '+width+'px: '+JSON.stringify(launch));
       if(width===1440||width===390)await shell.screenshot({path:'qa-artifacts/science-universe-after-initial-'+width+'.png'});
     }
     await shell.setViewportSize({width:1440,height:900});
@@ -119,6 +216,10 @@ const server=http.createServer((req,res)=>{
     assert.ok(repeat);
     await frame.locator('#focus-time').fill(String(repeat.day));
     assert.match(await frame.locator('#lifecycle-event').innerText(),/Independent repeat/);
+    const firstRepeated=trialWorld.hypotheses.find(study=>study.id===repeat.hypothesisId);
+    assert.equal(await frame.locator('#lifecycle-mode').innerText(),firstRepeated.topic);
+    const dayWorld=E.step(E.make(20261029,{verification:10}),repeat.day);
+    assert.equal(await frame.locator('#research-flow').getAttribute('data-queue'),String(dayWorld.queues.review.length));
     assert.equal(await frame.locator('#lifecycle-token').getAttribute('data-stage-position'),'4');
     await frame.locator('#focus-time').press('End');
     for(const [width,height] of [[1440,900],[390,844]]){
@@ -361,6 +462,7 @@ const server=http.createServer((req,res)=>{
         }
       }
     }
+    if(process.env.SCIENCE_RECORD_DEMOS)await recordDemos(browser,address);
     assert.deepEqual(errors,[],'browser must have no JavaScript runtime errors');
     console.log('BROWSER PASS: 100+ agents, 12 policies, model-driven generation, lab interventions, fork, dual worlds, charts, model limitations, mobile.');
   }finally{await browser.close();}

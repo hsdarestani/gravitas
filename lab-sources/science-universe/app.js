@@ -17,7 +17,7 @@ function readInk(){
   for(let i=0;i<4;i++)domainColors[i]=v('domain-'+i);
   for(const key of ['map-bg','map-grid','map-lane-a','map-lane-b','map-node','map-node-locked','map-link','map-cross','map-cross-solid',
     'map-flow','map-flow-line','map-flow-focus','map-label','map-label-strong','map-select','claim-open','claim-pass','claim-fail',
-    'agent-ai','agent-human','world-a','world-b','hairline','subtle','muted'])ink[key]=v(key);
+    'agent-ai','agent-human','world-a','world-b','hairline','subtle','muted','flow-wait','flow-pass','flow-stop'])ink[key]=v(key);
 }
 readInk();
 const domainNames=['Helix','Stratus','Axiom','Lattice'];
@@ -455,6 +455,7 @@ function snapshotInsight(){
 }
 function summary(){
   const s=nowWorld(),m=E.summary(s);
+  text('network-clock','Day '+m.day);
   for(const [id,value] of Object.entries({
     day:String(m.day).padStart(3,'0'),agents:human(s.agents.length),
     hypotheses:human(m.generated),published:human(m.published),
@@ -710,9 +711,9 @@ function mapLegend(){
  const visible=papers?livePaperNodes(s,{w:$(active?'network-b':'network-a').clientWidth,h:$(active?'network-b':'network-a').clientHeight}).map(n=>n.paper):[];
  if(papers){const key=active+':'+visible.map(p=>p.id).join(',');if(key!==claimOptionsKey){claimOptionsKey=key;const select=$('claim-select');select.replaceChildren(make('option','','Choose a claim…'));select.firstChild.value='';for(const p of [...visible].reverse()){const option=make('option','','#'+p.id+' · '+domainNames[p.domain]+' · day '+p.publishedOn);option.value=p.id;select.append(option);}}$('claim-select').value=selectedPaper[active]===null?'':String(selectedPaper[active]);}
  text('stage-title',('World '+(active?'B':'A')+' · ')+(papers?'Knowledge, one claim at a time':'Teams and collaboration'));
- text('map-explanation',papers?'Small dots are published claims. Pick one to see its citations.':'Larger circles have more studies in progress. Drag a team to change its possible collaborators.');
- text('canvas-instruction',papers?'Select a claim → inspect its citations':'Size = active studies · Lines = possible collaborators');
- text('links-label',papers?'Selected citations':'Collaborations');text('flows-label',papers?'Recent activity':'Team & citations');
+ text('map-explanation',papers?'Small dots are published claims. Pick one to see its citations.':'Drag a lab to change its possible collaborators. Select a lab to inspect its research.');
+ text('canvas-instruction',papers?'Select a claim → inspect its citations':'Size: active studies · Dashed links: between communities');
+ text('links-label',papers?'Selected citations':'Collaborations');text('flows-label',papers?'Recent activity':'People, citations & repeats');
  text('map-key-summary',papers?'Color shows repeat-test history · Each row is a community':'Choose a community to focus the map.');
  if(mapKeyView!==view){
   mapKeyView=view;
@@ -747,6 +748,92 @@ function drawArrow(ctx,a,b,color){
  ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(x,y);ctx.stroke();
  ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x-6*Math.cos(angle-.45),y-6*Math.sin(angle-.45));ctx.lineTo(x-6*Math.cos(angle+.45),y-6*Math.sin(angle+.45));ctx.closePath();ctx.fill();
 }
+function drawTerritories(ctx,s,g,radius){
+ const {w,h}=g;
+ for(let domain=0;domain<4;domain++){
+  const labs=s.labs.filter(lab=>lab.domain===domain);
+  if(!labs.length)continue;
+  const points=labs.map(lab=>position(lab,g));
+  const center={x:points.reduce((sum,p)=>sum+p.x,0)/points.length,y:points.reduce((sum,p)=>sum+p.y,0)/points.length};
+  const xx=points.reduce((sum,p)=>sum+(p.x-center.x)**2,0),yy=points.reduce((sum,p)=>sum+(p.y-center.y)**2,0);
+  const xy=points.reduce((sum,p)=>sum+(p.x-center.x)*(p.y-center.y),0);
+  const angle=.5*Math.atan2(2*xy,xx-yy),cos=Math.cos(angle),sin=Math.sin(angle);
+  const rx=Math.max(30,...points.map(p=>Math.abs((p.x-center.x)*cos+(p.y-center.y)*sin)+28));
+  const ry=Math.max(22,...points.map(p=>Math.abs((p.y-center.y)*cos-(p.x-center.x)*sin)+20));
+  const color=domainColors[domain],visible=fieldFilter===null||fieldFilter===domain;
+  ctx.save();ctx.translate(center.x,center.y);ctx.rotate(angle);
+  for(const [scale,alpha] of [[1,.08],[.83,.08],[.66,.10]]){
+   ctx.globalAlpha=visible?alpha:alpha*.17;ctx.fillStyle=color;ctx.strokeStyle=color;ctx.lineWidth=1.3;
+   ctx.beginPath();ctx.ellipse(0,0,rx*scale,ry*scale,0,0,Math.PI*2);ctx.fill();ctx.stroke();
+  }
+  ctx.restore();
+  if(!show.labels||!visible)continue;
+  const top=Math.min(...points.map(p=>p.y));
+  ctx.fillStyle=color;ctx.textAlign='center';ctx.font='600 '+radius(w<420?12:15)+'px '+FONT;
+  ctx.fillText(domainNames[domain],Math.min(w-36,Math.max(36,center.x)),Math.min(h-20,Math.max(23,top-26)));
+ }
+}
+function drawLabNodes(ctx,s,g,index,pulse,radius){
+ const agents=new Map(),repeats=new Map();
+ if(show.flows){
+  for(const agent of s.agents){
+   if(!agents.has(agent.labId))agents.set(agent.labId,[]);
+   agents.get(agent.labId).push(agent);
+  }
+  for(const event of s.events){
+   if(event.day<s.day-2)break;
+   if(['replication_passed','replication_failed','paper_retracted'].includes(event.type)&&!repeats.has(event.labId))
+    repeats.set(event.labId,event);
+  }
+ }
+ const connected=new Set(s.links.flatMap(({a,b})=>a===selected[index]?[b]:b===selected[index]?[a]:[]));
+ for(const lab of s.labs){
+  const {x,y}=position(lab,g),color=domainColors[lab.domain],selectedLab=selected[index]===lab.id;
+  const r=radius(Math.min(24,7+Math.sqrt(lab.active)*3.4));
+  const visible=fieldFilter===null||lab.domain===fieldFilter;
+  ctx.globalAlpha=visible?(selected[index]===null||selectedLab||connected.has(lab.id)?1:.44):.16;
+  if(selectedLab||lab.active>0){
+   ctx.strokeStyle=color;ctx.lineWidth=radius(1.2);ctx.beginPath();
+   ctx.arc(x,y,r+radius(selectedLab?9:4),0,Math.PI*2);ctx.stroke();
+  }
+  ctx.fillStyle=lab.locked?ink['map-node-locked']:ink['map-node'];
+  ctx.strokeStyle=selectedLab?ink['map-select']:color;ctx.lineWidth=radius(selectedLab?2.1:1.3);
+  ctx.beginPath();
+  for(let i=0;i<6;i++){
+   const angle=Math.PI/6+i*Math.PI/3,px=x+Math.cos(angle)*r,py=y+Math.sin(angle)*r;
+   if(i===0)ctx.moveTo(px,py);else ctx.lineTo(px,py);
+  }
+  ctx.closePath();ctx.fill();ctx.stroke();
+  ctx.fillStyle=color;
+  if(lab.active)for(let i=0;i<Math.min(9,lab.active);i++){
+   const cell=radius(2.4);
+   ctx.fillRect(x+(i%3-1.5)*cell,y+(Math.floor(i/3)-1.5)*cell,cell-0.6,cell-0.6);
+  }else{ctx.beginPath();ctx.arc(x,y,radius(1.8),0,Math.PI*2);ctx.fill();}
+  const team=agents.get(lab.id)||[];
+  team.forEach((agent,i)=>{
+   const angle=-Math.PI/2+i*Math.PI*2/team.length,orbit=r+radius(7);
+   const px=x+Math.cos(angle)*orbit,py=y+Math.sin(angle)*orbit;
+   drawResearchToken(ctx,px,py,radius(1.7),agent.role==='AI'?ink['agent-ai']:ink['agent-human'],agent.role==='AI'?'wait':'study');
+  });
+  const event=repeats.get(lab.id);
+  if(event){
+   const passed=event.type==='replication_passed',eventColor=passed?FLOW_COLORS.pass:FLOW_COLORS.stop;
+   drawResearchToken(ctx,x+r+radius(6),y-r,radius(3.7),eventColor,passed?'pass':'stop');
+   if(event.day===s.day&&pulse<1){
+    ctx.save();ctx.globalAlpha*=1-pulse;ctx.strokeStyle=eventColor;ctx.beginPath();
+    ctx.arc(x,y,r+radius(5+pulse*17),0,Math.PI*2);ctx.stroke();ctx.restore();
+   }
+  }
+  if(show.labels&&visible&&(selectedLab||fieldFilter!==null&&g.w>380||cameras[index].scale>1.6)){
+   const label=lab.name+(selectedLab?' · '+lab.active+' active':'');
+   ctx.font='600 '+radius(12)+'px '+FONT;ctx.textAlign='center';
+   const width=ctx.measureText(label).width+12,top=y+r+radius(8);
+   ctx.fillStyle=ink['map-bg'];ctx.fillRect(x-width/2,top,width,radius(17));
+   ctx.fillStyle=ink['map-label-strong'];ctx.fillText(label,x,top+radius(12));
+  }
+ }
+ ctx.globalAlpha=1;
+}
 function draw(canvas,s,index,t){
  if(!s)return;
  const g=canvasGeometry(canvas);if(!g)return;
@@ -758,29 +845,15 @@ function draw(canvas,s,index,t){
  canvas.dataset.zoom=String(camera.scale);
  const pulse=!reducedMotion.matches&&Number.isFinite(t)?Math.min(1,Math.max(0,1-(mapMotionUntil-t)/300)):1;
  const radius=(r)=>r/Math.sqrt(camera.scale);
- if(!papers)for(let domain=0;domain<4;domain++){
-  const group=s.labs.filter(l=>l.domain===domain).map(l=>position(l,g));if(!group.length)continue;
-  const x=group.reduce((sum,p)=>sum+p.x,0)/group.length,y=group.reduce((sum,p)=>sum+p.y,0)/group.length;
-  const rx=Math.max(48,...group.map(p=>Math.abs(p.x-x)+24)),ry=Math.max(44,...group.map(p=>Math.abs(p.y-y)+24));
-  ctx.save();const aura=ctx.createRadialGradient(x,y,0,x,y,Math.max(rx,ry));
-  aura.addColorStop(0,domainColors[domain]);aura.addColorStop(1,'transparent');
-  ctx.globalAlpha=(fieldFilter===null||fieldFilter===domain) ? .26 : .045;
-  ctx.fillStyle=aura;ctx.strokeStyle=domainColors[domain];ctx.lineWidth=.65;
-  for(const ring of [1,.78,.56]){
-   ctx.beginPath();ctx.ellipse(x,y,rx*ring,ry*ring,0,0,Math.PI*2);
-   if(ring===1)ctx.fill();
-   ctx.stroke();
-  }
-  ctx.restore();
-  ctx.fillStyle=domainColors[domain];ctx.globalAlpha=.7;ctx.font='600 '+radius(13)+'px '+FONT;ctx.textAlign='center';ctx.fillText(domainNames[domain].toUpperCase(),x,Math.max(20,y-ry-8));ctx.globalAlpha=1;
- }
+ if(!papers)drawTerritories(ctx,s,g,radius);
  if(show.links&&!papers)for(const edge of s.links){
   if(fieldFilter!==null&&s.labs[edge.a].domain!==fieldFilter&&s.labs[edge.b].domain!==fieldFilter)continue;
   const a=position(s.labs[edge.a],g),b=position(s.labs[edge.b],g);
   ctx.strokeStyle=s.labs[edge.a].domain!==s.labs[edge.b].domain?ink['map-cross']:ink['map-link'];
   const highlighted=edge.a===selected[index]||edge.b===selected[index];
   ctx.globalAlpha=selected[index]===null||highlighted?1:.36;
-  ctx.lineWidth=radius(highlighted?1.7:.95);ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke();
+  ctx.setLineDash(s.labs[edge.a].domain!==s.labs[edge.b].domain?[4,4]:[]);
+  drawChannel(ctx,a,b,.13,radius(highlighted?1.7:.8),ctx.strokeStyle);ctx.setLineDash([]);
   ctx.globalAlpha=1;
  }
  if(papers){
@@ -803,30 +876,14 @@ function draw(canvas,s,index,t){
  }
  if(!papers&&show.flows)for(const flow of (s.citationEdges||[]).filter(e=>s.day-e.day<=8)){
   if(fieldFilter!==null&&s.labs[flow.from].domain!==fieldFilter&&s.labs[flow.to].domain!==fieldFilter)continue;
-  const a=position(s.labs[flow.from],g),b=position(s.labs[flow.to],g),f=Math.min(1,Math.max(0,(s.day-flow.day+pulse)/8));
-  drawArrow(ctx,a,b,ink['map-flow-line']);ctx.fillStyle=ink['map-flow'];ctx.beginPath();ctx.arc(a.x+(b.x-a.x)*f,a.y+(b.y-a.y)*f,2.5,0,6.283);ctx.fill();
+  const a=position(s.labs[flow.from],g),b=position(s.labs[flow.to],g),f=flow.day===s.day?pulse:1;
+  const c=drawChannel(ctx,a,b,-.24,radius(flow.day===s.day?1.8:.85),ink[flow.day===s.day?'map-flow-focus':'map-flow-line']);
+  if(flow.day===s.day){
+   const x=(1-f)**2*a.x+2*f*(1-f)*c.x+f*f*b.x,y=(1-f)**2*a.y+2*f*(1-f)*c.y+f*f*b.y;
+   drawResearchToken(ctx,x,y,radius(3.1),ink['map-flow'],'paper');
+  }
  }
- if(!papers)s.labs.forEach((l,i)=>{
-  ctx.globalAlpha=fieldFilter===null||l.domain===fieldFilter?1:.18;
-  const p=position(l,g),isSelected=selected[index]===i,r=radius(Math.min(20,8+Math.sqrt(l.active)*2.6));
-  if(isSelected){ctx.strokeStyle=ink['map-select'];ctx.lineWidth=1.5;ctx.beginPath();ctx.arc(p.x,p.y,r+8,0,6.283);ctx.stroke();}
-  ctx.fillStyle=l.locked?ink['map-node-locked']:ink['map-node'];ctx.strokeStyle=domainColors[l.domain];ctx.lineWidth=papers?1:1.5;
-  ctx.beginPath();ctx.arc(p.x,p.y,r,0,6.283);ctx.fill();ctx.stroke();
-  if(l.active>0){
-   ctx.save();ctx.globalAlpha*=.35+.35*pulse;ctx.strokeStyle=domainColors[l.domain];
-   ctx.beginPath();ctx.arc(p.x,p.y,r+radius(4),0,Math.PI*2);ctx.stroke();ctx.restore();
-  }
-  ctx.fillStyle=domainColors[l.domain];ctx.beginPath();ctx.arc(p.x,p.y,radius(isSelected?4:2.7),0,Math.PI*2);ctx.fill();
-  if(!papers&&show.flows){
-   const agents=s.agents.filter(a=>a.labId===i);
-   agents.forEach((a,j)=>{const ang=-Math.PI/2+j*2*Math.PI/agents.length,orbit=r+radius(7);
-    ctx.fillStyle=a.role==='AI'?ink['agent-ai']:ink['agent-human'];ctx.beginPath();ctx.arc(p.x+Math.cos(ang)*orbit,p.y+Math.sin(ang)*orbit,1.9,0,6.283);ctx.fill();});
-  }
-  if(show.labels&&(isSelected||fieldFilter===l.domain||w>850)){
-   ctx.fillStyle=isSelected?ink['map-label-strong']:ink['map-label'];ctx.font=isSelected?'600 11px '+FONT:'11px '+FONT;ctx.textAlign='center';ctx.fillText(l.name,p.x,p.y-r-12);
-  }
- });
- ctx.globalAlpha=1;
+ if(!papers)drawLabNodes(ctx,s,g,index,pulse,radius);
  for(const n of nodes){
   const paper=n.paper,passed=(paper.replications||0)-(paper.failedReplications||0);
   ctx.fillStyle=paper.failedReplications?ink['claim-fail']:passed>0?ink['claim-pass']:ink['claim-open'];ctx.strokeStyle=domainColors[paper.domain];ctx.lineWidth=1.4;
@@ -836,7 +893,7 @@ function draw(canvas,s,index,t){
  }
  ctx.restore();
  canvas.dataset.mapView=view;canvas.dataset.visiblePapers=String(nodes.length);
- if(playing&&!reducedMotion.matches&&Number.isFinite(t)&&t<mapMotionUntil&&s.citationEdges?.length)queueMap();
+ if(playing&&!reducedMotion.matches&&Number.isFinite(t)&&t<mapMotionUntil&&s.events[0]?.day===s.day)queueMap();
 }
 function drawMap(time){
   if(compareMode&&worlds[1]){
@@ -1163,7 +1220,7 @@ const FOCUS_STAGES={
 };
 function traceStudy(world,recorded){
  // Follow the first study to receive an independent repeat in this run.
- const repeat=recorded.findLast(e=>e.type==='replication_passed'||e.type==='replication_failed');
+ const repeat=recorded.find(e=>e.type==='replication_passed'||e.type==='replication_failed');
  const study=world.hypotheses.find(h=>h.id===repeat?.hypothesisId)||world.hypotheses[0];
  if(!study)return [];
  const events=recorded.filter(e=>e.hypothesisId===study.id);
@@ -1180,7 +1237,7 @@ function traceStudy(world,recorded){
   replication_failed:['replicated','Independent repeat fails'],
   paper_retracted:['replicated','Paper withdrawn after a failed repeat']
  };
- for(const event of events.reverse()){
+ for(const event of events){
   const step=stages[event.type];
   if(step)trace.push({day:event.day,stage:step[0],label:step[1],failed:/reject|failed|retracted/.test(event.type)});
  }
@@ -1193,6 +1250,7 @@ function drawLifecycle(run){
  const reached=new Set(visited.map(step=>step.stage));
  text('lifecycle-mode',current?trace[0].label.replace(/ proposed$/,''):'From idea to evidence');
  text('lifecycle-clock',run?'Day '+focusDay+' / '+FOCUS_DAYS:'Ready to run');
+ $('flow-empty').hidden=!!run;
  const token=$('lifecycle-token');
  token.hidden=!current;
  if(current){
@@ -1208,7 +1266,7 @@ function drawLifecycle(run){
  const daily=run?.events[focusDay]||[];
  const counts=new Map();
  for(const item of daily){
-  const label=WORLD_EVENTS[item.type]?.[1];
+  const label=FLOW_EVENTS[item.type]?.label;
   if(label)counts.set(label,(counts.get(label)||0)+1);
  }
  if(activity.frame!==run?.days[focusDay]){
@@ -1219,18 +1277,11 @@ function drawLifecycle(run){
  for(const button of document.querySelectorAll('[data-stage]')){
   const count=button.querySelector('.station-count');
   text(count,run?run.days[focusDay][button.dataset.stage]:'—');
-  const marks=button.querySelector('.station-events');
-  if(marks.frame!==run?.days[focusDay]){
-   marks.frame=run?.days[focusDay];
-   const stage=button.dataset.stage;
-   const matches=daily.filter(item=>{const metric=WORLD_EVENTS[item.type]?.[0];return metric===stage||(metric==='activeStudies'&&stage===(item.type==='hypothesis_generated'?'generated':'tested'));});
-   marks.replaceChildren(...matches.slice(0,8).map(item=>make('i',WORLD_EVENTS[item.type]?.[2]||'')));
-  }
   button.classList.toggle('is-reached',reached.has(button.dataset.stage));
   button.classList.toggle('is-current',current?.stage===button.dataset.stage);
   button.setAttribute('aria-pressed',String(button.dataset.stage===focusStage));
  }
- text('focus-stage-detail',FOCUS_STAGES[focusStage][0]+' · '+FOCUS_STAGES[focusStage][1]);
+ text('focus-stage-detail',FOCUS_STAGES[focusStage][0]+(run?' '+run.days[focusDay][focusStage]:'')+' · '+FOCUS_STAGES[focusStage][1]);
 }
 function stopFocusedReplay(){
  cancelAnimationFrame(focusReplay);
@@ -1295,11 +1346,169 @@ const WORLD_METRICS=[
  ['activeStudies','Testing','Studies currently running'],['reviewBacklog','Review queue','Manuscripts waiting at the end of the day'],
  ['published','Published','Cumulative accepted papers'],['replicated','Repeated','Cumulative independent repeats']
 ];
-const WORLD_EVENTS={
- hypothesis_generated:['activeStudies','Study started'],hypothesis_rejected:['activeStudies','No detectable effect','loss'],
- review_rejected:['reviewBacklog','Rejected in review','loss'],paper_published:['published','Paper published'],
- replication_passed:['replicated','Repeat passed'],replication_failed:['replicated','Repeat failed','loss'],paper_retracted:['replicated','Paper withdrawn','loss']
+// Capture compact view state after each complete model day. Intermediate same-day
+// transitions come from study records and the engine's ordered events.
+const FLOW_EVENTS={
+ hypothesis_generated:{label:'Study started',metric:'activeStudies'},
+ hypothesis_rejected:{label:'No detectable effect',metric:'activeStudies',route:[1,5]},
+ review_rejected:{label:'Rejected in review',metric:'reviewBacklog',route:[2,5]},
+ paper_published:{label:'Paper published',metric:'published',route:[2,3]},
+ replication_passed:{label:'Repeat passed',metric:'replicated',route:[4,6]},
+ replication_failed:{label:'Repeat failed',metric:'replicated',route:[4,5]},
+ paper_retracted:{label:'Paper withdrawn',metric:'replicated',route:[5,5]}
 };
+const worldPreviews=E.make(FOCUS_SEED).labs.map(({id,x,y,domain})=>({id,x,y,domain}));
+function recordResearchDay(world,events,previous){
+ const byId=new Map(world.hypotheses.map(study=>[study.id,study]));
+ const identity=({id,labId,domain})=>({id,labId,domain});
+ const review=world.queues.review.map(id=>identity(byId.get(id)));
+ const replication=world.queues.replication.map(({id})=>identity(byId.get(id)));
+ const testing=world.hypotheses.filter(study=>study.status==='testing').map(identity);
+ const published=world.hypotheses.filter(study=>study.published&&!study.retracted).map(identity);
+ const changes=[];
+ for(const study of world.hypotheses){
+  if(study.created===world.day)changes.push({...identity(study),route:[0,1],type:'hypothesis_generated'});
+  if(study.tested&&study.significant&&study.complete===world.day)
+   changes.push({...identity(study),route:[1,2],type:'review_entered'});
+ }
+ for(const event of events){
+  const route=FLOW_EVENTS[event.type]?.route,study=byId.get(event.hypothesisId);
+  if(route&&study)changes.push({...identity(study),route,type:event.type});
+ }
+ const priorRepeat=new Set(previous?.replication.map(study=>study.id));
+ for(const study of replication){
+  if(!priorRepeat.has(study.id))changes.push({...study,route:[3,4],type:'replication_queued'});
+ }
+ const movements=new Map();
+ for(const change of changes){
+  if(!movements.has(change.id))movements.set(change.id,[]);
+  movements.get(change.id).push(change);
+ }
+ return {testing,review,replication,published,movements};
+}
+const FLOW_COLORS={get wait(){return ink['flow-wait'];},get pass(){return ink['flow-pass'];},get stop(){return ink['flow-stop'];}};
+const curve=(a,b,bend)=>({x:(a.x+b.x)/2+bend*(b.y-a.y),y:(a.y+b.y)/2-bend*(b.x-a.x)});
+function drawChannel(ctx,a,b,bend,width,color){
+ const c=curve(a,b,bend);
+ ctx.strokeStyle=color;ctx.lineWidth=width;ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.quadraticCurveTo(c.x,c.y,b.x,b.y);ctx.stroke();
+ return c;
+}
+function drawResearchToken(ctx,x,y,r,color,kind){
+ ctx.fillStyle=color;ctx.strokeStyle=color;ctx.lineWidth=1.35;ctx.beginPath();
+ if(kind==='stop'){ctx.moveTo(x-r,y-r);ctx.lineTo(x+r,y+r);ctx.moveTo(x+r,y-r);ctx.lineTo(x-r,y+r);ctx.stroke();return;}
+ if(kind==='pass'){ctx.moveTo(x-r,y);ctx.lineTo(x-r*.2,y+r*.72);ctx.lineTo(x+r,y-r);ctx.stroke();return;}
+ if(kind==='wait'){ctx.moveTo(x,y-r);ctx.lineTo(x+r,y);ctx.lineTo(x,y+r);ctx.lineTo(x-r,y);ctx.closePath();}
+ else if(kind==='paper')ctx.rect(x-r*.65,y-r,r*1.3,r*2);
+ else ctx.arc(x,y,r,0,Math.PI*2);
+ ctx.fill();
+}
+function drawResearchRun(canvas,run,side,progress){
+ const g=canvasGeometry(canvas);if(!g)return;
+ const {ctx,w,h}=g,world=side!==null,vertical=!world&&innerWidth<=620;
+ const day=run?.research[focusDay],previous=run?.research[focusDay-1];
+ const at=(x,y)=>({x:w*x,y:h*y});
+ const stations=world?[at(.17,.5),at(.38,.52),at(.61,.49),at(.81,.32),at(.83,.65),at(.67,.86),at(.94,.80)]:
+  vertical?[at(.34,.10),at(.44,.30),at(.34,.51),at(.47,.70),at(.55,.89),at(.84,.59),at(.82,.91)]:
+   [at(.10,.46),at(.30,.42),at(.50,.46),at(.70,.38),at(.90,.49),at(.53,.81),at(.91,.78)];
+ const accent=ink['world-'+(side||'a')];
+ const shade=(color,alpha)=>color+Math.round(alpha*2.55).toString(16).padStart(2,'0');
+ ctx.clearRect(0,0,w,h);
+ // The channel plan is visible before day zero. No study or outcome is drawn until observed.
+ const routes=[[0,1],[1,2],[2,3],[3,4],[1,5],[2,5],[4,5],[4,6]];
+ for(const [from,to] of routes){
+  const branch=to>=5,wide=world?7:vertical?17:25;
+  drawChannel(ctx,stations[from],stations[to],.23,branch?1:wide,shade(accent,branch?19:14));
+  ctx.setLineDash(branch?[3,5]:[]);
+  drawChannel(ctx,stations[from],stations[to],.23,1,shade(accent,branch?30:48));ctx.setLineDash([]);
+ }
+ const r=world?Math.max(8,Math.min(w*.048,24)):vertical?18:28;
+ for(const [i,p] of stations.entries()){
+  ctx.strokeStyle=shade(i===5?FLOW_COLORS.stop:i===6?FLOW_COLORS.pass:accent,i<5?53:29);
+  const size=i<5?r:r*.56;
+  if(i<5){
+   const lens=ctx.createRadialGradient(p.x,p.y,0,p.x,p.y,size*1.8);
+   lens.addColorStop(0,shade(accent,21));lens.addColorStop(1,'transparent');
+   ctx.fillStyle=lens;ctx.fillRect(p.x-size*1.8,p.y-size*1.8,size*3.6,size*3.6);
+  }
+  ctx.lineWidth=1;ctx.beginPath();ctx.arc(p.x,p.y,size,0,Math.PI*2);ctx.stroke();
+  if(i===2||i===4){ctx.beginPath();ctx.arc(p.x,p.y,r+5,0,Math.PI*2);ctx.stroke();}
+ }
+ const labPositions=world?worldPreviews.map(lab=>{
+  // Use the same laboratory positions and scale for both matched worlds.
+  const theta=lab.domain*Math.PI/2+Math.PI*.22;
+  const x=.35+Math.cos(theta)*.24+(lab.x-.5)*.24,y=.47+Math.sin(theta)*.32+(lab.y-.5)*.26;
+  return at(x,y);
+ }):[];
+ if(world){
+  for(let domain=0;domain<4;domain++){
+   const members=worldPreviews.filter(lab=>lab.domain===domain).map(lab=>labPositions[lab.id]);
+   const center={x:members.reduce((sum,p)=>sum+p.x,0)/members.length,y:members.reduce((sum,p)=>sum+p.y,0)/members.length};
+   const glow=ctx.createRadialGradient(center.x,center.y,0,center.x,center.y,w*.23);
+   glow.addColorStop(0,shade(domainColors[domain],24));glow.addColorStop(1,'transparent');
+   ctx.fillStyle=glow;ctx.fillRect(0,0,w,h);
+  }
+  const loads=new Map();
+  for(const study of day?.testing||[])loads.set(study.labId,(loads.get(study.labId)||0)+1);
+  for(const lab of worldPreviews){
+   const p=labPositions[lab.id],load=loads.get(lab.id)||0;
+   ctx.strokeStyle=shade(domainColors[lab.domain],load?68:42);
+   ctx.fillStyle=shade(domainColors[lab.domain],load?28:10);
+   ctx.beginPath();ctx.arc(p.x,p.y,2.5+Math.sqrt(load)*(w<230?1.4:2.4),0,Math.PI*2);ctx.fill();ctx.stroke();
+  }
+ }
+ if(!day){canvas.dataset.studies='0';canvas.dataset.day='';canvas.dataset.progress='1';return;}
+ const active=day.movements;
+ const spread=(i,columns,step)=>({cross:(i%columns-(columns-1)/2)*step,along:Math.floor(i/columns)*step});
+ const cohorts=[[day.testing,1,'study'],[day.review,2,'wait'],[day.replication,4,'wait'],[day.published,3,'paper']];
+ for(const [studies,stage,kind] of cohorts){
+  const color=kind==='wait'?FLOW_COLORS.wait:kind==='paper'?shade(accent,57):shade(accent,76);
+  const columns=world?5:vertical?7:10,spacing=world?Math.min(7,w*.026):vertical?7:9;
+  for(const [i,study] of studies.entries()){
+   if(progress<1&&active.has(study.id))continue;
+   const p=world&&stage===1?labPositions[study.labId]:stations[stage];
+   const offset=spread(world&&stage===1?study.id%15:i,columns,spacing);
+   let x=vertical?p.x+offset.cross:p.x-offset.along;
+   let y=vertical?p.y-offset.along:p.y+offset.cross;
+   if(!world&&stage===1){
+    x=p.x+offset.cross;
+    y=p.y+14+offset.along;
+   }
+   if(stage===2){x=p.x+offset.cross;y=p.y+12+offset.along;}
+   if(stage===4){x=p.x+offset.cross;y=p.y-offset.along;}
+
+   if(stage===3){x=p.x+offset.cross;y=p.y-offset.along;}
+   if(world&&stage===1){x=p.x+offset.cross*.45;y=p.y+offset.along*.55-4;}
+   if(x<5||x>w-5||y<5||y>h-5)continue;
+   drawResearchToken(ctx,x,y,kind==='wait'?2.9:2.2,color,kind);
+  }
+ }
+ for(const transitions of day.movements.values()){
+  const index=Math.min(transitions.length-1,Math.floor(progress*transitions.length));
+  const {id,labId,type,route:[from,to]}=transitions[index];
+  const p0=world&&from===1?labPositions[labId]:stations[from],p1=world&&to===1?labPositions[labId]:stations[to];
+  const offset=(id%9-4)*(world?1.6:3.3);
+  const a={x:p0.x+offset,y:p0.y-offset},b={x:p1.x+offset,y:p1.y-offset};
+  const t=Math.max(0,Math.min(1,progress*transitions.length-index)),c=curve(a,b,.23);
+  const kind=to===5?'stop':to===6?'pass':'study';
+  const color=kind==='stop'?FLOW_COLORS.stop:kind==='pass'?FLOW_COLORS.pass:to===2?FLOW_COLORS.wait:accent;
+  if(progress===1&&kind==='study'&&to!==3)continue;
+  const x=(1-t)**2*a.x+2*t*(1-t)*c.x+t*t*b.x,y=(1-t)**2*a.y+2*t*(1-t)*c.y+t*t*b.y;
+  if(progress<1&&from!==to){
+   drawChannel(ctx,a,{x,y},.1,2,shade(color,45));
+  }
+  drawResearchToken(ctx,x,y,world?3:4.4,color,kind);
+  if(type==='paper_retracted'){ctx.strokeStyle=color;ctx.beginPath();ctx.arc(x,y,6,0,Math.PI*2);ctx.stroke();}
+ }
+ canvas.dataset.studies=String(day.testing.length+day.review.length+day.replication.length);
+ canvas.dataset.day=String(focusDay);canvas.dataset.progress=progress.toFixed(2);
+ canvas.dataset.queue=String(day.review.length);
+ canvas.dataset.previousQueue=String(previous?.review.length||0);
+}
+function drawFocusedAnimation(progress){
+ if(level==='simple')drawResearchRun($('research-flow'),focusedRuns?.a,null,progress);
+ if(level==='medium')for(const side of ['a','b'])
+  drawResearchRun($('focus-world-'+side).querySelector('canvas'),focusedRuns?.[side],side,progress);
+}
 let inspectedWorld='a',inspectedMetric='reviewBacklog';
 function mountWorldFields(){
  for(const side of ['a','b']){
@@ -1307,46 +1516,13 @@ function mountWorldFields(){
   for(const [key,label] of WORLD_METRICS){
    const station=make('button','world-station');
    station.type='button';station.dataset.metric=key;
-   const meter=make('span','world-meter');meter.setAttribute('aria-hidden','true');
-   const activity=make('span','world-events');activity.setAttribute('aria-hidden','true');
-   station.append(make('span','world-metric',label),make('strong','','—'),meter,activity);
+   station.append(make('span','world-metric',label),make('strong','','—'));
    station.addEventListener('click',()=>{inspectedWorld=side;inspectedMetric=key;drawFocusDay();publishFocusedContext();});
    field.append(station);
   }
  }
  for(const station of document.querySelectorAll('[data-stage]')){
-  const count=make('span','station-count','—'),events=make('span','station-events');
-  count.setAttribute('aria-hidden','true');events.setAttribute('aria-hidden','true');station.append(count,events);
- }
-}
-// A ring is a measured stock or total. Flow marks are recorded arrivals and outcomes for this day.
-function drawWorldFlow(field,run,side){
- const canvas=field.querySelector('canvas'),g=canvasGeometry(canvas);
- if(!g)return;
- const {ctx,w,h}=g,margin=w<240?18:30;
- ctx.clearRect(0,0,w,h);
- const points=[[.23,.25],[.77,.25],[.77,.75],[.23,.75]].map(([x,y])=>({x:x*w,y:y*h}));
- const color=ink['world-'+side];
- for(const [index,[key]] of WORLD_METRICS.entries()){
-  const {x,y}=points[index],next=points[index+1];
-  const maximum=field.querySelectorAll('.world-station')[index].style.getPropertyValue('--volume');
-  ctx.strokeStyle=color;ctx.lineWidth=1;ctx.globalAlpha=.22;
-  const chamber=margin+Math.min(w*.12,38);
-  ctx.beginPath();ctx.arc(x,y,chamber,0,Math.PI*2);ctx.stroke();
-  if(Number(maximum)>0){
-   ctx.globalAlpha=.85;ctx.lineWidth=2;ctx.beginPath();
-   ctx.arc(x,y,chamber,-Math.PI/2,-Math.PI/2+2*Math.PI*Number(maximum));ctx.stroke();
-  }
-  ctx.globalAlpha=1;ctx.strokeStyle=ink['map-link'];
-  if(next){
-   ctx.setLineDash([3,4]);ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(next.x,next.y);ctx.stroke();ctx.setLineDash([]);
-  }
-  const events=(run?.events[focusDay]||[]).filter(event=>WORLD_EVENTS[event.type]?.[0]===key);
-  events.slice(0,10).forEach((event,i)=>{
-   const angle=-Math.PI/2+i*Math.PI/5,r=chamber+5;
-   ctx.fillStyle=WORLD_EVENTS[event.type][2]?ink['claim-fail']:color;
-   ctx.fillRect(x+Math.cos(angle)*r-2,y+Math.sin(angle)*r-2,4,4);
-  });
+  const count=make('span','station-count','—');count.setAttribute('aria-hidden','true');station.append(count);
  }
 }
 function drawWorldFields(a,b){
@@ -1354,26 +1530,18 @@ function drawWorldFields(a,b){
  for(const [side,run,row] of [['a',a,left],['b',b,right]]){
   const host=$('focus-world-'+side);
   host.dataset.day=row?.day??'';
-  const field=host.querySelector('.world-field');
   for(const station of host.querySelectorAll('[data-metric]')){
-   const key=station.dataset.metric,scale=Math.max(1,...[a,b].flatMap(run=>run?.days.map(day=>day[key])||[]));
+   const key=station.dataset.metric;
    text(station.querySelector('strong'),row?.[key]??'—');
-   station.style.setProperty('--volume',(row?.[key]||0)/scale);
    station.setAttribute('aria-pressed',String(side===inspectedWorld&&key===inspectedMetric));
-   const events=station.querySelector('.world-events'),frame=run?.days[focusDay];
-   if(events.frame===frame)continue;
-   events.frame=frame;
-   const visible=(run?.events[focusDay]||[]).map(event=>WORLD_EVENTS[event.type]).filter(event=>event?.[0]===key);
-   events.replaceChildren(...visible.slice(0,12).map(event=>make('i',event[2]||'')));
   }
-  drawWorldFlow(field,run,side);
  }
  const inspected=inspectedWorld==='a'?a:b;
  const metric=WORLD_METRICS.find(([key])=>key===inspectedMetric);
  const counts=new Map();
  for(const event of inspected?.events[focusDay]||[]){
-  const item=WORLD_EVENTS[event.type];
-  if(item?.[0]===inspectedMetric)counts.set(item[1],(counts.get(item[1])||0)+1);
+  const item=FLOW_EVENTS[event.type];
+  if(item?.metric===inspectedMetric)counts.set(item.label,(counts.get(item.label)||0)+1);
  }
  text('world-inspection','World '+inspectedWorld.toUpperCase()+' · '+metric[2]+
   (inspected?' · '+(counts.size?[...counts].map(([label,count])=>label+' × '+count).join(' · '):'No recorded events at this station today.'):' · Run to observe'));
@@ -1451,8 +1619,8 @@ function selectLevel(next,scenario,focus=false){
   const recipe=focusedRecipe(),medium=level==='medium';
   renderMediumControls();
   text('focus-kicker',medium?'Science Universe / Parallel Worlds':'Science Universe / Research Journey');
-  text('focus-title',recipe.name);
-  text('focus-description',medium?'Change World B and watch both worlds run on the same clock.':'Follow a study through the research lifecycle, then try a different peer-review policy.');
+  text('focus-title',medium?'Two worlds, one starting point':recipe.name);
+  text('focus-description',medium?'Change World B and watch both worlds run on the same clock.':'Follow studies from first hypothesis to independent repeat.');
   text('focus-setting-label','Peer-review policy');
   syncRange($('focus-setting'),simpleSetting,REVIEW_CAPACITY.low);
   drawFocused();focusPending();
@@ -1462,13 +1630,14 @@ function selectLevel(next,scenario,focus=false){
 }
 function modelRun(recipe,value){
  const world=E.make(FOCUS_SEED,typeof value==='object'?value:{[recipe.key]:value});
- const days=[E.summary(world)],events=[[]];
+ const days=[E.summary(world)],events=[[]],research=[recordResearchDay(world,[])];
  for(let day=1;day<=FOCUS_DAYS;day++){
   E.step(world,1);
   days.push(E.summary(world));
-  events.push(world.events.filter(event=>event.day===day));
+  const daily=world.events.filter(event=>event.day===day).reverse();
+  events.push(daily);research.push(recordResearchDay(world,daily,research.at(-1)));
  }
- return {world,days,events,summary:days.at(-1),trace:traceStudy(world,[...events].reverse().flat())};
+ return {world,days,events,research,summary:days.at(-1),trace:traceStudy(world,events.flat())};
 }
 function runFocused(){
  if(level==='advanced')return;
@@ -1503,10 +1672,12 @@ function replayFocused(){
  if(matchMedia('(prefers-reduced-motion: reduce)').matches){focusDay=FOCUS_DAYS;drawFocusDay();return;}
  const start=performance.now(),from=focusDay>=FOCUS_DAYS?0:focusDay;
  function tick(now){
-  const day=Math.min(FOCUS_DAYS,from+Math.floor((now-start)/(level==='simple'?200:170)));
-  if(day!==focusDay){focusDay=day;drawFocusDay();}
-  if(day<FOCUS_DAYS)focusReplay=requestAnimationFrame(tick);
-  else{stopFocusedReplay();focusPending();}
+  const elapsed=(now-start)/(level==='simple'?285:235);
+  const day=Math.min(FOCUS_DAYS,from+Math.floor(elapsed)+1);
+  if(day!==focusDay){focusDay=day;drawFocusDay(false);}
+  drawFocusedAnimation(Math.min(1,elapsed-Math.floor(elapsed)));
+  if(elapsed<FOCUS_DAYS-from)focusReplay=requestAnimationFrame(tick);
+  else{drawFocusedAnimation(1);stopFocusedReplay();focusPending();}
  }
  focusDay=from;drawFocusDay();
  $('focus-replay').hidden=true;$('focus-pause').hidden=false;
@@ -1525,7 +1696,7 @@ function focusComparison(){
  return 'Day 45 queue: '+before+' at '+baseline.value+'/10 → '+after+' at '+trial.value+'/10 ('+direction+').'+check+
   ' The queue grows when studies arrive faster than reviews finish. These results are from one matched seed.';
 }
-function drawFocusDay(){
+function drawFocusDay(drawCanvas=true){
  const recipe=focusedRecipe(),medium=level==='medium';
  const baseline=simpleRuns.get(REVIEW_CAPACITY.low);
  const a=medium?focusedRuns?.a:(baseline||focusedRuns)?.a;
@@ -1535,6 +1706,7 @@ function drawFocusDay(){
  const host=$('focus-results');
  text('focus-metric',medium?recipe.outcome:FOCUS_STAGES[metric][0]);
  if(medium)drawWorldFields(a,b);else drawLifecycle(b||a);
+ if(drawCanvas)drawFocusedAnimation(1);
  const scores=medium?[['World A · baseline',left],['World B · intervention',right]]:
   right?[[baseline.value+'/10 · baseline',left],[focusedRuns.value+'/10 · trial',right]]:
   [[a?focusedRuns.value+'/10 · baseline':'Day 0',left||{[metric]:0}]];
@@ -1700,7 +1872,7 @@ function bind(){
   $('plot-ask').addEventListener('click',()=>G.askPulsar?.('Explain the '+metricInfo(plot)[0]+' chart. '+$('plot-io-caption').textContent+'. Explain the causal uncertainty of this simulated outcome.'));
   $('focus-run').addEventListener('click',runFocused);
   $('focus-replay').addEventListener('click',replayFocused);
-  $('focus-pause').addEventListener('click',()=>{stopFocusedReplay();text('focus-status','Paused at day '+focusDay+'.');$('focus-replay').focus();});
+  $('focus-pause').addEventListener('click',()=>{stopFocusedReplay();drawFocusedAnimation(1);text('focus-status','Paused at day '+focusDay+'.');$('focus-replay').focus();});
   $('focus-reset').addEventListener('click',resetFocused);
   $('focus-next').addEventListener('click',()=>selectLevel('medium','review_bottleneck',true));
   $('focus-scenario').addEventListener('change',event=>selectLevel('medium',event.target.value,true));
@@ -1886,8 +2058,9 @@ function installSelects(){
   addEventListener('resize',()=>close());
 }
 mountWorkspace();mountWorldFields();bind();render();bridge();installSelects();selectLevel('simple');
-if(G.onTheme)G.onTheme(()=>{readInk();drawChart();if(level==='advanced')queueMap();else if(level==='medium')drawFocusDay();});
-new ResizeObserver(()=>{if(level==='medium')drawFocusDay();}).observe($('focus-worlds'));
+if(G.onTheme)G.onTheme(()=>{readInk();drawChart();if(level==='advanced')queueMap();else drawFocusedAnimation(1);});
+const focusResize=new ResizeObserver(()=>{if(level!=='advanced'&&!focusReplay)drawFocusedAnimation(1);});
+for(const id of ['focus-worlds','research-flow'])focusResize.observe($(id));
 // The host hides Pulsar while a dialog in here dims the workspace, so the
 // companion never floats undimmed over a modal backdrop.
 if(G.modal)new MutationObserver(()=>G.modal(!!document.querySelector('dialog[open]')))

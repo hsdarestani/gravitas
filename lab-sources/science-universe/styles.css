@@ -692,17 +692,6 @@ th{position:sticky;top:0;background:var(--raised);font-family:var(--font);font-w
   position:relative;justify-items:center;align-content:start;gap:8px;
   padding:5px 2px;min-height:68px;border:0;background:none;text-align:center;
 }
-.focus-workflow svg {
-  display:block;width:40px;height:40px;padding:7px;overflow:visible;
-  background:var(--map-bg);border:1px solid var(--border);border-radius:50%;
-  fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;
-}
-.focus-workflow button:is([aria-pressed="true"],.is-current) svg {border-color:var(--world-a);color:var(--world-a)}
-.focus-workflow button.is-reached span {color:var(--text)}
-#lifecycle-token {
-  position:absolute;z-index:2;top:43px;left:10%;width:8px;height:8px;transform:translateX(-50%);
-  background:var(--world-b);border-radius:50%;pointer-events:none;transition:left .28s ease;
-}
 #focus-stage-detail {text-align:center;margin:0;min-height:1.5em}
 #lifecycle-event {margin:10px 0 0;padding-top:8px;border-top:1px solid var(--border);font-size:12px;color:var(--world-b)}
 .universe[data-level="simple"] .focus-stage {border-radius:0;border-width:1px 0;background:transparent}
@@ -768,26 +757,6 @@ th{position:sticky;top:0;background:var(--raised);font-family:var(--font);font-w
 #focus-pipeline .focus-workflow button {
   width:100%;gap:7px;min-height:116px;padding:9px 0 4px;border-radius:8px;color:var(--muted)
 }
-.focus-workflow svg {
-  width:var(--chamber);height:var(--chamber);padding:calc(var(--chamber) * .23);
-  border:1px solid color-mix(in srgb,var(--accent) 60%,var(--map-bg));
-  border-radius:25%;color:var(--world-a);
-  background:radial-gradient(var(--observatory-panel),var(--map-bg));
-  box-shadow:0 0 0 4px var(--map-bg),0 0 0 5px var(--observatory-grid)
-}
-.focus-workflow button.is-current svg,.focus-workflow button[aria-pressed="true"] svg {
-  color:var(--text);border-color:var(--world-a);
-  box-shadow:0 0 0 4px var(--map-bg),0 0 0 5px var(--world-a)
-}
-#focus-pipeline .station-name {font-size:clamp(10px,1.25vw,15px);font-weight:600}
-#focus-pipeline .station-count {font:500 14px var(--font-mono);color:var(--world-a)}
-#lifecycle-token {
-  --station:0;top:calc(var(--chamber) + 2px);left:calc(10% + 20% * var(--station));
-  width:12px;height:12px;border:2px solid var(--map-bg);border-radius:2px;
-  transform:translateX(-50%) rotate(45deg);box-shadow:0 0 0 1px var(--world-b);
-  transition:left .18s ease,background-color .18s ease
-}
-#lifecycle-token.is-failure {background:var(--critical);box-shadow:0 0 0 1px var(--critical)}
 .lifecycle-annotation {display:grid;gap:3px;min-height:48px;border-top:1px solid var(--hairline);padding-top:9px}
 #focus-stage-detail,#lifecycle-event {text-align:left;font-size:12px;line-height:1.4;margin:0;padding:0;border:0}
 #focus-worlds {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0}
@@ -804,12 +773,6 @@ th{position:sticky;top:0;background:var(--raised);font-family:var(--font);font-w
 .world-station[aria-pressed="true"] {border-color:var(--world-color)}
 .world-metric {font-size:12px;font-weight:600}
 .world-station strong {font:500 16px var(--font-mono);color:var(--world-color)}
-.world-meter {height:4px;grid-column:1/-1;background:var(--hairline);overflow:hidden;border-radius:2px}
-.world-meter::before {content:"";display:block;width:calc(var(--volume,0) * 100%);height:100%;background:var(--world-color);transition:width .16s linear}
-.world-events {grid-column:1/-1;display:flex;gap:3px;min-height:4px}
-.world-events i {display:block;width:5px;height:4px;background:var(--world-color);animation:recorded-event .2s both ease-out}
-.world-events .loss {background:var(--critical);border-radius:50%}
-@keyframes recorded-event {from {transform:translateX(-4px);opacity:.25} to {transform:translateX(0);opacity:1}}
 #world-inspection {grid-column:1/-1;margin:0;padding:9px 16px;border-top:1px solid var(--hairline);font-size:12px;color:var(--muted);min-height:49px}
 #focus-medium-controls {display:grid;gap:9px}
 #focus-medium-controls > label {font-size:12px;font-weight:600}
@@ -872,9 +835,6 @@ th{position:sticky;top:0;background:var(--raised);font-family:var(--font);font-w
 #focus-setting-value,.policy-value {font:500 12px var(--font-mono);color:var(--accent)}
 #lifecycle-activity {display:flex;flex-wrap:wrap;gap:4px 10px;color:var(--muted);font:11px var(--font-mono)}
 .activity-count {padding-right:8px;border-right:1px solid var(--border)}
-.station-events {display:flex;align-items:center;justify-content:center;gap:2px;min-height:5px}
-.station-events i {width:5px;height:5px;background:var(--world-a);animation:recorded-event .2s both ease-out}
-.station-events i.loss {background:var(--critical);border-radius:50%}
 .world-field {position:relative;isolation:isolate;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;min-height:240px}
 .world-flow {position:absolute;width:100%;height:100%;inset:0;pointer-events:none;z-index:-1}
 .world-station {
@@ -884,9 +844,6 @@ th{position:sticky;top:0;background:var(--raised);font-family:var(--font);font-w
 }
 .world-station:nth-of-type(3) {grid-column:2;grid-row:2}
 .world-station:nth-of-type(4) {grid-column:1;grid-row:2}
-.world-meter {height:3px}
-.world-events {justify-content:center;gap:2px;overflow:hidden}
-.world-events i {flex:none;width:3px;height:3px}
 .world-metric {font-size:11px}
 .world-station strong {font-size:20px}
 @media(max-width:540px){
@@ -906,4 +863,167 @@ th{position:sticky;top:0;background:var(--raised);font-family:var(--font);font-w
   #focus-pipeline .focus-workflow button {min-height:79px;padding-top:8px}
   .experiment-console {gap:3px}
   .universe[data-level="simple"] #focus-run {order:-1}
+}
+
+/* The simulation is the workspace. The controls sit on a separate instrument rail. */
+:root {
+  --flow-wait:#e5ad68;--flow-pass:#86d6b2;--flow-stop:#f28d7d;
+  --field-bg:#041822;--field-ink:#f0eeeb;--field-muted:#a9c1ca;
+}
+:root[data-theme="light"] {
+  --flow-wait:#84530f;--flow-pass:#20624b;--flow-stop:#9d3029;
+  --field-bg:#edf0eb;--field-ink:#092b3a;--field-muted:#3c5360;
+}
+.universe[data-level] {max-width:1630px}
+.universe[data-level]:not([data-level="advanced"]) {padding:clamp(12px,2vw,28px)}
+.level-nav {margin-bottom:clamp(10px,1.4vw,20px)}
+#focused-model {gap:10px}
+#focus-title {font-size:clamp(27px,3.8vw,54px);max-width:32ch}
+#focus-description {margin:0 0 2px}
+.experiment-workspace {grid-template-columns:minmax(0,1fr);gap:0}
+#focus-pipeline,#focus-worlds {
+  color:var(--field-ink);background-color:var(--field-bg);border:1px solid var(--hairline);border-radius:12px 12px 0 0;
+  background-image:radial-gradient(ellipse at 50% 42%,color-mix(in srgb,var(--world-a) 16%,transparent),transparent 69%),
+    radial-gradient(circle,var(--observatory-grid) 1px,transparent 1.5px);background-size:auto,27px 27px;
+}
+#focus-pipeline {display:block;min-height:0;padding:12px 17px 8px}
+.lifecycle-caption {align-items:center}
+.lifecycle-caption .eyebrow {font-size:10px}
+.lifecycle-caption h2 {font:600 clamp(17px,2vw,25px)/1.15 var(--font);margin:3px 0 0;letter-spacing:-.025em}
+.lifecycle-track {margin:1px 0 0;min-height:clamp(245px,37dvh,420px);position:relative;isolation:isolate}
+.lifecycle-track::before {content:none}
+#research-flow,.world-flow {position:absolute;inset:0;width:100%;height:100%;z-index:-1;pointer-events:none}
+#flow-empty {
+  position:absolute;bottom:2px;left:0;right:0;text-align:center;margin:0;
+  color:var(--field-muted);font:12px var(--font-mono)
+}
+#focus-pipeline .focus-workflow {display:contents}
+#focus-pipeline .focus-workflow li {display:contents}
+#focus-pipeline .focus-workflow button {
+  --station-x:10%;--station-y:24%;
+  position:absolute;left:var(--station-x);top:var(--station-y);transform:translate(-50%,-50%);
+  display:grid;min-height:44px;width:max-content;max-width:100%;padding:4px 7px;gap:1px;
+  background:transparent;color:var(--field-muted);border:1px solid transparent;border-radius:5px
+}
+#focus-pipeline .focus-workflow [data-stage="tested"] {--station-x:30%;--station-y:20%}
+#focus-pipeline .focus-workflow [data-stage="reviewBacklog"] {--station-x:50%;--station-y:24%}
+#focus-pipeline .focus-workflow [data-stage="published"] {--station-x:70%;--station-y:17%}
+#focus-pipeline .focus-workflow [data-stage="replicated"] {--station-x:90%;--station-y:28%}
+#focus-pipeline .focus-workflow button[aria-pressed="true"] {color:var(--field-ink);border-color:var(--border);background:var(--field-bg)}
+#focus-pipeline .station-name {font-size:clamp(12px,1.3vw,16px)}
+#focus-pipeline .station-count {font-size:11px;color:var(--field-muted)}
+#lifecycle-token {visibility:hidden}
+.flow-key {display:flex;flex-wrap:wrap;gap:3px 14px;margin:0 0 6px;color:var(--field-muted);font-size:11px}
+.flow-key span::before {display:inline-block;min-width:1.2em;font:500 12px var(--font-mono)}
+.key-study::before {content:"●";color:var(--world-a)}
+.key-queue::before {content:"◆";color:var(--flow-wait)}
+.key-pass::before {content:"✓";color:var(--flow-pass)}
+.key-stop::before {content:"×";color:var(--flow-stop)}
+.lifecycle-annotation {min-height:0;padding:5px 0 0}
+#focus-stage-detail,#lifecycle-event {font-size:11px}
+#lifecycle-activity {gap:2px 8px;font-size:10px}
+#focus-worlds {grid-template-columns:repeat(2,minmax(0,1fr))}
+#focus-worlds>.flow-key {grid-column:1/-1;padding:2px 12px}
+.research-world {padding:10px 14px 0}
+.research-world h2 {font-size:clamp(17px,2.1vw,28px)}
+.research-world .world-state {font-size:10px}
+.world-field {display:block;min-height:clamp(260px,40dvh,445px);margin:0}
+.world-field .world-station {
+  position:absolute;left:var(--wx);top:var(--wy);transform:translate(-50%,-50%);
+  width:max-content;min-height:42px;max-width:100%;padding:3px 6px;
+  display:grid;background:color-mix(in srgb,var(--field-bg) 88%,transparent);
+  border:1px solid transparent;border-radius:4px;gap:0
+}
+.world-station[aria-pressed="true"] {border-color:color-mix(in srgb,var(--world-color) 60%,transparent)}
+.world-station[data-metric="activeStudies"] {--wx:29%;--wy:13%}
+.world-station[data-metric="reviewBacklog"] {--wx:58%;--wy:32%}
+.world-station[data-metric="published"] {--wx:81%;--wy:15%}
+.world-station[data-metric="replicated"] {--wx:83%;--wy:51%}
+.world-metric {font-size:12px}
+.world-station strong {font-size:13px}
+#world-inspection {min-height:0;padding:5px 12px;font-size:11px}
+.experiment-console {
+  display:grid;grid-template-columns:auto minmax(0,1fr);align-items:start;gap:16px;
+  border:1px solid var(--hairline);border-top:0;border-radius:0 0 10px 10px;
+  padding:8px 12px;background:var(--sunken)
+}
+.experiment-launch {display:grid;gap:3px;max-width:220px}
+.experiment-launch .primary {width:auto;padding-inline:18px;white-space:nowrap}
+#focus-status {font-size:11px}
+#experiment-policy {min-width:0}
+#experiment-policy>summary {
+  display:flex;justify-content:space-between;align-items:center;min-height:44px;gap:8px;
+  cursor:pointer;font-weight:600
+}
+#experiment-policy>summary::before {content:"+";color:var(--accent);font:500 15px var(--font-mono)}
+#experiment-policy[open]>summary::before {content:"−"}
+#experiment-policy>summary .world-state {margin-inline-start:auto}
+.policy-body {padding:0 0 4px}
+.focus-slider {grid-template-columns:minmax(0,1fr) auto}
+#focus-timeline {margin-top:5px;padding:3px 8px}
+#focus-medium-controls {grid-template-columns:minmax(110px,1fr) minmax(155px,1fr);align-items:start;gap:5px 14px}
+#focus-medium-controls > label {grid-column:1}
+#focus-scenario {grid-column:1}
+#focus-main-policy {grid-column:2;grid-row:1/3}
+#focus-policy-disclosure,#focus-causal-warning {grid-column:1/-1}
+#focus-policy-grid {grid-template-columns:repeat(2,minmax(0,1fr))}
+/* Advanced opens on the map, with a short header and context in the side rail. */
+.universe[data-level="advanced"] .app-header {margin-bottom:5px}
+.universe[data-level="advanced"] .title-stack h1 {font-size:clamp(25px,3.3vw,45px)}
+.universe[data-level="advanced"] .mode-rail {padding:6px 0;margin-bottom:8px}
+.universe[data-level="advanced"] .world-stage {height:clamp(580px,78dvh,850px)}
+.universe[data-level="advanced"] .workspace-side {height:clamp(580px,78dvh,850px)}
+.universe[data-level="advanced"] .stage-header {padding:7px 12px;min-height:48px}
+.universe[data-level="advanced"] .map-explanation {margin:0;padding:0 12px 6px}
+.map-day {font:500 12px var(--font-mono);color:var(--text);background:var(--map-bg);padding:4px 8px;border-radius:4px}
+.canvas-overlay {justify-content:start}
+.canvas-instruction {margin-left:auto}
+.canvas-col .map-world-label {background:var(--map-bg)}
+@media(max-width:1120px){
+ .universe[data-level="advanced"] .workspace-side {height:auto}
+}
+@media(max-width:620px){
+ .universe[data-level]:not([data-level="advanced"]) {padding:10px}
+ #focused-model {gap:7px}
+ .level-nav {margin-bottom:9px}
+ #focus-title {font-size:27px;max-width:26ch}
+ #focus-description {font-size:12px}
+ #focus-pipeline {padding:8px 9px 6px}
+ .lifecycle-track {min-height:clamp(225px,39dvh,345px)}
+ #focus-pipeline .focus-workflow button {--station-x:14%;--station-y:10%}
+ #focus-pipeline .focus-workflow [data-stage="tested"] {--station-x:73%;--station-y:30%}
+ #focus-pipeline .focus-workflow [data-stage="reviewBacklog"] {--station-x:13%;--station-y:51%}
+ #focus-pipeline .focus-workflow [data-stage="published"] {--station-x:76%;--station-y:70%}
+ #focus-pipeline .focus-workflow [data-stage="replicated"] {--station-x:24%;--station-y:89%}
+ #focus-pipeline .station-name {font-size:11px}
+ #focus-pipeline .station-count {font-size:10px}
+ #flow-empty {bottom:0;font-size:10px}
+ .flow-key {font-size:10px;gap:2px 8px}
+ .research-world {padding:7px 6px 0}
+ .research-world header {display:block}
+ .research-world h2 {font-size:17px}
+ .world-field {min-height:clamp(200px,36dvh,330px)}
+ .world-field .world-station {padding-inline:3px;min-height:38px}
+ .world-metric {font-size:10px}
+ .world-station strong {font-size:12px}
+ .world-station[data-metric="activeStudies"] {--wx:27%}
+ .world-station[data-metric="published"] {--wx:77%}
+ .world-station[data-metric="replicated"] {--wx:79%}
+ .experiment-console {grid-template-columns:minmax(0,1fr);gap:0;padding:6px 9px}
+ .experiment-launch {max-width:none;grid-template-columns:auto 1fr;align-items:center;gap:8px}
+ .experiment-launch .primary {min-height:44px}
+ #focus-medium-controls {grid-template-columns:1fr;gap:4px}
+ #focus-main-policy,#focus-scenario {grid-column:1;grid-row:auto}
+ #focus-policy-grid {grid-template-columns:1fr}
+ .universe[data-level="advanced"] {padding:10px}
+ .universe[data-level="advanced"] .app-header {align-items:center}
+ .universe[data-level="advanced"] .app-utility .btn {font-size:11px}
+ .universe[data-level="advanced"] .stage-header {gap:5px}
+ .universe[data-level="advanced"] .stage-tools {gap:4px}
+ .universe[data-level="advanced"] .stage-tools .btn,.universe[data-level="advanced"] .stage-tools .tab {min-height:36px}
+ .universe[data-level="advanced"] .world-stage {height:auto}
+ .universe[data-level="advanced"] .canvases {min-height:clamp(370px,58dvh,570px)}
+ .universe[data-level="advanced"] .map-explanation {display:none}
+ .map-navigation {top:7px;left:7px}
+ .map-navigation :is(.btn,.icon-btn) {min-width:40px;min-height:40px}
 }
