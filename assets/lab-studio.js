@@ -302,6 +302,9 @@ function renderReplies(){
   {label:label('Compare stored runs','مقایسه‌های ذخیره‌شده'),action:openAtlas}
  ];
  if(!canAsk)actions=[{label:label('Guide a comparison','یک مقایسه را راهنمایی کن'),action:()=>learning?.startGuide()},{label:label('Compare stored runs','مقایسه‌های ذخیره‌شده'),action:openAtlas}];
+ if(labLevel!=='advanced'&&!learning?.atlasContext()&&canAsk&&replyFailed&&lastQuestion){
+  actions=[{label:label('Try again','دوباره تلاش کن'),ai:true,action:()=>askPulsar(lastQuestion,'ask')}];
+ }
  if(labLevel!=='advanced'&&!learning?.atlasContext()&&canAsk&&!replyFailed){
   const observed=scienceGuide?.context()?.lesson?.observed;
   actions=[{label:observed?label('What changed?','چه چیزی تغییر کرد؟'):label('What should I measure?','چه چیزی را اندازه بگیرم؟'),ai:true,
