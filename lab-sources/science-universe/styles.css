@@ -896,3 +896,14 @@ th{position:sticky;top:0;background:var(--raised);font-family:var(--font);font-w
  #focus-pipeline .focus-workflow button {gap:5px}
  #lifecycle-activity {font-size:10px}
 }
+
+@media(max-width:420px) {
+  #focus-title {font-size:26px;max-width:25ch}
+  #focus-description {margin-bottom:0}
+  #focus-pipeline {min-height:182px}
+  .lifecycle-annotation {min-height:30px}
+  .lifecycle-track {margin:5px 0 0;--chamber:44px}
+  #focus-pipeline .focus-workflow button {min-height:79px;padding-top:8px}
+  .experiment-console {gap:3px}
+  .universe[data-level="simple"] #focus-run {order:-1}
+}
