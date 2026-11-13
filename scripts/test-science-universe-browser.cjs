@@ -73,6 +73,7 @@ async function screenshots(browser,host,after){
   }finally{await page.close();}
 }
 async function recordDemos(browser,address){
+  const ffmpeg=process.env.FFMPEG_PATH||require.resolve('@ffmpeg-installer/linux-x64/ffmpeg');
   const page=await browser.newPage({viewport:{width:1280,height:820}});
   const session=await page.context().newCDPSession(page);
   try{
@@ -145,7 +146,7 @@ async function recordDemos(browser,address){
         }
         manifest.push("file '"+(frames.length-1)+".jpg'");
         fs.writeFileSync(path.join(folder,'frames.txt'),manifest.join('\n'));
-        execFileSync('ffmpeg',['-v','error','-y','-f','concat','-safe','0','-i',path.join(folder,'frames.txt'),
+        execFileSync(ffmpeg,['-v','error','-y','-f','concat','-safe','0','-i',path.join(folder,'frames.txt'),
           '-vf','fps=30,pad=ceil(iw/2)*2:ceil(ih/2)*2','-c:v','libx264','-pix_fmt','yuv420p','-movflags','+faststart',
           'qa-artifacts/science-universe-'+mode.toLowerCase()+'.mp4']);
       }finally{fs.rmSync(folder,{recursive:true,force:true});}

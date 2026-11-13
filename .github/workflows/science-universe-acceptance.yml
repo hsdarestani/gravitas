@@ -30,7 +30,7 @@ jobs:
           node --check scripts/test-science-universe-browser.cjs
           node scripts/test-science-universe.cjs
       - name: Install browser driver
-        run: npm install --prefix "$RUNNER_TEMP/gq-science-browser" --no-save --ignore-scripts --no-audit --no-fund playwright-core@1.56.1
+        run: npm install --prefix "$RUNNER_TEMP/gq-science-browser" --no-save --ignore-scripts --no-audit --no-fund playwright-core@1.56.1 @ffmpeg-installer/linux-x64@4.1.0
       - name: Interact on desktop and mobile in Google Chrome
         env:
           NODE_PATH: ${{ runner.temp }}/gq-science-browser/node_modules
