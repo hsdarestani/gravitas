@@ -1,0 +1,68 @@
+name: Release approved Science Universe PR 358
+
+on:
+  push:
+    branches: [codex/science-universe-visual-experience]
+    paths:
+      - '.github/workflows/science-universe-release-358.yml'
+      - 'ops/*science_universe_358*'
+      - 'ops/science_universe_release_358.*'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gravitas-production
+  cancel-in-progress: false
+
+jobs:
+  guarded-release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Verify reviewed ancestry and bundle the immutable simulator
+        shell: bash
+        run: |
+          set -euo pipefail
+          approved=1c236c89fe5fec8499b8f33a0cf2ba15c2499319
+          git merge-base --is-ancestor "$approved" HEAD
+          git diff --exit-code "$approved" HEAD -- lab-sources/science-universe
+          python3 -m py_compile ops/science_universe_release_358.py ops/verify_science_universe_358.py
+          bash -n ops/science_universe_release_358.sh
+          mkdir -p "$RUNNER_TEMP/science-358/source"
+          cp ops/science_universe_release_358.{py,sh} ops/verify_science_universe_358.py "$RUNNER_TEMP/science-358/"
+          for file in index.html app.js styles.css engine.js; do
+            git show "$approved:lab-sources/science-universe/$file" > "$RUNNER_TEMP/science-358/source/$file"
+          done
+
+      - name: Run guarded release on the production host
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          LOGIN: ${{ secrets.DEPLOY_USER }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          PORT="${PORT:-22}"
+          LOGIN="${LOGIN:-deploy}"
+          test -n "$HOST" && test -n "$SSH_KEY"
+          key="$RUNNER_TEMP/science358-key"
+          known="$RUNNER_TEMP/science358-host"
+          printf '%s\n' "$SSH_KEY" > "$key"
+          ssh-keyscan -p "$PORT" -H "$HOST" > "$known"
+          ssh_options=(-i "$key" -o "UserKnownHostsFile=$known" -o BatchMode=yes
+                       -o ConnectTimeout=10 -o ServerAliveInterval=15)
+          if ! ssh "${ssh_options[@]}" -p "$PORT" "$LOGIN@$HOST" true; then
+            LOGIN=root
+            ssh "${ssh_options[@]}" -p "$PORT" "$LOGIN@$HOST" true
+          fi
+          remote="$(ssh "${ssh_options[@]}" -p "$PORT" "$LOGIN@$HOST" 'mktemp -d /var/tmp/science358.XXXXXXXX')"
+          [[ "$remote" =~ ^/var/tmp/science358\.[a-zA-Z0-9]+$ ]]
+          scp "${ssh_options[@]}" -P "$PORT" -r "$RUNNER_TEMP/science-358/." "$LOGIN@$HOST:$remote/"
+          ssh "${ssh_options[@]}" -p "$PORT" "$LOGIN@$HOST" \
+            "chmod -R a+rX '$remote' && bash '$remote/science_universe_release_358.sh' preflight premerge '$remote'"

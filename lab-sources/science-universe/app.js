@@ -17,7 +17,7 @@ function readInk(){
   for(let i=0;i<4;i++)domainColors[i]=v('domain-'+i);
   for(const key of ['map-bg','map-grid','map-lane-a','map-lane-b','map-node','map-node-locked','map-link','map-cross','map-cross-solid',
     'map-flow','map-flow-line','map-flow-focus','map-label','map-label-strong','map-select','claim-open','claim-pass','claim-fail',
-    'agent-ai','agent-human','world-a','world-b','hairline','subtle','muted'])ink[key]=v(key);
+    'agent-ai','agent-human','world-a','world-b','hairline','subtle','muted','flow-wait','flow-pass','flow-stop'])ink[key]=v(key);
 }
 readInk();
 const domainNames=['Helix','Stratus','Axiom','Lattice'];
@@ -29,7 +29,33 @@ let show={links:true,flows:true,labels:true},drag=null,lastSimulation=performanc
 let eventLimit=40,fieldFilter=null,mapKeyView='',inspectorListKey='',feedKey='',historyKey='';
 let selectionDeferred=false,claimOptionsKey='';
 const paperNodeCache=new WeakMap();
+const cameras=Array.from({length:2},()=>({scale:1,x:0,y:0}));
+const reducedMotion=matchMedia('(prefers-reduced-motion: reduce)');
+let mapFrame=0, mapMotionUntil=0;
+function queueMap(){
+ if(!mapFrame)mapFrame=requestAnimationFrame(time=>{mapFrame=0;drawMap(time);});
+}
+function moveCamera(index,scale,anchor){
+ const camera=cameras[index],canvas=$('network-'+(index?'b':'a')),g=canvasGeometry(canvas);
+ if(!g)return;
+ const {x,y}=anchor||{x:g.w/2,y:g.h/2};
+ const next=Math.max(1,Math.min(4,scale)),ratio=next/camera.scale;
+ camera.x=Math.min(0,Math.max(g.w*(1-next),x-(x-camera.x)*ratio));
+ camera.y=Math.min(0,Math.max(g.h*(1-next),y-(y-camera.y)*ratio));
+ camera.scale=next;canvas.dataset.zoom=String(next);queueMap();
+}
 const text=(id,value)=>{const el=typeof id==='string'?$(id):id;const next=String(value);if(el&&el.textContent!==next)el.textContent=next;};
+// The thumb travels between its radius and the opposite inset, including at the endpoints.
+function syncRange(range,value=range.value,baseline){
+ if(range.value!==String(value))range.value=value;
+ const min=range.min===''?0:Number(range.min),max=range.max===''?100:Number(range.max);
+ const stop=value=>{
+  const fraction=max>min?Math.max(0,Math.min(1,(Number(value)-min)/(max-min))):0;
+  return 'calc('+100*fraction+'% + '+(10-20*fraction)+'px)';
+ };
+ range.style.setProperty('--fill',stop(range.value));
+ if(baseline!==undefined)range.style.setProperty('--baseline',stop(baseline));
+}
 function readingSelection(){const selection=window.getSelection();return !!selection&&!selection.isCollapsed&&String(selection).length>0;}
 function shellAction(action){if(G.shellAction)G.shellAction(action);}
 function showDialog(id){const dialog=$(id);if(!dialog.open)dialog.showModal();}
@@ -39,7 +65,7 @@ let currentSection='observe',lastBridge=0,lastStateSent=0,drawerOpen=false,lates
 
 const policyDescriptions={
   generation:['Hypothesis generation','Rate of candidate research questions'],
-  verification:['Peer review capacity','Sets daily throughput and scrutiny. At 7+, one failed repeat can trigger withdrawal.'],
+  verification:['Peer-review policy','Changes review throughput and methodological scrutiny together. At 7+, one failed repeat can trigger withdrawal.'],
   replication:['Replication capacity','Number of independent repeat tests'],
   funding:['Research funding','Daily flow of research credits'],
   aiAdoption:['AI workforce','AI share of idea generation'],
@@ -201,7 +227,12 @@ const nowWorld=()=>worlds[active];
 function trackUsage(kind,data={}){if(G.usage)G.usage(kind,{world:active?'B':'A',day:nowWorld().day,...data});}
 const runningWorlds=()=>worlds[1]?worlds:[nowWorld()];
 let lesson=null,lessonCheckpoint=null;
-function ensureComparison(){if(worlds[1])return true;$('comparison-setup').hidden=false;$('setup-status').textContent='First create World B, then advance both worlds together.';$('comparison-setup').scrollIntoView({block:'start'});return false;}
+function updateSetupBaseline(){
+ const baseline=nowWorld().policy[$('setup-policy').value];
+ text('setup-baseline','A · '+baseline+'/10');
+ syncRange($('setup-value'),$('setup-value').value,baseline);
+}
+function ensureComparison(){if(worlds[1])return true;$('comparison-setup').hidden=false;updateSetupBaseline();$('setup-status').textContent='First create World B, then advance both worlds together.';$('comparison-setup').scrollIntoView({block:'start'});return false;}
 function emit(event,s=nowWorld(),section=currentSection){
   if(performance.now()-lastBridge<650&&event!=='policy_changed')return;
   lastBridge=performance.now();
@@ -257,7 +288,11 @@ function play(on){
   if(on&&!ensureComparison())return;
   const wasPlaying=playing;
   playing=!!on;
-  if(wasPlaying!==playing)trackUsage(playing?'play':'pause');
+  if(wasPlaying!==playing){
+    trackUsage(playing?'play':'pause');
+    if(playing){lastSimulation=performance.now();raf=requestAnimationFrame(animation);}
+    else{cancelAnimationFrame(raf);queueMap();}
+  }
   $('play').innerHTML=(playing?PAUSE_ICON:PLAY_ICON)+'<span>'+(playing?'Pause':'Play')+'</span>';
   $('status-label').textContent=playing?'SIMULATION RUNNING':'SIMULATION PAUSED';
   $('session-state').classList.toggle('spinning',playing);
@@ -266,6 +301,7 @@ function play(on){
 }
 function reset(){
  for(let i=0;i<2;i++)if(worlds[i]){const s=worlds[i];worlds[i]=E.make(s.seed,{...s.policy},{...s.design});selected[i]=null;selectedPaper[i]=null;eventSeen[i].clear();}
+ cameras.forEach(camera=>Object.assign(camera,{x:0,y:0,scale:1}));
  play(false);render();emit('world_reset',nowWorld(),'observe');trackUsage('reset');
 }
 function arrangeCanvases(){
@@ -419,6 +455,7 @@ function snapshotInsight(){
 }
 function summary(){
   const s=nowWorld(),m=E.summary(s);
+  text('network-clock','Day '+m.day);
   for(const [id,value] of Object.entries({
     day:String(m.day).padStart(3,'0'),agents:human(s.agents.length),
     hypotheses:human(m.generated),published:human(m.published),
@@ -573,6 +610,7 @@ function comparison(){
     worlds[1].policy.verification+'/10, replication '+worlds[1].policy.replication+'/10';
 }
 function render(){
+ if(level==='advanced'){mapMotionUntil=performance.now()+300;queueMap();}
  // Keep the user's selected text and reading position intact while the numerical model continues.
  if(readingSelection()){selectionDeferred=true;publishContext();drawChart();return;}
  selectionDeferred=false;renderPipeline();summary();inspector();feed();drawChart();comparison();renderMetricTrends();renderDomainResults();mapLegend();publishContext();
@@ -673,9 +711,9 @@ function mapLegend(){
  const visible=papers?livePaperNodes(s,{w:$(active?'network-b':'network-a').clientWidth,h:$(active?'network-b':'network-a').clientHeight}).map(n=>n.paper):[];
  if(papers){const key=active+':'+visible.map(p=>p.id).join(',');if(key!==claimOptionsKey){claimOptionsKey=key;const select=$('claim-select');select.replaceChildren(make('option','','Choose a claim…'));select.firstChild.value='';for(const p of [...visible].reverse()){const option=make('option','','#'+p.id+' · '+domainNames[p.domain]+' · day '+p.publishedOn);option.value=p.id;select.append(option);}}$('claim-select').value=selectedPaper[active]===null?'':String(selectedPaper[active]);}
  text('stage-title',('World '+(active?'B':'A')+' · ')+(papers?'Knowledge, one claim at a time':'Teams and collaboration'));
- text('map-explanation',papers?'Small dots are published claims. Pick one to see its citations.':'Larger circles have more studies in progress. Drag a team to change its possible collaborators.');
- text('canvas-instruction',papers?'Select a claim → inspect its citations':'Size = active studies · Lines = possible collaborators');
- text('links-label',papers?'Selected citations':'Collaborations');text('flows-label',papers?'Recent activity':'Team & citations');
+ text('map-explanation',papers?'Small dots are published claims. Pick one to see its citations.':'Drag a lab to change its possible collaborators. Select a lab to inspect its research.');
+ text('canvas-instruction',papers?'Select a claim → inspect its citations':'Size: active studies · Dashed links: between communities');
+ text('links-label',papers?'Selected citations':'Collaborations');text('flows-label',papers?'Recent activity':'People, citations & repeats');
  text('map-key-summary',papers?'Color shows repeat-test history · Each row is a community':'Choose a community to focus the map.');
  if(mapKeyView!==view){
   mapKeyView=view;
@@ -710,28 +748,113 @@ function drawArrow(ctx,a,b,color){
  ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(x,y);ctx.stroke();
  ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x-6*Math.cos(angle-.45),y-6*Math.sin(angle-.45));ctx.lineTo(x-6*Math.cos(angle+.45),y-6*Math.sin(angle+.45));ctx.closePath();ctx.fill();
 }
+function drawTerritories(ctx,s,g,radius){
+ const {w,h}=g;
+ for(let domain=0;domain<4;domain++){
+  const labs=s.labs.filter(lab=>lab.domain===domain);
+  if(!labs.length)continue;
+  const points=labs.map(lab=>position(lab,g));
+  const center={x:points.reduce((sum,p)=>sum+p.x,0)/points.length,y:points.reduce((sum,p)=>sum+p.y,0)/points.length};
+  const xx=points.reduce((sum,p)=>sum+(p.x-center.x)**2,0),yy=points.reduce((sum,p)=>sum+(p.y-center.y)**2,0);
+  const xy=points.reduce((sum,p)=>sum+(p.x-center.x)*(p.y-center.y),0);
+  const angle=.5*Math.atan2(2*xy,xx-yy),cos=Math.cos(angle),sin=Math.sin(angle);
+  const rx=Math.max(30,...points.map(p=>Math.abs((p.x-center.x)*cos+(p.y-center.y)*sin)+28));
+  const ry=Math.max(22,...points.map(p=>Math.abs((p.y-center.y)*cos-(p.x-center.x)*sin)+20));
+  const color=domainColors[domain],visible=fieldFilter===null||fieldFilter===domain;
+  ctx.save();ctx.translate(center.x,center.y);ctx.rotate(angle);
+  for(const [scale,alpha] of [[1,.08],[.83,.08],[.66,.10]]){
+   ctx.globalAlpha=visible?alpha:alpha*.17;ctx.fillStyle=color;ctx.strokeStyle=color;ctx.lineWidth=1.3;
+   ctx.beginPath();ctx.ellipse(0,0,rx*scale,ry*scale,0,0,Math.PI*2);ctx.fill();ctx.stroke();
+  }
+  ctx.restore();
+  if(!show.labels||!visible)continue;
+  const top=Math.min(...points.map(p=>p.y));
+  ctx.fillStyle=color;ctx.textAlign='center';ctx.font='600 '+radius(w<420?12:15)+'px '+FONT;
+  ctx.fillText(domainNames[domain],Math.min(w-36,Math.max(36,center.x)),Math.min(h-20,Math.max(23,top-26)));
+ }
+}
+function drawLabNodes(ctx,s,g,index,pulse,radius){
+ const agents=new Map(),repeats=new Map();
+ if(show.flows){
+  for(const agent of s.agents){
+   if(!agents.has(agent.labId))agents.set(agent.labId,[]);
+   agents.get(agent.labId).push(agent);
+  }
+  for(const event of s.events){
+   if(event.day<s.day-2)break;
+   if(['replication_passed','replication_failed','paper_retracted'].includes(event.type)&&!repeats.has(event.labId))
+    repeats.set(event.labId,event);
+  }
+ }
+ const connected=new Set(s.links.flatMap(({a,b})=>a===selected[index]?[b]:b===selected[index]?[a]:[]));
+ for(const lab of s.labs){
+  const {x,y}=position(lab,g),color=domainColors[lab.domain],selectedLab=selected[index]===lab.id;
+  const r=radius(Math.min(24,7+Math.sqrt(lab.active)*3.4));
+  const visible=fieldFilter===null||lab.domain===fieldFilter;
+  ctx.globalAlpha=visible?(selected[index]===null||selectedLab||connected.has(lab.id)?1:.44):.16;
+  if(selectedLab||lab.active>0){
+   ctx.strokeStyle=color;ctx.lineWidth=radius(1.2);ctx.beginPath();
+   ctx.arc(x,y,r+radius(selectedLab?9:4),0,Math.PI*2);ctx.stroke();
+  }
+  ctx.fillStyle=lab.locked?ink['map-node-locked']:ink['map-node'];
+  ctx.strokeStyle=selectedLab?ink['map-select']:color;ctx.lineWidth=radius(selectedLab?2.1:1.3);
+  ctx.beginPath();
+  for(let i=0;i<6;i++){
+   const angle=Math.PI/6+i*Math.PI/3,px=x+Math.cos(angle)*r,py=y+Math.sin(angle)*r;
+   if(i===0)ctx.moveTo(px,py);else ctx.lineTo(px,py);
+  }
+  ctx.closePath();ctx.fill();ctx.stroke();
+  ctx.fillStyle=color;
+  if(lab.active)for(let i=0;i<Math.min(9,lab.active);i++){
+   const cell=radius(2.4);
+   ctx.fillRect(x+(i%3-1.5)*cell,y+(Math.floor(i/3)-1.5)*cell,cell-0.6,cell-0.6);
+  }else{ctx.beginPath();ctx.arc(x,y,radius(1.8),0,Math.PI*2);ctx.fill();}
+  const team=agents.get(lab.id)||[];
+  team.forEach((agent,i)=>{
+   const angle=-Math.PI/2+i*Math.PI*2/team.length,orbit=r+radius(7);
+   const px=x+Math.cos(angle)*orbit,py=y+Math.sin(angle)*orbit;
+   drawResearchToken(ctx,px,py,radius(1.7),agent.role==='AI'?ink['agent-ai']:ink['agent-human'],agent.role==='AI'?'wait':'study');
+  });
+  const event=repeats.get(lab.id);
+  if(event){
+   const passed=event.type==='replication_passed',eventColor=passed?FLOW_COLORS.pass:FLOW_COLORS.stop;
+   drawResearchToken(ctx,x+r+radius(6),y-r,radius(3.7),eventColor,passed?'pass':'stop');
+   if(event.day===s.day&&pulse<1){
+    ctx.save();ctx.globalAlpha*=1-pulse;ctx.strokeStyle=eventColor;ctx.beginPath();
+    ctx.arc(x,y,r+radius(5+pulse*17),0,Math.PI*2);ctx.stroke();ctx.restore();
+   }
+  }
+  if(show.labels&&visible&&(selectedLab||fieldFilter!==null&&g.w>380||cameras[index].scale>1.6)){
+   const label=lab.name+(selectedLab?' · '+lab.active+' active':'');
+   ctx.font='600 '+radius(12)+'px '+FONT;ctx.textAlign='center';
+   const width=ctx.measureText(label).width+12,top=y+r+radius(8);
+   ctx.fillStyle=ink['map-bg'];ctx.fillRect(x-width/2,top,width,radius(17));
+   ctx.fillStyle=ink['map-label-strong'];ctx.fillText(label,x,top+radius(12));
+  }
+ }
+ ctx.globalAlpha=1;
+}
 function draw(canvas,s,index,t){
  if(!s)return;
  const g=canvasGeometry(canvas);if(!g)return;
- const {ctx,w,h}=g,papers=view==='papers',nodes=papers?livePaperNodes(s,g):[],byPaper=new Map(nodes.map(n=>[n.paper.id,n]));
+ const {ctx,w,h}=g,camera=cameras[index],papers=view==='papers',nodes=papers?livePaperNodes(s,g):[],byPaper=new Map(nodes.map(n=>[n.paper.id,n]));
  ctx.clearRect(0,0,w,h);ctx.fillStyle=ink['map-bg'];ctx.fillRect(0,0,w,h);
  ctx.strokeStyle=ink['map-grid'];ctx.lineWidth=.7;
- for(let x=0;x<w;x+=40){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,h);ctx.stroke();}
- for(let y=0;y<h;y+=40){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(w,y);ctx.stroke();}
- if(!papers)for(let domain=0;domain<4;domain++){
-  const group=s.labs.filter(l=>l.domain===domain).map(l=>position(l,g));if(!group.length)continue;
-  const x=group.reduce((sum,p)=>sum+p.x,0)/group.length,y=group.reduce((sum,p)=>sum+p.y,0)/group.length;
-  const rx=Math.max(48,...group.map(p=>Math.abs(p.x-x)+24)),ry=Math.max(44,...group.map(p=>Math.abs(p.y-y)+24));
-  ctx.save();const aura=ctx.createRadialGradient(x,y,0,x,y,Math.max(rx,ry));
-  aura.addColorStop(0,domainColors[domain]);aura.addColorStop(1,'transparent');
-  ctx.globalAlpha=(fieldFilter===null||fieldFilter===domain) ? .19 : .04;ctx.fillStyle=aura;ctx.beginPath();ctx.ellipse(x,y,rx,ry,0,0,Math.PI*2);ctx.fill();ctx.restore();
-  ctx.fillStyle=domainColors[domain];ctx.globalAlpha=.7;ctx.font='600 11px '+FONT;ctx.textAlign='left';ctx.fillText(domainNames[domain],Math.max(10,x-rx+12),Math.max(18,y-ry+16));ctx.globalAlpha=1;
- }
+ for(let x=0;x<w;x+=32)for(let y=0;y<h;y+=32){ctx.fillStyle=ink['map-grid'];ctx.fillRect(x,y,2,2);}
+ ctx.save();ctx.translate(camera.x,camera.y);ctx.scale(camera.scale,camera.scale);
+ canvas.dataset.zoom=String(camera.scale);
+ const pulse=!reducedMotion.matches&&Number.isFinite(t)?Math.min(1,Math.max(0,1-(mapMotionUntil-t)/300)):1;
+ const radius=(r)=>r/Math.sqrt(camera.scale);
+ if(!papers)drawTerritories(ctx,s,g,radius);
  if(show.links&&!papers)for(const edge of s.links){
   if(fieldFilter!==null&&s.labs[edge.a].domain!==fieldFilter&&s.labs[edge.b].domain!==fieldFilter)continue;
   const a=position(s.labs[edge.a],g),b=position(s.labs[edge.b],g);
   ctx.strokeStyle=s.labs[edge.a].domain!==s.labs[edge.b].domain?ink['map-cross']:ink['map-link'];
-  ctx.lineWidth=1.2;ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke();
+  const highlighted=edge.a===selected[index]||edge.b===selected[index];
+  ctx.globalAlpha=selected[index]===null||highlighted?1:.36;
+  ctx.setLineDash(s.labs[edge.a].domain!==s.labs[edge.b].domain?[4,4]:[]);
+  drawChannel(ctx,a,b,.13,radius(highlighted?1.7:.8),ctx.strokeStyle);ctx.setLineDash([]);
+  ctx.globalAlpha=1;
  }
  if(papers){
   const layout=paperLayout(s,g),focus=byPaper.get(selectedPaper[index]),sources=(s.citationEdges||[]).filter(e=>focus&&e.paperId===focus.paper.id);
@@ -752,26 +875,15 @@ function draw(canvas,s,index,t){
   });
  }
  if(!papers&&show.flows)for(const flow of (s.citationEdges||[]).filter(e=>s.day-e.day<=8)){
-  const a=position(s.labs[flow.from],g),b=position(s.labs[flow.to],g),f=Math.min(1,Math.max(0,(s.day-flow.day)/8));
-  drawArrow(ctx,a,b,ink['map-flow-line']);ctx.fillStyle=ink['map-flow'];ctx.beginPath();ctx.arc(a.x+(b.x-a.x)*f,a.y+(b.y-a.y)*f,2.5,0,6.283);ctx.fill();
+  if(fieldFilter!==null&&s.labs[flow.from].domain!==fieldFilter&&s.labs[flow.to].domain!==fieldFilter)continue;
+  const a=position(s.labs[flow.from],g),b=position(s.labs[flow.to],g),f=flow.day===s.day?pulse:1;
+  const c=drawChannel(ctx,a,b,-.24,radius(flow.day===s.day?1.8:.85),ink[flow.day===s.day?'map-flow-focus':'map-flow-line']);
+  if(flow.day===s.day){
+   const x=(1-f)**2*a.x+2*f*(1-f)*c.x+f*f*b.x,y=(1-f)**2*a.y+2*f*(1-f)*c.y+f*f*b.y;
+   drawResearchToken(ctx,x,y,radius(3.1),ink['map-flow'],'paper');
+  }
  }
- if(!papers)s.labs.forEach((l,i)=>{
-  ctx.globalAlpha=fieldFilter===null||l.domain===fieldFilter?1:.18;
-  const p=position(l,g),isSelected=selected[index]===i,r=papers?5:Math.min(18,9+Math.sqrt(l.active+1)*1.8);
-  if(isSelected){ctx.strokeStyle=ink['map-select'];ctx.lineWidth=1.5;ctx.beginPath();ctx.arc(p.x,p.y,r+8,0,6.283);ctx.stroke();}
-  ctx.fillStyle=l.locked?ink['map-node-locked']:ink['map-node'];ctx.strokeStyle=domainColors[l.domain];ctx.lineWidth=papers?1:1.5;
-  ctx.beginPath();ctx.arc(p.x,p.y,r,0,6.283);ctx.fill();ctx.stroke();
-  if(!papers){ctx.fillStyle=domainColors[l.domain];ctx.beginPath();ctx.arc(p.x,p.y,2.8,0,6.283);ctx.fill();}
-  if(!papers&&show.flows){
-   const agents=s.agents.filter(a=>a.labId===i);
-   agents.forEach((a,j)=>{const ang=-Math.PI/2+j*2*Math.PI/agents.length,orbit=r+9;
-    ctx.fillStyle=a.role==='AI'?ink['agent-ai']:ink['agent-human'];ctx.beginPath();ctx.arc(p.x+Math.cos(ang)*orbit,p.y+Math.sin(ang)*orbit,1.9,0,6.283);ctx.fill();});
-  }
-  if(show.labels&&(isSelected||fieldFilter===l.domain||w>850)){
-   ctx.fillStyle=isSelected?ink['map-label-strong']:ink['map-label'];ctx.font=isSelected?'600 11px '+FONT:'11px '+FONT;ctx.textAlign='center';ctx.fillText(l.name,p.x,p.y-r-12);
-  }
- });
- ctx.globalAlpha=1;
+ if(!papers)drawLabNodes(ctx,s,g,index,pulse,radius);
  for(const n of nodes){
   const paper=n.paper,passed=(paper.replications||0)-(paper.failedReplications||0);
   ctx.fillStyle=paper.failedReplications?ink['claim-fail']:passed>0?ink['claim-pass']:ink['claim-open'];ctx.strokeStyle=domainColors[paper.domain];ctx.lineWidth=1.4;
@@ -779,7 +891,9 @@ function draw(canvas,s,index,t){
   if(paper.domain!==s.labs[paper.labId].domain){ctx.strokeStyle=ink['map-cross-solid'];ctx.lineWidth=1;ctx.beginPath();ctx.arc(n.x,n.y,n.r+3,0,6.283);ctx.stroke();}
   if(selectedPaper[index]===paper.id){ctx.strokeStyle=ink['map-select'];ctx.lineWidth=1.6;ctx.beginPath();ctx.arc(n.x,n.y,n.r+5,0,6.283);ctx.stroke();if(show.labels){ctx.fillStyle=ink['map-label-strong'];ctx.font='11px '+FONT;ctx.textAlign='left';ctx.fillText('#'+paper.id,n.x+10,n.y-8);}}
  }
+ ctx.restore();
  canvas.dataset.mapView=view;canvas.dataset.visiblePapers=String(nodes.length);
+ if(playing&&!reducedMotion.matches&&Number.isFinite(t)&&t<mapMotionUntil&&s.events[0]?.day===s.day)queueMap();
 }
 function drawMap(time){
   if(compareMode&&worlds[1]){
@@ -788,56 +902,91 @@ function drawMap(time){
   }else draw(active===0?$('network-a'):$('network-b'),worlds[active],active,time);
 }
 function nearest(s,g,x,y){
-  let best=-1,d=24;
-  for(const l of s.labs){const p=position(l,g),r=Math.hypot(p.x-x,p.y-y);if(r<d){best=l.id;d=r;}}
+  let best=-1,d=24/Math.sqrt(g.scale||1);
+  for(const l of s.labs){if(fieldFilter!==null&&l.domain!==fieldFilter)continue;const p=position(l,g),r=Math.hypot(p.x-x,p.y-y);if(r<d){best=l.id;d=r;}}
   return best;
 }
 function canvasEvents(index){
   const canvas=$('network-'+(index?'b':'a'));canvas.tabIndex=0;
+  const camera=cameras[index];
   const local=e=>{const b=canvas.getBoundingClientRect();return {x:e.clientX-b.left,y:e.clientY-b.top};};
+  const mapPoint=p=>({x:(p.x-camera.x)/camera.scale,y:(p.y-camera.y)/camera.scale});
+  canvas.addEventListener('wheel',e=>{
+    if(!e.ctrlKey&&!e.metaKey)return;
+    e.preventDefault();moveCamera(index,camera.scale*Math.exp(-e.deltaY*.005),local(e));
+  },{passive:false});
   canvas.addEventListener('pointerdown',e=>{
-    if(index===1&&!worlds[1])return;
-    chooseWorld(index);
+    if(drag||e.button!==0||(index===1&&!worlds[1]))return;
+    if(index!==active)chooseWorld(index);
+    const start=local(e),p=mapPoint(start),g=canvasGeometry(canvas);
+    if(!g)return;
     if(view==='papers'){
-      const p=local(e),g=canvasGeometry(canvas);
-      const hit=livePaperNodes(nowWorld(),g).filter(n=>Math.hypot(n.x-p.x,n.y-p.y)<n.r+5).sort((a,b)=>Math.hypot(a.x-p.x,a.y-p.y)-Math.hypot(b.x-p.x,b.y-p.y))[0];
+      const hit=livePaperNodes(nowWorld(),g).map(node=>({node,distance:Math.hypot(node.x-p.x,node.y-p.y)}))
+        .filter(({node,distance})=>distance<node.r+5).sort((a,b)=>a.distance-b.distance)[0]?.node;
       if(hit){selected[index]=hit.paper.labId;selectedPaper[index]=hit.paper.id;inspector();drawMap();publishContext(true);return;}
     }
-    const p=local(e),id=nearest(nowWorld(),canvasGeometry(canvas),p.x,p.y);
-    selected[index]=id<0?null:id;selectedPaper[index]=null;
-    if(id>=0){drag={index,id,start:p,startPosition:{x:nowWorld().labs[id].x,y:nowWorld().labs[id].y},moved:false,wasPlaying:playing,before:networkFacts(nowWorld(),id)};play(false);canvas.setPointerCapture(e.pointerId);}
-    inspector();publishContext(true);
+    const id=view==='labs'?nearest(nowWorld(),{...g,scale:camera.scale},p.x,p.y):-1;
+    if(id<0){
+      if(camera.scale>1||e.pointerType!=='touch'){
+        drag={index,pointer:e.pointerId,start,pan:true,x:camera.x,y:camera.y};
+        canvas.setPointerCapture(e.pointerId);
+      }
+      return;
+    }
+    const lab=nowWorld().labs[id];
+    selected[index]=id;selectedPaper[index]=null;
+    drag={index,pointer:e.pointerId,id,start,startPosition:{x:lab.x,y:lab.y},moved:false,wasPlaying:playing,before:networkFacts(nowWorld(),id)};
+    play(false);canvas.setPointerCapture(e.pointerId);
+    inspector();publishContext(true);queueMap();
   });
   canvas.addEventListener('pointermove',e=>{
-    if(!drag||drag.index!==index)return;
-    const p=local(e);
-    if(Math.hypot(p.x-drag.start.x,p.y-drag.start.y)>8)drag.moved=true;
-    if(drag.moved){
-      const g=canvasGeometry(canvas),l=nowWorld().labs[drag.id];if(!g)return;
-      l.x=Math.max(.04,Math.min(.96,(p.x-g.pad)/(g.w-g.pad*2)));
-      l.y=Math.max(.07,Math.min(.93,(p.y-g.pad)/(g.h-g.pad*2)));
+    if(!drag||drag.index!==index||drag.pointer!==e.pointerId)return;
+    const p=local(e),g=canvasGeometry(canvas);
+    if(!g)return;
+    const dx=p.x-drag.start.x,dy=p.y-drag.start.y;
+    if(drag.pan){
+      camera.x=Math.min(0,Math.max(g.w*(1-camera.scale),drag.x+dx));
+      camera.y=Math.min(0,Math.max(g.h*(1-camera.scale),drag.y+dy));
+    }else{
+      if(Math.hypot(dx,dy)>8)drag.moved=true;
+      if(!drag.moved)return;
+      const lab=nowWorld().labs[drag.id];
+      lab.x=Math.max(.04,Math.min(.96,drag.startPosition.x+dx/camera.scale/(g.w-g.pad*2)));
+      lab.y=Math.max(.07,Math.min(.93,drag.startPosition.y+dy/camera.scale/(g.h-g.pad*2)));
     }
+    queueMap();
   });
-  canvas.addEventListener('pointerup',()=>{
-    if(!drag||drag.index!==index)return;
-    if(drag.moved){
-      const l=worlds[index].labs[drag.id];
-      E.intervention(worlds[index],'move',drag.id,{x:l.x,y:l.y});
-      trackUsage('laboratory_moved',{laboratory:drag.id+1});
-      const after=networkFacts(worlds[index],drag.id);
-      $('intervention-status').textContent=l.name+': links '+drag.before.selectedLinks+' → '+after.selectedLinks+'; across communities '+drag.before.selectedCrossLinks+' → '+after.selectedCrossLinks+'. This changes future citation preferences, not existing evidence.';
-      mapLegend();
-      emit('collaboration_changed',worlds[index],'network');
+  function finishDrag(e,canceled){
+    if(!drag||drag.index!==index||drag.pointer!==e.pointerId)return;
+    const gesture=drag;drag=null;
+    if(gesture.pan)return;
+    if(gesture.moved){
+      const lab=worlds[index].labs[gesture.id];
+      if(canceled)Object.assign(lab,gesture.startPosition);
+      else{
+        E.intervention(worlds[index],'move',gesture.id,{x:lab.x,y:lab.y});
+        trackUsage('laboratory_moved',{laboratory:gesture.id+1});
+        const after=networkFacts(worlds[index],gesture.id);
+        $('intervention-status').textContent=lab.name+': links '+gesture.before.selectedLinks+' → '+after.selectedLinks+'; across communities '+gesture.before.selectedCrossLinks+' → '+after.selectedCrossLinks+'.';
+        mapLegend();emit('collaboration_changed',worlds[index],'network');
+      }
     }
-    const resume=drag.wasPlaying;drag=null;inspector();publishContext(true);if(resume)play(true);
-  });
-  canvas.addEventListener('pointercancel',()=>{const resume=drag?.wasPlaying;if(drag)Object.assign(worlds[drag.index].labs[drag.id],drag.startPosition);drag=null;if(resume)play(true);});
+    inspector();publishContext(true);queueMap();if(gesture.wasPlaying)play(true);
+  }
+  canvas.addEventListener('pointerup',e=>finishDrag(e,false));
+  canvas.addEventListener('pointercancel',e=>finishDrag(e,true));
+  canvas.addEventListener('lostpointercapture',e=>finishDrag(e,true));
   canvas.addEventListener('keydown',e=>{
+    if(['+','=','-','0'].includes(e.key)){
+      e.preventDefault();moveCamera(index,e.key==='0'?1:camera.scale*(e.key==='-'?1/1.4:1.4));return;
+    }
     if(!['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(e.key))return;
     e.preventDefault();chooseWorld(index);
     const delta=e.key==='ArrowLeft'||e.key==='ArrowUp'?-1:1;
-    selected[index]=selected[index]===null?0:(selected[index]+delta+worlds[index].labs.length)%worlds[index].labs.length;
-    selectedPaper[index]=null;inspector();publishContext(true);
+    const labs=worlds[index].labs.filter(lab=>fieldFilter===null||lab.domain===fieldFilter);
+    const current=labs.findIndex(lab=>lab.id===selected[index]);
+    selected[index]=labs[current<0?0:(current+delta+labs.length)%labs.length]?.id??null;
+    selectedPaper[index]=null;inspector();publishContext(true);queueMap();
   });
 }
 function changeLab(action){
@@ -857,23 +1006,23 @@ function renderPolicies(){
     const head=make('div','policy-name');
     head.append(make('strong','',name),make('output','',value+'/10'));
     const range=make('input');range.type='range';range.min=1;range.max=10;range.step=1;range.value=value;
+    syncRange(range,value,active?worlds[0].policy[key]:E.DEFAULTS[key]);
     range.dataset.policy=key;range.setAttribute('aria-label',name);
     range.addEventListener('input',()=>{
-      if(!ensureComparison()){range.value=nowWorld().policy[key];return;}
-      if(lesson&&active!==1){range.value=nowWorld().policy[key];return;}
+      if(!ensureComparison()){syncRange(range,nowWorld().policy[key]);return;}
+      if(lesson&&active!==1){syncRange(range,nowWorld().policy[key]);return;}
       if(lesson?.observed){worlds[0]=E.fork(lessonCheckpoint);worlds[1]=E.fork(lessonCheckpoint);lesson.observed=false;lesson.startDay=worlds[0].day;render();}
-      E.editPolicy(nowWorld(),key,range.value);
+      E.editPolicy(nowWorld(),key,range.value);syncRange(range);
+      const current=$('policy-controls').querySelector('[data-policy='+key+']');
+      if(current!==range){syncRange(current,range.value);text(current.closest('.policy-control').querySelector('output'),range.value+'/10');}
       trackUsage('parameter_changed',{parameter:key,value:Number(range.value)});
       head.querySelector('output').textContent=range.value+'/10';
       $('policy-live-status').textContent=name+' is now '+range.value+'/10 in World '+(active?'B':'A')+'. '+(playing?'Watch future model days; the effect can take time to appear.':'The model is paused. Advance days or press Play to observe the effect.');
-      publishContext(true);emit('policy_changed',nowWorld(),'intervene');comparison();renderMetricTrends();
+      publishContext(true);emit('policy_changed',nowWorld(),'intervene');comparison();renderMetricTrends();queueMap();
       if(lesson)reportLesson(false);
       const spark=line.querySelector('svg');if(spark)spark.replaceWith(sparkline(series(nowWorld()).map(x=>x['policy_'+key]),name));
     });
-    // The filled part of the track is drawn from --fill (styles.css).
-    const fill=()=>range.style.setProperty('--fill',((range.value-1)/9*100)+'%');
-    fill();range.addEventListener('input',fill);
-    line.append(head,make('p','',hint),range);
+    line.append(head,make('p','',hint),range,make('small','policy-reference','Applied immediately · Baseline '+(active?worlds[0].policy[key]:E.DEFAULTS[key])+'/10'));
     const provenance=policyEvidence[key]||['Assumed simulation rule',null];
     const policyAudit=POLICY_RATIONALE[key];
     const evidence=make('small','policy-evidence',
@@ -1026,7 +1175,7 @@ function setView(name){
 /* Experiment recipes are transparent, authored model interventions, not
    generated science. The user explicitly chooses to advance both worlds. */
 const REVIEW_CAPACITY={
- name:'Can peer review keep up with faster research?',key:'verification',label:'Peer review capacity',metric:'reviewBacklog',
+ name:'Can peer review keep up with faster research?',key:'verification',label:'Peer-review policy',metric:'reviewBacklog',
  outcome:'Studies waiting for review',low:E.DEFAULTS.verification,high:8
 };
 const GUIDED_EXPERIMENTS={
@@ -1059,20 +1208,22 @@ const METRIC_INPUTS={
   replicated:['replication','verification'], retracted:['replication','verification']
 };
 let mediumValues={...E.DEFAULTS,verification:REVIEW_CAPACITY.high};
-let focusDay=FOCUS_DAYS,focusReplay=0,focusStage='generated';
+let focusDay=0,focusReplay=0,focusStage='generated';
+let simpleSetting=REVIEW_CAPACITY.low;
+const mediumDrafts=new Map();
 const FOCUS_STAGES={
  generated:['Ideas generated','Teams propose hypotheses to test.'],
- tested:['Studies tested','Only studies with a detectable effect move into review.'],
+ tested:['Studies tested','Studies with a statistically detectable effect enter the review queue.'],
  reviewBacklog:['Studies waiting for review','Manuscripts wait while reviewers check their methods.'],
  published:['Studies published','Studies that pass review become papers.'],
  replicated:['Independent repeats completed','Some papers are tested again with a fresh sample.']
 };
-function traceStudy(world){
+function traceStudy(world,recorded){
  // Follow the first study to receive an independent repeat in this run.
- const repeat=world.events.findLast(e=>e.type==='replication_passed'||e.type==='replication_failed');
+ const repeat=recorded.find(e=>e.type==='replication_passed'||e.type==='replication_failed');
  const study=world.hypotheses.find(h=>h.id===repeat?.hypothesisId)||world.hypotheses[0];
  if(!study)return [];
- const events=world.events.filter(e=>e.hypothesisId===study.id);
+ const events=recorded.filter(e=>e.hypothesisId===study.id);
  const trace=[
   {day:study.created,stage:'generated',label:study.topic+' proposed'},
   {day:study.created,stage:'tested',label:'Initial test begins'}
@@ -1086,7 +1237,7 @@ function traceStudy(world){
   replication_failed:['replicated','Independent repeat fails'],
   paper_retracted:['replicated','Paper withdrawn after a failed repeat']
  };
- for(const event of events.reverse()){
+ for(const event of events){
   const step=stages[event.type];
   if(step)trace.push({day:event.day,stage:step[0],label:step[1]});
  }
@@ -1097,37 +1248,61 @@ function drawLifecycle(run){
  const visited=trace.filter(step=>step.day<=focusDay);
  const current=visited.at(-1);
  const reached=new Set(visited.map(step=>step.stage));
- text('lifecycle-mode',run?(trace[0]?.label.replace(/ proposed$/,'')||'No hypothesis generated'):'Model workflow');
- text('lifecycle-clock',run?'Day '+focusDay+' / '+FOCUS_DAYS:'Before the run');
- const token=$('lifecycle-token');
- token.hidden=!current;
- if(current)token.dataset.stagePosition=Object.keys(FOCUS_STAGES).indexOf(current.stage);
+ text('lifecycle-mode',current?trace[0].label.replace(/ proposed$/,''):'From idea to evidence');
+ text('lifecycle-clock',run?'Day '+focusDay+' / '+FOCUS_DAYS:'Ready to run');
+ $('flow-empty').hidden=!!run;
+ $('research-flow').dataset.traceStage=current?current.stage:'';
  const event=$('lifecycle-event');
  event.hidden=!run;
- text(event,current?'Day '+current.day+' · '+visited.filter(step=>step.day===current.day).map(step=>step.label).join(' → '):'Waiting for the first hypothesis');
+ text(event,current?'Day '+current.day+' · '+visited.filter(step=>step.day===current.day).map(step=>step.label).join(' → '):'Waiting for the traced hypothesis');
+ const activity=$('lifecycle-activity');
+ activity.hidden=!run;
+ const daily=run?.events[focusDay]||[];
+ const counts=new Map();
+ for(const item of daily){
+  const label=FLOW_EVENTS[item.type]?.label;
+  if(label)counts.set(label,(counts.get(label)||0)+1);
+ }
+ if(activity.frame!==run?.days[focusDay]){
+  activity.frame=run?.days[focusDay];
+  activity.replaceChildren(...[...counts].map(([label,count])=>make('span','activity-count',label+' '+count)));
+ }
+
  for(const button of document.querySelectorAll('[data-stage]')){
+  const count=button.querySelector('.station-count');
+  text(count,run?run.days[focusDay][button.dataset.stage]:'—');
   button.classList.toggle('is-reached',reached.has(button.dataset.stage));
   button.classList.toggle('is-current',current?.stage===button.dataset.stage);
   button.setAttribute('aria-pressed',String(button.dataset.stage===focusStage));
  }
- text('focus-stage-detail',FOCUS_STAGES[focusStage][1]);
+ text('focus-stage-detail',FOCUS_STAGES[focusStage][0]+(run?' '+run.days[focusDay][focusStage]:'')+' · '+FOCUS_STAGES[focusStage][1]);
 }
 function stopFocusedReplay(){
  cancelAnimationFrame(focusReplay);
- focusReplay=0;
+ focusReplay=0;$('focus-pause').hidden=true;$('focus-replay').hidden=false;
 }
 function focusPending(){
- const baseline=E.DEFAULTS.verification,setting=Number($('focus-setting').value);
+ const baseline=E.DEFAULTS.verification,setting=simpleSetting;
  const inputs=level==='medium'?mediumValues:{verification:setting};
  const reference=focusedRuns?.b?.world.policy||focusedRuns?.a.world.policy||E.DEFAULTS;
  const dirty=Object.keys(inputs).some(key=>inputs[key]!==reference[key]);
  text('focus-run',level==='medium'?'Compare worlds':!simpleRuns.size?
-  (setting===baseline?'Run baseline':'Run baseline and trial'):'Run experiment');
+  (setting===baseline?'Run baseline':'Run baseline and trial'):setting===baseline?'Replay baseline':'Run trial');
  const capacity=Math.floor(1+setting*.55);
- text('focus-setting-hint','Up to '+capacity+' reviews/day. Higher settings tighten scrutiny; at 7+, one failed repeat can trigger withdrawal.');
+ syncRange($('focus-setting'),setting,baseline);
+ text('focus-setting-value',setting+' / 10');
+ text('focus-setting-hint','Up to '+capacity+' reviews per day. This policy couples throughput and scrutiny. At 7+, one failed repeat can trigger withdrawal.');
+ text('focus-setting-applied','Baseline '+baseline+'/10 · Applied '+(focusedRuns?reference.verification+'/10':'after run'));
  $('focus-setting').setAttribute('aria-valuetext',setting+' out of 10, up to '+capacity+' model reviews per day');
- text('focus-status',dirty?'Settings changed. Run to measure the new settings.':focusedRuns?
-  'Run complete · 45 model days.':'Synthetic teaching model · 45 model days per run.');
+ const count=MEDIUM_KEYS.filter(key=>mediumValues[key]!==E.DEFAULTS[key]).length;
+ $('focus-world-b').classList.toggle('is-pending',dirty);
+ $('focus-causal-warning').hidden=count<2;
+ text('focus-causal-warning','Multiple policies differ from World A. This comparison measures their combined effect.');
+ text('focus-state',dirty?'Pending':focusedRuns?'Applied':'Ready');
+ text('world-b-state',dirty?'Pending':focusedRuns?'Applied':'Settings ready');
+ document.querySelector('.experiment-console').classList.toggle('is-pending',dirty);
+ text('focus-status',dirty?'Settings changed. Run to measure.':focusedRuns?
+  'Same seed · '+FOCUS_DAYS+' model days':'Synthetic teaching model');
  publishFocusedContext();
 }
 function focusInputs(metric){
@@ -1138,25 +1313,242 @@ function focusInputs(metric){
 }
 function focusMetricLabel(metric){return metricInfo(metric)[0];}
 function renderMediumControls(){
- const medium=level==='medium',host=$('focus-policy-grid');
+ const medium=level==='medium',host=$('focus-policy-grid'),primary=$('focus-main-policy');
  $('focus-medium-controls').hidden=!medium;
  document.querySelector('.focus-slider').hidden=medium;
  if(!medium)return;
- host.replaceChildren();
+ host.replaceChildren();primary.replaceChildren();
  for(const key of MEDIUM_KEYS){
-  const [name,hint]=policyDescriptions[key];
+  const [name,hint]=policyDescriptions[key],baseline=E.DEFAULTS[key];
   const label=make('label','focus-policy'),head=make('span','focus-policy-header');
-  const value=make('output','',mediumValues[key]+'/10');
+  const value=make('span','policy-value',mediumValues[key]+'/10');
   head.append(make('strong','',name),value);
   const input=make('input');
   input.type='range';input.min='1';input.max='10';input.step='1';
-  input.value=String(mediumValues[key]);input.setAttribute('aria-label',name+' in World B');
+  syncRange(input,mediumValues[key],baseline);
+  input.setAttribute('aria-label',name+' in World B');
+  const applied=make('small','policy-reference','Baseline '+baseline+'/10 · Applied '+(focusedRuns?.b?focusedRuns.b.world.policy[key]+'/10':'after run'));
   input.addEventListener('input',()=>{
-   mediumValues[key]=Number(input.value);value.textContent=input.value+'/10';focusPending();
+   syncRange(input);mediumValues[key]=Number(input.value);text(value,input.value+'/10');focusPending();
   });
-  label.append(head,input,make('small','',hint));
-  host.append(label);
+  input.dataset.guidedPolicy=key;
+  label.append(head,input,make('small','',hint),applied);
+  (key===focusedRecipe().key?primary:host).append(label);
  }
+}
+const WORLD_METRICS=[
+ ['activeStudies','Testing','Studies currently running'],['reviewBacklog','Review queue','Manuscripts waiting at the end of the day'],
+ ['published','Published','Cumulative accepted papers'],['replicated','Repeated','Cumulative independent repeats']
+];
+// Capture compact view state after each complete model day. Intermediate same-day
+// transitions come from study records and the engine's ordered events.
+const FLOW_EVENTS={
+ hypothesis_generated:{label:'Study started',metric:'activeStudies'},
+ hypothesis_rejected:{label:'No detectable effect',metric:'activeStudies',route:[1,5]},
+ review_rejected:{label:'Rejected in review',metric:'reviewBacklog',route:[2,5]},
+ paper_published:{label:'Paper published',metric:'published',route:[2,3]},
+ replication_passed:{label:'Repeat passed',metric:'replicated',route:[4,6]},
+ replication_failed:{label:'Repeat failed',metric:'replicated',route:[4,5]},
+ paper_retracted:{label:'Paper withdrawn',metric:'replicated',route:[5,5]}
+};
+const worldPreviews=E.make(FOCUS_SEED).labs.map(({id,x,y,domain})=>({id,x,y,domain}));
+function recordResearchDay(world,events,previous){
+ const byId=new Map(world.hypotheses.map(study=>[study.id,study]));
+ const identity=({id,labId,domain})=>({id,labId,domain});
+ const review=world.queues.review.map(id=>identity(byId.get(id)));
+ const replication=world.queues.replication.map(({id})=>identity(byId.get(id)));
+ const testing=world.hypotheses.filter(study=>study.status==='testing').map(identity);
+ const published=world.hypotheses.filter(study=>study.published&&!study.retracted).map(identity);
+ const changes=[];
+ for(const study of world.hypotheses){
+  if(study.created===world.day)changes.push({...identity(study),route:[0,1],type:'hypothesis_generated'});
+  if(study.tested&&study.significant&&study.complete===world.day)
+   changes.push({...identity(study),route:[1,2],type:'review_entered'});
+ }
+ for(const event of events){
+  const route=FLOW_EVENTS[event.type]?.route,study=byId.get(event.hypothesisId);
+  if(route&&study)changes.push({...identity(study),route,type:event.type});
+ }
+ const priorRepeat=new Set(previous?.replication.map(study=>study.id));
+ for(const study of replication){
+  if(!priorRepeat.has(study.id))changes.push({...study,route:[3,4],type:'replication_queued'});
+ }
+ const movements=new Map();
+ for(const change of changes){
+  if(!movements.has(change.id))movements.set(change.id,[]);
+  movements.get(change.id).push(change);
+ }
+ const repeats=events.filter(event=>event.type==='replication_passed'||event.type==='replication_failed')
+  .map(({hypothesisId,type})=>({id:hypothesisId,passed:type==='replication_passed'}));
+ return {testing,review,replication,published,movements,repeats:[...(previous?.repeats||[]),...repeats]};
+}
+const FLOW_COLORS={get wait(){return ink['flow-wait'];},get pass(){return ink['flow-pass'];},get stop(){return ink['flow-stop'];}};
+const curve=(a,b,bend)=>({x:(a.x+b.x)/2+bend*(b.y-a.y),y:(a.y+b.y)/2-bend*(b.x-a.x)});
+function drawChannel(ctx,a,b,bend,width,color){
+ const c=curve(a,b,bend);
+ ctx.strokeStyle=color;ctx.lineWidth=width;ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.quadraticCurveTo(c.x,c.y,b.x,b.y);ctx.stroke();
+ return c;
+}
+function drawResearchToken(ctx,x,y,r,color,kind){
+ ctx.fillStyle=color;ctx.strokeStyle=color;ctx.lineWidth=1.35;ctx.beginPath();
+ if(kind==='stop'){ctx.moveTo(x-r,y-r);ctx.lineTo(x+r,y+r);ctx.moveTo(x+r,y-r);ctx.lineTo(x-r,y+r);ctx.stroke();return;}
+ if(kind==='pass'){ctx.moveTo(x-r,y);ctx.lineTo(x-r*.2,y+r*.72);ctx.lineTo(x+r,y-r);ctx.stroke();return;}
+ if(kind==='wait'){ctx.moveTo(x,y-r);ctx.lineTo(x+r,y);ctx.lineTo(x,y+r);ctx.lineTo(x-r,y);ctx.closePath();}
+ else if(kind==='paper')ctx.rect(x-r*.65,y-r,r*1.3,r*2);
+ else ctx.arc(x,y,r,0,Math.PI*2);
+ ctx.fill();
+}
+function drawResearchRun(canvas,run,side,progress){
+ const g=canvasGeometry(canvas);if(!g)return;
+ const {ctx,w,h}=g,world=side!==null,vertical=!world&&innerWidth<=620;
+ const day=run?.research[focusDay];
+ const at=(x,y)=>({x:w*x,y:h*y});
+ const stations=world?[at(.17,.5),at(.38,.52),at(.61,.49),at(.81,.32),at(.83,.65),at(.67,.86),at(.94,.80)]:
+  vertical?[at(.34,.10),at(.44,.30),at(.34,.51),at(.47,.70),at(.55,.89),at(.84,.59),at(.82,.91)]:
+   [at(.10,.46),at(.30,.42),at(.50,.46),at(.70,.38),at(.90,.49),at(.53,.81),at(.91,.78)];
+ const accent=ink['world-'+(side||'a')];
+ const shade=(color,alpha)=>color+Math.round(alpha*2.55).toString(16).padStart(2,'0');
+ ctx.clearRect(0,0,w,h);
+ // The channel plan is visible before day zero. No study or outcome is drawn until observed.
+ const routes=[[0,1],[1,2],[2,3],[3,4],[1,5],[2,5],[4,5],[4,6]];
+ for(const [from,to] of routes){
+  const branch=to>=5,wide=world?7:vertical?17:25;
+  drawChannel(ctx,stations[from],stations[to],.23,branch?1:wide,shade(accent,branch?19:14));
+  ctx.setLineDash(branch?[3,5]:[]);
+  drawChannel(ctx,stations[from],stations[to],.23,1,shade(accent,branch?30:48));ctx.setLineDash([]);
+ }
+ const r=world?Math.max(8,Math.min(w*.048,24)):vertical?18:28;
+ for(const [i,p] of stations.entries()){
+  ctx.strokeStyle=shade(i===5?FLOW_COLORS.stop:i===6?FLOW_COLORS.pass:accent,i<5?53:29);
+  const size=i<5?r:r*.56;
+  if(i<5){
+   const lens=ctx.createRadialGradient(p.x,p.y,0,p.x,p.y,size*1.8);
+   lens.addColorStop(0,shade(accent,21));lens.addColorStop(1,'transparent');
+   ctx.fillStyle=lens;ctx.fillRect(p.x-size*1.8,p.y-size*1.8,size*3.6,size*3.6);
+  }
+  ctx.lineWidth=1;ctx.beginPath();ctx.arc(p.x,p.y,size,0,Math.PI*2);ctx.stroke();
+  if(i===2||i===4){ctx.beginPath();ctx.arc(p.x,p.y,r+5,0,Math.PI*2);ctx.stroke();}
+ }
+ const labPositions=world?worldPreviews.map(lab=>{
+  // Use the same laboratory positions and scale for both matched worlds.
+  const theta=lab.domain*Math.PI/2+Math.PI*.22;
+  const x=.35+Math.cos(theta)*.24+(lab.x-.5)*.24,y=.47+Math.sin(theta)*.32+(lab.y-.5)*.26;
+  return at(x,y);
+ }):[];
+ if(world){
+  for(let domain=0;domain<4;domain++){
+   const members=worldPreviews.filter(lab=>lab.domain===domain).map(lab=>labPositions[lab.id]);
+   const center={x:members.reduce((sum,p)=>sum+p.x,0)/members.length,y:members.reduce((sum,p)=>sum+p.y,0)/members.length};
+   const glow=ctx.createRadialGradient(center.x,center.y,0,center.x,center.y,w*.23);
+   glow.addColorStop(0,shade(domainColors[domain],24));glow.addColorStop(1,'transparent');
+   ctx.fillStyle=glow;ctx.fillRect(0,0,w,h);
+  }
+  const loads=new Map();
+  for(const study of day?.testing||[])loads.set(study.labId,(loads.get(study.labId)||0)+1);
+  for(const lab of worldPreviews){
+   const p=labPositions[lab.id],load=loads.get(lab.id)||0;
+   ctx.strokeStyle=shade(domainColors[lab.domain],load?68:42);
+   ctx.fillStyle=shade(domainColors[lab.domain],load?28:10);
+   ctx.beginPath();ctx.arc(p.x,p.y,2.5+Math.sqrt(load)*(w<230?1.4:2.4),0,Math.PI*2);ctx.fill();ctx.stroke();
+  }
+ }
+ if(!day){canvas.dataset.studies='0';canvas.dataset.day='';canvas.dataset.progress='1';return;}
+ const active=day.movements;
+ const spread=(i,columns,step)=>({cross:(i%columns-(columns-1)/2)*step,along:Math.floor(i/columns)*step});
+ const cohorts=[[day.testing,1,'study'],[day.review,2,'wait'],[day.replication,4,'wait'],[day.published,3,'paper']];
+ for(const [studies,stage,kind] of cohorts){
+  const color=kind==='wait'?FLOW_COLORS.wait:kind==='paper'?shade(accent,57):shade(accent,76);
+  const columns=world?7:vertical?7:12,spacing=world?Math.min(7,w*.027):vertical?7:9;
+  for(const [i,study] of studies.entries()){
+   if(progress<1&&active.has(study.id))continue;
+   const p=world&&stage===1?labPositions[study.labId]:stations[stage];
+   const offset=spread(world&&stage===1?study.id%15:i,columns,spacing);
+   let x=vertical?p.x+offset.cross:p.x-offset.along;
+   let y=vertical?p.y-offset.along:p.y+offset.cross;
+   if(!world&&stage===1){
+    x=p.x+offset.cross;
+    y=p.y+14+offset.along;
+   }
+   if(stage===2){x=p.x+offset.cross;y=p.y+12+offset.along;}
+   if(stage===4){x=p.x+offset.cross;y=p.y-offset.along;}
+
+   if(stage===3){x=p.x+offset.cross;y=p.y+offset.along+7;}
+   if(world&&stage===1){x=p.x+offset.cross*.45;y=p.y+offset.along*.55-4;}
+   if(x<5||x>w-5||y<5||y>h-5)continue;
+   drawResearchToken(ctx,x,y,kind==='wait'?2.9:2.2,color,kind);
+  }
+ }
+ // Archived repeat outcomes use the same per-mark scale in both worlds.
+ day.repeats.forEach((repeat,i)=>{
+  if(progress<1&&active.has(repeat.id))return;
+  const p=stations[6],gap=world?3.8:5.4,cols=world?7:11;
+  const x=p.x-(i%cols)*gap,y=p.y+13+Math.floor(i/cols)*gap;
+  if(y<h-3)drawResearchToken(ctx,x,y,world?1.65:2.3,repeat.passed?FLOW_COLORS.pass:FLOW_COLORS.stop,repeat.passed?'pass':'stop');
+ });
+ for(const transitions of day.movements.values()){
+  const index=Math.min(transitions.length-1,Math.floor(progress*transitions.length));
+  const {id,labId,type,route:[from,to]}=transitions[index];
+  const p0=world&&from===1?labPositions[labId]:stations[from],p1=world&&to===1?labPositions[labId]:stations[to];
+  const offset=(id%9-4)*(world?1.6:3.3);
+  const a={x:p0.x+offset,y:p0.y-offset},b={x:p1.x+offset,y:p1.y-offset};
+  const t=Math.max(0,Math.min(1,progress*transitions.length-index)),c=curve(a,b,.23);
+  const kind=to===5?'stop':to===6?'pass':'study';
+  const color=kind==='stop'?FLOW_COLORS.stop:kind==='pass'?FLOW_COLORS.pass:to===2?FLOW_COLORS.wait:accent;
+  if(progress===1&&kind==='study'&&to!==3)continue;
+  const x=(1-t)**2*a.x+2*t*(1-t)*c.x+t*t*b.x,y=(1-t)**2*a.y+2*t*(1-t)*c.y+t*t*b.y;
+  if(progress<1&&from!==to){
+   drawChannel(ctx,a,{x,y},.1,2,shade(color,45));
+  }
+  drawResearchToken(ctx,x,y,world?3:4.4,color,kind);
+  if(type==='paper_retracted'){ctx.strokeStyle=color;ctx.beginPath();ctx.arc(x,y,6,0,Math.PI*2);ctx.stroke();}
+ }
+ canvas.dataset.studies=String(day.testing.length+day.review.length+day.replication.length);
+ canvas.dataset.day=String(focusDay);canvas.dataset.progress=progress.toFixed(2);
+ canvas.dataset.queue=String(day.review.length);
+
+}
+function drawFocusedAnimation(progress){
+ if(level==='simple')drawResearchRun($('research-flow'),focusedRuns?.a,null,progress);
+ if(level==='medium')for(const side of ['a','b'])
+  drawResearchRun($('focus-world-'+side).querySelector('canvas'),focusedRuns?.[side],side,progress);
+}
+let inspectedWorld='a',inspectedMetric='reviewBacklog';
+function mountWorldFields(){
+ for(const side of ['a','b']){
+  const field=$('focus-world-'+side).querySelector('.world-field');
+  for(const [key,label] of WORLD_METRICS){
+   const station=make('button','world-station');
+   station.type='button';station.dataset.metric=key;
+   station.append(make('span','world-metric',label),make('strong','','—'));
+   station.addEventListener('click',()=>{inspectedWorld=side;inspectedMetric=key;drawFocusDay();publishFocusedContext();});
+   field.append(station);
+  }
+ }
+ for(const station of document.querySelectorAll('[data-stage]')){
+  const count=make('span','station-count','—');count.setAttribute('aria-hidden','true');station.append(count);
+ }
+}
+function drawWorldFields(a,b){
+ const left=a?.days[focusDay],right=b?.days[focusDay];
+ for(const [side,run,row] of [['a',a,left],['b',b,right]]){
+  const host=$('focus-world-'+side);
+  host.dataset.day=row?.day??'';
+  for(const station of host.querySelectorAll('[data-metric]')){
+   const key=station.dataset.metric;
+   text(station.querySelector('strong'),row?.[key]??'—');
+   station.setAttribute('aria-pressed',String(side===inspectedWorld&&key===inspectedMetric));
+  }
+ }
+ const inspected=inspectedWorld==='a'?a:b;
+ const metric=WORLD_METRICS.find(([key])=>key===inspectedMetric);
+ const counts=new Map();
+ for(const event of inspected?.events[focusDay]||[]){
+  const item=FLOW_EVENTS[event.type];
+  if(item?.metric===inspectedMetric)counts.set(item.label,(counts.get(item.label)||0)+1);
+ }
+ text('world-clock',a?'Day '+focusDay+' / '+FOCUS_DAYS:'Ready to run');
+ text('world-inspection','World '+inspectedWorld.toUpperCase()+' · '+metric[2]+
+  (inspected?' · '+(counts.size?[...counts].map(([label,count])=>label+' × '+count).join(' · '):'No recorded events at this station today.'):' · Run to observe'));
 }
 function focusedChartCard(metric,a,b){
  const card=make('article','focus-trend-card');
@@ -1210,13 +1602,14 @@ function focusedRecipe(){return level==='simple'?REVIEW_CAPACITY:GUIDED_EXPERIME
 function selectLevel(next,scenario,focus=false){
  if(!['simple','medium','advanced'].includes(next))return;
  stopFocusedReplay();focusDay=FOCUS_DAYS;
+ if(level==='medium')mediumDrafts.set(mediumScenario,mediumValues);
  if(level==='advanced'&&next!==level){play(false);if(drawerOpen)settings(false,false);}
  if(next==='medium'&&(scenario==='review_capacity'||Object.hasOwn(GUIDED_EXPERIMENTS,scenario))){
   mediumScenario=scenario;
   const selected=GUIDED_EXPERIMENTS[scenario]||REVIEW_CAPACITY;
   // Guided scenarios start with one clearly labeled intervention.
   // A visitor may then explore up to six input policies deliberately.
-  mediumValues={...E.DEFAULTS,[selected.key]:selected.high};
+  mediumValues=mediumDrafts.get(scenario)||{...E.DEFAULTS,[selected.key]:selected.high};
  }
  level=next;$('universe-app').dataset.level=level;
  document.querySelectorAll('[data-level-choice]').forEach(button=>{
@@ -1225,15 +1618,15 @@ function selectLevel(next,scenario,focus=false){
  if(level==='advanced'){render();drawMap();}
  else{
   focusedRuns=level==='simple'?[...simpleRuns.values()].at(-1):mediumRuns.get(mediumScenario);
-  if(scenario&&focusedRuns?.b)mediumValues={...focusedRuns.b.world.policy};
+  if(!focusedRuns)focusDay=0;
   $('focus-scenario').value=mediumScenario;
   const recipe=focusedRecipe(),medium=level==='medium';
   renderMediumControls();
-  text('focus-title',recipe.name);
-  text('focus-description',medium?'Keep World A fixed. Change one policy in World B and compare the same 45 model days.':'Run a baseline, then change review capacity and compare the queues.');
+  text('focus-kicker',medium?'Science Universe / Parallel Worlds':'Science Universe / Research Journey');
+  text('focus-title',medium?'Two worlds, one starting point':recipe.name);
+  text('focus-description',medium?'Change World B and watch both worlds run on the same clock.':'Follow studies from first hypothesis to independent repeat.');
   text('focus-setting-label','Peer-review policy');
-  $('focus-setting').value=focusedRuns?.value??(medium?recipe.high:recipe.low);
-  text('focus-setting-value',$('focus-setting').value+' / 10');
+  syncRange($('focus-setting'),simpleSetting,REVIEW_CAPACITY.low);
   drawFocused();focusPending();
   if(focus){const control=$(medium?'focus-scenario':'focus-setting');control.focus({preventScroll:true});control.scrollIntoView({block:'nearest'});}
  }
@@ -1241,12 +1634,14 @@ function selectLevel(next,scenario,focus=false){
 }
 function modelRun(recipe,value){
  const world=E.make(FOCUS_SEED,typeof value==='object'?value:{[recipe.key]:value});
- const days=[E.summary(world)];
+ const days=[E.summary(world)],events=[[]],research=[recordResearchDay(world,[])];
  for(let day=1;day<=FOCUS_DAYS;day++){
   E.step(world,1);
   days.push(E.summary(world));
+  const daily=world.events.filter(event=>event.day===day).reverse();
+  events.push(daily);research.push(recordResearchDay(world,daily,research.at(-1)));
  }
- return {world,days,summary:days.at(-1),trace:traceStudy(world)};
+ return {world,days,events,research,summary:days.at(-1),trace:traceStudy(world,events.flat())};
 }
 function runFocused(){
  if(level==='advanced')return;
@@ -1259,6 +1654,10 @@ function runFocused(){
   focusedRuns={value:mediumValues[recipe.key],
    a:modelRun(recipe,E.DEFAULTS),b:modelRun(recipe,mediumValues),changes:changed};
   mediumRuns.set(mediumScenario,focusedRuns);
+  for(const input of document.querySelectorAll('[data-guided-policy]')){
+   const key=input.dataset.guidedPolicy;
+   text(input.parentElement.querySelector('.policy-reference'),'Baseline '+E.DEFAULTS[key]+'/10 · Applied '+mediumValues[key]+'/10');
+  }
  }else{
   const baseline=recipe.low;
   if(!simpleRuns.has(baseline))simpleRuns.set(baseline,{value:baseline,a:modelRun(recipe,baseline),changes:[]});
@@ -1275,15 +1674,18 @@ function replayFocused(){
  if(!focusedRuns)return;
  stopFocusedReplay();
  if(matchMedia('(prefers-reduced-motion: reduce)').matches){focusDay=FOCUS_DAYS;drawFocusDay();return;}
- const start=performance.now();
+ const start=performance.now(),from=focusDay>=FOCUS_DAYS?0:focusDay;
  function tick(now){
-  const day=Math.min(FOCUS_DAYS,Math.floor((now-start)/(level==='simple'?135:65)));
-  if(day!==focusDay){focusDay=day;drawFocusDay();}
-  focusReplay=day<FOCUS_DAYS?requestAnimationFrame(tick):0;
-  if(!focusReplay){focusPending();}
+  const elapsed=(now-start)/(level==='simple'?285:235);
+  const day=Math.min(FOCUS_DAYS,from+Math.floor(elapsed)+1);
+  if(day!==focusDay){focusDay=day;drawFocusDay(false);}
+  drawFocusedAnimation(Math.min(1,elapsed-Math.floor(elapsed)));
+  if(elapsed<FOCUS_DAYS-from)focusReplay=requestAnimationFrame(tick);
+  else{drawFocusedAnimation(1);stopFocusedReplay();focusPending();}
  }
- focusDay=0;drawFocusDay();
- text('focus-status','Replaying the completed run.');
+ focusDay=from;drawFocusDay();
+ $('focus-replay').hidden=true;$('focus-pause').hidden=false;
+ text('focus-status','Playing recorded model days.');
  focusReplay=requestAnimationFrame(tick);
 }
 function focusComparison(){
@@ -1298,7 +1700,7 @@ function focusComparison(){
  return 'Day 45 queue: '+before+' at '+baseline.value+'/10 → '+after+' at '+trial.value+'/10 ('+direction+').'+check+
   ' The queue grows when studies arrive faster than reviews finish. These results are from one matched seed.';
 }
-function drawFocusDay(){
+function drawFocusDay(drawCanvas=true){
  const recipe=focusedRecipe(),medium=level==='medium';
  const baseline=simpleRuns.get(REVIEW_CAPACITY.low);
  const a=medium?focusedRuns?.a:(baseline||focusedRuns)?.a;
@@ -1307,7 +1709,8 @@ function drawFocusDay(){
  const left=a?.days[focusDay],right=b?.days[focusDay];
  const host=$('focus-results');
  text('focus-metric',medium?recipe.outcome:FOCUS_STAGES[metric][0]);
- if(!medium)drawLifecycle(b||a);
+ if(medium)drawWorldFields(a,b);else drawLifecycle(b||a);
+ if(drawCanvas)drawFocusedAnimation(1);
  const scores=medium?[['World A · baseline',left],['World B · intervention',right]]:
   right?[[baseline.value+'/10 · baseline',left],[focusedRuns.value+'/10 · trial',right]]:
   [[a?focusedRuns.value+'/10 · baseline':'Day 0',left||{[metric]:0}]];
@@ -1325,13 +1728,20 @@ function drawFocusDay(){
   end.toggleAttribute('hidden',!xy.length);
   if(xy.length){end.setAttribute('cx',xy.at(-1)[0]);end.setAttribute('cy',xy.at(-1)[1]);}
  }
- $('focus-time').value=focusDay;
+ syncRange($('focus-time'),focusDay);
+ text('focus-replay',focusDay>0&&focusDay<FOCUS_DAYS?'Resume':'Replay');
+ document.querySelector('.focus-stage').hidden=!focusedRuns||focusDay<1;
+ $('focus-more').hidden=!focusedRuns||focusDay<FOCUS_DAYS;
+ $('focus-io-caption').hidden=$('focus-more').hidden;
+ $('focus-comparison').hidden=focusDay<FOCUS_DAYS||!focusComparison();
+ $('focus-next').hidden=$('focus-comparison').hidden;
  text('focus-time-label',focusDay);
 }
 function drawFocused(){
  const a=focusedRuns?.a,b=focusedRuns?.b;
  const simple=level==='simple';
  $('focus-pipeline').hidden=!simple;
+ $('focus-worlds').hidden=simple;
  document.querySelector('.focus-stage').hidden=simple&&!focusedRuns;
  $('focus-more').hidden=!focusedRuns;
  $('focus-io-caption').hidden=simple&&!focusedRuns;
@@ -1347,7 +1757,7 @@ function drawFocused(){
 function resetFocused(){
  stopFocusedReplay();focusDay=FOCUS_DAYS;
  if(level==='simple'){
-  simpleRuns.clear();focusStage='generated';
+  simpleRuns.clear();focusStage='generated';simpleSetting=REVIEW_CAPACITY.low;
   for(const option of document.querySelectorAll('[name="queue-prediction"]'))option.checked=false;
  }else{
   mediumRuns.delete(mediumScenario);
@@ -1375,7 +1785,7 @@ function publishFocusedContext(){
  G.context({level,world:b?'B':'A',day:observed?.day||0,hasFork:!!b,view:'focused',
   policies:applied,metrics:observed||{},seed:FOCUS_SEED,policyEditing:!!changes.length,
   comparison:b?{a:a.summary,b:b.summary}:baseline&&a&&baseline!==a?{a:baseline.summary,b:a.summary}:null,
-  lesson:{policy:recipe.key,observed:!!run},focusedMetric:level==='simple'?focusStage:recipe.metric,
+  lesson:{policy:recipe.key,observed:!!run},focusedMetric:level==='simple'?focusStage:inspectedMetric,
   changes:changes.length?changes.map(key=>({key,before:applied[key],after:inputs[key],day:run?.world.day||0})):
    (focusedRuns?.changes||[]).map(key=>({key,before:E.DEFAULTS[key],after:applied[key],day:0}))});
 }
@@ -1435,7 +1845,7 @@ function bridge(){
   });
   G.onLayer(({key,enabled})=>{
     if(Object.prototype.hasOwnProperty.call(show,key)){
-      show[key]=!!enabled;$('layer-'+key).checked=!!enabled;
+      show[key]=!!enabled;$('layer-'+key).checked=!!enabled;queueMap();
     }
   });
   G.onExperiment(id=>{selectLevel('advanced');runGuidedExperiment(id);});
@@ -1462,10 +1872,11 @@ function bind(){
   $('guide-knowledge').addEventListener('click',()=>{setView('papers');$('map-dialog').close();});
   $('back-labs').addEventListener('click',event=>{if(window.parent!==window){event.preventDefault();shellAction('catalog');}});
   document.querySelectorAll('[data-level-choice]').forEach(button=>button.addEventListener('click',()=>selectLevel(button.dataset.levelChoice)));
-  $('focus-setting').addEventListener('input',event=>{text('focus-setting-value',event.target.value+' / 10');focusPending();});
+  $('focus-setting').addEventListener('input',event=>{simpleSetting=Number(event.target.value);focusPending();});
   $('plot-ask').addEventListener('click',()=>G.askPulsar?.('Explain the '+metricInfo(plot)[0]+' chart. '+$('plot-io-caption').textContent+'. Explain the causal uncertainty of this simulated outcome.'));
   $('focus-run').addEventListener('click',runFocused);
   $('focus-replay').addEventListener('click',replayFocused);
+  $('focus-pause').addEventListener('click',()=>{stopFocusedReplay();drawFocusedAnimation(1);text('focus-status','Paused at day '+focusDay+'.');$('focus-replay').focus();});
   $('focus-reset').addEventListener('click',resetFocused);
   $('focus-next').addEventListener('click',()=>selectLevel('medium','review_bottleneck',true));
   $('focus-scenario').addEventListener('change',event=>selectLevel('medium',event.target.value,true));
@@ -1504,9 +1915,10 @@ function bind(){
   $('speed').addEventListener('change',e=>speed=Number(e.target.value)||1);
   $('world-a').addEventListener('click',()=>chooseWorld(0));
   $('world-b').addEventListener('click',()=>chooseWorld(1));
-  $('fork').addEventListener('click',()=>{$('comparison-setup').hidden=false;$('comparison-setup').scrollIntoView({block:'start'});});
-  $('setup-policy').addEventListener('change',()=>text('setup-baseline','A · '+nowWorld().policy[$('setup-policy').value]+'/10'));
-  $('setup-value').addEventListener('input',()=>text('setup-output',$('setup-value').value+'/10'));
+  $('fork').addEventListener('click',()=>{$('comparison-setup').hidden=false;updateSetupBaseline();$('comparison-setup').scrollIntoView({block:'start'});});
+  $('setup-policy').addEventListener('change',updateSetupBaseline);
+  $('setup-value').addEventListener('input',()=>{syncRange($('setup-value'));text('setup-output',$('setup-value').value+'/10');});
+  syncRange($('setup-value'),$('setup-value').value,nowWorld().policy.verification);
   $('start-comparison').addEventListener('click',()=>{const key=$('setup-policy').value,value=Number($('setup-value').value);const checkpoint=E.fork(nowWorld());if(value===checkpoint.policy[key]){text('setup-status','Choose a value different from World A.');return;}play(false);worlds[0]=E.fork(checkpoint);fork();E.editPolicy(worlds[1],key,value);lesson=null;$('comparison-setup').hidden=true;renderPolicies();render();emit('policy_changed',worlds[1],'intervene');});
   $('compare').addEventListener('click',()=>compare(!compareMode));
   $('close-compare').addEventListener('click',()=>compare(!compareMode));
@@ -1518,7 +1930,11 @@ function bind(){
   $('audit-lab').addEventListener('click',()=>changeLab('audit'));
   $('freeze-lab').addEventListener('click',()=>changeLab('freeze'));
   for(const name of ['links','flows','labels'])
-    $('layer-'+name).addEventListener('change',e=>show[name]=e.target.checked);
+    $('layer-'+name).addEventListener('change',e=>{show[name]=e.target.checked;queueMap();});
+  $('zoom-in').addEventListener('click',()=>moveCamera(active,cameras[active].scale*1.4));
+  $('zoom-out').addEventListener('click',()=>moveCamera(active,cameras[active].scale/1.4));
+  $('zoom-reset').addEventListener('click',()=>moveCamera(active,1));
+  new ResizeObserver(()=>{if(level==='advanced')queueMap();}).observe($('canvases'));
   document.querySelectorAll('[data-plot]').forEach(b=>b.addEventListener('click',()=>{
     plot=b.dataset.plot;document.querySelectorAll('[data-plot]').forEach(x=>{
       x.classList.toggle('active',x===b);x.setAttribute('aria-pressed',String(x===b));
@@ -1557,9 +1973,7 @@ function animation(now){
     for(const s of runningWorlds())E.step(s,chunks);
     render();interesting();snapshotInsight();
   }
-  if(!playing)lastSimulation=now;
-  if(level==='advanced')drawMap(nowWorld().day);
-  raf=requestAnimationFrame(animation);
+   if(playing)raf=requestAnimationFrame(animation);
 }
 /* Dropdowns. The list a browser draws for <select> belongs to the operating
    system (a white-on-blue strip on Windows) and CSS cannot reach it, so the
@@ -1647,12 +2061,14 @@ function installSelects(){
   document.addEventListener('scroll',e=>{if(cur&&!cur.pop.contains(e.target))close();},true);
   addEventListener('resize',()=>close());
 }
-mountWorkspace();bind();render();bridge();installSelects();selectLevel('simple');
-if(G.onTheme)G.onTheme(()=>{readInk();drawChart();drawMap(nowWorld().day);});
+mountWorkspace();mountWorldFields();bind();render();bridge();installSelects();selectLevel('simple');
+if(G.onTheme)G.onTheme(()=>{readInk();drawChart();if(level==='advanced')queueMap();else drawFocusedAnimation(1);});
+const focusResize=new ResizeObserver(()=>{if(level!=='advanced'&&!focusReplay)drawFocusedAnimation(1);});
+for(const id of ['focus-worlds','research-flow'])focusResize.observe($(id));
 // The host hides Pulsar while a dialog in here dims the workspace, so the
 // companion never floats undimmed over a modal backdrop.
 if(G.modal)new MutationObserver(()=>G.modal(!!document.querySelector('dialog[open]')))
   .observe(document.body,{subtree:true,attributes:true,attributeFilter:['open']});
-raf=requestAnimationFrame(animation);
-window.addEventListener('pagehide',()=>cancelAnimationFrame(raf),{once:true});
+window.addEventListener('pagehide',()=>{cancelAnimationFrame(raf);cancelAnimationFrame(mapFrame);mapFrame=0;stopFocusedReplay();});
+window.addEventListener('pageshow',event=>{if(event.persisted){if(playing){lastSimulation=performance.now();raf=requestAnimationFrame(animation);}if(level==='advanced')queueMap();}});
 })();

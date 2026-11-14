@@ -14,6 +14,7 @@ on:
 
 permissions:
   contents: read
+  pull-requests: read
   statuses: write
 
 concurrency:
@@ -971,6 +972,37 @@ jobs:
             "$DEPLOY_USER@${{ secrets.DEPLOY_HOST }}" \
             "printf '%s\\n' '$GITHUB_SHA' | sudo tee /etc/gravitas/last-successful-deploy-sha >/dev/null"
           echo "Verified deployed revision marker updated."
+
+      - name: Publish the explicitly approved Science Universe PR 358
+        if: github.event_name == 'push'
+        shell: bash
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          approved=1c236c89fe5fec8499b8f33a0cf2ba15c2499319
+          if ! git merge-base --is-ancestor "$approved" "$GITHUB_SHA"; then
+            exit 0
+          fi
+          # Only the actual merge commit of the approved PR can publish.
+          merge="$(gh api "repos/$GITHUB_REPOSITORY/pulls/358" --jq 'select(.merged) | .merge_commit_sha')"
+          if [ "$merge" != "$GITHUB_SHA" ]; then
+            exit 0
+          fi
+          git diff --exit-code "$approved" "$GITHUB_SHA" -- lab-sources/science-universe
+          bundle="$RUNNER_TEMP/science-358"
+          mkdir -p "$bundle/source"
+          cp ops/science_universe_release_358.{py,sh} ops/verify_science_universe_358.py "$bundle/"
+          for file in index.html app.js styles.css engine.js; do
+            git show "$approved:lab-sources/science-universe/$file" > "$bundle/source/$file"
+          done
+          ssh_options=(-i ~/.ssh/gravitas_deploy -o BatchMode=yes -o ConnectTimeout=10)
+          remote="$(ssh "${ssh_options[@]}" -p "$DEPLOY_PORT" "$DEPLOY_USER@$HOST" 'mktemp -d /var/tmp/science358.XXXXXXXX')"
+          [[ "$remote" =~ ^/var/tmp/science358\.[a-zA-Z0-9]+$ ]]
+          scp "${ssh_options[@]}" -P "$DEPLOY_PORT" -r "$bundle/." "$DEPLOY_USER@$HOST:$remote/"
+          ssh "${ssh_options[@]}" -p "$DEPLOY_PORT" "$DEPLOY_USER@$HOST" \
+            "chmod -R a+rX '$remote' && bash '$remote/science_universe_release_358.sh' publish '$GITHUB_SHA' '$remote'"
 
       - name: Publish production deploy status
         if: always()

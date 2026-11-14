@@ -51,7 +51,7 @@ const server=http.createServer((req,res)=>{
   const firstVisit=page.waitForResponse(r=>r.url().endsWith('/usage/')&&r.request().method()==='POST');await page.getByRole('checkbox',{name:'Share usage statistics (optional)',exact:true}).check();await firstVisit;
   await sim.getByRole('button',{name:'Advanced',exact:true}).click();
   await sim.getByRole('button',{name:'Guided tour',exact:true}).click();await page.getByRole('button',{name:'Build my first comparison',exact:true}).click();await page.getByText('Which queue is limiting research?',{exact:true}).waitFor();
-  await sim.getByRole('slider',{name:'Peer review capacity',exact:true}).press('ArrowRight');
+  await sim.getByRole('slider',{name:'Peer-review policy',exact:true}).press('ArrowRight');
   const observe=page.getByRole('button',{name:'Test both · 7 days',exact:true});await observe.waitFor();await page.waitForFunction(()=>!Array.from(document.querySelectorAll('button')).find(b=>b.textContent==='Test both · 7 days')?.disabled);const guidedBatch=page.waitForResponse(r=>r.url().endsWith('/usage/')&&r.request().method()==='POST'&&r.request().postDataJSON()?.events?.some(e=>e.kind==='guide_test'),{timeout:20000});await observe.click();
   const model=page.frame({url:/\/lab-run\/science-universe\//});await model.waitForFunction(()=>document.getElementById('day').textContent==='007');
   await guidedBatch;assert.ok(fixture.batches.flatMap(b=>b.events).some(e=>e.kind==='parameter_changed'));assert.ok(fixture.batches.flatMap(b=>b.events).some(e=>e.kind==='guide_test'));assert.ok(!JSON.stringify(fixture.batches).includes('Which queue is limiting research?'),'guide and question text are excluded from analytics');
