@@ -15,7 +15,7 @@ import dNumber from "discourse/ui-kit/helpers/d-number";
 export const ThreadBreadcrumb = <template>
   {{#if @outletArgs.model.category}}
     <nav class="gq-thread-crumb container" aria-label="Discussion breadcrumb">
-      <a href="https://graviquest.com/forum.html">Forum</a>
+      <a href="/">Forum</a>
       <span aria-hidden="true">/</span>
       <a href={{@outletArgs.model.category.url}}>{{@outletArgs.model.category.name}}</a>
     </nav>

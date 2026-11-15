@@ -22,7 +22,9 @@ for (const { engine, name, options } of browsers) {
     await page.locator(".gq-forum-heading h1").waitFor({ timeout: 45000 });
     await page.locator(".topic-list a.title").first().click();
     const rail = page.locator(".gq-thread-rail");
-    await rail.waitFor({ timeout: 45000 });
+    // Attached, not visible: phones hide the rail so the post comes first
+    // (common.scss, "Simpler (2026-11-16)").
+    await rail.waitFor({ state: "attached", timeout: 45000 });
     await page.locator(".topic-post .cooked").first().waitFor();
     await page.locator("#topic-footer-buttons button.btn-primary").waitFor();
     assert.equal(new URL(page.url()).origin, site);
@@ -51,14 +53,15 @@ for (const { engine, name, options } of browsers) {
     if (name === "desktop") {
       assert(layout.railLeft > layout.postLeft);
       const next = rail.getByRole("button", { name: "Next post" });
-      if (await next.isEnabled()) {
+      // The steps show only in a thread of three posts or more.
+      if (await next.isVisible() && await next.isEnabled()) {
         const before = await rail.locator(".gq-thread-position").innerText();
         await next.click();
         await page.waitForFunction(previous =>
           document.querySelector(".gq-thread-position")?.textContent.trim() !== previous, before);
       }
     } else {
-      assert(layout.railTop < layout.postTop, JSON.stringify(layout));
+      assert(!(await rail.isVisible()), "the thread rail is hidden on phones");
     }
     assert.deepEqual(errors, []);
     await page.screenshot({ path: `${output}/thread-${name}.png` });

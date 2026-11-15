@@ -5,9 +5,18 @@ export default class GraviQuestForumHeading extends Component {
   get hasQuestion() { return Number(settings.open_question_topic_id) > 0; }
   get questionURL() { return `/t/${Number(settings.open_question_topic_id)}`; }
   get allCurrent() { return this.args.outletArgs?.category ? undefined : "page"; }
+  // The curated order first; any other top-level room the reader can see
+  // follows by its position. A fixed list alone hid rooms created later
+  // (Topic 04 · Computable universe had threads in the list and no chip).
+  // Discourse's own defaults stay out of the row.
   get rooms() {
-    const slugs = ["open-question", "ai-in-research", "discovery", "corrections", "propose-a-topic", "lab-results", "introductions", "research-discussions", "peer-review"];
-    return slugs.map((slug) => this.site.categories.find((c) => c.slug === slug)).filter(Boolean).map((c) => ({
+    const order = ["open-question", "ai-in-research", "discovery", "computable-universe", "corrections", "propose-a-topic", "lab-results", "introductions", "research-discussions", "peer-review"];
+    const skip = ["uncategorized", "general", "site-feedback", "staff"];
+    const rank = (c) => (order.includes(c.slug) ? order.indexOf(c.slug) : order.length + (c.position ?? 0));
+    return this.site.categories
+      .filter((c) => !c.parent_category_id && !skip.includes(c.slug))
+      .sort((a, b) => rank(a) - rank(b))
+      .map((c) => ({
       id:c.id, name:c.name, url:c.url,
       current:c.id === this.args.outletArgs?.category?.id ? "page" : undefined,
     }));

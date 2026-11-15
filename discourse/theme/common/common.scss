@@ -1719,3 +1719,149 @@ html body .directory-table__cell .username{font:600 .9375rem/1.3 "DM Sans",sans-
 html body .directory-table__cell .name{font:400 .875rem/1.3 "DM Sans",sans-serif!important;color:var(--g-text-muted)!important}
 html body .directory-table__cell .user-detail .title:empty{display:none}
 html body .directory-table__label{font:500 .6875rem/1.2 "DM Mono",monospace!important;letter-spacing:.06em;text-transform:uppercase;color:var(--g-text-subtle)!important}
+
+/* ---- Simpler (2026-11-16) ------------------------------------------------------
+   The forum had picked up every control stock Discourse ships, and a newcomer
+   met three rows of pills, a column of identical avatars, a rail of dates and
+   arrows on a one-post thread, a footer of six controls each with a sentence
+   explaining itself, and a pop-up over the composer. Discourse's own Horizon
+   theme went the same way for the same reason: keep what serves reading and
+   replying, drop what only describes the machinery. Everything removed here
+   is still one click away in Discourse (the post's own buttons, the menu, a
+   profile's tabs); nothing is disabled, it is only no longer in the way.
+
+   The list. */
+/* Every row carried the same system mark in a column with no heading. Horizon
+   drops the participants column for the same reason. */
+html body .topic-list :is(th.posters,td.posters,.topic-list-data.posters){display:none}
+/* One caption style for the whole header row: Replies, Views and Activity are
+   sort buttons and kept their own case and size beside "TOPIC". */
+html body .topic-list th :is(button,span,a){font:inherit!important;text-transform:inherit!important;letter-spacing:inherit!important;color:inherit!important;background:none!important}
+/* Rooms above the list are the category filter; the Categories pill was a
+   second way to the same place. */
+html body #navigation-bar .nav-item_categories{display:none}
+html body .gq-forum-heading{margin-bottom:.5rem}
+html body .navigation-container{margin-block:.5rem 1.25rem}
+/* A chosen room is the brand's pressed chip, the same Sisal fill as the
+   chosen Latest/Hot pill under it, not a second "selected" look. */
+html body .gq-room-links [aria-current]{background:var(--gq-solid);border-color:var(--gq-solid);color:var(--gq-solid-fg)}
+html body .gq-room-links a{min-height:40px}
+/* Discourse's coloured square and emoji in front of a category name (General,
+   Site Feedback). Every room is named in the accent; the mark said nothing. */
+html body :is(.badge-category,.badge-category__wrapper .badge-category)::before{display:none!important}
+html body :is(.badge-category__icon,.category-title-link .badge-category__icon,.category-list .category-logo){display:none!important}
+html body .badge-category:is(.--style-emoji,.--style-icon) > :is(img.emoji,.d-icon){display:none!important}
+/* The panels under the list are as tall as what they hold. */
+html body .gq-community-sidebar{align-items:start}
+
+/* The thread. */
+/* The rail's dates, position and arrows only help in a long thread; on a
+   thread of one or two posts they read as "01 / 01" between two "7d". */
+html body.archetype-regular .container.posts:not(:has(.post-stream > .topic-post ~ .topic-post ~ .topic-post)) .gq-thread-steps{display:none}
+/* "Talking" with one face in it is the author again. */
+html body.archetype-regular .gq-thread-talking:not(:has(li + li)){display:none}
+/* Like count: the reactions plugin drew a red emoji heart with the count at
+   the far left, and a second, outline heart (the button) at the far right.
+   The count now sits against the button and the emoji goes, so the post says
+   "1 ♡" once, in the brand's ink. */
+html body .topic-post nav.post-controls{justify-content:flex-end;align-items:center}
+html body .topic-post nav.post-controls .reactions-actions-summary{order:0;margin:0 -.35rem 0 auto}
+html body .topic-post nav.post-controls .actions{order:1;margin-left:0!important}
+html body .topic-post .discourse-reactions-counter .discourse-reactions-list{display:none}
+html body .topic-post .discourse-reactions-counter{padding:0 .25rem;min-height:40px;display:flex;align-items:center}
+html body .topic-post .discourse-reactions-counter .reactions-counter{font:400 .875rem/1 "DM Mono",monospace;color:var(--g-text-muted)}
+/* The footer under a thread, for members. It offered Share and Bookmark (both
+   on every post already), Unpin with a sentence about pinning, and Tracking
+   with a sentence about tracking. What stays: the line, Reply, and the
+   tracking menu without its paragraph (each choice in it explains itself). */
+html body.archetype-regular #topic-footer-buttons .topic-footer-main-buttons > :not(.create):not(.btn-primary):not(.topic-admin-menu-trigger):not([class*="admin"]){display:none!important}
+html body.archetype-regular #topic-footer-buttons .pinned-button{display:none!important}
+html body.archetype-regular #topic-footer-buttons .topic-notifications-button .reason{display:none!important}
+html body.archetype-regular #topic-footer-buttons .topic-notifications-button{flex:none;order:1}
+html body.archetype-regular #topic-footer-buttons .topic-footer-main-buttons{order:2}
+/* The composer. The first-reply pop-up ("Thanks for contributing…") opened on
+   top of the field being typed into, with an "esc" chip to dismiss it; the
+   house rules it repeats are in the footer line and under the list. Warnings
+   about a mention or a repeated link are kept (they carry .custom-body). */
+html body #reply-control .composer-popup.education-message:not(.custom-body){display:none!important}
+/* The reply-type menu (reply as new topic, whisper, toggle unlisted) is a
+   moderator's tool; members saw a "Topic ▾" control they had no use for. */
+html body:not(.staff) #reply-control .reply-details .composer-actions{display:none!important}
+
+/* The menu. */
+/* Groups, Badges and Filter are Discourse's internals; tags are a single
+   "official" label. What is left is where to read: Topics, the rooms, About,
+   Guidelines, Users. The keyboard-shortcuts footer goes with them. */
+html body .menu-panel .sidebar-section-link-wrapper:has(:is([data-link-name="groups"],[data-link-name="badges"],[data-link-name="filter"])){display:none}
+html body .menu-panel .sidebar-section[data-section-name="tags"]{display:none}
+html body .menu-panel .sidebar-footer-wrapper{display:none!important}
+/* Rows line up: the rooms had no mark (their squares were removed) and the
+   others did, so the names started at two different edges. */
+html body .menu-panel .sidebar-section-link-prefix{display:none!important}
+/* The chosen row is the raised surface alone (no edge stripe on GraviQuest). */
+html body .sidebar-section-link-wrapper .sidebar-section-link.active{box-shadow:none!important}
+/* The site's own sections (api.addSidebarSection in api-initializers) are for
+   phones, where the header has no room for them; on a wide screen they are
+   already in the header. */
+@media (min-width:905px){html body:not(.mobile-view) .sidebar-section[data-section-name="graviquest"]{display:none}}
+
+/* A profile. The summary listed nine panels for a person with two posts:
+   links, who they replied to, who liked them, categories, badges. It keeps the
+   figures, their topics and their replies; the rest is on the Activity and
+   Badges tabs. */
+html body.user-summary-page .user-content > :is(.links-and-replied-to-section,.most-liked-section,.top-categories-section,.badges-section){display:none!important}
+
+/* Search. One field and one button; the result type stays Topics/posts. */
+html body .search-container #search-type{display:none!important}
+html body .search-container .search-page-heading .term{background:none;color:var(--g-text)}
+
+/* The header. The site nav was centred by flex between the logo and the
+   icons, so it shifted whenever an icon came or went (the search page drops
+   the search icon). Wide enough, it is centred on the bar itself. */
+@media (min-width:1100px){
+  html body .d-header .contents{position:relative}
+  html body .d-header .gq-site-nav{position:absolute;left:50%;transform:translateX(-50%);margin:0}
+  html body .d-header .panel{margin-left:auto}
+}
+
+/* Phones. The thread's four figures sat between the title and the first
+   words, and the "1 / 1" pill under them; on a phone the post comes first.
+   The pill stays for a thread long enough to need it. The suggested list's
+   lone "TOPIC" caption, with nothing beside it, goes. */
+@media (max-width:640px){
+  html body.archetype-regular .gq-thread-rail{display:none}
+  html body.archetype-regular .container.posts:not(:has(.post-stream > .topic-post ~ .topic-post ~ .topic-post)) #topic-progress-wrapper{display:none}
+  html body .topic-list thead{display:none!important}
+}
+.mobile-view .archetype-regular .gq-thread-rail{display:none}
+.mobile-view .topic-list thead{display:none!important}
+
+/* Quick search: the field sits inside a pill that draws the focus ring, and
+   the general input rule gave the field its own border and ring as well, so
+   focus showed two nested outlines. */
+html body .search-menu .search-input :is(input,input:focus){border:0!important;box-shadow:none!important;background:transparent!important}
+/* Edit history: the view toggle was a sky-blue slab and the diff Discourse's
+   red and green; the chosen view is the pressed chip, and changes are marked
+   in the accent and the brand's danger tint. */
+html body .history-modal :is(.btn.active,.btn[aria-pressed="true"],.btn.btn-primary){background:var(--gq-solid)!important;color:var(--gq-solid-fg)!important;border-color:var(--gq-solid)!important}
+html body .history-modal :is(ins,.diff-ins){background:var(--gq-accent-wash)!important;color:var(--g-text)!important;text-decoration:none;box-shadow:inset 0 -1px 0 var(--g-accent)}
+html body .history-modal :is(del,.diff-del){background:rgb(240 168 160 / .12)!important;color:var(--g-text-muted)!important}
+html body .history-modal .revision-content{color:var(--g-text-muted)}
+/* "About the … category" threads are Discourse's room descriptions; the
+   rooms page shows them as descriptions already, and in the lists they were
+   ten near-identical rows (all of Hot). api-initializers/graviquest.js marks
+   them. */
+html body .topic-list-item.gq-room-about{display:none}
+/* Discourse names its list "Topics", and on GraviQuest a Topic is a published
+   dossier; with the site's sections now in the phone menu the word appeared
+   twice for two different things. The forum's link reads "All threads". The
+   original word stays in the DOM, so screen readers still announce the link. */
+html body .sidebar-section-link[data-link-name="everything"] .sidebar-section-link-content-text{font-size:0}
+html body .sidebar-section-link[data-link-name="everything"] .sidebar-section-link-content-text::after{content:"All threads";font-size:.9375rem}
+/* Replies was the one bold figure in the row (Discourse weights the posts
+   badge 700); it reads as Views and Activity do. */
+html body .topic-list .badge-posts,html body .topic-list .badge-posts .number{font-weight:400!important;color:var(--g-text-muted)!important}
+/* With every room listed the chip row is wider than the column, and its
+   scrollbar is hidden, so the last rooms were simply cut off. On a wide
+   screen the chips wrap; a phone keeps the swipeable row. */
+@media (min-width:641px){html body .gq-room-links{flex-wrap:wrap;overflow:visible}}
