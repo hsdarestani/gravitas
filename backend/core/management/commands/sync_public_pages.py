@@ -12,7 +12,7 @@ from core.pulsar_public_context import clean_text, public_topic_catalog, page_ob
 # The workspace, account, preview templates and private research pack are
 # deliberately outside the public editorial inventory.
 PAGES = (
-    'index', 'about', 'brand', 'community', 'education', 'education-de', 'forum', 'forum-thread',
+    'index', 'brand', 'community', 'education', 'education-de', 'forum', 'forum-thread',
     'game-hypothesis-machine', 'impressum', 'lab', 'lab-prompt-bias', 'lab-protein-stability',
     'lab-scientific-visualization', 'learn', 'newsletter', 'path-ai-in-research', 'privacy',
     'topics', 'topic-answer-that-looked-right', 'topic-machine-hypothesis',
