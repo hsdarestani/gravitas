@@ -750,7 +750,6 @@ jobs:
             --exclude '.github/' \
             --exclude 'backend/' \
             --exclude 'lab-sources/' \
-            --exclude 'about.html' \
             -e "ssh -i ~/.ssh/gravitas_deploy -p $DEPLOY_PORT" \
             ./ "$DEPLOY_USER@${{ secrets.DEPLOY_HOST }}:$DEPLOY_PATH/"
 
