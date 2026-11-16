@@ -1,5 +1,7 @@
 import Component from "@glimmer/component";
+import { registerDestructor } from "@ember/destroyable";
 import { action } from "@ember/object";
+import { trackedObject } from "@ember/reactive/collections";
 import { service } from "@ember/service";
 import { tracked } from "@glimmer/tracking";
 import { on } from "@ember/modifier";
@@ -8,6 +10,7 @@ import { ajax } from "discourse/lib/ajax";
 
 export default class GraviQuestCommunitySidebar extends Component {
   @service store;
+  @service appEvents;
   @service currentUser;
   @tracked post;
   @tracked poll;
@@ -16,7 +19,17 @@ export default class GraviQuestCommunitySidebar extends Component {
 
   constructor() {
     super(...arguments);
+    this.appEvents.on("poll:voted", this, this.updatePoll);
+    registerDestructor(this, () => {
+      this.appEvents.off("poll:voted", this, this.updatePoll);
+    });
     this.loadPoll();
+  }
+
+  updatePoll(poll, post) {
+    if (post === this.post && poll.name === this.poll?.name) {
+      Object.assign(this.poll, poll);
+    }
   }
 
   @action
@@ -34,7 +47,7 @@ export default class GraviQuestCommunitySidebar extends Component {
         ...raw,
         topic: this.store.createRecord("topic", data),
       });
-      this.poll = raw.polls[0];
+      this.poll = trackedObject(raw.polls[0]);
     } catch {
       if (!this.isDestroying && !this.isDestroyed) this.error = true;
     }
