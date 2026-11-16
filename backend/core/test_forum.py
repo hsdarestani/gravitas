@@ -204,6 +204,19 @@ class ForumIdentityTests(TestCase):
             self.user.is_superuser = False; self.user.save(update_fields=['is_superuser'])
         revoke.assert_called_once_with(self.user)
 
+    @patch('core.forum.revoke_forum_sessions')
+    def test_deleting_core_admin_does_not_recreate_logout_foreign_key(self, revoke):
+        # The native Forum deletion outbox uses the stable external identity;
+        # queued role-revocation callbacks must not re-link a deleted Django user.
+        self.core_membership(WorkspaceMembership.Role.ADMIN)
+        user_id = self.user.pk
+        identity = f'graviquest:{user_id}'
+        with self.captureOnCommitCallbacks(execute=True):
+            self.user.delete()
+        self.assertFalse(get_user_model().objects.filter(pk=user_id).exists())
+        self.assertFalse(ForumLogout.objects.filter(external_id=identity).exists())
+        revoke.assert_called_once_with(identity)
+
     def test_bad_signature_rejected_before_login(self):
         data = signed(); data['sig'] = '0' * 64
         self.assertEqual(self.client.get('/api/forum/sso/', data).status_code, 400)
