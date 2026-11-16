@@ -1001,6 +1001,16 @@ puts "score_details=#{item.reviewable_scores.pluck(:reviewable_score_type,:reaso
 actor=cfg && cfg[3]
 puts "actor_valid=#{!!(actor&.moderator? && !actor&.admin?)}"
 puts "other_staff_notes=#{actor ? item.reviewable_notes.where.not(user_id:actor.id).count : -1}"
+if actor
+  notes=item.reviewable_notes.where(user_id:actor.id).where("content LIKE ?", "[GraviQuest Pulsar v1]%")
+  note=notes.order(id: :desc).first
+  outcome=note&.content.to_s[/decision=(approve|reject|review)/,1] || "none"
+  applied=note&.content.to_s[/applied=(true|false)/,1] || "none"
+  reason=note&.content.to_s[/\\. (Clear ordinary community discussion|Clear targeted threat|Clear solicitation of credentials|Clear unsolicited bulk advertising|Needs human judgment|Classifier unavailable after retries|Daily model budget reached)\\./,1] || "unknown"
+  puts "pilot_outcome=#{outcome}"
+  puts "pilot_applied=#{applied}"
+  puts "pilot_reason=#{reason.split.join("_")}"
+end
 puts "score_system_user=#{item.reviewable_scores.first&.user_id == Discourse.system_user.id}"
 puts "score_needs_approval=#{item.reviewable_scores.first&.reviewable_score_type == ReviewableScore.types[:needs_approval]}"
 puts "topic_id_is_nil=#{item.topic_id.nil?}"
