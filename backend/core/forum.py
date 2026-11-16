@@ -440,10 +440,20 @@ def _deleted_identity(sender, instance, **kwargs):
 
 
 def _schedule_revocation(user):
-    # Wait for the GraviQuest access change to commit before revoking native
-    # sessions. A later SSO refresh applies the now-authoritative group mapping.
-    if settings.GRAVITAS_FORUM_URL:
-        transaction.on_commit(lambda: _on_logout(None, None, user))
+    # Resolve the user again *after* the access change commits. A queued
+    # callback may run after the same transaction deleted this account (e.g.
+    # production acceptance cleanup). Reusing its stale User instance would
+    # recreate ForumLogout.user_id with a foreign key to a deleted account.
+    # Account deletion has its own durable external-ID outbox in _deleted_identity.
+    if settings.GRAVITAS_FORUM_URL and user and user.pk:
+        user_id = user.pk
+
+        def revoke_after_commit():
+            current_user = get_user_model().objects.filter(pk=user_id).first()
+            if current_user is not None:
+                _on_logout(None, None, current_user)
+
+        transaction.on_commit(revoke_after_commit)
 
 
 @receiver(pre_save, sender=get_user_model(), dispatch_uid='graviquest_forum_previous_admin')
