@@ -1,4 +1,5 @@
 import { apiInitializer } from "discourse/lib/api";
+import I18n from "discourse-i18n";
 import Navigation from "../components/graviquest/navigation";
 import ForumHeading from "../components/graviquest/forum-heading";
 import CommunityPanels from "../components/graviquest/community-panels";
@@ -7,7 +8,41 @@ import ThemeToggle from "../components/graviquest/theme-toggle";
 
 import { ThreadBreadcrumb, ThreadByline, ThreadRail } from "../components/graviquest/thread-details";
 
+// Discourse calls a discussion a "topic" and a room a "category". On
+// GraviQuest a Topic is a published dossier ("Topic 01 · AI in Research" is a
+// room's name), so a "New Topic" button beside the "Propose a Topic" room
+// read as an offer to start a dossier. The forum's own copy already says
+// thread and room; these are the stock strings a member meets most. Only
+// strings that exist are replaced, so a renamed key in a later Discourse
+// falls back to its stock wording instead of breaking.
+const WORDS = {
+  "topic.create": "New thread",
+  "topic.create_long": "Start a new thread",
+  "topic.title": "Thread",
+  "composer.create_topic": "Post thread",
+  "composer.reply_placeholder_choose_category": "Choose a room before typing here.",
+  "category.choose": "Room…",
+  "suggested_topics.title": "More threads",
+  "topic.read_more_in_category": "Want to read more? Browse other threads in %{categoryLink} or <a href='%{latestLink}'>see the latest threads</a>.",
+  "topic.read_more": "Want to read more? <a href='%{categoryLink}'>Browse the rooms</a> or <a href='%{latestLink}'>see the latest threads</a>.",
+  "sidebar.sections.categories.header_link_text": "Rooms",
+  "sidebar.all_categories": "All rooms",
+};
+
+function useHouseWords() {
+  const strings = I18n.translations?.[I18n.locale]?.js;
+  for (const [path, text] of Object.entries(WORDS)) {
+    const keys = path.split(".");
+    const last = keys.pop();
+    const parent = keys.reduce((node, key) => node?.[key], strings);
+    if (parent && typeof parent[last] === "string") {
+      parent[last] = text;
+    }
+  }
+}
+
 export default apiInitializer((api) => {
+  useHouseWords();
   api.renderInOutlet("before-header-panel", Navigation);
   api.headerIcons.add("gq-theme", ThemeToggle, { before: "hamburger" });
   api.renderInOutlet("discovery-navigation-bar-above", ForumHeading);

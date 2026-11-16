@@ -12,7 +12,11 @@
      get .gq-room-about (hidden by common.scss).
    - api-initializers/graviquest.js: the GraviQuest section in the menu.
    - components/graviquest/forum-heading.gjs: rooms missing from the chip row.
-   - components/graviquest/thread-details.gjs: "Forum" crumb goes to "/". */
+   - components/graviquest/thread-details.gjs: "Forum" crumb goes to "/", and
+     "Last reply" is left out of a thread with no replies.
+   - api-initializers/graviquest.js: the house words (thread, room) are not
+     imitated; they are set before Discourse renders, which a script injected
+     into a running page cannot do. */
 (function () {
   const site = () => window.Discourse?.__container__?.lookup('service:site');
 
@@ -48,6 +52,12 @@
     document.querySelectorAll('.gq-thread-crumb a[href="https://graviquest.com/forum.html"]').forEach((a) => a.setAttribute('href', '/'));
   }
 
+  function dropEmptyLastReply() {
+    const facts = document.querySelector('.gq-thread-facts');
+    if (!facts || facts.querySelector('dd')?.textContent.trim() !== '0') return;
+    facts.querySelectorAll(':scope > div').forEach((d) => { if (d.querySelector('dt')?.textContent.trim() === 'Last reply') d.remove(); });
+  }
+
   function addSiteSection() {
     const panel = document.querySelector('.menu-panel .sidebar-sections, .sidebar-hamburger-dropdown .sidebar-sections');
     if (!panel || panel.querySelector('[data-section-name="graviquest"]')) return;
@@ -60,7 +70,7 @@
     panel.append(sec);
   }
 
-  const run = () => { markRoomAbout(); addMissingRooms(); fixCrumb(); addSiteSection(); };
+  const run = () => { markRoomAbout(); addMissingRooms(); fixCrumb(); dropEmptyLastReply(); addSiteSection(); };
   new MutationObserver(run).observe(document.documentElement, { childList: true, subtree: true });
   document.addEventListener('DOMContentLoaded', run);
 })();

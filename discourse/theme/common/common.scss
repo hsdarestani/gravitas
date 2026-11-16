@@ -310,7 +310,7 @@ input,textarea,.select-kit .select-kit-header{background:var(--g-bg);border:1px 
 /* Answer Back: the reply control in the post column, as the design's closing
    callout, rather than a button hanging off the column's right edge. */
 html body.archetype-regular #topic-footer-buttons{box-sizing:border-box;display:flex;flex-direction:row;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:1rem;width:100%;max-width:44rem;margin:1.5rem 0 0;padding:1.25rem 1.5rem;border:1px solid var(--g-hairline);border-radius:12px;background:var(--g-surface)}
-.archetype-regular #topic-footer-buttons::before{content:"Answer back. A moderator reads every post before it appears.";flex:1 1 14rem;font-size:.875rem;line-height:1.6;color:var(--g-text-muted)}
+.archetype-regular #topic-footer-buttons::before{content:"Add your view. A moderator reads every post before it appears.";flex:1 1 14rem;font-size:.875rem;line-height:1.6;color:var(--g-text-muted)}
 html body.archetype-regular #topic-footer-buttons .topic-footer-main-buttons{margin:0;flex:none;flex-wrap:wrap;gap:.5rem}
 .archetype-regular #topic-footer-buttons+br{display:none}
 /* More in the Forum: the list's own rows, inside the page's measure. */
@@ -1779,14 +1779,51 @@ html body.archetype-regular #topic-footer-buttons .pinned-button{display:none!im
 html body.archetype-regular #topic-footer-buttons .topic-notifications-button .reason{display:none!important}
 html body.archetype-regular #topic-footer-buttons .topic-notifications-button{flex:none;order:1}
 html body.archetype-regular #topic-footer-buttons .topic-footer-main-buttons{order:2}
-/* The composer. The first-reply pop-up ("Thanks for contributing…") opened on
-   top of the field being typed into, with an "esc" chip to dismiss it; the
-   house rules it repeats are in the footer line and under the list. Warnings
-   about a mention or a repeated link are kept (they carry .custom-body). */
-html body #reply-control .composer-popup.education-message:not(.custom-body){display:none!important}
-/* The reply-type menu (reply as new topic, whisper, toggle unlisted) is a
-   moderator's tool; members saw a "Topic ▾" control they had no use for. */
-html body:not(.staff) #reply-control .reply-details .composer-actions{display:none!important}
+/* The composer. Seen signed in (2026-11-16), it was the worst screen on the
+   forum, and the first two rules written for it here never matched: Discourse
+   2026.7 renamed what they targeted.
+   The pop-ups: "Thanks for contributing…" opened on the first keystroke, on
+   top of the field being typed into, scrolling inside itself, with an "esc"
+   chip; "similar topics" and the reply-count nudges use the same box. The
+   house rules are in the footer line above Reply, so the box goes whole. */
+html body #reply-control .composer-popup-container{display:none!important}
+/* The reply-type menu: a share icon, "Topic" and a caret, opening a cramped
+   list (reply as linked topic, whisper, unlisted). Nobody replying needs it.
+   In its place the composer says what it is, and on a phone the thread's
+   title (Discourse's own link) says where the reply goes. */
+html body #reply-control .composer-actions-trigger{display:none!important}
+html body #reply-control .action-title:not(:has(.composer-actions-reply-target-link))::before{font:600 .9375rem/1.3 "DM Sans",sans-serif;color:var(--g-text)}
+html body #reply-control.composer-action-reply .action-title:not(:has(.composer-actions-reply-target-link))::before{content:"Your reply"}
+html body #reply-control.composer-action-create-topic .action-title::before{content:"New thread"}
+html body #reply-control.composer-action-edit .action-title:not(:has(.composer-actions-reply-target-link))::before{content:"Edit your post"}
+html body #reply-control.composer-action-private-message .action-title::before{content:"New message"}
+html body #reply-control .composer-actions-reply-target-link{font-weight:600;color:var(--g-text-muted)}
+/* Markdown/rich switch: a two-glyph toggle at the start of the toolbar. The
+   rich editor takes Markdown shortcuts as typed, so one mode is enough. The
+   phone's "hide toolbar" button goes for the same reason. */
+html body :is(#reply-control,.d-editor) :is(.composer-toggle-switch,.toggle-toolbar){display:none!important}
+/* One frame round the writing area, in the composer and in the profile's
+   "About me". The general input rule gave the editor its own border and focus
+   ring inside the wrapper's, so the field showed a box in a box. The wrapper
+   keeps the border and takes the focus ring. */
+html body .d-editor .d-editor-input,html body .d-editor .d-editor-input:focus{border:0!important;border-radius:0!important;box-shadow:none!important;background:transparent!important}
+html body .d-editor .d-editor-textarea-wrapper{border:1px solid var(--g-border)!important;border-radius:8px!important;background:var(--g-surface-sunken)!important;overflow:hidden}
+html body .d-editor .d-editor-textarea-wrapper:focus-within{border-color:var(--g-accent)!important;box-shadow:0 0 0 3px var(--gq-ring)!important}
+/* New thread: the room is the only choice. Tags are not shown anywhere on
+   the forum, so their picker goes and the room picker takes the row. Inside
+   it, rooms read as words (not the list's mono label), without the thread
+   counts, descriptions and search box a list of ten does not need. */
+html body #reply-control .tags-input{display:none!important}
+html body #reply-control .category-input{max-width:100%!important;flex:1 1 100%!important}
+html body :is(#reply-control .category-chooser,.category-chooser .select-kit-body) .badge-category__name{font:500 .9375rem/1.3 "DM Sans",sans-serif!important;letter-spacing:0!important;text-transform:none!important;color:var(--g-text)!important}
+html body .category-chooser .select-kit-body :is(.topic-count,.category-desc,.select-kit-filter){display:none!important}
+html body .category-chooser .select-kit-row{padding:.6rem .875rem!important}
+/* A confirmation's destructive button ("Discard", "Delete") was the outline
+   used for a minor danger link; in a dialog it is the answer, so it is solid. */
+/* --gq-danger is a light tint in the dark theme and a deep one in the light,
+   so the label takes the page colour: dark ink on the tint, white on the red. */
+html body .d-modal__footer .btn.btn-danger{background:var(--gq-danger)!important;border-color:var(--gq-danger)!important;color:var(--g-bg)!important}
+html body .d-modal__footer .btn.btn-danger .d-icon{color:var(--g-bg)!important}
 
 /* The menu. */
 /* Groups, Badges and Filter are Discourse's internals; tags are a single
@@ -1835,6 +1872,14 @@ html body .search-container .search-page-heading .term{background:none;color:var
 }
 .mobile-view .archetype-regular .gq-thread-rail{display:none}
 .mobile-view .topic-list thead{display:none!important}
+/* With the rail gone, the first post's own top line sat 56px under the
+   title's, two hairlines round nothing. The title's line is the divider. */
+.mobile-view .archetype-regular #post_1{border-top:0!important}
+.mobile-view .archetype-regular .topic-navigation{margin-block:0!important}
+/* The footer's Reply under "Add your view…" was a round arrow with its
+   label hidden, the one unlabelled primary button on the forum. */
+.mobile-view #topic-footer-buttons .btn-primary.create .d-button-label{display:inline!important}
+.mobile-view #topic-footer-buttons .btn-primary.create{width:auto!important;min-width:0!important;padding-inline:1.1rem!important;gap:.45rem}
 
 /* Quick search: the field sits inside a pill that draws the focus ring, and
    the general input rule gave the field its own border and ring as well, so
@@ -1865,3 +1910,70 @@ html body .topic-list .badge-posts,html body .topic-list .badge-posts .number{fo
    scrollbar is hidden, so the last rooms were simply cut off. On a wide
    screen the chips wrap; a phone keeps the swipeable row. */
 @media (min-width:641px){html body .gq-room-links{flex-wrap:wrap;overflow:visible}}
+
+/* ---- Signed in (2026-11-16) -----------------------------------------------------
+   The first pass was checked signed out only, through a proxy that could not
+   carry a session. Signed in as a member, every screen a member reaches had
+   the same problem the public ones had: Discourse's whole control set, each
+   piece with its own look. Nothing below is disabled; a URL still reaches
+   every page. */
+/* Tags. The forum has one, "official", on every staff thread, and it sat
+   under every title as a pill that opened a page the menu no longer lists.
+   The opening post already says it is the official discussion. */
+html body .discourse-tags{display:none!important}
+/* A row's bookmark and pin marks sat in front of the title like letters;
+   whether a thread is closed (the lock) is still shown, it changes what the
+   reader can do. */
+html body :is(.topic-list,.title-wrapper,#topic-title) .topic-statuses .topic-status:has(:is(.d-icon-bookmark,.d-icon-thumbtack)){display:none!important}
+/* The theme draws icons as the brand's line masks, so Discourse's filled
+   bookmark for a kept post looked exactly like the empty one: a reader could
+   not tell they had kept it. The kept state is the accent, as a link is. */
+html body .post-controls .bookmark.bookmarked .d-icon{color:var(--g-accent)!important}
+
+/* The account menu. Six icon tabs, three of them filters of the first (all,
+   replies, likes, other); notifications are one list, bookmarks and the
+   profile stay. The chosen tab is a fill, as a chosen chip is, not a ring. */
+html body .user-menu :is(#user-menu-button-replies,#user-menu-button-likes,#user-menu-button-other-notifications){display:none!important}
+html body .user-menu.revamped .menu-tabs-container .btn.user-menu-tab.active{background:var(--gq-wash-strong)!important;border-color:transparent!important;box-shadow:none!important}
+html body .user-menu.revamped .menu-tabs-container .btn.user-menu-tab:focus:not(:focus-visible){box-shadow:none!important;outline:none!important}
+/* The profile tab opened on "Online" (chat presence, with chat off) and
+   "Pause notifications" above the links people came for. */
+html body .user-menu ul.user-menu-button-profile > :is(li.presence-toggle,li.do-not-disturb,hr){display:none!important}
+
+/* The site menu. Rooms are called rooms everywhere else (the heading reads
+   "Rooms" through api-initializers/graviquest.js), listed in the chip row's
+   order, one per line so "Topic 04 · Computable universe" is not cut to
+   "Computabl…". Users, a directory of every account, goes with Groups. */
+html body .menu-panel .sidebar-section-link-wrapper:has([data-link-name="users"]){display:none}
+html body .menu-panel .sidebar-section[data-section-name="categories"] .sidebar-section-content{display:flex!important;flex-direction:column}
+html body .menu-panel [data-section-name="categories"] li:has(a[href^="/c/open-question/"]){order:1}
+html body .menu-panel [data-section-name="categories"] li:has(a[href^="/c/ai-in-research/"]){order:2}
+html body .menu-panel [data-section-name="categories"] li:has(a[href^="/c/discovery/"]){order:3}
+html body .menu-panel [data-section-name="categories"] li:has(a[href^="/c/computable-universe/"]){order:4}
+html body .menu-panel [data-section-name="categories"] li:has(a[href^="/c/corrections/"]){order:5}
+html body .menu-panel [data-section-name="categories"] li:has(a[href^="/c/propose-a-topic/"]){order:6}
+html body .menu-panel [data-section-name="categories"] li:has(a[href^="/c/lab-results/"]){order:7}
+html body .menu-panel [data-section-name="categories"] li:has(a[href^="/c/introductions/"]){order:8}
+html body .menu-panel [data-section-name="categories"] li:has([data-link-name="all-categories"]){order:20}
+
+/* A profile. Five tabs became four (badges are not shown on the forum), the
+   ten activity filters five, the six message filters four. */
+html body .user-nav__badges{display:none!important}
+html body .user-navigation-secondary :is(.user-nav__activity-read,.user-nav__activity-likes,.user-nav__activity-votes,.user-nav__messages-new,.user-nav__messages-unread){display:none!important}
+html body .user-navigation-secondary li:has(a:is([href$="/activity/reactions"],[href$="/activity/solved"])){display:none!important}
+/* Preferences: ten sections for an account that signs in through
+   graviquest.com. Kept: Account, Security (signing out other devices),
+   Profile, Emails, Notifications, Interface. */
+html body :is(.user-nav__preferences-tracking,.user-nav__preferences-users,.user-nav__preferences-navigation-menu,.user-nav__preferences-calendar-subscriptions){display:none!important}
+html body .user-preferences :is(.control-group.chat-notifications,.control-group.notification-schedule){display:none!important}
+/* Chat is off on the forum; its email setting came with its own heading. */
+html body .user-preferences span:has(> .control-group.chat-setting){display:none!important}
+/* Security, recently used devices: Discourse floats the device mark left and
+   the wrench right; with the theme's round wrench the float no longer held,
+   and the second row's name dropped under the wrench. A three-column grid
+   holds whatever size the button is. */
+html body .pref-auth-tokens .auth-token{display:grid!important;grid-template-columns:auto 1fr auto;column-gap:.875rem;row-gap:.15rem;align-items:center;padding-block:.875rem}
+html body .pref-auth-tokens .auth-token-icon{grid-column:1;grid-row:1 / span 2;float:none!important;margin:0!important;font-size:1.5rem}
+html body .pref-auth-tokens .auth-token-first{grid-column:2;grid-row:1;margin:0!important}
+html body .pref-auth-tokens .auth-token-second{grid-column:2;grid-row:2;margin:0!important;color:var(--g-text-muted)}
+html body .pref-auth-tokens .auth-token-dropdown{grid-column:3;grid-row:1 / span 2;float:none!important;margin:0!important}

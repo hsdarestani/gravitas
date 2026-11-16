@@ -29,7 +29,10 @@ for (const { engine, name, options } of browsers) {
     await page.locator("#topic-footer-buttons button.btn-primary").waitFor();
     assert.equal(new URL(page.url()).origin, site);
     assert.match(new URL(page.url()).pathname, /^\/t\//);
-    assert.equal(await rail.locator(".gq-thread-facts dt").count(), 4);
+    // Replies, Views, Likes, and Last reply once there is a reply to date
+    // (thread-details.gjs).
+    const replies = Number((await rail.locator(".gq-thread-facts dd").first().innerText()).replace(/\D/g, "") || 0);
+    assert.equal(await rail.locator(".gq-thread-facts dt").count(), replies > 0 ? 4 : 3);
     assert(await page.locator(".gq-thread-crumb").isVisible());
     assert(await page.locator(".gq-thread-byline").isVisible());
     await page.evaluate(() => document.fonts.ready);

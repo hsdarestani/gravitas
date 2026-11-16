@@ -155,10 +155,14 @@ export class ThreadRail extends Component {
           <div><dt>Replies</dt><dd>{{dNumber this.topic.replyCount}}</dd></div>
           <div><dt>Views</dt><dd>{{dNumber this.topic.views}}</dd></div>
           <div><dt>Likes</dt><dd>{{dNumber this.topic.like_count}}</dd></div>
-          <div>
-            <dt>Last reply</dt>
-            <dd><DRelativeDate @date={{this.topic.last_posted_at}} /></dd>
-          </div>
+          {{! With no replies, last_posted_at is the opening post's date, so
+              "Last reply 8d" named a reply that does not exist. }}
+          {{#if this.topic.replyCount}}
+            <div>
+              <dt>Last reply</dt>
+              <dd><DRelativeDate @date={{this.topic.last_posted_at}} /></dd>
+            </div>
+          {{/if}}
         </dl>
         {{#if this.participants.length}}
           <div class="gq-thread-talking">
