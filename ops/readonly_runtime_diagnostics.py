@@ -1001,10 +1001,18 @@ puts "score_details=#{item.reviewable_scores.pluck(:reviewable_score_type,:reaso
 actor=cfg && cfg[3]
 puts "actor_valid=#{!!(actor&.moderator? && !actor&.admin?)}"
 puts "other_staff_notes=#{actor ? item.reviewable_notes.where.not(user_id:actor.id).count : -1}"
+puts "score_system_user=#{item.reviewable_scores.first&.user_id == Discourse.system_user.id}"
+puts "score_needs_approval=#{item.reviewable_scores.first&.reviewable_score_type == ReviewableScore.types[:needs_approval]}"
+puts "topic_id_is_nil=#{item.topic_id.nil?}"
+puts "topic_public=#{!!(item.topic.nil? || (item.topic.visible && !item.topic.private_message? && !item.topic.closed? && !item.topic.archived? && !item.topic.deleted_at))}"
+puts "payload_simple=#{!!(item.payload.is_a?(Hash) && item.payload["raw"].is_a?(String) && item.payload["raw"].length.between?(1,3000) && !item.payload["via_email"] && !item.payload["is_warning"] && !item.payload["featured_link"])}"
+puts "wordwatcher_requires_approval=#{WordWatcher.new("#{item.topic&.title || item.payload["title"]} #{item.payload["raw"]}").requires_approval?}"
 puts "reviewable_claiming_required=#{SiteSetting.reviewable_claiming=="required"}"
 if actor
   g=Guardian.new(actor)
-  puts "guardian_can_see=#{g.can_see?(item)}"
+  puts "guardian_can_see=#{g.can_see?(item).inspect}"
+  room=item.category || item.topic&.category
+  puts "author_guardian_can_create=#{(item.topic ? Guardian.new(author).can_create?(Post,item.topic) : Guardian.new(author).can_create?(Topic,room)).inspect}"
   begin
     puts "eligible=#{GraviQuestPulsarModeration.eligible?(item,cfg[2],g)}"
   rescue StandardError => e
@@ -1016,7 +1024,7 @@ end
                  "/var/www/discourse", "graviquest", "bundle", "exec", "rails",
                  "runner", ruby, timeout=45)
     for line in output.splitlines():
-        if re.fullmatch(r"[a-z_]+=(?:true|false|-?\d+|\[\[?.{0,240}\]?\]?|[A-Za-z_:]+)", line):
+        if re.fullmatch(r"[a-z_]+=(?:true|false|nil|-?\d+|\[\[?.{0,240}\]?\]?|[A-Za-z_:]+)", line):
             print("pulsar_"+line)
 
 if __name__ == "__main__":
