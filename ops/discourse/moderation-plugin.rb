@@ -60,7 +60,13 @@ after_initialize do
       return false if item.topic_id && (!topic || topic.private_message? || topic.closed? || topic.archived? ||
         topic.deleted_at || topic.category_id != room.id || !topic.visible)
       return false if topic && ReviewableClaimedTopic.exists?(topic_id: topic.id)
-      return false if SiteSetting.reviewable_claiming == "required" || !guardian.can_see?(item)
+      # Native Guardian#can_see? accepts categories/topics, not ReviewableQueuedPost.
+      # can_see?(item) returns nil even for a real moderator, silently skipping
+      # all legitimate system-generated approval queue entries. Validate the
+      # permitted public category instead, alongside the strict reviewable score,
+      # moderator identity, author state and author posting ACL checks above.
+      return false if SiteSetting.reviewable_claiming == "required" || !guardian.user.moderator? ||
+        guardian.user.admin? || !guardian.can_see?(room)
       author_guardian = Guardian.new(author)
       allowed = topic ? author_guardian.can_create?(Post, topic) : author_guardian.can_create?(Topic, room)
       return false unless allowed

@@ -105,6 +105,7 @@ with open(sys.argv[3],"w") as f:json.dump(cfg,f)
 os.chown(sys.argv[3],1000,1000)
 os.chmod(sys.argv[3],0o600)
 PY
+rails 'c=GraviQuestPulsarModeration.config;abort "Pilot configuration not accepted" unless c && c[0]["mode"] == "observe" && c[2].include?("introductions")'
 rails /shared/graviquest-integration/pulsar-acceptance.rb create_observe
 rails /shared/graviquest-integration/pulsar-acceptance.rb verify_observe
 echo 'Live observe-mode AI decision and native review note passed.'
