@@ -22,7 +22,7 @@ from django.dispatch import receiver
 from django.core import signing
 from django.core.cache import cache
 from django.db import transaction
-from django.db.models.signals import m2m_changed, post_save, pre_save, pre_delete
+from django.db.models.signals import m2m_changed, post_delete, post_save, pre_save, pre_delete
 from django.http import HttpResponse, HttpResponseRedirect, JsonResponse
 from django.utils.html import strip_tags
 from django.views.decorators.cache import never_cache
@@ -30,8 +30,9 @@ from django.views.decorators.http import require_GET, require_POST
 
 from .email_verification import is_email_verified
 from .forum_models import ForumDiscussion, ForumLogout
-from .layer_models import CommunityProfile
-from .models import ContentItem
+from .layer_models import CommunityProfile, ModuleGrant
+from .models import ContentItem, WorkspaceMembership
+from .platform_models import WorkspaceProfile
 
 
 class ForumUnavailable(Exception):
@@ -39,6 +40,26 @@ class ForumUnavailable(Exception):
 
 
 MANAGED_GROUPS = ('graviquest-forum-researchers', 'graviquest-forum-reviewers', 'graviquest-forum-moderators')
+
+
+def _forum_admin(user):
+    """Mirror effective Core Workspace admin rights, not personal/project ownership."""
+    if user.is_superuser:
+        return True
+    # Use the same effective Core authority gate as the Workspace admin API:
+    # a real Core membership plus a non-disabled Core module entitlement.
+    from .platform_runtime_v3 import core_role
+    return core_role(user) in {'owner', 'admin'}
+
+
+def _is_core_admin_membership(membership):
+    return (
+        membership.role in {WorkspaceMembership.Role.OWNER, WorkspaceMembership.Role.ADMIN}
+        and WorkspaceProfile.objects.filter(
+            workspace_id=membership.workspace_id,
+            purpose=WorkspaceProfile.Purpose.CORE,
+        ).exists()
+    )
 
 
 def forum_url():
@@ -296,7 +317,7 @@ def forum_sso(request):
               'email': request.user.email, 'username': f'gq_{request.user.pk}',
               'name': request.user.get_full_name() or f'Member {request.user.pk}',
               'require_activation': 'false',
-              'admin': str(request.user.is_superuser).lower(),
+              'admin': str(_forum_admin(request.user)).lower(),
               'moderator': str('graviquest-forum-moderators' in groups).lower(),
               'add_groups': ','.join(k for k, v in roles.items() if v in groups),
               'remove_groups': ','.join(k for k, v in roles.items() if v not in groups)}
@@ -429,6 +450,42 @@ def _inactive_user(sender, instance, **kwargs):
         del instance._forum_was_admin
     if not instance.is_active or (was_admin and not instance.is_superuser):
         _schedule_revocation(instance)
+
+
+@receiver(pre_save, sender=WorkspaceMembership, dispatch_uid='graviquest_forum_previous_core_admin_membership')
+def _previous_core_admin_membership(sender, instance, **kwargs):
+    if settings.GRAVITAS_FORUM_URL and instance.pk:
+        instance._forum_previous_core_admin_uid = sender.objects.filter(
+            pk=instance.pk,
+            role__in=(WorkspaceMembership.Role.OWNER, WorkspaceMembership.Role.ADMIN),
+            workspace__platform_profile__purpose=WorkspaceProfile.Purpose.CORE,
+        ).values_list('user_id', flat=True).first()
+
+
+@receiver(post_save, sender=WorkspaceMembership, dispatch_uid='graviquest_forum_core_admin_membership_changed')
+def _core_admin_membership_changed(sender, instance, **kwargs):
+    previous_uid = getattr(instance, '_forum_previous_core_admin_uid', None)
+    if hasattr(instance, '_forum_previous_core_admin_uid'):
+        del instance._forum_previous_core_admin_uid
+    if previous_uid and not (instance.user_id == previous_uid and _is_core_admin_membership(instance)):
+        previous_user = get_user_model().objects.filter(pk=previous_uid).first()
+        if previous_user and not previous_user.is_superuser:
+            _schedule_revocation(previous_user)
+
+
+@receiver(post_delete, sender=WorkspaceMembership, dispatch_uid='graviquest_forum_core_admin_membership_deleted')
+def _core_admin_membership_deleted(sender, instance, **kwargs):
+    if settings.GRAVITAS_FORUM_URL and _is_core_admin_membership(instance):
+        user = get_user_model().objects.filter(pk=instance.user_id).first()
+        if user and not user.is_superuser:
+            _schedule_revocation(user)
+
+
+@receiver(post_save, sender=ModuleGrant, dispatch_uid='graviquest_forum_core_grant_disabled')
+def _core_grant_disabled(sender, instance, **kwargs):
+    if (settings.GRAVITAS_FORUM_URL and instance.module == ModuleGrant.Module.CORE
+            and not instance.is_effective() and not instance.user.is_superuser):
+        _schedule_revocation(instance.user)
 
 
 @receiver(post_save, sender=CommunityProfile, dispatch_uid='graviquest_forum_suspended_profile')

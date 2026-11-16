@@ -15,7 +15,9 @@ from django.test import Client, TestCase, override_settings
 
 from core.email_verification import mark_email_verified
 from core.forum_models import ForumDiscussion, ForumLogout
-from core.models import ContentItem
+from core.layer_models import ModuleGrant
+from core.models import ContentItem, WorkspaceMembership
+from core.platform_runtime_v3 import ensure_platform_workspaces
 
 SECRET = 'test-only-discourse-secret-never-a-production-value'
 BASE = 'https://forum.graviquest.com'
@@ -42,6 +44,19 @@ class ForumIdentityTests(TestCase):
             mark_email_verified(self.user)
         self.client.force_login(self.user)
 
+    def core_membership(self, role):
+        bootstrap = get_user_model().objects.create_superuser(
+            username='bootstrap@example.com', email='bootstrap@example.com', password='bootstrap-password',
+        )
+        core = ensure_platform_workspaces(bootstrap)['core']
+        return WorkspaceMembership.objects.create(workspace=core, user=self.user, role=role)
+
+    def sso_fields(self):
+        response = self.client.get('/api/forum/sso/', signed())
+        self.assertEqual(response.status_code, 302)
+        query = parse_qs(urlsplit(response.url).query)
+        return parse_qs(base64.b64decode(query['sso'][0]).decode())
+
     def test_guest_uses_existing_login_without_payload_in_url(self):
         response = self.client.get('/api/forum/sso/', signed())
         self.assertEqual(response.url, '/login?continue=forum')
@@ -63,6 +78,73 @@ class ForumIdentityTests(TestCase):
         self.assertIn('researchers', fields['remove_groups'][0])
         self.assertEqual(response['Referrer-Policy'], 'no-referrer')
         self.assertEqual(get_user_model().objects.filter(email=self.user.email).count(), 1)
+
+    def test_core_workspace_admin_is_forum_admin(self):
+        self.sign_in()
+        self.core_membership(WorkspaceMembership.Role.ADMIN)
+        self.assertEqual(self.sso_fields()['admin'], ['true'])
+
+    def test_core_workspace_owner_is_forum_admin(self):
+        self.sign_in()
+        self.core_membership(WorkspaceMembership.Role.OWNER)
+        self.assertEqual(self.sso_fields()['admin'], ['true'])
+
+    def test_core_member_is_not_forum_admin(self):
+        self.sign_in()
+        self.core_membership(WorkspaceMembership.Role.MEMBER)
+        self.assertEqual(self.sso_fields()['admin'], ['false'])
+
+    def test_disabled_core_entitlement_does_not_grant_forum_admin(self):
+        self.sign_in()
+        self.core_membership(WorkspaceMembership.Role.ADMIN)
+        ModuleGrant.objects.create(user=self.user, module=ModuleGrant.Module.CORE, enabled=False)
+        self.assertEqual(self.sso_fields()['admin'], ['false'])
+
+    def test_personal_workspace_owner_and_staff_flag_do_not_grant_forum_admin(self):
+        from core.workspace_api import provision_personal_workspace
+        self.sign_in()
+        provision_personal_workspace(self.user)
+        self.user.is_staff = True
+        self.user.save(update_fields=['is_staff'])
+        self.assertEqual(self.sso_fields()['admin'], ['false'])
+
+    def test_superuser_retains_forum_admin(self):
+        self.sign_in()
+        self.user.is_superuser = True
+        self.user.save(update_fields=['is_superuser'])
+        self.assertEqual(self.sso_fields()['admin'], ['true'])
+
+    @patch('core.forum.revoke_forum_sessions')
+    def test_downgrading_core_admin_revokes_native_session(self, revoke):
+        membership = self.core_membership(WorkspaceMembership.Role.ADMIN)
+        with self.captureOnCommitCallbacks(execute=True):
+            membership.role = WorkspaceMembership.Role.MEMBER
+            membership.save(update_fields=['role'])
+        revoke.assert_called_once_with(self.user)
+
+    @patch('core.forum.revoke_forum_sessions')
+    def test_removing_core_admin_membership_revokes_native_session(self, revoke):
+        membership = self.core_membership(WorkspaceMembership.Role.OWNER)
+        with self.captureOnCommitCallbacks(execute=True):
+            membership.delete()
+        revoke.assert_called_once_with(self.user)
+
+    @patch('core.forum.revoke_forum_sessions')
+    def test_disabling_core_entitlement_revokes_native_session(self, revoke):
+        self.core_membership(WorkspaceMembership.Role.ADMIN)
+        with self.captureOnCommitCallbacks(execute=True):
+            ModuleGrant.objects.create(user=self.user, module=ModuleGrant.Module.CORE, enabled=False)
+        revoke.assert_called_once_with(self.user)
+
+    @patch('core.forum.revoke_forum_sessions')
+    def test_unrelated_workspace_membership_change_does_not_revoke(self, revoke):
+        from core.workspace_api import provision_personal_workspace
+        personal = provision_personal_workspace(self.user)
+        membership = WorkspaceMembership.objects.get(workspace=personal, user=self.user)
+        with self.captureOnCommitCallbacks(execute=True):
+            membership.role = WorkspaceMembership.Role.MEMBER
+            membership.save(update_fields=['role'])
+        revoke.assert_not_called()
 
     def test_unverified_existing_account_cannot_take_over_forum_by_email(self):
         self.sign_in(verified=False)
