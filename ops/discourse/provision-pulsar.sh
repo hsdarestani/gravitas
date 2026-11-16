@@ -36,8 +36,7 @@ test -f /etc/gravitas/backend.env
 test -f /etc/gravitas/forum.env
 test "$(docker inspect -f '{{.State.Running}}' graviquest)" = true
 curl -fsS --max-time 10 https://forum.graviquest.com/srv/status >/dev/null
-ruby -c "$SOURCE/moderation-plugin.rb" >/dev/null
-ruby -c "$SOURCE/pulsar-acceptance.rb" >/dev/null
+# Ruby syntax is already validated by GitHub CI; host Ruby is not installed.
 set -a
 . /etc/gravitas/backend.env
 . /etc/gravitas/forum.env
