@@ -1,0 +1,69 @@
+name: Provision guarded GraviQuest Pulsar Forum moderation
+run-name: Native Forum Pulsar production rollout after verified deployment
+
+on:
+  workflow_run:
+    workflows: ['Deploy Gravitas to Strato']
+    types: [completed]
+
+permissions:
+  contents: read
+
+jobs:
+  provision:
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.head_branch == 'main' &&
+      github.event.workflow_run.head_repository.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    concurrency:
+      group: gravitas-production
+      cancel-in-progress: false
+    env:
+      DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+      DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+      DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+      SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+      RELEASE_SHA: ${{ github.event.workflow_run.head_sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          fetch-depth: 2
+      - name: Allow exactly the reviewed worker-provisioning release
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch -q origin main
+          test "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)"
+          test "$RELEASE_SHA" = "$(git rev-parse HEAD)"
+          git diff --name-only HEAD^ HEAD | grep -Fxq 'ops/discourse/provision-pulsar.sh'
+          git diff --name-only HEAD^ HEAD | grep -Fxq 'ops/discourse/pulsar-acceptance.rb'
+          git diff --name-only HEAD^ HEAD | grep -Fxq 'ops/discourse/moderation-plugin.rb'
+          test -s ops/discourse/provision-pulsar.sh
+          bash -n ops/discourse/provision-pulsar.sh
+          ruby -c ops/discourse/pulsar-acceptance.rb
+          ruby -c ops/discourse/moderation-plugin.rb
+      - name: Stage scoped source and provision with existing authorized SSH
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          test -n "$DEPLOY_HOST" && test -n "$SSH_KEY"
+          PORT="$DEPLOY_PORT"; test -n "$PORT" || PORT=22
+          LOGIN="$DEPLOY_USER"; test -n "$LOGIN" || LOGIN=deploy
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/gq-pulsar
+          chmod 600 ~/.ssh/gq-pulsar
+          ssh-keygen -y -f ~/.ssh/gq-pulsar >/dev/null
+          ssh-keyscan -p "$PORT" -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts
+          SSH_ARGS=(-i ~/.ssh/gq-pulsar -p "$PORT" -o BatchMode=yes -o ConnectTimeout=10)
+          if ! ssh "${SSH_ARGS[@]}" "$LOGIN@$DEPLOY_HOST" true; then LOGIN=root; fi
+          REMOTE="$(ssh "${SSH_ARGS[@]}" "$LOGIN@$DEPLOY_HOST" 'mktemp -d /tmp/gq-pulsar.XXXXXXXX')"
+          [[ "$REMOTE" =~ ^/tmp/gq-pulsar\.[A-Za-z0-9]+$ ]]
+          scp -i ~/.ssh/gq-pulsar -P "$PORT" ops/discourse/provision-pulsar.sh \
+            ops/discourse/pulsar-acceptance.rb ops/discourse/moderation-plugin.rb \
+            "$LOGIN@$DEPLOY_HOST:$REMOTE/"
+          ssh "${SSH_ARGS[@]}" "$LOGIN@$DEPLOY_HOST" \
+            "sudo bash '$REMOTE/provision-pulsar.sh' '$RELEASE_SHA' '$REMOTE'"
