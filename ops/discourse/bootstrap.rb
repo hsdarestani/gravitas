@@ -22,6 +22,9 @@ SiteSetting.enable_local_logins_via_code = false
 SiteSetting.enable_signup_cta = false
 SiteSetting.approve_unless_allowed_groups = "1|2"
 SiteSetting.approve_new_topics_unless_allowed_groups = "1|2"
+# The Community hands off prewritten drafts. Keep staff review for ordinary
+# submissions without treating composition speed alone as account abuse.
+SiteSetting.auto_silence_fast_typers_on_first_post = false
 SiteSetting.backup_frequency = 1
 SiteSetting.maximum_backups = 14
 SiteSetting.backup_with_uploads = true

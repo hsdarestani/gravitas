@@ -80,7 +80,7 @@ for (const { engine, name, options } of browsers) {
         await tab.click({ timeout: 15000 });
         await page.waitForURL(site + "/u/system/" + route);
         await tab.and(page.locator(".active")).waitFor({ timeout: 10000 });
-        assert.match(await tab.innerText(), new RegExp(view));
+        await tab.getByText(view, { exact: true }).waitFor({ timeout: 10000 });
       } catch (error) {
         console.log(JSON.stringify({
           browser: name,
