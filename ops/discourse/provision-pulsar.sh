@@ -90,3 +90,59 @@ done
 test "$READY" = true
 rails 'abort "Pulsar plugin not loaded" unless defined?(GraviQuestPulsarModeration)'
 echo 'Pulsar native worker plugin loaded.'
+
+# SSO-created service moderator is not a Django user, cannot be used to log in,
+# and can act only through the native plugin. Pilot is a disposable normal user.
+rails /shared/graviquest-integration/pulsar-acceptance.rb bootstrap
+python3 - "$STATE" "$TOKEN" "$CONFIG" <<'PY'
+import datetime,json,os,sys
+state=json.load(open(sys.argv[1]))
+assert state["managed_by"]=="gq-pulsar-acceptance-v1"
+token=open(sys.argv[2]).read().strip()
+cfg={"mode":"observe","token":token,"actor":state["actor"],
+ "starts_at":(datetime.datetime.now(datetime.timezone.utc)-datetime.timedelta(minutes=10)).isoformat(),
+ "categories":["introductions"],"pilot_author_ids":[state["pilot_id"]],"production_members":False}
+with open(sys.argv[3],"w") as f:json.dump(cfg,f)
+os.chown(sys.argv[3],1000,1000)
+os.chmod(sys.argv[3],0o600)
+PY
+rails /shared/graviquest-integration/pulsar-acceptance.rb create_observe
+rails /shared/graviquest-integration/pulsar-acceptance.rb verify_observe
+echo 'Live observe-mode AI decision and native review note passed.'
+python3 - "$CONFIG" <<'PY'
+import json,sys
+p=sys.argv[1];d=json.load(open(p));d["mode"]="apply"
+with open(p,"w") as f:json.dump(d,f)
+PY
+rails /shared/graviquest-integration/pulsar-acceptance.rb create_apply
+rails /shared/graviquest-integration/pulsar-acceptance.rb verify_apply
+echo 'Live apply-mode approval of disposable pilot post passed.'
+rails /shared/graviquest-integration/pulsar-acceptance.rb cleanup
+test ! -e "$STATE"
+
+# Only once both real provider tests pass, enable the scoped public rollout.
+# Spam, flags, restricted or suspended authors, private rooms and uncertainty
+# stay in native human review. No AI-triggered account bans are implemented.
+python3 - "$CONFIG" <<'PY'
+import json,sys
+p=sys.argv[1];d=json.load(open(p))
+assert d["mode"]=="apply" and d["pilot_author_ids"]
+d["categories"]=["open-question","ai-in-research","discovery","computable-universe",
+ "corrections","propose-a-topic","lab-results","introductions"]
+d["production_members"]=True
+with open(p,"w") as f:json.dump(d,f)
+PY
+rails 'c=GraviQuestPulsarModeration.config;abort "Public apply rollout was rejected" unless c && c[0]["production_members"] == true && c[0]["mode"] == "apply"'
+curl -fsS --max-time 10 https://forum.graviquest.com/srv/status >/dev/null
+curl -fsS --max-time 10 https://graviquest.com/api/forum/feed/ >/dev/null
+python3 - "$INTEGRATION/pulsar-production-activation.json" "$EXPECTED" <<'PY'
+import datetime,json,os,sys
+data={"release":sys.argv[2],"mode":"apply","public_members":True,
+ "native_plugin_loaded":True,"observe_pilot":"passed","apply_pilot":"passed",
+ "qa_cleanup":"passed","recorded_at":datetime.datetime.now(datetime.timezone.utc).isoformat()}
+with open(sys.argv[1],"w") as f:json.dump(data,f)
+os.chown(sys.argv[1],1000,1000)
+os.chmod(sys.argv[1],0o600)
+PY
+trap - ERR
+echo 'PULSAR_PRODUCTION_ACTIVE: live apply mode for eligible public comments; pilot tests passed.'
