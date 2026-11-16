@@ -35,6 +35,8 @@ jobs:
           python -m py_compile ops/discourse/storage.py
           ruby -c ops/discourse/storage-plugin.rb
           ruby -c ops/discourse/moderation-plugin.rb
+          ruby -c ops/discourse/pulsar-acceptance.rb
+          bash -n ops/discourse/provision-pulsar.sh
           ruby -c scripts/discourse/moderation-settings.rb
           ruby -c scripts/discourse/statistics-audit.rb
           ruby -c scripts/discourse/public-verify.rb
