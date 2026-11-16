@@ -75,12 +75,13 @@ and serve only bounded PNG, JPEG or WebP payloads.
 | Django authority | Discourse authority |
 | --- | --- |
 | Existing active superuser | Forum admin |
+| Active Core Workspace owner/admin with effective Core access | Forum admin |
 | `graviquest-forum-moderators` group | Forum moderator |
 | `graviquest-forum-researchers` group | `researchers` private group |
 | `graviquest-forum-reviewers` group | `reviewers` private group |
 | Other verified active account | Ordinary member |
 
-Research workspace access alone does not create forum access. Private groups
+Only the canonical Core Workspace owner/admin role carries site-wide Forum administrator authority; personal workspace ownership, project administration, and ordinary Core membership do not. A disabled Core module entitlement removes that authority. After any Core administrator role removal, existing native Forum sessions are revoked; the next DiscourseConnect login applies the current role. Research workspace access alone does not create forum access. Private groups
 must be explicitly assigned by an administrator. Ordinary member submissions
 require native moderation approval. Staff can publish directly.
 
