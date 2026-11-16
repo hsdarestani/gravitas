@@ -20,6 +20,7 @@ for (const { engine, name, options } of browsers) {
     page.on("pageerror", error => errors.push(error.message));
     await page.goto(site + "/latest", { waitUntil: "domcontentloaded" });
     await page.locator(".gq-forum-heading h1").waitFor({ timeout: 45000 });
+    await page.locator(".gq-community-poll .poll").waitFor({ timeout: 45000 });
     await page.locator(".topic-list a.title").first().click();
     const rail = page.locator(".gq-thread-rail");
     // Attached, not visible: phones hide the rail so the post comes first
@@ -69,6 +70,19 @@ for (const { engine, name, options } of browsers) {
     assert.deepEqual(errors, []);
     await page.screenshot({ path: `${output}/thread-${name}.png` });
     console.log(JSON.stringify({ browser: name, thread: new URL(page.url()).pathname, ...layout }));
+
+    await page.goto(site + "/u/system/summary", { waitUntil: "domcontentloaded" });
+    const profileNav = page.getByRole("navigation", { name: "User primary" });
+    for (const view of ["Activity", "Summary"]) {
+      const tab = profileNav.getByRole("link", { name: view, exact: true });
+      await tab.click();
+      await page.waitForURL(site + "/u/system/" + view.toLowerCase());
+      await profileNav.locator("a.active").filter({ hasText: view }).waitFor();
+      assert.match(await tab.getAttribute("class"), /\bactive\b/);
+    }
+    await page.getByRole("heading", { name: "Stats", exact: true }).waitFor();
+    assert.deepEqual(errors, []);
+    console.log(JSON.stringify({ browser: name, profileNavigation: "passed" }));
   } finally {
     await browser.close();
   }

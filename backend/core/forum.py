@@ -24,6 +24,7 @@ from django.core.cache import cache
 from django.db import transaction
 from django.db.models.signals import m2m_changed, post_delete, post_save, pre_save, pre_delete
 from django.http import HttpResponse, HttpResponseRedirect, JsonResponse
+from django.shortcuts import render
 from django.utils.html import strip_tags
 from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_GET, require_POST
@@ -143,6 +144,7 @@ def _topic_summary(topic, categories, users=None):
             'reply_count': _count(topic.get('posts_count'), -1),
             'like_count': _count(topic.get('like_count')),
             'view_count': _count(topic.get('views')),
+            'participant_count': _count(topic.get('participant_count')),
             'participants': [{'username': str(user.get('username', '')),
                               'name': str(user.get('name') or user.get('username', '')),
                               'avatar_url': _avatar_url(user.get('avatar_template', ''))}
@@ -257,15 +259,22 @@ def forum_discussion(request, content_key):
         if not summary:
             return _response({'ok': False, 'error': 'discussion_not_found'}, 404)
         posts = data.get('post_stream', {}).get('posts', [])
+        visible_posts = [p for p in posts if not p.get('hidden') and not p.get('deleted_at')]
         public_posts = [{'id': p['id'], 'number': p['post_number'],
                         'username': p.get('username', ''),
                         'text': strip_tags(str(p.get('cooked', '')))[:2000],
                         'created_at': p.get('created_at'),
                         'reply_to_post_number': p.get('reply_to_post_number')}
-                       for p in posts[:10] if not p.get('hidden') and not p.get('deleted_at')]
+                       for p in visible_posts[:10]]
+        opening_post = next((p for p in visible_posts if p['post_number'] == 1), {})
+        polls = [
+            {**poll, 'voters': _count(poll.get('voters')),
+             'options': [{**option, 'votes': _count(option.get('votes'))}
+                         for option in poll.get('options', [])]}
+            for poll in opening_post.get('polls', [])
+        ]
         return _response({'ok': True, 'discussion': summary, 'posts': public_posts,
-                          'content_version': link.content_version,
-                          'polls': posts[0].get('polls', []) if posts else []})
+                          'content_version': link.content_version, 'polls': polls})
     except (ForumUnavailable, KeyError, TypeError, ValueError):
         return _unavailable()
 
@@ -537,16 +546,7 @@ def _renamed_managed_group(sender, instance, **kwargs):
 def forum_logout_landing(request):
     # Native Discourse already revoked its own session. Require a CSRF-protected
     # POST for the Django session; never log a visitor out on a third-party GET.
-    from django.middleware.csrf import get_token
-    from django.utils.html import format_html
-    token = get_token(request)
-    return HttpResponse(format_html(
-        '<!doctype html><html lang="en"><meta name="viewport" content="width=device-width, initial-scale=1">'
-        '<title>Sign out · GraviQuest</title><body><main><h1>Sign out of GraviQuest</h1>'
-        '<p>You are signed out of the Forum. Finish signing out of your workspace below.</p>'
-        '<form method="post" action="/api/forum/logout/"><input type="hidden" name="csrfmiddlewaretoken" value="{}">'
-        '<button type="submit">Sign out of GraviQuest</button></form></main></body></html>', token))
-
+    return render(request, 'core/forum_signed_out.html')
 
 @require_POST
 @never_cache

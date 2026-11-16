@@ -222,19 +222,24 @@
           host.replaceChildren(); var topic = data.discussion;
           host.append(link(title(topic.title), forumURL(topic.url), 'gq-discussion-title'));
           if (data.polls && data.polls.length) {
-            var poll = data.polls[0], total = Number(poll.voters || 0);
+            var poll = data.polls[0], total = poll.voters;
             (poll.options || []).forEach(function (option) {
               var choice = el('p', 'gq-poll-option');
               // Poll labels are cooked HTML. Extract text, then render as text.
               var doc = new DOMParser().parseFromString(option.html || '', 'text/html');
               choice.append(el('span', '', doc.body.textContent || 'Option'));
-              if (typeof option.votes === 'number') choice.append(el('small', '', String(option.votes) + ' votes'));
+              if (Number.isInteger(option.votes)) {
+                choice.append(el('small', '', count(option.votes) + (option.votes === 1 ? ' vote' : ' votes')));
+              }
               host.append(choice);
             });
-            host.append(el('p', 'g-muted', total + (total === 1 ? ' member has voted.' : ' members have voted.')));
-            host.append(link('Vote in the Forum', forumURL(topic.url), 'g-btn g-btn--secondary g-btn--sm'));
+            if (Number.isInteger(total)) {
+              host.append(el('p', 'g-muted', count(total) + (total === 1 ? ' member has voted.' : ' members have voted.')));
+            }
+            host.append(link(poll.status === 'open' ? 'Vote in the Forum' : 'Open the poll in the Forum',
+              forumURL(topic.url), 'g-btn g-btn--secondary g-btn--sm'));
           } else {
-            (data.posts || []).slice(1, 4).forEach(function (p) {
+            (data.posts || []).filter(function (p) { return p.number > 1; }).slice(0, 3).forEach(function (p) {
               var article = el('article'); article.append(el('b', '', nameOf(p)), el('p', '', p.text.length > 400 ? p.text.slice(0,400) + '…' : p.text)); host.append(article);
             });
             host.append(link('Read and reply in the Forum', forumURL(topic.url), 'g-btn g-btn--secondary g-btn--sm'));

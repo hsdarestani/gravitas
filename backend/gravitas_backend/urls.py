@@ -91,7 +91,7 @@ urlpatterns = [
     path('api/forum/sso/', forum.forum_sso),
     path('api/forum/resume/', forum.forum_resume),
     path('api/forum/avatar/<str:token>/', forum.forum_avatar),
-    path('api/forum/logout/', forum.forum_logout),
+    path('api/forum/logout/', forum.forum_logout, name='forum-logout'),
     path('api/forum/signed-out/', forum.forum_logout_landing),
     path('admin/', admin.site.urls),
     path('api/oidc/.well-known/openid-configuration', oidc_discovery),

@@ -51,6 +51,9 @@ export default apiInitializer((api) => {
   api.renderInOutlet("topic-above-post-stream", ThreadBreadcrumb);
   api.renderInOutlet("topic-title", ThreadByline);
   api.renderInOutlet("topic-navigation", ThreadRail);
+  api.registerValueTransformer("topic-reply-count", ({ value }) =>
+    Number.isInteger(value) ? Math.max(0, value) : 0
+  );
 
   // Each room's "About the … category" thread is its description, created by
   // Discourse with the room. In the lists they were ten identical rows. The
