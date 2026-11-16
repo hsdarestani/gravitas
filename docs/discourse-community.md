@@ -237,3 +237,107 @@ behavior and differ from the original preview's custom widgets. No synthetic
 engagement remains in the public feed.
 
 Final Django validation after managed-group lifecycle hardening: 1,156 tests passed with 3 skips. The focused Forum/account suite passed 46 tests. These checks preserve existing Workspace, Pulsar, Labs and account behavior; they do not replace the separate email delivery and off-host recovery checks.
+
+## Production moderation and acceptance after PR #363
+
+The production Admin UI on 2026-11-16 showed that reply and new-topic approval
+exceptions are Admins and Moderators, the first-post approval count is zero,
+suspect users require approval, fast typing detection is Standard, and
+automatic first-post silencing on typing speed is off. The first-post regex
+is empty and high-trust spam flags can hide posts. The native backup with
+uploads is listed as `graviquest-forum-2026-11-16-142600-v2026-7-4-20261106020035.tar.gz`. Keep the staff approval
+queue enabled when restoring the site. A clean install uses Discourse
+defaults until the production configuration is restored and compared.
+
+The default manual mode of `forum-activation.yml` stops on unhealthy Forum
+infrastructure. The workflow still takes a native database and upload
+backup, rehearses a restore into a disposable database, and creates and
+removes exact, recorded QA identities. It therefore requires an authorized
+production operator even in the default mode. Run it from the deployed
+`main` revision. Manual acceptance checks that its exact commit is the last
+successful production deployment before touching production data. The
+temporary Core Admin maps to a native Admin only for
+the acceptance window. Votes are cast on a temporary poll. Cleanup uses the
+recorded external IDs and generated addresses. Prevent concurrent E2E runs
+with the existing production concurrency group.
+
+The acceptance audit writes a mode-600 scoped policy snapshot and a native
+statistics report under
+`/var/discourse/shared/graviquest/graviquest-integration/acceptance-audits/`.
+Protect this directory with the native backup material and copy it through
+the production backup channel. The public run log includes the snapshot
+SHA-256 and aggregate discrepancy counts. After recovery, run
+`moderation-settings.rb` with `GQ_MODERATION_SETTINGS_MODE=compare` and
+`GQ_MODERATION_SETTINGS_FILE` set to the saved file inside the container.
+Resolve any reported drift through the native Admin settings or a verified
+native restore before reopening writes. Preserve the speed-only and
+staff-approval settings together.
+
+The private statistics report covers discussion topics and private messages.
+It compares stored totals with native post counts, likes, daily view ledgers,
+and the distinct authors counted by Discourse's participant-cache updater.
+It also checks voter and option rows. Treat daily view differences as evidence to investigate because
+the daily ledger may not include every historical increment. Poll counts
+are derived by Discourse from vote rows and any imported anonymous tallies.
+Keep all rows and aggregate counts when comparing discrepancies. Re-run the
+read-only audit after any targeted, backed-up repair.
+
+### Pulsar review queue deployment
+
+The internal Django classifier is disabled without a dedicated bearer token.
+The native worker is inactive without its private configuration file. Neither
+uses the session-revocation API key or the DiscourseConnect secret. Apply the
+Django migration through the usual release path. An authorized production
+operator provisions a dedicated random token of at least 48 characters in
+the backend service environment as `GRAVITAS_FORUM_MODERATION_TOKEN`.
+The same token goes in the native worker's configuration file, readable by
+the Discourse service account, in its already private shared integration
+directory. Keep secrets out of GitHub output, command arguments, artifacts
+and browser storage.
+
+Back up Discourse before installing `ops/discourse/moderation-plugin.rb` in
+the existing container at
+`plugins/graviquest-pulsar-moderation/plugin.rb` under the Discourse app
+directory. Retain the exact plugin release source in the private integration
+directory as `moderation-plugin.rb` for subsequent rebuilds. Use the normal
+container restart and health checks. Keep a copy of the previous plugin if
+replacing one. The checked-in build configuration copies this source for
+future controlled builds.
+
+Provision a dedicated active **Moderator** identity via the established
+Forum staff process, and set these fields in
+`/shared/graviquest-integration/pulsar-moderation.json` with mode 0600:
+
+- `mode` starts at `observe`.
+- `token` is the dedicated classifier credential.
+- `actor` is the dedicated moderator username.
+- `starts_at` is an explicit ISO 8601 UTC cutoff.
+- `categories` lists approved public room slugs. Select a single pilot room.
+- `pilot_author_ids` is a required list of 1–10 exact native Discourse user IDs
+  in both modes. Use only disposable test identities during acceptance.
+  All other authors stay in the native human review queue.
+
+Observe mode adds staff-only review notes. Only ordinary public queued
+posts generated by the platform's group-approval rules enter the worker.
+It leaves claimed items, items with staff notes or additional moderation
+signals, restricted users, links and uploads in human review. A two-minute
+window allows staff to act first. The classifier limits new attempts to 50
+per UTC day and retries a revision up to three times. Native version checks
+and notes prevent duplicate actions, and the Django ledger stores digests and
+decision codes. The provider receives only the bounded queue candidate.
+
+Verify observe mode against known safe, prohibited, and ambiguous disposable
+posts in the pilot room using the existing provider. Then verify apply mode
+on disposable posts before enabling it for member posts. Confirm published
+safe content, native rejection and author feedback for prohibited content,
+pending items for uncertain decisions, audit notes and human reconsideration.
+Human moderators can claim submissions where claiming is enabled or leave a
+review note to reserve the decision. Native approval may release a silenced
+account, so the worker checks and locks the author before applying any
+approval. It has no account penalty operations.
+
+To roll back automation, remove or disable the private worker configuration
+and revoke its dedicated token through the server-side configuration. Native
+moderators retain the queue and audit history. Review already applied
+decisions using native moderation controls. Restore the previous plugin or
+remove it and restart if needed, then check Forum health.

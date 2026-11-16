@@ -25,3 +25,16 @@ class ForumLogout(models.Model):
     requested_at = models.DateTimeField(auto_now=True)
     attempts = models.PositiveIntegerField(default=0)
 
+
+
+class ForumModerationDecision(models.Model):
+    request_key = models.CharField(max_length=64, unique=True)
+    attempts = models.PositiveSmallIntegerField(default=0)
+    lease_until = models.DateTimeField(null=True)
+    outcome = models.CharField(max_length=12, blank=True)
+    reason = models.CharField(max_length=40, blank=True)
+
+
+class ForumModerationBudget(models.Model):
+    day = models.DateField(primary_key=True)
+    attempts = models.PositiveSmallIntegerField(default=0)

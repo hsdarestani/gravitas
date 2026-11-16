@@ -49,6 +49,23 @@ PY
   echo 'Isolated backup restore failed; production database was not a restore target.' >&2; exit 1
 fi
 docker exec -u postgres graviquest psql -v ON_ERROR_STOP=1 -d "$RESTORE_DB" -c "DO \$\$ BEGIN IF NOT EXISTS(SELECT 1 FROM themes WHERE name='GraviQuest Community') OR NOT EXISTS(SELECT 1 FROM topics WHERE deleted_at IS NULL) OR NOT EXISTS(SELECT 1 FROM users WHERE id=-1) THEN RAISE EXCEPTION 'Missing restored forum data'; END IF; END \$\$;" >>"$LOG" 2>&1
+# Compare stored policy overrides in the restored and live databases without
+# including any setting values in logs or artifacts.
+POLICY_SQL="SELECT name, value FROM site_settings
+WHERE name IN ('approve_unless_allowed_groups', 'approve_new_topics_unless_allowed_groups',
+  'approve_post_count', 'approve_suspect_users', 'fast_typing_threshold',
+  'auto_silence_fast_typers_on_first_post', 'auto_silence_fast_typers_max_trust_level',
+  'auto_silence_first_post_regex', 'num_users_to_silence_new_user',
+  'silence_new_user_sensitivity', 'notify_mods_when_user_silenced',
+  'newuser_spam_host_threshold', 'high_trust_flaggers_auto_hide_posts',
+  'hide_post_sensitivity', 'max_new_accounts_per_registration_ip', 'reviewable_claiming')
+ORDER BY name"
+LIVE_POLICY="$(docker exec -u postgres graviquest psql -v ON_ERROR_STOP=1 -At -d discourse -c "$POLICY_SQL")"
+RESTORED_POLICY="$(docker exec -u postgres graviquest psql -v ON_ERROR_STOP=1 -At -d "$RESTORE_DB" -c "$POLICY_SQL")"
+test "$LIVE_POLICY" = "$RESTORED_POLICY" || {
+  echo 'Restored moderation overrides differ from current production.' >&2; exit 1;
+}
+echo 'Restored moderation overrides match current production.'
 ORIGINAL=''; EXPECTED=''
 for name in "${CONTENTS[@]}"; do
   if [[ "$name" =~ ^uploads/.*/?original/.*/[a-f0-9]{40}\.[[:alnum:]]+$ ]]; then

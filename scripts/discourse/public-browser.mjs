@@ -52,7 +52,7 @@ async function login(browser,role){
   try{await page.waitForURL(url=>url.origin===FORUM,{timeout:60000});}catch{const location=new URL(page.url());const intent=(await context.cookies(SITE)).some(cookie=>cookie.name==='gq_forum_continue');throw Error(`Forum continuation stalled for ${role} at ${location.origin+location.pathname}; intent cookie=${intent}; script errors=${scriptErrors.join(';')}`);}
   const session=await json(await context.request.get(FORUM+'/session/current.json'),'Native signed-in session');
   assert(session.current_user?.id,'Real GraviQuest login establishes a native forum session');
-  assert.equal(Boolean(session.current_user.admin),false,'No acceptance identity becomes an administrator');
+  assert.equal(Boolean(session.current_user.admin),role==='admin','Native admin maps only from the temporary Core admin');
   assert.equal(Boolean(session.current_user.moderator),role==='moderator','Explicit moderator mapping');
   return{context,page,user:session.current_user};
 }
@@ -97,7 +97,12 @@ try{
   }
   phase='real GraviQuest logins';
   const member=await login(browser,'member'),moderator=await login(browser,'moderator'),researcher=await login(browser,'researcher');
+  const admin=await login(browser,'admin'),newMember=await login(browser,'new_member'),restricted=await login(browser,'restricted');
+  const adminSettings=await admin.context.request.get(FORUM+'/admin/site_settings.json?filter=approve_post_count',{maxRedirects:0});
+  assert(adminSettings.ok(),'Temporary Workspace Core admin can read an Admin-only settings route');
+  await denied(moderator.context,'/admin/site_settings.json?filter=approve_post_count','Moderator lacks native administrator access');
   await denied(member.context,'/review.json','Ordinary members cannot moderate');
+  result.temporary_admin_verified=true;
   phase='native composer and moderation';
   await member.page.goto(FORUM+`/c/introductions/${native.public_category_id}`,{waitUntil:'domcontentloaded'});
   await member.page.locator('#create-topic').click();
@@ -118,13 +123,46 @@ try{
   await member.page.locator('#reply-control button.create').click();
   const created=await json(await pending,'Native composer submit');assert.equal(created.action,'enqueued');
   const topicId=await approve(moderator,created.pending_post.id);result.topic_id=topicId;
+  const first=await queued(newMember.context,{category:native.public_category_id,
+    title:'First post acceptance '+token,raw:`First GraviQuest Forum submission ${token} from a fresh SSO identity.`});
+  const newTopic=await approve(moderator,first);
+  assert((await newMember.context.request.get(FORUM+`/t/${newTopic}.json`)).ok(),'New member first post survives native moderation');
+  result.new_member_verified=true;
   await member.page.goto(FORUM+'/t/'+topicId,{waitUntil:'domcontentloaded'});await member.page.locator('.topic-post').first().waitFor();
   phase='reply, edit, search and poll';
   await approve(moderator,await queued(member.context,{topic_id:topicId,raw:`A persistent acceptance reply ${token} with an exact reference to the operational check. @${moderator.user.username}`,reply_to_post_number:1}));
   let topic=await json(await member.context.request.get(FORUM+`/t/${topicId}.json`),'Reload persistent discussion');
   const reply=topic.post_stream.posts.find(post=>post.post_number===2);assert(reply?.id,'Moderated reply persists');
   await json(await member.context.request.put(FORUM+`/posts/${reply.id}.json`,{data:{post:{raw:`An edited persistent acceptance clarification ${token}.`}},headers:await headers(member.context)}),'Edit own reply');
-  await json(await member.context.request.put(FORUM+'/polls/vote',{data:{post_id:native.poll_post_id,poll_name:native.poll_name,options:[native.poll_option]},headers:await headers(member.context)}),'Real poll vote');
+  const pollTopic=await post(moderator.context,'/posts.json',{category:native.public_category_id,
+    title:'Temporary poll acceptance '+token,
+    raw:`Temporary poll acceptance ${token}.
+
+[poll type=regular results=always]
+* Alpha
+* Beta
+[/poll]`});
+  assert(pollTopic.id&&pollTopic.topic_id,'Moderator publishes a temporary poll');
+  let pollPost=await json(await member.context.request.get(FORUM+`/posts/${pollTopic.id}.json`),'Read temporary native poll');
+  const poll=pollPost.polls?.[0];
+  assert(poll?.options?.[0]?.id&&poll.voters===0,'Temporary poll starts with no votes');
+  const vote={post_id:pollTopic.id,poll_name:poll.name,options:[poll.options[0].id]};
+  const voted=await json(await member.context.request.put(FORUM+'/polls/vote',{data:vote,headers:await headers(member.context)}),'Real vote on temporary poll');
+  assert.equal(voted.poll.voters,1);
+  result.poll_post_id=pollTopic.id;
+
+  phase='restricted user enforcement';
+  const restrictions=await json(await admin.context.request.put(FORUM+`/admin/users/${restricted.user.id}/silence.json`,
+    {data:{reason:'Temporary Forum acceptance '+token,silenced_till:new Date(Date.now()+15*60000).toISOString()},headers:await headers(admin.context)}),
+    'Manually restrict only the temporary QA identity');
+  assert.equal(restrictions.silence.silenced,true);
+  const blockedReply=await restricted.context.request.post(FORUM+'/posts.json',
+    {data:{topic_id:topicId,raw:`Restricted reply acceptance ${token}.`},headers:await headers(restricted.context)});
+  assert([403,422].includes(blockedReply.status()),'Restricted member cannot submit a reply');
+  const blockedVote=await restricted.context.request.put(FORUM+'/polls/vote',{data:vote,headers:await headers(restricted.context)});
+  assert([400,403,422].includes(blockedVote.status()),'Restricted member cannot vote');
+  assert((await restricted.context.request.get(FORUM+`/t/${topicId}.json`)).ok(),'Restricted member retains read access');
+  result.restricted_user_verified=true;
   await eventually(async()=>{const data=await json(await member.context.request.get(FORUM+'/search.json?q='+token),'Native search');return(data.topics||[]).some(item=>item.id===topicId);},'New discussion never appeared in native search');
   await eventually(async()=>{const data=await json(await moderator.context.request.get(FORUM+'/notifications.json'),'Mention notification');return(data.notifications||[]).some(item=>item.topic_id===topicId);},'In-app mention notification did not arrive');
   phase='private discussions and attachments';
@@ -139,11 +177,16 @@ try{
   await denied(member.context,privatePath,'Unrelated members cannot download private attachment');
   const authorized=await researcher.context.request.get(FORUM+privatePath,{maxRedirects:0});assert([200,302].includes(authorized.status()),'Researcher can open private attachment');
   phase='logout revocation and stable identity';
+  const parallelSession=await login(browser,'member');
+  assert.equal(parallelSession.user.id,member.user.id);
   await member.context.request.get(SITE+'/api/auth/csrf/');
   const csrf=(await member.context.cookies(SITE)).find(cookie=>cookie.name==='csrftoken');assert(csrf,'Existing Django CSRF cookie');
   await json(await member.context.request.post(SITE+'/api/auth/logout/',{data:{},headers:{'X-CSRFToken':csrf.value,Origin:SITE}}),'GraviQuest logout');
   const signedOut=await member.context.request.get(FORUM+'/session/current.json');
   assert(!signedOut.ok()||!(await signedOut.json()).current_user,'GraviQuest logout revokes the native Forum session');
+  const revoked=await parallelSession.context.request.get(FORUM+'/session/current.json');
+  assert(!revoked.ok()||!(await revoked.json()).current_user,'Second native session is revoked as well');
+  result.logout_revocation_verified=true;
   const repeated=await login(browser,'member');assert.equal(repeated.user.id,member.user.id,'Repeated GraviQuest login maps the same native identity');
   result.browser_sso_verified=true;result.notification_verified=true;result.private_attachments_verified=true;
   await fs.writeFile(output+'/public-results.json',JSON.stringify(result,null,2));

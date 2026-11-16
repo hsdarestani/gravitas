@@ -4,7 +4,7 @@ on:
     branches: [feat/discourse-community]
     paths: ['backend/**', 'discourse/**', 'ops/discourse/**', 'assets/forum-live.*', '.github/workflows/forum-validation.yml']
   pull_request:
-    paths: ['backend/core/forum*', 'backend/core/test_forum.py', 'discourse/**', 'ops/discourse/**', 'assets/forum-live.*', '.github/workflows/forum-validation.yml']
+    paths: ['backend/core/forum*', 'backend/core/test_forum*.py', 'discourse/**', 'ops/discourse/**', 'scripts/discourse/**', 'assets/forum-live.*', '.github/workflows/forum-validation.yml']
   workflow_dispatch:
 permissions:
   contents: read
@@ -23,7 +23,7 @@ jobs:
           PYTHONPATH: backend
           DJANGO_SETTINGS_MODULE: gravitas_backend.test_settings
         run: |
-          python -m django test core.test_forum core.test_auth_account_flows core.test_auth_logout_flow core.test_email_verification core.test_oidc_sso --noinput
+          python -m django test core.test_forum core.test_forum_moderation core.test_auth_account_flows core.test_auth_logout_flow core.test_email_verification core.test_oidc_sso --noinput
           python -m django makemigrations core --check --dry-run
           python -m django check
           node --check assets/forum-live.js
@@ -34,6 +34,11 @@ jobs:
           bash -n ops/discourse/storage.sh
           python -m py_compile ops/discourse/storage.py
           ruby -c ops/discourse/storage-plugin.rb
+          ruby -c ops/discourse/moderation-plugin.rb
+          ruby -c scripts/discourse/moderation-settings.rb
+          ruby -c scripts/discourse/statistics-audit.rb
+          ruby -c scripts/discourse/public-verify.rb
+          node --check scripts/discourse/public-browser.mjs
           ruby -c ops/discourse/bootstrap.rb
           ruby -c ops/discourse/verify_native.rb
           python -m unittest discover -s ops/discourse -p 'test_*.py'
