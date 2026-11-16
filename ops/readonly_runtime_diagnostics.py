@@ -1037,7 +1037,51 @@ end
         if re.fullmatch(r"[a-z_]+=(?:true|false|nil|-?\d+|\[\[?.{0,240}\]?\]?|[A-Za-z_:]+)", line):
             print("pulsar_"+line)
 
+def forum_pulsar_model_shape_diagnostic():
+    """One synthetic inference; show only enums/structure, never model text."""
+    print("=== Pulsar synthetic model shape (no payload output) ===")
+    command = r"""
+set -a
+. /etc/gravitas/backend.env
+. /etc/gravitas/forum.env
+set +a
+export PYTHONPATH=/opt/gravitas-backend DJANGO_SETTINGS_MODULE=gravitas_backend.settings
+runuser -u gravitas -- /opt/gravitas-backend/.venv/bin/python - <<'PY'
+import django,json
+django.setup()
+from core import pulsar_runtime
+from core.forum_moderation import INSTRUCTIONS
+candidate={"submission":"987654321:0","title":"A reproducibility question",
+ "body":"How can we distinguish reproducible observations from hypotheses in a research discussion? I propose documenting methods, measurements, uncertainty and limitations before drawing conclusions."}
+try:
+ r=pulsar_runtime.run_text(system=INSTRUCTIONS,user=json.dumps(candidate,ensure_ascii=False),
+    surface="forum_moderation",operation="classify",max_tokens=160,temperature=0,metadata={"continuity":False})
+ raw=str(r.text or "").strip()
+ print("shape_provider="+(str(r.provider) if r.provider in {"openai","cloudflare","anthropic","gemini"} else "other"))
+ print("shape_length="+str(len(raw)))
+ print("shape_starts_json="+str(raw.startswith("{")).lower())
+ print("shape_fenced="+str(raw.startswith(chr(96)*3)).lower())
+ try:
+  val=json.loads(raw)
+ except (TypeError,ValueError):
+  val=None
+ print("shape_valid_json="+str(isinstance(val,dict)).lower())
+ if isinstance(val,dict):
+  print("shape_exact_keys="+str(set(val)=={"decision","reason","confidence","evidence"}).lower())
+  print("shape_decision="+(val.get("decision") if val.get("decision") in ("approve","reject","review") else "other"))
+  print("shape_reason="+(val.get("reason") if val.get("reason") in ("ordinary_discussion","policy_uncertainty","targeted_threat","credential_solicitation","unsolicited_bulk_advertising") else "other"))
+  print("shape_confidence="+str(val.get("confidence")) if isinstance(val.get("confidence"),int) and 0<=val["confidence"]<=100 else "shape_confidence=unknown")
+except Exception as e:
+ print("shape_exception="+e.__class__.__name__)
+PY
+"""
+    data = run("sudo", "-n", "bash", "-c", command, timeout=70)
+    for line in data.splitlines():
+        if re.fullmatch(r"shape_[a-z_]+=(?:true|false|unknown|other|approve|reject|review|ordinary_discussion|policy_uncertainty|targeted_threat|credential_solicitation|unsolicited_bulk_advertising|openai|cloudflare|anthropic|gemini|\d+|[A-Za-z]+Error)", line):
+            print("pulsar_"+line)
+
 if __name__ == "__main__":
+    forum_pulsar_model_shape_diagnostic()
     forum_pulsar_observe_diagnostic()
     api_release_probe_incident()
     print("GraviQuest read-only diagnostics", datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC"))
