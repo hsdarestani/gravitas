@@ -30,6 +30,7 @@ after_initialize do
       return unless File.file?(CONFIG) && (File.stat(CONFIG).mode & 0o007).zero?
       config = JSON.parse(File.read(CONFIG, 8192))
       return unless %w[observe apply].include?(config["mode"]) && config["token"].is_a?(String) && config["token"].length >= 48
+      return unless valid_pilot_ids?(config["pilot_author_ids"])
       cutoff = Time.iso8601(config.fetch("starts_at"))
       slugs = config.fetch("categories") & CATEGORIES
       actor = User.find_by(username_lower: config.fetch("actor").downcase)
@@ -39,12 +40,15 @@ after_initialize do
       nil
     end
 
+    def self.valid_pilot_ids?(ids)
+      ids.is_a?(Array) && ids.size.between?(1, 10) && ids.all? { |id| id.is_a?(Integer) && id.positive? }
+    end
+
     def self.eligible?(item, slugs, guardian)
       return false unless item.is_a?(ReviewableQueuedPost) && item.pending? && !item.potential_spam
       author, topic, room = item.target_created_by, item.topic, item.category
       room ||= topic&.category
       return false unless author&.active? && !author.staff? && !author.staged? && !author.silenced? && !author.suspended?
-      return false if author.email.to_s.match?(/\Agq-launch-[0-9a-f]{16}-[a-z_]+@example\.com\z/)
       reasons = item.reviewable_scores.pluck(:user_id, :reviewable_score_type, :reason)
       return false unless reasons.one? && reasons.first[0] == Discourse.system_user.id &&
         reasons.first[1] == ReviewableScore.types[:needs_approval] && QUEUE_REASONS.include?(reasons.first[2])
@@ -89,7 +93,7 @@ after_initialize do
 
     def self.process(item, config, slugs, actor)
       guardian = Guardian.new(actor)
-      return unless eligible?(item, slugs, guardian)
+      return unless config.fetch("pilot_author_ids").include?(item.target_created_by_id) && eligible?(item, slugs, guardian)
       version = item.version
       marker = "#{PREFIX} version=#{version} mode=#{config.fetch('mode')} "
       return if item.reviewable_notes.where(user_id: actor.id).where("content LIKE ?", "#{marker}%").exists?
@@ -101,6 +105,7 @@ after_initialize do
       author = item.target_created_by
       author.with_lock do
         item.with_lock do
+          next unless item.target_created_by_id == author.id
           item.target_created_by = author
           next unless item.version == version && eligible?(item, slugs, guardian)
           next if item.reviewable_notes.where(user_id: actor.id).where("content LIKE ?", "#{marker}%").exists?
@@ -123,7 +128,9 @@ after_initialize do
       config, cutoff, slugs, actor = self.config
       return unless config
       mode = config.fetch("mode")
-      scope = ReviewableQueuedPost.pending.where(created_at: cutoff..2.minutes.ago)
+      scope = ReviewableQueuedPost.pending.where(
+        target_created_by_id: config.fetch("pilot_author_ids"), created_at: cutoff..2.minutes.ago,
+      )
       scope = scope.where.not(id: ReviewableNote.where(user_id: actor.id)
         .joins(:reviewable).where("reviewable_notes.content LIKE concat(?, reviewables.version, ?)",
           "#{PREFIX} version=", " mode=#{mode} %").select(:reviewable_id))
