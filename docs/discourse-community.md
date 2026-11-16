@@ -254,7 +254,9 @@ infrastructure. The workflow still takes a native database and upload
 backup, rehearses a restore into a disposable database, and creates and
 removes exact, recorded QA identities. It therefore requires an authorized
 production operator even in the default mode. Run it from the deployed
-`main` revision. The temporary Core Admin maps to a native Admin only for
+`main` revision. Manual acceptance checks that its exact commit is the last
+successful production deployment before touching production data. The
+temporary Core Admin maps to a native Admin only for
 the acceptance window. Votes are cast on a temporary poll. Cleanup uses the
 recorded external IDs and generated addresses. Prevent concurrent E2E runs
 with the existing production concurrency group.
@@ -271,9 +273,10 @@ Resolve any reported drift through the native Admin settings or a verified
 native restore before reopening writes. Preserve the speed-only and
 staff-approval settings together.
 
-The statistics report compares stored thread totals with native non-deleted
-public post counts, likes, and daily view ledgers, and checks voter and
-option rows. Treat daily view differences as evidence to investigate because
+The private statistics report covers discussion topics and private messages.
+It compares stored totals with native post counts, likes, daily view ledgers,
+and the distinct authors counted by Discourse's participant-cache updater.
+It also checks voter and option rows. Treat daily view differences as evidence to investigate because
 the daily ledger may not include every historical increment. Poll counts
 are derived by Discourse from vote rows and any imported anonymous tallies.
 Keep all rows and aggregate counts when comparing discrepancies. Re-run the

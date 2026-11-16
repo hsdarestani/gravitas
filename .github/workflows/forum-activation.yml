@@ -46,6 +46,9 @@ jobs:
           SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
         run: |
           set -euo pipefail
+          if [ "$GITHUB_EVENT_NAME" = workflow_dispatch ]; then
+            test "$GITHUB_REF" = refs/heads/main
+          fi
           umask 077
           echo "GQ_PUBLIC_USERS=$RUNNER_TEMP/forum-users.json" >> "$GITHUB_ENV"
           echo "GQ_PUBLIC_OUTPUT=$RUNNER_TEMP/forum-public-output" >> "$GITHUB_ENV"
@@ -60,6 +63,10 @@ jobs:
           echo "GQ_SSH_PORT=$PORT" >> "$GITHUB_ENV"
           DEPLOYED="$(ssh "${OPTS[@]}" "$LOGIN@$SSH_HOST" 'sudo cat /etc/gravitas/last-successful-deploy-sha')"
           [[ "$DEPLOYED" =~ ^[0-9a-f]{40}$ ]]
+          if [ "$GITHUB_EVENT_NAME" = workflow_dispatch ] && [ "$DEPLOYED" != "$GITHUB_SHA" ]; then
+            echo 'Forum acceptance requires the exact selected main commit to be running in production.' >&2
+            exit 1
+          fi
           git merge-base --is-ancestor 58892a735fce84703721bd0d479a792fbe43681d "$DEPLOYED"
           EXPECTED="$(sha256sum backend/core/forum.py | cut -d' ' -f1)"
           ACTUAL="$(ssh "${OPTS[@]}" "$LOGIN@$SSH_HOST" 'sudo sha256sum /opt/gravitas-backend/core/forum.py' | cut -d' ' -f1)"

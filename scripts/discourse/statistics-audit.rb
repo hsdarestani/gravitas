@@ -6,13 +6,17 @@ require "json"
 
 ActiveRecord::Base.transaction(isolation: :repeatable_read) do
   ActiveRecord::Base.connection.execute("SET TRANSACTION READ ONLY")
-  topics = Topic.where(archetype: Archetype.default, deleted_at: nil)
-  report = { format: 1, captured_at: Time.current.iso8601, threads: 0, polls: 0,
-             posts: [], likes: [], post_like_integrity: [], views: [], poll_integrity: [], legacy_anonymous_polls: 0 }
+  topics = Topic.where(archetype: [Archetype.default, Archetype.private_message], deleted_at: nil)
+  report = { format: 2, captured_at: Time.current.iso8601, threads: 0, private_messages: 0, polls: 0,
+             posts: [], likes: [], post_like_integrity: [], views: [], participants: [],
+             poll_integrity: [], legacy_anonymous_polls: 0 }
   topics.find_in_batches(batch_size: 200) do |batch|
     ids = batch.map(&:id)
     live_posts = Post.where(topic_id: ids, deleted_at: nil)
     post_totals = live_posts.where(Topic.public_post_types_sql).group(:topic_id).count
+    # Match TopicFeaturedUsers#update_participant_count on the pinned release.
+    participant_totals = live_posts.where(hidden: false, post_type: Topic.visible_post_types)
+      .group(:topic_id).distinct.count(:user_id)
     # Match Topic#update_action_counts: native Post default scope excludes
     # deleted posts. Whispers don't contribute to a thread's Like count.
     like_totals = live_posts.where.not(post_type: Post.types[:whisper]).group(:topic_id).sum(:like_count)
@@ -25,10 +29,11 @@ ActiveRecord::Base.transaction(isolation: :repeatable_read) do
     view_totals = TopicViewStat.where(topic_id: ids).group(:topic_id)
       .sum(Arel.sql("anonymous_views + logged_in_views"))
     batch.each do |topic|
-      report[:threads] += 1
+      report[topic.private_message? ? :private_messages : :threads] += 1
       { posts: [topic.posts_count, post_totals.fetch(topic.id, 0)],
         likes: [topic.like_count, like_totals.fetch(topic.id, 0)],
-        views: [topic.views, view_totals.fetch(topic.id, 0)] }.each do |kind, (stored, source)|
+        views: [topic.views, view_totals.fetch(topic.id, 0)],
+        participants: [topic.participant_count, participant_totals.fetch(topic.id, 0)] }.each do |kind, (stored, source)|
         report[kind] << { topic_id: topic.id, stored: stored, source: source } if stored != source
       end
     end
@@ -52,5 +57,6 @@ ActiveRecord::Base.transaction(isolation: :repeatable_read) do
   File.open(destination, File::WRONLY | File::CREAT | File::EXCL, 0o600) do |file|
     file.write(JSON.pretty_generate(report) + "\n")
   end
-  puts JSON.generate(report.transform_values { |value| value.is_a?(Array) ? value.size : value })
+  summary = report.transform_values { |value| value.is_a?(Array) ? value.size : value }
+  puts JSON.generate(summary.except(:private_messages))
 end
