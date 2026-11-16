@@ -1978,11 +1978,13 @@ html body .pref-auth-tokens .auth-token-first{grid-column:2;grid-row:1;margin:0!
 html body .pref-auth-tokens .auth-token-second{grid-column:2;grid-row:2;margin:0!important;color:var(--g-text-muted)}
 html body .pref-auth-tokens .auth-token-dropdown{grid-column:3;grid-row:1 / span 2;float:none!important;margin:0!important}
 
-/* Keep the two public profile tabs named and tappable in the mobile layout. */
-html body.mobile-view #main-outlet .user-navigation-primary :is(.user-nav__summary, .user-nav__activity) > a {
-  min-height: 44px !important;
+/* The stock mobile profile tabs hide these labels. Keep both controls named. */
+html body #main-outlet .user-navigation-primary :is(.user-nav__summary, .user-nav__activity) > a > span {
+  display: inline !important;
 }
 
-html body.mobile-view #main-outlet .user-navigation-primary :is(.user-nav__summary, .user-nav__activity) > a > span {
-  display: inline !important;
+@media (pointer: coarse) {
+  html body #main-outlet .user-navigation-primary :is(.user-nav__summary, .user-nav__activity) > a {
+    min-height: 44px !important;
+  }
 }

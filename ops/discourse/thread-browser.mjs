@@ -86,10 +86,16 @@ for (const { engine, name, options } of browsers) {
           browser: name,
           path: new URL(page.url()).pathname,
           title: await page.title(),
+          layout: await page.evaluate(() => ({
+            htmlClass: document.documentElement.className,
+            bodyClass: document.body.className,
+          })),
           links: await profileNav.locator("a").evaluateAll(links => links.map(link => ({
             path: link.getAttribute("href"),
             text: link.textContent.trim(),
             visible: link.getClientRects().length > 0,
+            label: link.querySelector("span")?.getClientRects().length,
+            labelDisplay: link.querySelector("span") && getComputedStyle(link.querySelector("span")).display,
           }))),
           errors,
         }));
