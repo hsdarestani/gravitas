@@ -1,5 +1,7 @@
 import Component from "@glimmer/component";
+import { registerDestructor } from "@ember/destroyable";
 import { action } from "@ember/object";
+import { trackedObject } from "@ember/reactive/collections";
 import { service } from "@ember/service";
 import { tracked } from "@glimmer/tracking";
 import { on } from "@ember/modifier";
@@ -8,13 +10,26 @@ import { ajax } from "discourse/lib/ajax";
 
 export default class GraviQuestCommunitySidebar extends Component {
   @service store;
+  @service appEvents;
+  @service currentUser;
   @tracked post;
   @tracked poll;
+  @tracked topic;
   @tracked error = false;
 
   constructor() {
     super(...arguments);
+    this.appEvents.on("poll:voted", this, this.updatePoll);
+    registerDestructor(this, () => {
+      this.appEvents.off("poll:voted", this, this.updatePoll);
+    });
     this.loadPoll();
+  }
+
+  updatePoll(poll, post) {
+    if (post === this.post && poll.name === this.poll?.name) {
+      Object.assign(this.poll, poll);
+    }
   }
 
   @action
@@ -25,12 +40,25 @@ export default class GraviQuestCommunitySidebar extends Component {
     try {
       const data = await ajax(`/t/${id}.json`);
       if (this.isDestroying || this.isDestroyed) return;
-      const raw = data.post_stream.posts[0];
-      this.post = this.store.createRecord("post", raw);
-      this.poll = raw.polls?.[0];
+      const raw = data.post_stream.posts.find((post) => post.post_number === 1);
+      if (!raw?.polls?.length) throw new Error("Poll not available");
+      this.topic = data;
+      this.post = this.store.createRecord("post", {
+        ...raw,
+        topic: this.store.createRecord("topic", data),
+      });
+      this.poll = trackedObject(raw.polls[0]);
     } catch {
       if (!this.isDestroying && !this.isDestroyed) this.error = true;
     }
+  }
+
+  get canUseEmbeddedPoll() {
+    return !this.currentUser || this.topic.details?.can_create_post === true;
+  }
+
+  get pollUrl() {
+    return `/t/${this.topic.id}`;
   }
 
   <template>
@@ -38,7 +66,12 @@ export default class GraviQuestCommunitySidebar extends Component {
       {{#if this.poll}}
         <section class="gq-roomcard gq-community-poll">
           <h2>Vote on the next Topic</h2>
-          <Poll @post={{this.post}} @poll={{this.poll}} />
+          {{#if this.canUseEmbeddedPoll}}
+            <Poll @post={{this.post}} @poll={{this.poll}} />
+          {{else}}
+            <p>Voting requires permission to reply in the poll thread. If your account is on hold, check your Forum messages for next steps.</p>
+            <a href={{this.pollUrl}}>Open the poll thread</a>
+          {{/if}}
         </section>
       {{else if this.error}}
         <section class="gq-roomcard">

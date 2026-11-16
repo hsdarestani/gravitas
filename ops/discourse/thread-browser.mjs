@@ -20,6 +20,7 @@ for (const { engine, name, options } of browsers) {
     page.on("pageerror", error => errors.push(error.message));
     await page.goto(site + "/latest", { waitUntil: "domcontentloaded" });
     await page.locator(".gq-forum-heading h1").waitFor({ timeout: 45000 });
+    await page.locator(".gq-community-poll .poll").waitFor({ timeout: 45000 });
     await page.locator(".topic-list a.title").first().click();
     const rail = page.locator(".gq-thread-rail");
     // Attached, not visible: phones hide the rail so the post comes first
@@ -69,6 +70,42 @@ for (const { engine, name, options } of browsers) {
     assert.deepEqual(errors, []);
     await page.screenshot({ path: `${output}/thread-${name}.png` });
     console.log(JSON.stringify({ browser: name, thread: new URL(page.url()).pathname, ...layout }));
+
+    await page.goto(site + "/u/system/summary", { waitUntil: "domcontentloaded" });
+    const profileNav = page.locator(".user-navigation-primary");
+    for (const view of ["Activity", "Summary"]) {
+      const route = view.toLowerCase();
+      const tab = profileNav.locator(`a[href="/u/system/${route}"]`);
+      try {
+        await tab.click({ timeout: 15000 });
+        await page.waitForURL(site + "/u/system/" + route);
+        await tab.and(page.locator(".active")).waitFor({ timeout: 10000 });
+        await tab.getByText(view, { exact: true }).waitFor({ timeout: 10000 });
+      } catch (error) {
+        console.log(JSON.stringify({
+          browser: name,
+          path: new URL(page.url()).pathname,
+          title: await page.title(),
+          layout: await page.evaluate(() => ({
+            htmlClass: document.documentElement.className,
+            bodyClass: document.body.className,
+          })),
+          links: await profileNav.locator("a").evaluateAll(links => links.map(link => ({
+            path: link.getAttribute("href"),
+            text: link.textContent.trim(),
+            visible: link.getClientRects().length > 0,
+            label: link.querySelector("span")?.getClientRects().length,
+            labelDisplay: link.querySelector("span") && getComputedStyle(link.querySelector("span")).display,
+          }))),
+          errors,
+        }));
+        await page.screenshot({ path: `${output}/profile-failure-${name}.png` });
+        throw error;
+      }
+    }
+    await page.getByRole("heading", { name: "Stats", exact: true }).waitFor();
+    assert.deepEqual(errors, []);
+    console.log(JSON.stringify({ browser: name, profileNavigation: "passed" }));
   } finally {
     await browser.close();
   }

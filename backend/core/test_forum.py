@@ -239,7 +239,23 @@ class ForumIdentityTests(TestCase):
         self.sign_in()
         response = self.client.get('/api/forum/signed-out/')
         self.assertContains(response, 'csrfmiddlewaretoken')
+        self.assertContains(response, 'Finish signing out')
+        self.assertContains(response, '/assets/gravitas.css')
+        self.assertIn('no-store', response['Cache-Control'])
         self.assertIn('_auth_user_id', self.client.session)
+
+    @patch('core.forum.revoke_forum_sessions')
+    def test_branded_signout_completes_session_logout(self, revoke):
+        client = Client(enforce_csrf_checks=True)
+        client.force_login(self.user)
+        client.get('/api/forum/signed-out/')
+        response = client.post('/api/forum/logout/', {'csrfmiddlewaretoken': client.cookies['csrftoken'].value})
+        self.assertRedirects(response, '/community', fetch_redirect_response=False)
+        self.assertNotIn('_auth_user_id', client.session)
+        revoke.assert_called_once_with(self.user)
+        landing = client.get('/api/forum/signed-out/')
+        self.assertContains(landing, 'You’re signed out')
+        self.assertNotContains(landing, '<form')
 
     @patch('core.forum.revoke_forum_sessions', side_effect=Exception('should not be called'))
     def test_unconfigured_forum_preserves_workspace_logout(self, revoke):
@@ -332,6 +348,30 @@ class ForumPublicDataTests(TestCase):
         self.assertEqual(self.client.get('/api/forum/open/published/?url=https://evil.example').url,BASE + '/t/5')
         link.is_public=False; link.save()
         self.assertEqual(self.client.get('/api/forum/open/published/').status_code,404)
+
+    @patch('core.forum.requests.get')
+    def test_public_discussion_uses_native_counts_and_filters_hidden_posts_and_polls(self, get):
+        ForumDiscussion.objects.create(content_key='published', discourse_topic_id=5,
+                                       discourse_category_id=1, is_public=True)
+        poll = {'voters': 2, 'options': [{'html': 'Option', 'votes': 2}, {'html': 'No results yet'}]}
+        opening = {'id': 7, 'post_number': 1, 'polls': [poll]}
+        data = {**self.topic, 'posts_count': 0, 'views': 9, 'participant_count': 3,
+                'post_stream': {'posts': [opening, {'id': 8, 'post_number': 2, 'hidden': True},
+                                          {'id': 9, 'post_number': 3, 'deleted_at': '2026-11-16'},
+                                          {'id': 10, 'post_number': 4}]}}
+        get.side_effect = [upstream(data), upstream(self.categories),
+                           upstream({**data, 'post_stream': {'posts': [{**opening, 'hidden': True},
+                                                                       {'id': 10, 'post_number': 4}]}})]
+        result = self.client.get('/api/forum/discussions/published/').json()
+        self.assertEqual(result['discussion']['reply_count'], 0)
+        self.assertEqual(result['discussion']['view_count'], 9)
+        self.assertEqual(result['discussion']['participant_count'], 3)
+        self.assertEqual([post['number'] for post in result['posts']], [1, 4])
+        self.assertEqual(result['polls'][0]['voters'], 2)
+        self.assertEqual([option['votes'] for option in result['polls'][0]['options']], [2, None])
+        after_hide = self.client.get('/api/forum/discussions/published/').json()
+        self.assertEqual(after_hide['polls'], [])
+        self.assertEqual([post['number'] for post in after_hide['posts']], [4])
 
     @patch('core.forum.requests.get')
     def test_private_category_filter_is_not_found(self, get):

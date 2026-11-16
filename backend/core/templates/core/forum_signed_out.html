@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <meta name="theme-color" content="#00141f">
+  <title>Sign out · GraviQuest</title>
+  <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/assets/local-fonts.css">
+  <link rel="stylesheet" href="/assets/gravitas.css">
+  <link rel="stylesheet" href="/assets/forum-live.css?v=20261116-signout">
+</head>
+<body>
+  <main class="gq-forum-signout">
+    <div class="g-card gq-forum-signout__card">
+      <a href="/community" class="gq-forum-signout__brand">
+        <img src="/assets/logos/Logotype_White.svg" alt="GraviQuest" width="160">
+      </a>
+      {% if user.is_authenticated %}
+      <h1>Finish signing out</h1>
+      <p>You’re signed out of the Forum. You’re still signed in to GraviQuest Workspace.</p>
+      <form action="{% url 'forum-logout' %}" method="post">
+        {% csrf_token %}
+        <button class="g-btn g-btn--primary" type="submit">Sign out of GraviQuest</button>
+      </form>
+      {% else %}
+      <h1>You’re signed out</h1>
+      <p>You can still read public discussions in the Forum.</p>
+      {% endif %}
+      <a class="g-btn g-btn--secondary" href="/community">Back to Community</a>
+    </div>
+  </main>
+</body>
+</html>
