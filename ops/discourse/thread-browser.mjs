@@ -72,13 +72,30 @@ for (const { engine, name, options } of browsers) {
     console.log(JSON.stringify({ browser: name, thread: new URL(page.url()).pathname, ...layout }));
 
     await page.goto(site + "/u/system/summary", { waitUntil: "domcontentloaded" });
-    const profileNav = page.getByRole("navigation", { name: "User primary" });
+    const profileNav = page.locator(".user-navigation-primary");
     for (const view of ["Activity", "Summary"]) {
-      const tab = profileNav.getByRole("link", { name: view, exact: true });
-      await tab.click();
-      await page.waitForURL(site + "/u/system/" + view.toLowerCase());
-      await profileNav.locator("a.active").filter({ hasText: view }).waitFor();
-      assert.match(await tab.getAttribute("class"), /\bactive\b/);
+      const route = view.toLowerCase();
+      const tab = profileNav.locator(`a[href="/u/system/${route}"]`);
+      try {
+        await tab.click({ timeout: 15000 });
+        await page.waitForURL(site + "/u/system/" + route);
+        await tab.and(page.locator(".active")).waitFor({ timeout: 10000 });
+        assert.match(await tab.innerText(), new RegExp(view));
+      } catch (error) {
+        console.log(JSON.stringify({
+          browser: name,
+          path: new URL(page.url()).pathname,
+          title: await page.title(),
+          links: await profileNav.locator("a").evaluateAll(links => links.map(link => ({
+            path: link.getAttribute("href"),
+            text: link.textContent.trim(),
+            visible: link.getClientRects().length > 0,
+          }))),
+          errors,
+        }));
+        await page.screenshot({ path: `${output}/profile-failure-${name}.png` });
+        throw error;
+      }
     }
     await page.getByRole("heading", { name: "Stats", exact: true }).waitFor();
     assert.deepEqual(errors, []);
