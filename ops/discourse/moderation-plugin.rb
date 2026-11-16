@@ -31,6 +31,9 @@ after_initialize do
       config = JSON.parse(File.read(CONFIG, 8192))
       return unless %w[observe apply].include?(config["mode"]) && config["token"].is_a?(String) && config["token"].length >= 48
       return unless valid_pilot_ids?(config["pilot_author_ids"])
+      # Real member rollout is an explicit, server-only switch, never the
+      # default. Observe/apply pilots remain restricted to exact QA identities.
+      return unless [true, false, nil].include?(config["production_members"])
       cutoff = Time.iso8601(config.fetch("starts_at"))
       slugs = config.fetch("categories") & CATEGORIES
       actor = User.find_by(username_lower: config.fetch("actor").downcase)
@@ -93,7 +96,8 @@ after_initialize do
 
     def self.process(item, config, slugs, actor)
       guardian = Guardian.new(actor)
-      return unless config.fetch("pilot_author_ids").include?(item.target_created_by_id) && eligible?(item, slugs, guardian)
+      return unless (config["production_members"] == true ||
+        config.fetch("pilot_author_ids").include?(item.target_created_by_id)) && eligible?(item, slugs, guardian)
       version = item.version
       marker = "#{PREFIX} version=#{version} mode=#{config.fetch('mode')} "
       return if item.reviewable_notes.where(user_id: actor.id).where("content LIKE ?", "#{marker}%").exists?
@@ -128,9 +132,10 @@ after_initialize do
       config, cutoff, slugs, actor = self.config
       return unless config
       mode = config.fetch("mode")
-      scope = ReviewableQueuedPost.pending.where(
-        target_created_by_id: config.fetch("pilot_author_ids"), created_at: cutoff..2.minutes.ago,
-      )
+      scope = ReviewableQueuedPost.pending.where(created_at: cutoff..2.minutes.ago)
+      unless config["production_members"] == true
+        scope = scope.where(target_created_by_id: config.fetch("pilot_author_ids"))
+      end
       scope = scope.where.not(id: ReviewableNote.where(user_id: actor.id)
         .joins(:reviewable).where("reviewable_notes.content LIKE concat(?, reviewables.version, ?)",
           "#{PREFIX} version=", " mode=#{mode} %").select(:reviewable_id))
