@@ -973,7 +973,54 @@ def unscheduled_subtask_constraint_live():
     sha=run("sudo","-n","cat","/etc/gravitas/last-successful-deploy-sha",timeout=8).strip()
     print("backend_last_verified_sha", sha if re.fullmatch(r"[0-9a-f]{40}",sha) else "unavailable")
 
+def forum_pulsar_observe_diagnostic():
+    """Inspect only recorded disposable native queue fixture; no content or IDs exposed."""
+    print("=== Native Pulsar QA eligibility (read only) ===")
+    ruby = r"""
+require "json"
+path="/shared/graviquest-integration/pulsar-acceptance-state.json"
+abort "no recorded pilot" unless File.file?(path)
+s=JSON.parse(File.read(path))
+abort "unrecognized pilot" unless s["managed_by"]=="gq-pulsar-acceptance-v1"
+item=ReviewableQueuedPost.find(s.fetch("observe_id"))
+cfg=GraviQuestPulsarModeration.config
+puts "plugin_config_valid=#{!cfg.nil?}"
+puts "pending=#{item.pending?}"
+puts "potential_spam=#{item.potential_spam}"
+author=item.target_created_by
+puts "author_active=#{!!(author&.active?)}"
+puts "author_staff=#{!!(author&.staff?)}"
+puts "author_restricted=#{!!(author&.silenced? || author&.suspended?)}"
+puts "pilot_author_match=#{!!(cfg && cfg[0].fetch("pilot_author_ids").include?(author.id))}"
+puts "starts_at_before_item=#{!!(cfg && cfg[1] <= item.created_at)}"
+puts "age_over_two_minutes=#{item.created_at <= 2.minutes.ago}"
+room=item.category || item.topic&.category
+puts "pilot_public_category=#{!!(room && room.slug=="introductions" && !room.read_restricted?)}"
+puts "category_in_scope=#{!!(cfg && room && cfg[2].include?(room.slug))}"
+puts "score_details=#{item.reviewable_scores.pluck(:reviewable_score_type,:reason).inspect[0,250]}"
+actor=cfg && cfg[3]
+puts "actor_valid=#{!!(actor&.moderator? && !actor&.admin?)}"
+puts "other_staff_notes=#{actor ? item.reviewable_notes.where.not(user_id:actor.id).count : -1}"
+puts "reviewable_claiming_required=#{SiteSetting.reviewable_claiming=="required"}"
+if actor
+  g=Guardian.new(actor)
+  puts "guardian_can_see=#{g.can_see?(item)}"
+  begin
+    puts "eligible=#{GraviQuestPulsarModeration.eligible?(item,cfg[2],g)}"
+  rescue StandardError => e
+    puts "eligible_exception_class=#{e.class}"
+  end
+end
+"""
+    output = run("sudo", "-n", "docker", "exec", "-u", "discourse", "-w",
+                 "/var/www/discourse", "graviquest", "bundle", "exec", "rails",
+                 "runner", ruby, timeout=45)
+    for line in output.splitlines():
+        if re.fullmatch(r"[a-z_]+=(?:true|false|-?\d+|\[\[?.{0,240}\]?\]?|[A-Za-z_:]+)", line):
+            print("pulsar_"+line)
+
 if __name__ == "__main__":
+    forum_pulsar_observe_diagnostic()
     api_release_probe_incident()
     print("GraviQuest read-only diagnostics", datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC"))
     canonical_task_sync_runtime()
