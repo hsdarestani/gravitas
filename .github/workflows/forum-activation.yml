@@ -5,6 +5,11 @@ on:
     branches: [feat/discourse-community]
     paths: ['scripts/discourse/**', '.github/workflows/forum-activation.yml']
   workflow_dispatch:
+    inputs:
+      activate_if_unhealthy:
+        description: Explicitly allow infrastructure activation if Forum is unhealthy
+        type: boolean
+        default: false
 permissions:
   contents: read
 jobs:
@@ -16,6 +21,8 @@ jobs:
           python3 -m py_compile scripts/discourse/public-fixture.py
           node --check scripts/discourse/public-browser.mjs
           ruby -c scripts/discourse/public-verify.rb
+          ruby -c scripts/discourse/moderation-settings.rb
+          ruby -c scripts/discourse/statistics-audit.rb
           bash -n scripts/discourse/restore-backup.sh
           bash -n ops/discourse/launch.sh
   activate:
@@ -57,7 +64,9 @@ jobs:
           EXPECTED="$(sha256sum backend/core/forum.py | cut -d' ' -f1)"
           ACTUAL="$(ssh "${OPTS[@]}" "$LOGIN@$SSH_HOST" 'sudo sha256sum /opt/gravitas-backend/core/forum.py' | cut -d' ' -f1)"
           test "$EXPECTED" = "$ACTUAL"
-      - name: Activate HTTPS, mappings and the optional Django integration
+      - name: Require healthy Forum before acceptance or explicitly activate
+        env:
+          GQ_ALLOW_ACTIVATION: ${{ inputs.activate_if_unhealthy || (github.event_name == 'push' && contains(github.event.head_commit.message, '[activate-discourse]')) }}
         run: |
           set -euo pipefail
           REMOTE="/tmp/graviquest-public-$GITHUB_SHA"
@@ -65,17 +74,30 @@ jobs:
           ssh "${OPTS[@]}" "$GQ_SSH_LOGIN@$SSH_HOST" "mkdir -p '$REMOTE'"
           tar -czf "$RUNNER_TEMP/forum-public-source.tgz" scripts/discourse ops/discourse/launch.sh
           scp -i ~/.ssh/forum-public -P "$GQ_SSH_PORT" "$RUNNER_TEMP/forum-public-source.tgz" "$GQ_SSH_LOGIN@$SSH_HOST:$REMOTE/source.tgz"
-          ssh "${OPTS[@]}" "$GQ_SSH_LOGIN@$SSH_HOST" "tar -xzf '$REMOTE/source.tgz' -C '$REMOTE' && if sudo test -f /etc/gravitas/forum.env && curl -fsS --max-time 10 https://forum.graviquest.com/srv/status >/dev/null && curl -fsS --max-time 10 https://graviquest.com/api/forum/feed/ >/dev/null; then echo 'Public Forum already healthy; no repeat backend restart needed.'; else sudo bash '$REMOTE/ops/discourse/launch.sh'; fi"
+          ssh "${OPTS[@]}" "$GQ_SSH_LOGIN@$SSH_HOST" "tar -xzf '$REMOTE/source.tgz' -C '$REMOTE' && if sudo test -f /etc/gravitas/forum.env && curl -fsS --max-time 10 https://forum.graviquest.com/srv/status >/dev/null && curl -fsS --max-time 10 https://graviquest.com/api/forum/feed/ >/dev/null; then echo 'Public Forum already healthy; no repeat backend restart needed.'; elif [ '$GQ_ALLOW_ACTIVATION' = true ]; then sudo bash '$REMOTE/ops/discourse/launch.sh'; else echo 'Forum is not healthy. Acceptance stopped before activation.' >&2; exit 1; fi"
       - name: Rehearse native backup recovery without restoring production
         run: |
           ssh -i ~/.ssh/forum-public -p "$GQ_SSH_PORT" "$GQ_SSH_LOGIN@$SSH_HOST" "sudo bash '/tmp/graviquest-public-$GITHUB_SHA/scripts/discourse/restore-backup.sh'"
+      - name: Privately snapshot moderation settings and reconcile native totals
+        run: |
+          set -euo pipefail
+          ssh -i ~/.ssh/forum-public -p "$GQ_SSH_PORT" "$GQ_SSH_LOGIN@$SSH_HOST" sudo bash -s -- "/tmp/graviquest-public-$GITHUB_SHA" "${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" <<'REMOTE'
+          set -euo pipefail
+          INTEGRATION=/var/discourse/shared/graviquest/graviquest-integration
+          install -d -m 700 -o 1000 -g 1000 "$INTEGRATION/acceptance-audits/$2"
+          install -m 644 "$1/scripts/discourse/moderation-settings.rb" "$1/scripts/discourse/statistics-audit.rb" "$INTEGRATION/acceptance-audits/$2/"
+          REPORT="/shared/graviquest-integration/acceptance-audits/$2"
+          docker exec -e GQ_MODERATION_SETTINGS_MODE=capture -e GQ_MODERATION_SETTINGS_FILE="$REPORT/settings.json" -u discourse -w /var/www/discourse graviquest bundle exec rails runner "$REPORT/moderation-settings.rb"
+          docker exec -e GQ_FORUM_AUDIT_FILE="$REPORT/statistics.json" -u discourse -w /var/www/discourse graviquest bundle exec rails runner "$REPORT/statistics-audit.rb"
+          REMOTE
       - name: Prepare recorded temporary identities without exposing credentials
         run: |
           set -euo pipefail
           umask 077
-          ssh -i ~/.ssh/forum-public -p "$GQ_SSH_PORT" "$GQ_SSH_LOGIN@$SSH_HOST" sudo bash -s -- "/tmp/graviquest-public-$GITHUB_SHA" <<'REMOTE'
+          ssh -i ~/.ssh/forum-public -p "$GQ_SSH_PORT" "$GQ_SSH_LOGIN@$SSH_HOST" sudo bash -s -- "/tmp/graviquest-public-$GITHUB_SHA" "${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" <<'REMOTE'
           set -euo pipefail
           SOURCE="$1"
+          touch "$SOURCE/fixtures-$2"
           INTEGRATION=/var/discourse/shared/graviquest/graviquest-integration
           install -d -m 700 -o gravitas -g gravitas /var/lib/graviquest-forum/acceptance
           install -m 644 "$SOURCE/scripts/discourse/public-verify.rb" "$INTEGRATION/public-verify.rb"
@@ -107,9 +129,10 @@ jobs:
         run: |
           set -euo pipefail
           test -f ~/.ssh/forum-public && test -n "${GQ_SSH_LOGIN:-}" || exit 0
-          ssh -i ~/.ssh/forum-public -p "$GQ_SSH_PORT" "$GQ_SSH_LOGIN@$SSH_HOST" sudo bash -s -- "/tmp/graviquest-public-$GITHUB_SHA" <<'REMOTE'
+          ssh -i ~/.ssh/forum-public -p "$GQ_SSH_PORT" "$GQ_SSH_LOGIN@$SSH_HOST" sudo bash -s -- "/tmp/graviquest-public-$GITHUB_SHA" "${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" <<'REMOTE'
           set -euo pipefail
           SOURCE="$1"
+          test -f "$SOURCE/fixtures-$2" || exit 0
           INTEGRATION=/var/discourse/shared/graviquest/graviquest-integration
           if [ -f "$INTEGRATION/public-users.json" ] && [ -f "$INTEGRATION/public-verify.rb" ]; then
             docker exec -e GQ_PUBLIC_MODE=cleanup -u discourse -w /var/www/discourse graviquest bundle exec rails runner /shared/graviquest-integration/public-verify.rb
@@ -118,7 +141,7 @@ jobs:
             set -a; . /etc/gravitas/backend.env; . /etc/gravitas/forum.env; set +a
             export PYTHONPATH=/opt/gravitas-backend DJANGO_SETTINGS_MODULE=gravitas_backend.settings
             runuser -u gravitas -- /opt/gravitas-backend/.venv/bin/python "$SOURCE/scripts/discourse/public-fixture.py" cleanup
-            rm -f "$INTEGRATION/public-users.json" "$INTEGRATION/public-results.json"
+            rm -f "$INTEGRATION/public-users.json" "$INTEGRATION/public-results.json" "$SOURCE/fixtures-$2"
           fi
           curl -fsS --max-time 15 https://graviquest.com/api/health/ >/dev/null
           if [ -f /etc/gravitas/forum.env ]; then curl -fsS --max-time 15 https://forum.graviquest.com/srv/status >/dev/null; fi

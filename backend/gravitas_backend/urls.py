@@ -1,6 +1,7 @@
 from django.contrib import admin
 from django.urls import include, path
 from core import forum
+from core.forum_moderation import forum_moderation_classify
 
 from core.ai_mindmap import generate_mindmap_ai
 from core.annotation_api import annotation_detail, annotations
@@ -84,6 +85,7 @@ from core.workspace_pages_api import workspace_page_detail, workspace_pages
 
 urlpatterns = [
     path('api/forum/config/', forum.forum_config),
+    path('api/forum/moderation/classify/', forum_moderation_classify),
     path('api/forum/start/', forum.forum_start),
     path('api/forum/open/<slug:content_key>/', forum.forum_open),
     path('api/forum/feed/', forum.forum_feed),

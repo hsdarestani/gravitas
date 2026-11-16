@@ -37,11 +37,16 @@ def configuration(env):
         'volumes':[{'volume':{'host':'/var/discourse/shared/graviquest','guest':'/shared'}},
                    {'volume':{'host':'/var/discourse/shared/graviquest/log/var-log','guest':'/var/log'}}],
     }
+    plugin_commands = [
+        'mkdir -p /var/www/discourse/plugins/graviquest-pulsar-moderation',
+        'cp /shared/graviquest-integration/moderation-plugin.rb /var/www/discourse/plugins/graviquest-pulsar-moderation/plugin.rb',
+    ]
     if env.get('GRAVITAS_LOCAL_S3'):
-        result['hooks'] = {'after_code':[{'exec':{'cmd':[
+        plugin_commands.extend([
             'mkdir -p /var/www/discourse/plugins/graviquest-local-object-storage',
             'cp /shared/graviquest-integration/storage-plugin.rb /var/www/discourse/plugins/graviquest-local-object-storage/plugin.rb',
-        ]}}]}
+        ])
+    result['hooks'] = {'after_code': [{'exec': {'cmd': plugin_commands}}]}
     return result
 
 

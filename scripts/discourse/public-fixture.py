@@ -17,6 +17,10 @@ from django.contrib.auth.models import Group
 from django.db import transaction
 from core.email_verification import mark_email_verified
 from core.layer_models import CommunityProfile
+from core.models import WorkspaceMembership
+from core.platform_models import WorkspaceProfile
+
+ROLES = ('member', 'moderator', 'researcher', 'admin', 'new_member', 'restricted')
 
 STATE=Path('/var/lib/graviquest-forum/acceptance/users.json')
 
@@ -34,7 +38,8 @@ def main(mode):
         token=secrets.token_hex(8)
         state={'managed_by':'graviquest-public-acceptance-v1','token':token,'users':{}}
         with transaction.atomic():
-            for role in ('member','moderator','researcher'):
+            core = WorkspaceProfile.objects.get(purpose=WorkspaceProfile.Purpose.CORE).workspace
+            for role in ROLES:
                 email=f'gq-launch-{token}-{role}@example.com'
                 assert not User.objects.filter(email=email).exists(), 'Acceptance email already exists'
                 password=secrets.token_urlsafe(32)+'Aa7!'
@@ -42,7 +47,9 @@ def main(mode):
                     first_name='Launch acceptance '+role,is_active=True,is_staff=False,is_superuser=False)
                 CommunityProfile.objects.update_or_create(user=user,defaults={'email_verification_required':True})
                 mark_email_verified(user)
-                if role!='member':
+                if role == 'admin':
+                    WorkspaceMembership.objects.create(user=user, workspace=core, role=WorkspaceMembership.Role.ADMIN)
+                if role in ('moderator', 'researcher'):
                     group_name='graviquest-forum-'+('moderators' if role=='moderator' else 'researchers')
                     group,_=Group.objects.get_or_create(name=group_name);user.groups.add(group)
                 if role=='moderator':
@@ -54,7 +61,7 @@ def main(mode):
             # Save the exact IDs before committing database creation. A failed
             # write rolls back; an interrupted commit leaves only recorded IDs.
             write(state)
-        print('Three recorded verified acceptance identities prepared; no existing users changed.')
+        print('Six recorded acceptance identities prepared, including a temporary Core administrator.')
     elif mode=='cleanup':
         if not STATE.exists():return
         state=json.loads(STATE.read_text())
@@ -62,6 +69,7 @@ def main(mode):
         assert re.fullmatch('[0-9a-f]{16}',state['token'])
         with transaction.atomic():
             for role,data in state['users'].items():
+                assert role in ROLES
                 expected=f"gq-launch-{state['token']}-{role}@example.com"
                 assert data['email']==expected
                 user=User.objects.filter(pk=data['id']).first()
