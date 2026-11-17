@@ -123,4 +123,9 @@ jobs:
           print('forum_sso_runtime_config_available=' + str(bool(settings.GRAVITAS_FORUM_URL and settings.GRAVITAS_DISCOURSE_CONNECT_SECRET)).lower())
           print('No role or password changes performed')
           PY
+          # Verify the actual, already running Gunicorn workers, not the
+          # isolated shell's optionally incomplete Forum environment.
+          curl -fsS --max-time 10 -H 'Host: graviquest.com' -H 'X-Forwarded-Proto: https' \
+            http://127.0.0.1:8000/api/forum/config/ | python3 -c \
+            'import json,sys; data=json.load(sys.stdin); assert data.get("ok") is True and data.get("url","").startswith("https://"), "Forum unavailable"; print("production_forum_config=ok")'
           REMOTE
