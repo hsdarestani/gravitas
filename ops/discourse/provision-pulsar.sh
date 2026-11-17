@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # Fail-closed, SSH-run Pulsar native worker setup. Never print tokens.
+# Dedicated release queue: do not let unrelated workspace deployments cancel this acceptance.
 set -Eeuo pipefail
 umask 077
 test "$(id -u)" = 0
