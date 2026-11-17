@@ -166,6 +166,7 @@ class ManagedCloudflareProvider:
         temperature=0.2,
         tier='general',
         model_override=None,
+        response_format=None,
     ):
         account_id = _clean_setting('CLOUDFLARE_AI_ACCOUNT_ID')
         token = _clean_setting('CLOUDFLARE_AI_API_TOKEN')
@@ -175,6 +176,18 @@ class ManagedCloudflareProvider:
             raise PulsarError('cloudflare_ai_not_configured')
 
         started = time.monotonic()
+        request_body = {
+            'messages': [
+                {'role': 'system', 'content': str(system)},
+                {'role': 'user', 'content': str(user)},
+            ],
+            'max_tokens': int(max_tokens),
+            'temperature': float(temperature),
+        }
+        if response_format is not None:
+            # Workers AI JSON Mode is opt-in; the caller still verifies the
+            # returned structure and defaults to human review on any failure.
+            request_body['response_format'] = response_format
         try:
             response = requests.post(
                 f'https://api.cloudflare.com/client/v4/accounts/{account_id}/ai/run/{model}',
@@ -182,14 +195,7 @@ class ManagedCloudflareProvider:
                     'Authorization': f'Bearer {token}',
                     'Content-Type': 'application/json',
                 },
-                json={
-                    'messages': [
-                        {'role': 'system', 'content': str(system)},
-                        {'role': 'user', 'content': str(user)},
-                    ],
-                    'max_tokens': int(max_tokens),
-                    'temperature': float(temperature),
-                },
+                json=request_body,
                 timeout=(8, max(15, timeout)),
             )
             response.raise_for_status()
@@ -208,6 +214,10 @@ class ManagedCloudflareProvider:
                 usage = result.get('usage')
         else:
             answer = result
+        # Schema mode can return a native JSON object instead of a string.
+        # A Python dict repr uses single quotes and is NOT valid JSON.
+        if response_format is not None and isinstance(answer, (dict, list)):
+            answer = json.dumps(answer, ensure_ascii=False)
         return _response(
             answer,
             provider=self.name,
@@ -471,6 +481,9 @@ class ModelGateway:
         return preferred + rest
 
     def complete(self, *, provider_override=None, **kwargs):
+        # Other providers and existing Pulsar surfaces never receive the
+        # Cloudflare-specific structured output parameter.
+        response_format = kwargs.pop('response_format', None)
         tier = kwargs.get('tier', 'general')
         providers = self._ordered(tier, provider_override=provider_override)
         if not providers:
@@ -478,15 +491,18 @@ class ModelGateway:
 
         errors = []
         for provider in providers:
+            provider_kwargs = dict(kwargs)
+            if response_format is not None and isinstance(provider, ManagedCloudflareProvider):
+                provider_kwargs['response_format'] = response_format
             try:
-                return provider.complete(**kwargs)
+                return provider.complete(**provider_kwargs)
             except PulsarError as exc:
                 provider_name = _provider_name(provider)
                 errors.append(f'{provider_name}:{exc}')
                 fallback = _provider_fallback_model(provider_name)
                 if fallback:
                     try:
-                        retry_kwargs = dict(kwargs)
+                        retry_kwargs = dict(provider_kwargs)
                         retry_kwargs['model_override'] = fallback
                         return provider.complete(**retry_kwargs)
                     except PulsarError as fallback_exc:
