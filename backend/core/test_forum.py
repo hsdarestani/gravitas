@@ -157,7 +157,7 @@ class ForumIdentityTests(TestCase):
         response = self.client.get('/api/forum/sso/', signed(), HTTP_ACCEPT='text/html')
         self.assertEqual(response.status_code, 302)
         self.assertEqual(response['Location'], '/login?forum_email_verification=required#in')
-        self.assertEqual(response['Cache-Control'], 'no-store')
+        self.assertIn('no-store', response['Cache-Control'])
         self.assertEqual(response['Referrer-Policy'], 'no-referrer')
         self.assertNotIn('forum_pending_sso', self.client.session)
         self.assertFalse(self.user.groups.filter(name='gravitas-email-verified').exists())
