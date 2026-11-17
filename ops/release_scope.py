@@ -10,6 +10,13 @@ import ast
 import subprocess
 import sys
 
+FORUM_NATIVE_OUT_OF_BAND = {
+    # Installed independently by the guarded, backup-first native Forum worker
+    # workflow; not part of the web/API runtime and must not pause Nextcloud.
+    'ops/discourse/provision-pulsar.sh',
+    'ops/discourse/pulsar-acceptance.rb',
+}
+
 HOT_RELOAD_API = {'backend/core/task_board_api.py', 'backend/core/research_task_api.py',
                   'backend/core/project_cockpit.py', 'backend/core/platform_access.py',
                   'backend/core/canonical_middleware.py',
@@ -63,6 +70,10 @@ def classify(paths, base=None, head=None):
             scope = 'code'
         elif name in HOT_RELOAD_API:
             scope = 'code' if scope == 'static' else scope
+        elif name in FORUM_NATIVE_OUT_OF_BAND:
+            # The separate Forum installer performs its own native backup and
+            # bounded acceptance before enabling any moderation actions.
+            continue
         elif (name.startswith(('assets/', '.github/workflows/', 'scripts/', 'docs/'))
               or (name.startswith('backend/core/test_') and name.endswith('.py'))
               or name in {'ops/release_scope.py', 'ops/readonly_runtime_diagnostics.py', 'ops/e2e-identity.sh',

@@ -16,6 +16,16 @@ class ReleaseScopeTests(SimpleTestCase):
         self.assertEqual(release.classify(['scripts/reliability/deploy-api-release.sh']), 'code')
         self.assertEqual(release.classify(['ops/e2e-identity.sh']), 'static')
 
+    def test_forum_worker_scripts_do_not_stop_public_api_during_site_release(self):
+        self.assertEqual(release.classify([
+            'index.html', 'community.html',
+            'ops/discourse/provision-pulsar.sh',
+            'ops/discourse/pulsar-acceptance.rb',
+            'ops/release_scope.py',
+        ]), 'static')
+        self.assertEqual(release.classify(['ops/discourse/moderation-plugin.rb']), 'stateful')
+        self.assertEqual(release.classify(['ops/canonical_checkpoint.py']), 'stateful')
+
     def test_stateful_or_unknown_paths_always_require_matched_checkpoint(self):
         for path in ['backend/core/models.py', 'backend/core/migrations/0081_new.py',
                      'backend/requirements.txt', 'backend/gravitas_backend/settings.py',
