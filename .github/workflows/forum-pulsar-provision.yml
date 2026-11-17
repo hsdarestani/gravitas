@@ -18,7 +18,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 25
     concurrency:
-      group: gravitas-production
+      # Isolate the scoped Forum rollout from unrelated workspace deployment
+      # workflows: GitHub otherwise cancels a pending rollout when newer
+      # production jobs reuse the same concurrency group.
+      group: graviquest-forum-pulsar-provision
       cancel-in-progress: false
     env:
       DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
