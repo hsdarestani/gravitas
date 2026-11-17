@@ -103,7 +103,7 @@
   function setAccountLink(signedIn) {
     [].forEach.call(document.querySelectorAll('[data-account-link]'), function (link) {
       link.href = signedIn ? FORUM_HOME : '/signup';
-      link.setAttribute('aria-label', signedIn ? 'Open the Forum' : 'Create your free account');
+      link.setAttribute('aria-label', signedIn ? 'Open the Forum' : 'Create your account');
       var label = link.querySelector('span');
       if (label) label.textContent = signedIn ? 'Forum' : 'Join Us';
     });
@@ -1258,7 +1258,7 @@
     var join = document.createElement('a');
     join.className = 'g-btn g-btn--primary g-btn--sm rl-cta';
     join.href = '/signup';
-    join.textContent = 'Create a free account to keep these';
+    join.textContent = 'Create an account to keep these';
     foot.append(join);
 
     var signIn = document.createElement('p');
