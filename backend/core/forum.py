@@ -318,10 +318,11 @@ def forum_sso(request):
         return _response({'ok': False, 'error': 'account_unavailable'}, 403)
     if not is_email_verified(request.user):
         # Browsers need a safe route to confirm an existing legacy account.
-        # Keep the signed Discourse challenge server-side; never leak it in
-        # a login URL or weaken the email-ownership check.
+        # Drop the signed challenge: the user may confirm hours later, when
+        # Discourse's original nonce has expired. Resume starts a fresh SSO.
+        # Never leak the challenge or weaken the email-ownership check.
         if 'text/html' in request.headers.get('Accept', '').lower():
-            request.session['forum_pending_sso'] = {'sso': encoded, 'sig': signature}
+            request.session.pop('forum_pending_sso', None)
             response = HttpResponseRedirect('/login?forum_email_verification=required#in')
             response['Cache-Control'] = 'no-store'
             response['Referrer-Policy'] = 'no-referrer'
