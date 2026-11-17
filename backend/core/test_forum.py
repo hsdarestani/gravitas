@@ -148,7 +148,28 @@ class ForumIdentityTests(TestCase):
 
     def test_unverified_existing_account_cannot_take_over_forum_by_email(self):
         self.sign_in(verified=False)
+        response = self.client.get('/api/forum/sso/', signed())
+        self.assertEqual(response.status_code, 403)
+        self.assertEqual(response.json()['error'], 'email_not_verified')
+
+    def test_unverified_browser_redirects_to_account_confirmation_without_bypass(self):
+        self.sign_in(verified=False)
+        response = self.client.get('/api/forum/sso/', signed(), HTTP_ACCEPT='text/html')
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response['Location'], '/login?forum_email_verification=required#in')
+        self.assertIn('no-store', response['Cache-Control'])
+        self.assertEqual(response['Referrer-Policy'], 'no-referrer')
+        self.assertNotIn('forum_pending_sso', self.client.session)
+        self.assertFalse(self.user.groups.filter(name='gravitas-email-verified').exists())
+        # A retry without completing verification still cannot get an SSO token.
         self.assertEqual(self.client.get('/api/forum/sso/', signed()).status_code, 403)
+        mark_email_verified(self.user)
+        resumed = self.client.get('/api/forum/resume/')
+        self.assertEqual(resumed.status_code, 302)
+        self.assertEqual(resumed['Location'], BASE + '/session/sso')
+        accepted = self.client.get('/api/forum/sso/', signed())
+        self.assertEqual(accepted.status_code, 302)
+        self.assertIn('/session/sso_login?', accepted['Location'])
 
     def test_only_explicit_forum_groups_grant_private_membership(self):
         self.sign_in()
