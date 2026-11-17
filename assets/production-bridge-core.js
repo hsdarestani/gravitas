@@ -142,7 +142,11 @@
     var original = resend.textContent;
     resend.textContent = 'Sending…';
     apiPost('/api/auth/email-confirm/resend/', { email: email })
-      .then(function () { resend.textContent = 'Sent — check your inbox'; })
+      .then(function (data) {
+        resend.textContent = data.sent ? 'Sent — check your inbox' :
+          data.already_verified ? 'Already confirmed — open the Forum' :
+          'If an eligible account exists, check your inbox';
+      })
       .catch(function () { resend.textContent = 'Could not send — try again'; resend.disabled = false; })
       .finally(function () {
         if (!resend.disabled) window.setTimeout(function () { resend.textContent = original; }, 1800);
@@ -161,7 +165,9 @@
   if (authStatus) {
     if (params.get('email_verified') === '1') {
       authStatus.hidden = false;
-      authStatus.innerHTML = '<h3 style="margin-top:0">Email confirmed</h3><p>Your email is verified. Sign in and join the conversation.</p>';
+      authStatus.innerHTML = '<h3 style="margin-top:0">Email confirmed</h3>' +
+        '<p>Your email is verified. Sign in if needed, then join the conversation.</p>' +
+        '<a class="g-btn g-btn--primary" href="/api/forum/resume/">Open the Forum</a>';
       if (history.replaceState) history.replaceState({}, '', '/login');
       window.setTimeout(function () { location.hash = 'in'; }, 0);
       var pending = '';
@@ -333,6 +339,22 @@
 
     Promise.resolve(job).catch(function (err) {
       setNote(form, errorText(err));
+      if (isLogin && err && err.error === 'email_not_verified' &&
+          !form.querySelector('[data-login-verification-help]')) {
+        // Pending public signup accounts cannot sign in yet. The resend
+        // endpoint handles them without exposing whether an email exists.
+        var help = document.createElement('div');
+        help.className = 'g-mt-sm';
+        help.setAttribute('data-login-verification-help', '');
+        var resendButton = document.createElement('button');
+        resendButton.type = 'button';
+        resendButton.className = 'g-btn g-btn--secondary';
+        resendButton.textContent = 'Resend confirmation email';
+        resendButton.setAttribute('data-resend-verification', '');
+        resendButton.setAttribute('data-email', (form.elements.email && form.elements.email.value || '').trim());
+        help.appendChild(resendButton);
+        form.appendChild(help);
+      }
     }).finally(function () {
       setBusy(form, false);
     });
