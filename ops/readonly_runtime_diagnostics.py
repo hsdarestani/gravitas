@@ -1037,8 +1037,55 @@ end
         if re.fullmatch(r"[a-z_]+=(?:true|false|nil|-?\d+|\[\[?.{0,240}\]?\]?|[A-Za-z_:]+)", line):
             print("pulsar_"+line)
 
+def pulsar_one_time_synthetic_model_probe():
+    """One limited provider request on synthetic public research text, no user data."""
+    import shlex
+    sha = run("sudo", "-n", "cat", "/etc/gravitas/last-successful-deploy-sha", timeout=5).strip()
+    if sha != "6779121e74448db9a56ec6e82179d26dbc789350":
+        print("synthetic_pulsar_probe skipped: exact release is not deployed")
+        return
+    source = """
+import django,json
+django.setup()
+from core import pulsar_runtime
+from core.forum_moderation import INSTRUCTIONS,_parse_model_json
+candidate={
+ 'submission':'999999:0',
+ 'title':'Pulsar diagnostic: reproducibility question',
+ 'body':'How can we distinguish reproducible observations from hypotheses in a research discussion? I propose documenting methods, measurements, uncertainty and limitations before drawing conclusions.'
+}
+response=pulsar_runtime.run_text(system=INSTRUCTIONS,user=json.dumps(candidate),
+ surface='forum_moderation',operation='moderation',max_tokens=260,temperature=0,
+ metadata={'continuity':False})
+raw=response.text
+obj=_parse_model_json(raw)
+keys=sorted(obj.keys())
+valid=set(keys)=={'decision','reason','confidence','evidence'}
+action=obj.get('decision') if valid else None
+reason=obj.get('reason') if valid else None
+confidence=obj.get('confidence') if valid else None
+evidence=obj.get('evidence') if valid else None
+print('synthetic_model_response_chars',len(raw))
+print('synthetic_valid_json_schema',valid)
+print('synthetic_model_decision',action if action in ('approve','reject','review') else 'other')
+print('synthetic_model_reason',reason if reason in ('ordinary_discussion','policy_uncertainty','targeted_threat','credential_solicitation','unsolicited_bulk_advertising') else 'other')
+print('synthetic_model_confidence',confidence if type(confidence) is int and 0<=confidence<=100 else 'noninteger')
+print('synthetic_model_evidence_length',len(evidence) if isinstance(evidence,str) else 'nonstring')
+print('synthetic_model_tier',response.model_tier)
+"""
+    shell = ("set -a; . /etc/gravitas/backend.env; set +a; "
+             "export PYTHONPATH=/opt/gravitas-backend "
+             "DJANGO_SETTINGS_MODULE=gravitas_backend.settings; "
+             "/opt/gravitas-backend/.venv/bin/python -c " + shlex.quote(source))
+    result = run("sudo", "-n", "bash", "-c", shell, timeout=80)
+    for row in result.splitlines():
+        if re.fullmatch(r"synthetic_[a-z_]+ (?:[0-9]+|[A-Za-z_]+)", row):
+            print("pulsar_"+row)
+
+
 if __name__ == "__main__":
     forum_pulsar_observe_diagnostic()
+    pulsar_one_time_synthetic_model_probe()
     api_release_probe_incident()
     print("GraviQuest read-only diagnostics", datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC"))
     canonical_task_sync_runtime()
