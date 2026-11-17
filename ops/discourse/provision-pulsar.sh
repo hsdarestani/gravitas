@@ -95,6 +95,8 @@ echo 'Pulsar native worker plugin loaded.'
 
 # Three-way decision policy: ordinary science is allowed at an 85-point
 # model routing threshold; explicit harmful content needs 98 and literal proof.
+# This release requires structured Cloudflare moderation JSON; the native
+# observe/apply pilot below must pass before real member actions are enabled.
 # Moderation ambiguity stays in manual review. Never suspend by AI alone.
 # SSO-created service moderator is not a Django user, cannot be used to log in,
 # and can act only through the native plugin. Pilot is a disposable normal user.
