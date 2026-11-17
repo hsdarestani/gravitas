@@ -1048,6 +1048,8 @@ set +a
 export PYTHONPATH=/opt/gravitas-backend DJANGO_SETTINGS_MODULE=gravitas_backend.settings
 runuser -u gravitas -- /opt/gravitas-backend/.venv/bin/python - <<'PYSCRIPT'
 import json
+import django
+django.setup()
 from core import pulsar_runtime
 from core.forum_moderation import INSTRUCTIONS, _parse_model_json, APPROVE_MIN_CONFIDENCE
 candidate={"submission":"999999999:0","title":"Test a scientific hypothesis",
