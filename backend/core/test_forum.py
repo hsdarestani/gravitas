@@ -159,15 +159,15 @@ class ForumIdentityTests(TestCase):
         self.assertEqual(response['Location'], '/login?forum_email_verification=required#in')
         self.assertEqual(response['Cache-Control'], 'no-store')
         self.assertEqual(response['Referrer-Policy'], 'no-referrer')
-        self.assertEqual(self.client.session['forum_pending_sso'], signed())
+        self.assertNotIn('forum_pending_sso', self.client.session)
         self.assertFalse(self.user.groups.filter(name='gravitas-email-verified').exists())
         # A retry without completing verification still cannot get an SSO token.
         self.assertEqual(self.client.get('/api/forum/sso/', signed()).status_code, 403)
         mark_email_verified(self.user)
         resumed = self.client.get('/api/forum/resume/')
         self.assertEqual(resumed.status_code, 302)
-        self.assertTrue(resumed['Location'].startswith('/api/forum/sso/?'))
-        accepted = self.client.get(resumed['Location'])
+        self.assertEqual(resumed['Location'], BASE + '/session/sso')
+        accepted = self.client.get('/api/forum/sso/', signed())
         self.assertEqual(accepted.status_code, 302)
         self.assertIn('/session/sso_login?', accepted['Location'])
 
