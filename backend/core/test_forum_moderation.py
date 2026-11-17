@@ -107,3 +107,84 @@ class ForumModerationTests(TestCase):
             ForumModerationDecision.objects.all().update(lease_until=timezone.now() - timedelta(seconds=1))
         self.assertEqual(self.send().json(), {'decision': 'review', 'reason': 'provider_unavailable'})
         self.assertEqual(model.call_count, 3)
+
+
+class ForumModerationStructuredOutputTests(TestCase):
+    @override_settings(
+        CLOUDFLARE_AI_ACCOUNT_ID='test-account',
+        CLOUDFLARE_AI_API_TOKEN='test-token',
+        PULSAR_MODEL_GENERAL='@cf/meta/llama-3.3-70b-instruct-fp8-fast',
+    )
+    @patch('core.pulsar_runtime.providers.requests.post')
+    def test_cloudflare_json_schema_forwarding_and_native_object_normalization(self, post):
+        from core.pulsar_runtime.providers import ManagedCloudflareProvider, ModelGateway
+        payload = {
+            'decision': 'approve', 'reason': 'ordinary_discussion',
+            'confidence': 92, 'evidence': '',
+        }
+        response = SimpleNamespace(
+            raise_for_status=lambda: None,
+            json=lambda: {'success': True, 'result': {'response': payload}},
+        )
+        post.return_value = response
+        gateway = ModelGateway(providers=[ManagedCloudflareProvider()])
+        schema = {
+            'type': 'json_schema',
+            'json_schema': {
+                'type': 'object', 'properties': {
+                    'decision': {'type': 'string'},
+                    'reason': {'type': 'string'},
+                    'confidence': {'type': 'integer'},
+                    'evidence': {'type': 'string'},
+                },
+                'required': ['decision', 'reason', 'confidence', 'evidence'],
+            },
+        }
+        result = gateway.complete(
+            system='Moderation system', user='Safe research question',
+            tier='general', temperature=0, max_tokens=260,
+            response_format=schema,
+        )
+        self.assertEqual(json.loads(result.text), payload)
+        self.assertEqual(post.call_args.kwargs['json']['response_format'], schema)
+
+        gateway.complete(
+            system='Other surface', user='Question',
+            tier='general', temperature=0, max_tokens=100,
+        )
+        self.assertNotIn('response_format', post.call_args.kwargs['json'])
+
+    def test_shared_harness_requests_schema_only_for_forum_moderation(self):
+        from core.pulsar_runtime.harness import PulsarHarness
+
+        class CapturingGateway:
+            def __init__(self):
+                self.calls = []
+
+            def complete(self, **kwargs):
+                self.calls.append(kwargs)
+                return SimpleNamespace(
+                    text='{"decision":"review","reason":"policy_uncertainty","confidence":85,"evidence":""}',
+                    provider='fake', model='mock', latency_ms=0, input_tokens=0,
+                    output_tokens=0, estimated_cost_usd=0,
+                )
+
+        gateway = CapturingGateway()
+        harness = PulsarHarness(models=gateway)
+        harness.run_text(
+            system='Policy', user='Research question', surface='forum_moderation',
+            operation='moderation', metadata={'continuity': False},
+        )
+        contract = gateway.calls[-1]['response_format']
+        self.assertEqual(contract['type'], 'json_schema')
+        self.assertEqual(
+            set(contract['json_schema']['required']),
+            {'decision', 'reason', 'confidence', 'evidence'},
+        )
+        self.assertEqual(contract['json_schema']['additionalProperties'], False)
+
+        harness.run_text(
+            system='Tutoring', user='Question', surface='lms',
+            operation='answer', metadata={'continuity': False},
+        )
+        self.assertNotIn('response_format', gateway.calls[-1])
