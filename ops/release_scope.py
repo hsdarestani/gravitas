@@ -70,6 +70,10 @@ def classify(paths, base=None, head=None):
             scope = 'code'
         elif name in HOT_RELOAD_API:
             scope = 'code' if scope == 'static' else scope
+        elif name in FORUM_NATIVE_OUT_OF_BAND:
+            # The separate Forum installer performs its own native backup and
+            # bounded acceptance before enabling any moderation actions.
+            continue
         elif (name.startswith(('assets/', '.github/workflows/', 'scripts/', 'docs/'))
               or (name.startswith('backend/core/test_') and name.endswith('.py'))
               or name in {'ops/release_scope.py', 'ops/readonly_runtime_diagnostics.py', 'ops/e2e-identity.sh',
