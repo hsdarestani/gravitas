@@ -1017,6 +1017,28 @@ puts "topic_id_is_nil=#{item.topic_id.nil?}"
 puts "topic_public=#{!!(item.topic.nil? || (item.topic.visible && !item.topic.private_message? && !item.topic.closed? && !item.topic.archived? && !item.topic.deleted_at))}"
 puts "payload_simple=#{!!(item.payload.is_a?(Hash) && item.payload["raw"].is_a?(String) && item.payload["raw"].length.between?(1,3000) && !item.payload["via_email"] && !item.payload["is_warning"] && !item.payload["featured_link"])}"
 puts "wordwatcher_requires_approval=#{WordWatcher.new("#{item.topic&.title || item.payload["title"]} #{item.payload["raw"]}").requires_approval?}"
+
+if s["apply_id"]
+  apply=ReviewableQueuedPost.find_by(id:s["apply_id"])
+  puts "apply_item_exists=#{!apply.nil?}"
+  if apply
+    author2=apply.target_created_by
+    room2=apply.category || apply.topic&.category
+    puts "apply_pending=#{apply.pending?}"
+    puts "apply_approved=#{apply.approved?}"
+    puts "apply_spam=#{!!apply.potential_spam}"
+    puts "apply_author_active=#{!!(author2&.active?)}"
+    puts "apply_author_restricted=#{!!(author2&.silenced? || author2&.suspended?)}"
+    puts "apply_score_reasons=#{apply.reviewable_scores.pluck(:reason).inspect[0,120]}"
+    puts "apply_score_count=#{apply.reviewable_scores.count}"
+    puts "apply_staff_notes=#{apply.reviewable_notes.where.not(user_id:actor&.id).count}"
+    puts "apply_pilot_scope=#{!!(cfg && cfg[0]["pilot_author_ids"].include?(author2&.id))}"
+    puts "apply_category_scope=#{!!(cfg && room2 && cfg[2].include?(room2.slug))}"
+    puts "apply_eligible=#{!!(cfg && actor && GraviQuestPulsarModeration.eligible?(apply,cfg[2],Guardian.new(actor)))}"
+    note=actor && apply.reviewable_notes.where(user_id:actor.id).where("content LIKE ?", "[GraviQuest Pulsar v1]%").order(id: :desc).first
+    puts "apply_note_exists=#{!note.nil?}"
+  end
+end
 puts "reviewable_claiming_required=#{SiteSetting.reviewable_claiming=="required"}"
 if actor
   g=Guardian.new(actor)
