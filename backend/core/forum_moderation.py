@@ -84,6 +84,15 @@ def _parse_model_json(raw):
     )
     if quoted_keys != raw:
         candidates.append(quoted_keys)
+    # Some models also omit quotes around one of the known enum literals.
+    # Restrict coercion to exact allowed moderation values, not arbitrary text.
+    normalized_enums = re.sub(
+        r'(:\s*)(approve|review|reject|ordinary_discussion|policy_uncertainty|targeted_threat|credential_solicitation|unsolicited_bulk_advertising)(\s*[,}])',
+        lambda m: m.group(1) + '"' + m.group(2) + '"' + m.group(3),
+        quoted_keys,
+    )
+    if normalized_enums != quoted_keys:
+        candidates.append(normalized_enums)
     for source in candidates:
         try:
             value = json.loads(source)
