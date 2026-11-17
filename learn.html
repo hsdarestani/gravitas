@@ -22,7 +22,7 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
 <link rel="stylesheet" href="assets/gravitas.css?v=up-f706806e3a02-g1df6ff09-lit1">
 <link rel="stylesheet" href="assets/site.css?v=up-f706806e3a02-g1df6ff09-ds11">
 <link rel="stylesheet" href="assets/hero.css?v=20261110-align5">
-<link rel="stylesheet" href="assets/landing.css?v=20261117-lp15">
+<link rel="stylesheet" href="assets/landing.css?v=20261117-lp16">
 <link rel="stylesheet" href="assets/chat.css?v=20261010-pulsar8">
 <link rel="stylesheet" href="assets/production-overrides.css?v=up-f706806e3a02-g1df6ff09-rl3">
 </head>
@@ -75,7 +75,7 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
         <p class="g-lead lp-hero__lede">The archive is wide. A path gives it a direction: one step at a time, each one carrying you to the next, at your own pace.</p>
         <div class="g-cluster g-mt-lg">
           <a class="g-btn g-btn--primary g-btn--lg" href="path-ai-in-research.html">Start Your First Path</a>
-          <a class="g-btn g-btn--secondary g-btn--lg" href="#paths">See Every Path</a>
+          <a class="g-btn g-btn--secondary g-btn--lg" href="#paths">See What&rsquo;s Coming</a>
         </div>
         <p class="lp-hero__fine">No account needed, and no background assumed.</p>
       </div>
@@ -99,6 +99,18 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
      public-integrations.js adds published courses to it. -->
 <section class="g-section" id="paths">
   <div class="g-container">
+    <!-- The path list is off the page since 2026-11-17, at the owner's
+         request: Learn shows only the under-construction card until courses
+         open. A template is never rendered; move the grid out of it to
+         restore. public-integrations.js expects it to be the first .g-grid--2. -->
+    <template data-paths-later>
+    <div class="g-grid g-grid--2 rv"><a class="path-card" href="path-ai-in-research.html">
+      <p class="g-eyebrow g-eyebrow--bare">8 steps · ~6 hours</p><h3>AI in Research</h3><p>From what these models actually do, to using one on your own data without fooling yourself.</p>
+      <p class="path-card__status">Open now</p></a><a class="is-soon path-card"  aria-disabled="true"><span class="soon-chip">Planned</span>
+      <p class="g-eyebrow g-eyebrow--bare">10 steps · ~12 hours</p><h3>Computational Science</h3><p>Integrators, stability and error, and the moment any simulation, of a climate or a cell, stops describing the system.</p></a><a class="is-soon path-card"  aria-disabled="true"><span class="soon-chip">Planned</span>
+      <p class="g-eyebrow g-eyebrow--bare">6 steps · ~4 hours</p><h3>Philosophy of Science</h3><p>Explanation, evidence and demarcation: the discussions underneath every methods section.</p></a><a class="is-soon path-card"  aria-disabled="true"><span class="soon-chip">Planned</span>
+      <p class="g-eyebrow g-eyebrow--bare">5 steps · ~3 hours</p><h3>Reading a Paper Properly</h3><p>Statistics, sampling and figures: how to find the weak joint quickly, in any journal.</p></a></div>
+    </template>
     <!-- Under construction, 2026-11-17: the landing's Learn card, repeated
          here at the owner's request. Interest goes to /api/learn/interest/
          through landing.js. Keep in step with chapter 03 of index.html. -->
@@ -130,12 +142,6 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
         <p class="lp-wish__note" data-wish-note role="status" aria-live="polite">One email when it opens, once you confirm your address. Nothing else.</p>
       </form>
     </article>
-    <div class="g-grid g-grid--2 rv"><a class="path-card" href="path-ai-in-research.html">
-      <p class="g-eyebrow g-eyebrow--bare">8 steps · ~6 hours</p><h3>AI in Research</h3><p>From what these models actually do, to using one on your own data without fooling yourself.</p>
-      <p class="path-card__status">Open now</p></a><a class="is-soon path-card"  aria-disabled="true"><span class="soon-chip">Planned</span>
-      <p class="g-eyebrow g-eyebrow--bare">10 steps · ~12 hours</p><h3>Computational Science</h3><p>Integrators, stability and error, and the moment any simulation, of a climate or a cell, stops describing the system.</p></a><a class="is-soon path-card"  aria-disabled="true"><span class="soon-chip">Planned</span>
-      <p class="g-eyebrow g-eyebrow--bare">6 steps · ~4 hours</p><h3>Philosophy of Science</h3><p>Explanation, evidence and demarcation: the discussions underneath every methods section.</p></a><a class="is-soon path-card"  aria-disabled="true"><span class="soon-chip">Planned</span>
-      <p class="g-eyebrow g-eyebrow--bare">5 steps · ~3 hours</p><h3>Reading a Paper Properly</h3><p>Statistics, sampling and figures: how to find the weak joint quickly, in any journal.</p></a></div>
   </div>
 </section>
 
