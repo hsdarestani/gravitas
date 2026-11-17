@@ -179,6 +179,16 @@
     } else if (params.get('email_verified') === '0') {
       authStatus.hidden = false;
       authStatus.innerHTML = '<h3 style="margin-top:0">Confirmation link expired</h3><p>Sign in with Google or resend the verification email from your pending account screen.</p>';
+    } else if (params.get('forum_email_verification') === 'required') {
+      // The Forum redirects only an already authenticated account here.
+      // Resend goes to that signed-in account; no address or SSO payload
+      // is carried in the URL, and approval still requires the email link.
+      authStatus.hidden = false;
+      authStatus.innerHTML = '<h3 style="margin-top:0">Confirm your email to join the Forum</h3>' +
+        '<p>Your GraviQuest account is signed in, but its email has not been confirmed yet. ' +
+        'Send a confirmation link to your account email, then open the Forum.</p>' +
+        '<button class="g-btn g-btn--primary" type="button" data-resend-verification>Send confirmation email</button>';
+      window.setTimeout(function () { location.hash = 'in'; }, 0);
     } else if (params.get('google_error')) {
       authStatus.hidden = false;
       authStatus.innerHTML = '<h3 style="margin-top:0">Google sign-in did not finish</h3><p>Please try again or use email and password.</p>';
