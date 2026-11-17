@@ -51,10 +51,15 @@ jobs:
           ssh -i ~/.ssh/gravitas_deploy -p "$EFFECTIVE_PORT" "$EFFECTIVE_USER@$EFFECTIVE_HOST" bash -s <<'REMOTE'
           set -euo pipefail
           BACKEND_PATH=/opt/gravitas-backend
-          SECRET="$(sudo awk -F= '/^DJANGO_SECRET_KEY=/{sub(/^[^=]*=/, ""); print; exit}' /etc/gravitas/backend.env)"
-          test -n "$SECRET"
+          read_config() {
+            sudo awk -F= -v key="$1" '$1==key {sub(/^[^=]*=/, ""); print; exit}' /etc/gravitas/backend.env
+          }
+          SECRET="$(read_config DJANGO_SECRET_KEY)"
+          FORUM_URL="$(read_config GRAVITAS_FORUM_URL)"
+          FORUM_SECRET="$(read_config GRAVITAS_DISCOURSE_CONNECT_SECRET)"
+          test -n "$SECRET" && test -n "$FORUM_URL" && test -n "$FORUM_SECRET"
           cd "$BACKEND_PATH"
-          sudo -u gravitas env DJANGO_SECRET_KEY="$SECRET" DJANGO_DEBUG=0 DJANGO_SETTINGS_MODULE=gravitas_backend.settings PYTHONPATH="$BACKEND_PATH" \
+          sudo -u gravitas env DJANGO_SECRET_KEY="$SECRET" DJANGO_DEBUG=0 DJANGO_SETTINGS_MODULE=gravitas_backend.settings PYTHONPATH="$BACKEND_PATH" GRAVITAS_FORUM_URL="$FORUM_URL" GRAVITAS_DISCOURSE_CONNECT_SECRET="$FORUM_SECRET" \
             "$BACKEND_PATH/.venv/bin/python" - <<'PY'
           import re
           import unicodedata
