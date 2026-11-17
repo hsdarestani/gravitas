@@ -317,6 +317,15 @@ def forum_sso(request):
             (profile and getattr(profile, 'status', 'active') != 'active')):
         return _response({'ok': False, 'error': 'account_unavailable'}, 403)
     if not is_email_verified(request.user):
+        # Browsers need a safe route to confirm an existing legacy account.
+        # Keep the signed Discourse challenge server-side; never leak it in
+        # a login URL or weaken the email-ownership check.
+        if 'text/html' in request.headers.get('Accept', '').lower():
+            request.session['forum_pending_sso'] = {'sso': encoded, 'sig': signature}
+            response = HttpResponseRedirect('/login?forum_email_verification=required#in')
+            response['Cache-Control'] = 'no-store'
+            response['Referrer-Policy'] = 'no-referrer'
+            return response
         return _response({'ok': False, 'error': 'email_not_verified',
                           'message': 'Confirm your GraviQuest email before opening the Forum.'}, 403)
     groups = set(request.user.groups.values_list('name', flat=True))
