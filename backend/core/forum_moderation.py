@@ -96,7 +96,7 @@ def model_decision(candidate):
     if (action == 'approve' and reason == 'ordinary_discussion' and evidence == ''
             and confidence >= APPROVE_MIN_CONFIDENCE):
         return 'approve', 'ordinary_discussion'
-    if (action == 'reject' and reason in PROHIBITED
+    if (action == 'reject' and isinstance(reason, str) and reason in PROHIBITED
             and confidence >= REJECT_MIN_CONFIDENCE
             and 12 <= len(evidence.strip()) <= 200 and evidence in candidate['body']):
         return 'reject', reason
