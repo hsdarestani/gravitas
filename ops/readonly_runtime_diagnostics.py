@@ -1037,7 +1037,63 @@ end
         if re.fullmatch(r"[a-z_]+=(?:true|false|nil|-?\d+|\[\[?.{0,240}\]?\]?|[A-Za-z_:]+)", line):
             print("pulsar_"+line)
 
+def forum_pulsar_response_envelope():
+    """Classify fixed nonprivate sample; show only schema metadata, never text."""
+    import json as _json
+    script = """set -euo pipefail
+set -a
+. /etc/gravitas/backend.env
+. /etc/gravitas/forum.env
+set +a
+export PYTHONPATH=/opt/gravitas-backend DJANGO_SETTINGS_MODULE=gravitas_backend.settings
+runuser -u gravitas -- /opt/gravitas-backend/.venv/bin/python - <<'PYSCRIPT'
+import json
+from core import pulsar_runtime
+from core.forum_moderation import INSTRUCTIONS, _parse_model_json, APPROVE_MIN_CONFIDENCE
+candidate={"submission":"999999999:0","title":"Test a scientific hypothesis",
+ "body":"How can we distinguish reproducible observations from hypotheses in a research discussion? I propose documenting methods, measurements, uncertainty and limitations before drawing conclusions."}
+try:
+ result=pulsar_runtime.run_text(system=INSTRUCTIONS,user=json.dumps(candidate),
+  surface="forum_moderation",operation="moderation",max_tokens=260,temperature=0,metadata={"continuity":False})
+ raw=result.text
+ obj=_parse_model_json(raw)
+ confidence=obj.get("confidence")
+ decision=obj.get("decision")
+ reason=obj.get("reason")
+ safe=lambda value,choices: value if type(value) is str and value in choices else "other"
+ shape=("json" if raw.strip().startswith("{") else "fenced_json" if raw.strip().startswith(chr(96)*3) else "other")
+ print("PULSAR_ENVELOPE "+json.dumps({
+  "shape":shape,"parsed":bool(obj),"keys":sorted(str(k) for k in obj)[:12],
+  "decision":safe(decision,{"approve","review","reject"}),
+  "reason":safe(reason,{"ordinary_discussion","policy_uncertainty","targeted_threat","credential_solicitation","unsolicited_bulk_advertising"}),
+  "confidence_type":type(confidence).__name__,
+  "confidence":confidence if type(confidence) is int and 0<=confidence<=100 else "other",
+  "evidence_empty":obj.get("evidence")=="",
+  "approve_threshold":APPROVE_MIN_CONFIDENCE,
+  "provider":str(result.provider)[:32] if result.provider else "unknown",
+  "model_tier":str(result.model_tier)[:32] if result.model_tier else "unknown"}))
+except Exception as error:
+ print("PULSAR_ENVELOPE "+json.dumps({"error_class":type(error).__name__}))
+PYSCRIPT
+"""
+    try:
+        result = subprocess.run(["sudo", "-n", "bash", "-c", script],
+                                capture_output=True, text=True, timeout=60, check=False)
+        for line in result.stdout.splitlines():
+            if line.startswith("PULSAR_ENVELOPE "):
+                try:
+                    data = _json.loads(line[len("PULSAR_ENVELOPE "):])
+                    print("pulsar_model_envelope", _json.dumps(data, sort_keys=True))
+                except ValueError:
+                    print("pulsar_model_envelope invalid_structure")
+                return
+        print("pulsar_model_envelope unavailable exit_code", result.returncode)
+    except (OSError, subprocess.TimeoutExpired):
+        print("pulsar_model_envelope unavailable")
+
+
 if __name__ == "__main__":
+    forum_pulsar_response_envelope()
     forum_pulsar_observe_diagnostic()
     api_release_probe_incident()
     print("GraviQuest read-only diagnostics", datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC"))
