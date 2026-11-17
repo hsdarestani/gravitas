@@ -1,0 +1,121 @@
+name: One-off Sajad Forum email verification
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - .github/workflows/oneoff-verify-sajad-20261117.yml
+permissions:
+  contents: read
+concurrency:
+  group: gravitas-production
+  cancel-in-progress: false
+jobs:
+  verify:
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Prepare existing production SSH access
+        shell: bash
+        env:
+          SSH_HOST: ${{ secrets.DEPLOY_HOST }}
+          SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          SSH_USER: ${{ secrets.DEPLOY_USER }}
+          SSH_PORT: ${{ secrets.DEPLOY_PORT }}
+        run: |
+          set -euo pipefail
+          test -n "$SSH_HOST" && test -n "$SSH_KEY"
+          PORT="${SSH_PORT:-22}"
+          LOGIN="${SSH_USER:-deploy}"
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/gravitas_deploy
+          chmod 600 ~/.ssh/gravitas_deploy
+          ssh-keyscan -p "$PORT" -H "$SSH_HOST" >> ~/.ssh/known_hosts
+          OPTS=(-i ~/.ssh/gravitas_deploy -p "$PORT" -o BatchMode=yes -o ConnectTimeout=10)
+          if ssh "${OPTS[@]}" "$LOGIN@$SSH_HOST" true 2>/dev/null; then
+            :
+          elif [ "$LOGIN" != root ] && ssh "${OPTS[@]}" "root@$SSH_HOST" true 2>/dev/null; then
+            LOGIN=root
+          else
+            echo "Production SSH access unavailable"
+            exit 1
+          fi
+          echo "EFFECTIVE_USER=$LOGIN" >> "$GITHUB_ENV"
+          echo "EFFECTIVE_PORT=$PORT" >> "$GITHUB_ENV"
+          echo "EFFECTIVE_HOST=$SSH_HOST" >> "$GITHUB_ENV"
+
+      - name: Verify exactly the existing Sajad Aghapour identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          ssh -i ~/.ssh/gravitas_deploy -p "$EFFECTIVE_PORT" "$EFFECTIVE_USER@$EFFECTIVE_HOST" bash -s <<'REMOTE'
+          set -euo pipefail
+          BACKEND_PATH=/opt/gravitas-backend
+          SECRET="$(sudo awk -F= '/^DJANGO_SECRET_KEY=/{sub(/^[^=]*=/, ""); print; exit}' /etc/gravitas/backend.env)"
+          test -n "$SECRET"
+          cd "$BACKEND_PATH"
+          sudo -u gravitas env DJANGO_SECRET_KEY="$SECRET" DJANGO_DEBUG=0 DJANGO_SETTINGS_MODULE=gravitas_backend.settings PYTHONPATH="$BACKEND_PATH" \
+            "$BACKEND_PATH/.venv/bin/python" - <<'PY'
+          import re
+          import unicodedata
+          import django
+          django.setup()
+          from django.contrib.auth import get_user_model
+          from django.core.exceptions import ValidationError
+          from django.core.validators import validate_email
+          from django.db import transaction
+          from django.conf import settings
+          from core.email_verification import is_email_verified, mark_email_verified
+
+          def compact(value):
+              value = unicodedata.normalize('NFKC', str(value or '')).casefold().replace('\u200c', '')
+              return ''.join(ch for ch in value if ch.isalnum())
+
+          def candidate(user):
+              real_name = compact(user.first_name) + compact(user.last_name)
+              local = compact((user.email or '').split('@')[0])
+              username = compact(user.username)
+              given = any(word in real_name for word in ('sajad', 'sajjad', 'سجاد'))
+              family = any(word in real_name for word in (
+                  'aghapour', 'aghapoor', 'agapour', 'aghapuri', 'آقاپور', 'آقاییپور',
+              ))
+              # Historical usernames often contain initials rather than surname.
+              legacy_family_hint = given and ('agh' in local or 'agh' in username)
+              return given and (family or legacy_family_hint)
+
+          User = get_user_model()
+          matches = [user for user in User.objects.filter(is_active=True).exclude(email='').order_by('pk') if candidate(user)]
+          print('sajad_identity_matches=' + str(len(matches)))
+          if len(matches) != 1:
+              raise SystemExit('STOP: identity could not be identified uniquely; no accounts changed')
+          user = matches[0]
+          try:
+              validate_email(user.email)
+          except ValidationError:
+              raise SystemExit('STOP: account email invalid; no accounts changed')
+          profile = getattr(user, 'gravitas_community_profile', None)
+          if profile is not None and profile.status != 'active':
+              raise SystemExit('STOP: account community status is not active; no accounts changed')
+          if not settings.GRAVITAS_FORUM_URL or len(settings.GRAVITAS_DISCOURSE_CONNECT_SECRET or '') < 32:
+              raise SystemExit('STOP: Forum SSO configuration unhealthy; no accounts changed')
+          before = is_email_verified(user)
+          with transaction.atomic():
+              locked = User.objects.select_for_update().get(pk=user.pk, is_active=True)
+              if not candidate(locked) or locked.email.casefold() != user.email.casefold():
+                  raise SystemExit('STOP: account identity changed concurrently; no accounts changed')
+              if not is_email_verified(locked):
+                  # Explicit account-owner/admin request: one-time manual review
+                  # of this named legacy identity. No role, credential, or
+                  # Discourse privilege changes are permitted.
+                  mark_email_verified(locked)
+          user = User.objects.get(pk=user.pk)
+          if not is_email_verified(user):
+              raise SystemExit('STOP: verification read-back failed')
+          print('account_id=' + str(user.pk))
+          print('email_verified_before=' + str(before).lower())
+          print('email_verified_after=true')
+          print('account_active=' + str(user.is_active).lower())
+          print('forum_sso_configured=true')
+          print('No role or password changes performed')
+          PY
+          REMOTE
