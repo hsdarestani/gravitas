@@ -38,7 +38,10 @@ jobs:
           git fetch -q origin main
           test "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)"
           test "$RELEASE_SHA" = "$(git rev-parse HEAD)"
-          git diff --name-only HEAD^ HEAD | grep -Fxq 'ops/discourse/provision-pulsar.sh'
+          # Main can advance while the previous production deploy is queued.
+          # Provision after the latest verified release, not only when that
+          # exact merge diff happens to include the worker script.
+          git merge-base --is-ancestor 27d89138f0dcdf78fcb91e2a149d6749156b9384 HEAD
           test -s ops/discourse/pulsar-acceptance.rb
           test -s ops/discourse/moderation-plugin.rb
           test -s ops/discourse/provision-pulsar.sh
