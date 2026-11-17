@@ -59,8 +59,8 @@ export default apiInitializer((api) => {
   // other page: graviquest.com. Discourse's default sent it to the forum's own
   // latest list, which the "Forum" heading and the menu already reach. The
   // same href serves the small logo shown while scrolling a thread. Guarded
-  // so a Discourse without the callback keeps its stock link instead of
-  // failing the whole initializer.
+  // so a Discourse without the callback keeps its stock link (the forum's
+  // home) instead of failing the whole initializer.
   if (typeof api.registerHomeLogoHrefCallback === "function") {
     api.registerHomeLogoHrefCallback(() => "https://graviquest.com/");
   }
