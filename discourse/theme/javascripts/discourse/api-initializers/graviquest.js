@@ -57,7 +57,8 @@ export default apiInitializer((api) => {
 
   // The logo is the GraviQuest logo, so it goes where that logo goes on every
   // other page: graviquest.com. Discourse's default sent it to the forum's own
-  // latest list, which the "Forum" heading and the menu already reach. Guarded
+  // latest list, which the "Forum" heading and the menu already reach. The
+  // same href serves the small logo shown while scrolling a thread. Guarded
   // so a Discourse without the callback keeps its stock link instead of
   // failing the whole initializer.
   if (typeof api.registerHomeLogoHrefCallback === "function") {
