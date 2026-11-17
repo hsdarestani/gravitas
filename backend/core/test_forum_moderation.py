@@ -183,8 +183,16 @@ class ForumModerationStructuredOutputTests(TestCase):
         )
         self.assertEqual(contract['json_schema']['additionalProperties'], False)
 
+        # The Learning skill requires authentication; use an explicit test
+        # identity rather than bypassing unrelated Pulsar ACLs.
+        from django.contrib.auth import get_user_model
+        actor = get_user_model().objects.create_user(
+            username='moderation-schema-other-surface@example.test',
+            email='moderation-schema-other-surface@example.test',
+            password='Strong-test-123!',
+        )
         harness.run_text(
             system='Tutoring', user='Question', surface='lms',
-            operation='answer', metadata={'continuity': False},
+            operation='answer', metadata={'continuity': False}, actor=actor,
         )
         self.assertNotIn('response_format', gateway.calls[-1])
