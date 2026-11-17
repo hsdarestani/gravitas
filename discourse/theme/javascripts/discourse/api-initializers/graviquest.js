@@ -55,6 +55,15 @@ export default apiInitializer((api) => {
     Number.isInteger(value) ? Math.max(0, value) : 0
   );
 
+  // The logo is the GraviQuest logo, so it goes where that logo goes on every
+  // other page: graviquest.com. Discourse's default sent it to the forum's own
+  // latest list, which the "Forum" heading and the menu already reach. Guarded
+  // so a Discourse without the callback keeps its stock link instead of
+  // failing the whole initializer.
+  if (typeof api.registerHomeLogoHrefCallback === "function") {
+    api.registerHomeLogoHrefCallback(() => "https://graviquest.com/");
+  }
+
   // Each room's "About the … category" thread is its description, created by
   // Discourse with the room. In the lists they were ten identical rows. The
   // class lets common.scss drop them from every topic list; the thread itself
