@@ -1,4 +1,5 @@
 """A narrowly scoped classifier for Discourse's native pending-post queue."""
+import ast
 import hashlib
 import hmac
 import json
@@ -59,19 +60,41 @@ If unsure, review/policy_uncertainty is the correct answer."""
 
 
 def _parse_model_json(raw):
-    """Accept only a JSON object or one conventional JSON code fence."""
+    """Normalize only a tightly bounded object; never evaluate executable text.
+
+    Some hosted instruction models return Python-style single-quoted objects or
+    JavaScript-style unquoted literal keys even when asked for JSON. Treat those
+    as data, then let model_decision enforce exact keys, types, policy and proof.
+    """
     if not isinstance(raw, str) or len(raw) > 4096:
         return {}
     raw = raw.strip()
     fence = re.fullmatch(r'```(?:json)?[ \t]*\n(.*?)\n```', raw, flags=re.DOTALL | re.IGNORECASE)
     if fence:
         raw = fence.group(1).strip()
-    try:
-        value = json.loads(raw)
-    except (TypeError, ValueError):
+    if not raw.startswith('{') or not raw.endswith('}'):
         return {}
-    return value if isinstance(value, dict) else {}
-
+    candidates = [raw]
+    # Only four known field names may be unquoted; never rewrite body content,
+    # insert fields, accept prose, or execute a model-provided expression.
+    quoted_keys = re.sub(
+        r'([{,]\s*)(decision|reason|confidence|evidence)(\s*:)',
+        lambda m: m.group(1) + '"' + m.group(2) + '"' + m.group(3),
+        raw,
+    )
+    if quoted_keys != raw:
+        candidates.append(quoted_keys)
+    for source in candidates:
+        try:
+            value = json.loads(source)
+        except (TypeError, ValueError):
+            try:
+                value = ast.literal_eval(source)
+            except (SyntaxError, ValueError, TypeError, RecursionError, MemoryError):
+                continue
+        if isinstance(value, dict) and all(isinstance(key, str) for key in value):
+            return value
+    return {}
 
 def model_decision(candidate):
     # Moderating nuanced scientific discussion requires the general Pulsar tier.
