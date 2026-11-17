@@ -390,7 +390,7 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
      show what the Forum is like. The threads are the Forum page's own first
      three rows (forum.html), drawn with its own row component (assets/forum.css),
      so the landing and the Forum always show the same room. -->
-<section class="g-section g-section--deep lp-chap lp-gridded" id="forum" aria-labelledby="ch-forum">
+<section class="g-section lp-chap lp-gridded lp-gridded--left" id="forum" aria-labelledby="ch-forum">
   <div class="g-container">
     <header class="lp-chap__head rv">
       <span class="lp-chap__n">04 &middot; Forum</span>
@@ -412,8 +412,10 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
      The rotating "… with us" line closes the page now. At the top it made the
      visitor wait for the sentence they were meant to read first; here, after
      four chapters, every verb in it has been shown, so the cycle is a recap
-     rather than a riddle. -->
-<section class="g-section lp-gridded lp-gridded--left"><div class="g-container">
+     rather than a riddle. Bands alternate deep and light from the Topic rail
+     down (deep, light, deep, light, deep since Workspace left on 2026-11-17),
+     and the grid side alternates with them. -->
+<section class="g-section g-section--deep lp-gridded"><div class="g-container">
   <div class="join rv">
     <div class="g-well" aria-hidden="true"></div><div class="g-starfield" aria-hidden="true"></div>
     <div class="join__in">
