@@ -53,7 +53,7 @@ class PublicHeaderAuthAssetTests(SimpleTestCase):
 
     def test_public_auth_bridge_loader_is_cache_busted(self):
         source = LOADER.read_text(encoding='utf-8')
-        self.assertIn('/assets/production-bridge-core.js?v=20261117-forum4', source)
+        self.assertIn('/assets/production-bridge-core.js?v=20261117-forum5', source)
 
     def test_public_pages_reference_current_auth_loader_version(self):
         stale = []
@@ -63,7 +63,10 @@ class PublicHeaderAuthAssetTests(SimpleTestCase):
             if 'production-bridge.js' not in source:
                 continue
             referenced.append(path.name)
-            if 'production-bridge.js?v=20261117-forum4' not in source:
+            # Only account.html needs a new loader cache key for the email-
+            # confirmation recovery UI. Preserve other public page assets.
+            expected = '20261117-forum5' if path.name == 'account.html' else '20261117-forum4'
+            if f'production-bridge.js?v={expected}' not in source:
                 stale.append(path.name)
 
         self.assertTrue(referenced)
