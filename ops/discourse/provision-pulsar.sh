@@ -131,6 +131,16 @@ echo 'Pulsar native worker plugin loaded.'
 # Moderation ambiguity stays in manual review. Never suspend by AI alone.
 # SSO-created service moderator is not a Django user, cannot be used to log in,
 # and can act only through the native plugin. Pilot is a disposable normal user.
+# A failed previous rollout leaves only recorded disposable QA identities.
+# Reusing the same test account can trigger Discourse duplicate-topic and
+# new-user rate limits (HTTP 422). Remove only that exact SSO pilot identity
+# and its recorded test content before creating a fresh scoped fixture.
+# This never selects actual community users by pattern or email guess.
+if [ -f "$STATE" ]; then
+  rails /shared/graviquest-integration/pulsar-acceptance.rb cleanup
+  test ! -e "$STATE"
+  echo 'Stale, exact-ID disposable acceptance account safely cleaned.'
+fi
 rails /shared/graviquest-integration/pulsar-acceptance.rb bootstrap
 python3 - "$STATE" "$TOKEN" "$CONFIG" <<'PY'
 import datetime,json,os,sys
