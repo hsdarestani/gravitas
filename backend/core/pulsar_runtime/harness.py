@@ -118,12 +118,44 @@ class PulsarHarness:
                 if continuity_prefix
                 else user
             )
+            # Only the internal Forum moderation route requests structured
+            # output. All other Pulsar surfaces keep their existing contract.
+            model_options = {}
+            if invocation.surface == 'forum_moderation' and operation == 'moderation':
+                model_options['response_format'] = {
+                    'type': 'json_schema',
+                    'json_schema': {
+                        'type': 'object',
+                        'properties': {
+                            'decision': {
+                                'type': 'string',
+                                'enum': ['approve', 'review', 'reject'],
+                            },
+                            'reason': {
+                                'type': 'string',
+                                'enum': [
+                                    'ordinary_discussion', 'policy_uncertainty',
+                                    'targeted_threat', 'credential_solicitation',
+                                    'unsolicited_bulk_advertising',
+                                ],
+                            },
+                            'confidence': {
+                                'type': 'integer',
+                                'minimum': 0, 'maximum': 100,
+                            },
+                            'evidence': {'type': 'string', 'maxLength': 200},
+                        },
+                        'required': ['decision', 'reason', 'confidence', 'evidence'],
+                        'additionalProperties': False,
+                    },
+                }
             response = self.models.complete(
                 system=system,
                 user=effective_user,
                 max_tokens=max_tokens,
                 temperature=temperature,
                 tier=selection.tier,
+                **model_options,
             )
         except Exception as exc:
             fail_run(run, exc)
