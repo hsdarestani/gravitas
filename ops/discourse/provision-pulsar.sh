@@ -43,7 +43,10 @@ set -a
 set +a
 export PYTHONPATH=/opt/gravitas-backend DJANGO_SETTINGS_MODULE=gravitas_backend.settings
 runuser -u gravitas -- /opt/gravitas-backend/.venv/bin/python -c 'from core.pulsar_runtime import configured; assert configured(), "Pulsar provider unavailable"'
-echo 'Existing Pulsar model configured.'
+# The deployed backend must support Cloudflare JSON Schema requests. Without
+# this check a schema-only code change could silently be absent on the host.
+runuser -u gravitas -- /opt/gravitas-backend/.venv/bin/python -c 'import inspect; from core.pulsar_runtime.providers import ManagedCloudflareProvider; assert "response_format" in inspect.signature(ManagedCloudflareProvider.complete).parameters, "Pulsar structured provider not deployed"'
+echo 'Existing Pulsar model and structured moderation provider verified.'
 if ! docker exec -e RAILS_ENV=production -u discourse -w /var/www/discourse graviquest bundle exec ruby script/discourse backup --s3-uploads >/var/log/graviquest-pulsar-backup.log 2>&1; then
   echo 'Native backup failed; nothing changed.' >&2
   exit 1
