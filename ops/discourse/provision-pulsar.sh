@@ -98,6 +98,9 @@ echo 'Pulsar native worker plugin loaded.'
 # model routing threshold; explicit harmful content needs 98 and literal proof.
 # The Pulsar backend accepts bounded JSON/Python-style object literals but
 # validates the same exact four fields; do not bypass observe/apply QA.
+# A native scheduled job may finish an approval just after the synchronous
+# QA runner starts; the disposable-item verification now polls the audit and
+# approval state with a strict 45-second deadline.
 # Moderation ambiguity stays in manual review. Never suspend by AI alone.
 # SSO-created service moderator is not a Django user, cannot be used to log in,
 # and can act only through the native plugin. Pilot is a disposable normal user.

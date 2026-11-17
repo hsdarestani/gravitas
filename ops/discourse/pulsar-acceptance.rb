@@ -106,10 +106,25 @@ when "verify_observe", "verify_apply"
   check!(config && config[0]["mode"] == key, "worker configuration or mode mismatch")
   id = state.fetch("#{key}_id")
   item = ReviewableQueuedPost.find(id)
+  actor_id = User.find_by!(username: state.fetch("actor")).id
+  # The native scheduled worker can claim/process this exact disposable item
+  # concurrently with this synchronous acceptance runner. A one-shot read can
+  # falsely fail before the worker commits the audit note. Poll only this
+  # recorded item for at most 45 seconds; never alter existing user content or
+  # bypass the full observe/apply verification below.
   GraviQuestPulsarModeration.run
-  note = item.reviewable_notes.where(user_id: User.find_by!(username: state.fetch("actor")).id)
-    .where("content LIKE ?", "[GraviQuest Pulsar v1] version=% mode=#{key} %").last
-  check!(note, "native Pulsar decision and audit note missing")
+  note = nil
+  deadline = Process.clock_gettime(Process::CLOCK_MONOTONIC) + 45
+  loop do
+    item.reload
+    note = item.reviewable_notes.where(user_id: actor_id)
+      .where("content LIKE ?", "[GraviQuest Pulsar v1] version=% mode=#{key} %").order(id: :desc).first
+    break if note && (key == "observe" || item.approved? || note.content.include?("decision=review") ||
+      note.content.include?("decision=reject"))
+    break if Process.clock_gettime(Process::CLOCK_MONOTONIC) >= deadline
+    sleep 1
+  end
+  check!(note, "native Pulsar decision and audit note missing after bounded polling")
   check!(note.content.include?("decision=approve"), "safe candidate not confidently approved")
   if key == "observe"
     check!(item.reload.pending? && note.content.include?("applied=false"), "observe must not publish")
