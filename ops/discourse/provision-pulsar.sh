@@ -90,6 +90,9 @@ test "$READY" = true
 rails 'abort "Pulsar plugin not loaded" unless defined?(GraviQuestPulsarModeration)'
 echo 'Pulsar native worker plugin loaded.'
 
+# Three-way decision policy: ordinary science is allowed at an 85-point
+# model routing threshold; explicit harmful content needs 98 and literal proof.
+# Moderation ambiguity stays in manual review. Never suspend by AI alone.
 # SSO-created service moderator is not a Django user, cannot be used to log in,
 # and can act only through the native plugin. Pilot is a disposable normal user.
 rails /shared/graviquest-integration/pulsar-acceptance.rb bootstrap
@@ -130,6 +133,9 @@ assert d["mode"]=="apply" and d["pilot_author_ids"]
 d["categories"]=["open-question","ai-in-research","discovery","computable-universe",
  "corrections","propose-a-topic","lab-results","introductions"]
 d["production_members"]=True
+# Do not process historical pending comments from before this policy release.
+import datetime
+d["starts_at"]=datetime.datetime.now(datetime.timezone.utc).isoformat()
 with open(p,"w") as f:json.dump(d,f)
 PY
 rails 'c=GraviQuestPulsarModeration.config;abort "Public apply rollout was rejected" unless c && c[0]["production_members"] == true && c[0]["mode"] == "apply"'

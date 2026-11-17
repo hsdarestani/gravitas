@@ -138,7 +138,8 @@ after_initialize do
       config, cutoff, slugs, actor = self.config
       return unless config
       mode = config.fetch("mode")
-      scope = ReviewableQueuedPost.pending.where(created_at: cutoff..2.minutes.ago)
+      # Leave a short window for native staff decisions; the worker runs every minute.
+      scope = ReviewableQueuedPost.pending.where(created_at: cutoff..30.seconds.ago)
       unless config["production_members"] == true
         scope = scope.where(target_created_by_id: config.fetch("pilot_author_ids"))
       end
