@@ -41,6 +41,11 @@ class CourseInterestTests(TestCase):
         self.assertTrue(again.json()['already_confirmed'])
         self.assertEqual(len(mail.outbox), 1)
 
+    def test_a_skeptic_counts_too(self):
+        response = self.post(course='ai-in-research', level=0, email='doubter@example.com')
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(CourseInterest.objects.get().level, CourseInterest.Level.SKEPTICAL)
+
     def test_bad_token_says_so(self):
         response = self.client.get('/api/learn/interest/confirm/', {'token': 'nope'})
         self.assertEqual(response['Location'], 'https://graviquest.com/?interest=0#learn')
@@ -48,6 +53,7 @@ class CourseInterestTests(TestCase):
     def test_rejects_unknown_course_level_and_email(self):
         self.assertEqual(self.post(course='made-up', level=2, email='a@b.co').json()['error'], 'unknown_course')
         self.assertEqual(self.post(course='ai-in-research', level=9, email='a@b.co').json()['error'], 'invalid_level')
+        self.assertEqual(self.post(course='ai-in-research', level='lots', email='a@b.co').json()['error'], 'invalid_level')
         self.assertEqual(self.post(course='ai-in-research', level=2, email='nope').json()['error'], 'invalid_email')
         self.assertEqual(self.client.get(self.URL).status_code, 405)
         self.assertFalse(CourseInterest.objects.exists())

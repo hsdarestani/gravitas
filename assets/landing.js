@@ -27,7 +27,7 @@
 
 // Learn (03): "tell me when it opens", with a say in how keen.
 //
-// Three chips pick a level (1 Curious, 2 Keen, 3 Count me in; Keen is
+// Four chips pick a level (0 Skeptical, 1 Curious, 2 Keen, 3 Count me in; Keen is
 // preselected so the form never posts without one), and the email goes with
 // it to /api/learn/interest/. The server holds the address unconfirmed and
 // mails a link; until that link is followed nobody writes to it, which is why

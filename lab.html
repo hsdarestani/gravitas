@@ -80,7 +80,7 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
         <h1 class="g-display lp-hero__title" id="lab-title">Change <em>one thing</em>. Watch what follows.</h1>
         <p class="g-lead lp-hero__lede">The Lab holds models you can nudge and question, each one anchored to the scientific sources behind it.</p>
         <div class="g-cluster g-mt-lg">
-          <a class="g-btn g-btn--primary g-btn--lg" href="#labs">Browse Labs</a>
+          <a class="g-btn g-btn--primary g-btn--lg" href="#labs">See What&rsquo;s Coming</a>
           <a class="g-btn g-btn--secondary g-btn--lg" href="topics.html">Browse Topics</a>
         </div>
         <p class="lp-hero__fine">Runs right in your browser. Come as you are.</p>
@@ -102,7 +102,7 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
      one Lab by title, Open This Lab switched off, then what a Lab is. The
      title comes from the registry (landing.js, [data-lab-title]), never from
      this page. Keep the markup in step with chapter 02 of index.html. -->
-<section class="g-section lab-soon" aria-label="Lab, under construction">
+<section class="g-section lab-soon" id="labs" aria-label="Lab, under construction">
   <div class="g-container">
     <article class="g-card lp-soon rv" aria-labelledby="lp-lab-title">
       <div class="lp-soon__main">
@@ -123,12 +123,11 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
 </section>
 
 <!-- The published Labs ----------------------------------------------------
-     Under the hero is the list and nothing else, the same on every section
-     page. It comes from the registry (lab-studio.js), which fills
-     #lab-experiences and unhides it; with nothing published the page is the
-     hero alone. #labs is an empty marker for the hero's button, because a
-     link to a hidden element goes nowhere. -->
-<div id="labs"></div>
+     It comes from the registry (lab-studio.js), which fills
+     #lab-experiences and unhides it. Since 2026-11-17 the catalog is not
+     listed (CATALOG_PUBLIC in lab-studio.js); the element stays because a
+     direct ?lab=<slug> link still opens its Lab here. The hero button points
+     at the under-construction card, #labs. -->
 <div id="lab-experiences" hidden aria-live="polite"></div>
 
 </main>
@@ -161,11 +160,11 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
 <script src="assets/consent.js?v=20261102-lab-usage1" defer></script>
 <script src="assets/lab-usage.js?v=20261102-admin1" defer></script>
 <script src="assets/lab-learning-workspace.js?v=progressive-levels-20261110" defer></script>
-<script src="assets/lab-studio.js?v=guided-experiment-2" defer></script>
+<script src="assets/lab-studio.js?v=guided-experiment-3" defer></script>
 <script src="assets/gravitas-icons.js?v=20261014-pulsar1" defer></script>
 <script type="module">import { installSelects } from './assets/ws/ws-select.js?v=20261016-task1'; installSelects();</script>
 
-<script src="assets/landing.js?v=20261117-soon1" defer></script>
+<script src="assets/landing.js?v=20261117-soon2" defer></script>
 <script src="assets/production-bridge.js?v=20261117-forum4" defer></script>
 </body>
 </html>

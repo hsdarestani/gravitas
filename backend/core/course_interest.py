@@ -76,7 +76,7 @@ def course_interest(request):
     try:
         level = int(payload.get('level', CourseInterest.Level.KEEN))
     except (TypeError, ValueError):
-        level = 0
+        level = -1
     if course not in COURSES:
         return JsonResponse({'ok': False, 'error': 'unknown_course'}, status=400)
     if level not in CourseInterest.Level.values:
