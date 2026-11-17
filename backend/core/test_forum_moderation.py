@@ -84,6 +84,29 @@ class ForumModerationTests(TestCase):
         model.return_value = SimpleNamespace(text='Approved:\n' + value)
         self.assertEqual(self.send({**CANDIDATE, 'submission': '50:0'}).json()['decision'], 'review')
 
+    def test_model_python_style_object_is_normalized_without_execution(self, model, configured):
+        model.return_value = SimpleNamespace(text=(
+            "{'decision': 'approve', 'reason': 'ordinary_discussion', "
+            "'confidence': 92, 'evidence': ''}"
+        ))
+        self.assertEqual(self.send({**CANDIDATE, 'submission': '55:0'}).json()['decision'], 'approve')
+        model.return_value = SimpleNamespace(text=(
+            "{decision:'approve', reason:'ordinary_discussion', "
+            "confidence:90, evidence:''}"
+        ))
+        self.assertEqual(self.send({**CANDIDATE, 'submission': '56:0'}).json()['decision'], 'approve')
+        model.return_value = SimpleNamespace(text=(
+            "{decision:approve, reason:ordinary_discussion, "
+            "confidence:91, evidence:''}"
+        ))
+        self.assertEqual(self.send({**CANDIDATE, 'submission': '57:0'}).json()['decision'], 'approve')
+        # No eval: function calls are not literals and must stay manual review.
+        model.return_value = SimpleNamespace(text=(
+            "{'decision': __import__('os').getcwd(), "
+            "'reason': 'ordinary_discussion', 'confidence': 99, 'evidence': ''}"
+        ))
+        self.assertEqual(self.send({**CANDIDATE, 'submission': '58:0'}).json()['decision'], 'review')
+
     def test_rejection_requires_very_high_confidence_and_verbatim_body(self, model, configured):
         evidence = 'a clearly identifiable quote'
         self.response(model, 'reject', 'credential_solicitation', 97, evidence)
