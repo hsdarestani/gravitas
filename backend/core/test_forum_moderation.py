@@ -148,6 +148,18 @@ class ForumModerationStructuredOutputTests(TestCase):
         self.assertEqual(json.loads(result.text), payload)
         self.assertEqual(post.call_args.kwargs['json']['response_format'], schema)
 
+        # Workers AI can also return the schema object directly in result.
+        post.return_value = SimpleNamespace(
+            raise_for_status=lambda: None,
+            json=lambda: {'success': True, 'result': payload},
+        )
+        direct = gateway.complete(
+            system='Moderation system', user='Safe research question',
+            tier='general', temperature=0, max_tokens=260,
+            response_format=schema,
+        )
+        self.assertEqual(json.loads(direct.text), payload)
+
         gateway.complete(
             system='Other surface', user='Question',
             tier='general', temperature=0, max_tokens=100,
