@@ -10,6 +10,13 @@ import ast
 import subprocess
 import sys
 
+FORUM_NATIVE_OUT_OF_BAND = {
+    # Installed independently by the guarded, backup-first native Forum worker
+    # workflow; not part of the web/API runtime and must not pause Nextcloud.
+    'ops/discourse/provision-pulsar.sh',
+    'ops/discourse/pulsar-acceptance.rb',
+}
+
 HOT_RELOAD_API = {'backend/core/task_board_api.py', 'backend/core/research_task_api.py',
                   'backend/core/project_cockpit.py', 'backend/core/platform_access.py',
                   'backend/core/canonical_middleware.py',
