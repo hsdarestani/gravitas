@@ -397,7 +397,11 @@ def auth_google_callback(request):
         # The signed request was stored by the Forum endpoint before Google
         # login. Resume it on our own server; never use a visitor's next URL.
         return HttpResponseRedirect('/api/forum/resume/')
-    return HttpResponseRedirect(f'{settings.PUBLIC_BASE_URL}/workspace')
+    # Signing in lands in the Forum, not the workspace: the workspace is off
+    # the public site while it is rebuilt (2026-11-17) and opens only by its
+    # address. /api/forum/resume/ with nothing pending starts the Forum's own
+    # sign-in, so the member arrives there already signed in.
+    return HttpResponseRedirect('/api/forum/resume/')
 
 
 def auth_logout(request):

@@ -731,10 +731,10 @@
       '<article class="tq-room tq-room--main" data-room="' + SLUG + '"><div class="tq-room__body">' +
       '<p class="g-eyebrow g-eyebrow--bare">Main conversation</p>' +
       '<h3>' + esc(discussion.question || 'What would make you check an answer?') + '</h3>' +
-      '<div class="tq-room__live" data-room-live><p class="ta-empty">Checking the Forum&hellip;</p></div></div></article>' +
+      '<div class="tq-room__live" data-room-live><p class="ta-empty">Checking room&hellip;</p></div></div></article>' +
       (rooms.length ? '<div class="tq-rooms">' + rooms.map(function (room) {
         return '<article class="tq-room" id="room-' + esc(room.section || room.key) + '" data-room="' + esc(room.key) + '"><div class="tq-room__top"><span class="g-tag">' + esc(room.label || room.section || 'Room') + '</span></div>' +
-          '<h4>' + esc(room.question) + '</h4><div class="tq-room__live" data-room-live><p class="ta-empty">Checking the Forum&hellip;</p></div></article>';
+          '<h4>' + esc(room.question) + '</h4><div class="tq-room__live" data-room-live><p class="ta-empty">Checking room&hellip;</p></div></article>';
       }).join('') + '</div>' : ''));
     host.querySelectorAll('[data-room]').forEach(function (card) {
       var key = card.getAttribute('data-room');
@@ -752,8 +752,8 @@
       }).catch(function (error) {
         card.classList.add('is-closed');
         live.innerHTML = '<div class="tq-room__foot"><span class="tq-room__quiet">' +
-          (error && error.status === 404 ? 'This room opens with the Forum. It is not linked yet.' : 'The Forum could not be reached just now.') + '</span>' +
-          (main ? '<a class="g-btn g-btn--secondary g-btn--sm" href="/forum.html">Open the Forum</a>' : '') + '</div>';
+          (error && error.status === 404 ? 'This room isn’t linked to our Forum yet.' : 'Forum couldn’t be reached just now.') + '</span>' +
+          (main ? '<a class="g-btn g-btn--secondary g-btn--sm" href="/forum.html">Open Forum</a>' : '') + '</div>';
       });
     });
     /* "Discuss the videos" and its kind point at a room by its section. */

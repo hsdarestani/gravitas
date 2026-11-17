@@ -93,15 +93,24 @@
      static href is the signed-out one, so a page whose session answer never
      arrives still sends the click somewhere that works, and a member who
      clicks before it arrives is moved on by the account page below. */
-  function setWorkspaceLink(signedIn) {
-    [].forEach.call(document.querySelectorAll('[data-workspace-link]'), function (link) {
-      link.href = signedIn ? '/workspace' : '/signup';
-      link.setAttribute('aria-label', signedIn ? 'Open your workspace' : 'Create your free workspace');
+  /* Since 2026-11-17 the control is Join Us, and a member's destination is
+     the Forum. The workspace left the public site that day while it is
+     rebuilt: nothing links to it, and it opens only by its address, the way
+     the brand book does. Signed in, the label becomes Forum and the link
+     starts the Forum's sign-in through our own server, so the member lands
+     there already signed in. */
+  var FORUM_HOME = '/api/forum/resume/';
+  function setAccountLink(signedIn) {
+    [].forEach.call(document.querySelectorAll('[data-account-link]'), function (link) {
+      link.href = signedIn ? FORUM_HOME : '/signup';
+      link.setAttribute('aria-label', signedIn ? 'Open the Forum' : 'Create your free account');
+      var label = link.querySelector('span');
+      if (label) label.textContent = signedIn ? 'Forum' : 'Join Us';
     });
   }
 
   function markAccount(email) {
-    setWorkspaceLink(true);
+    setAccountLink(true);
     var note = document.querySelector('.auth__note[data-form-note]');
     if (note && email) note.textContent = 'Signed in as ' + email + '.';
   }
@@ -144,15 +153,15 @@
      confirmed, and the confirmation link lands on the sign-in tab. Usually in
      another tab, from a mail client, so the address typed at sign-up is kept
      in this browser until that sign-in, and the form arrives filled with it.
-     Sign-in then goes to the workspace, which closes the loop the header's
-     Workspace button opened. */
+     Sign-in then goes to the Forum, which closes the loop the header's
+     Join Us button opened. */
   var PENDING_EMAIL = 'gq-pending-signup-email';
 
   var authStatus = document.getElementById('auth-status');
   if (authStatus) {
     if (params.get('email_verified') === '1') {
       authStatus.hidden = false;
-      authStatus.innerHTML = '<h3 style="margin-top:0">Email confirmed</h3><p>Your email is verified. Sign in to open your workspace.</p>';
+      authStatus.innerHTML = '<h3 style="margin-top:0">Email confirmed</h3><p>Your email is verified. Sign in and join the conversation.</p>';
       if (history.replaceState) history.replaceState({}, '', '/login');
       window.setTimeout(function () { location.hash = 'in'; }, 0);
       var pending = '';
@@ -230,12 +239,11 @@
       }).then(function (data) {
         try { localStorage.removeItem(PENDING_EMAIL); } catch (err) {}
         markAccount(data.user && data.user.email);
-        setNote(form, 'Welcome back. Opening your workspace…');
+        setNote(form, 'Welcome back. Opening the Forum…');
         return adoptReaderLibrary().then(function (adopted) {
-          if (adopted) setNote(form, 'Signed in. Your saved items came with you — opening your library…');
+          if (adopted) setNote(form, 'Signed in. Your saved items came with you. Opening the Forum…');
           window.setTimeout(function () {
-            location.href = /(?:^|;\s*)gq_forum_continue=1(?:;|$)/.test(document.cookie)
-              ? '/api/forum/resume/' : (adopted ? '/workspace/kms/library' : '/workspace');
+            location.href = FORUM_HOME;
           }, 250);
         });
       });
@@ -337,17 +345,17 @@
       markAccount(data.user && data.user.email);
       // A member on the create-account tab has nothing to do there, and is
       // usually one who pressed Workspace before this answer re-pointed it.
-      // Sent on to the workspace, as a sign-in would be. The reset and
+      // Sent on to the Forum, as a sign-in would be. The reset and
       // sign-in tabs are left alone: those are reached on purpose.
       var signupPanel = document.getElementById('p-up');
       var onSignup = signupPanel && !signupPanel.hidden && !resetUid && !params.get('email_verified');
       // Any page load is a chance to finish a handover that failed earlier, and
       // for a reader who signed in on another tab it is the only chance.
       adoptReaderLibrary().then(function (adopted) {
-        if (onSignup) location.replace(adopted ? '/workspace/kms/library' : '/workspace');
+        if (onSignup) location.replace(FORUM_HOME);
         else libPaint();
       }).catch(function () {
-        if (onSignup) location.replace('/workspace');
+        if (onSignup) location.replace(FORUM_HOME);
       });
     } else {
       readerSignedOut();
@@ -372,7 +380,7 @@
 
   if (params.get('email_verified') === '1') {
     var ev1 = document.querySelector('[data-form-note]');
-    if (ev1) ev1.textContent = 'Email confirmed, and welcome in. Sign in to open your workspace.';
+    if (ev1) ev1.textContent = 'Email confirmed, and welcome in. Sign in to join the conversation.';
   } else if (params.get('email_verified') === '0') {
     var ev0 = document.querySelector('[data-form-note]');
     if (ev0) ev0.textContent = 'That account confirmation link is invalid or has expired.';
@@ -449,7 +457,6 @@
   var LIB_KEY = 'gravitas.reader.v1';
   var LIB_MIRROR = 'gravitas.reader.mirror.v1';
   var LIB_API = '/api/reader/library/';
-  var LIB_HOME = '/workspace/kms/library';
 
   /* Slug prefix → what kind of thing it is. Also the whitelist: a link whose
      slug starts with none of these gets no save control. */
@@ -927,7 +934,7 @@
       return;
     }
     if (libAuthed) {
-      note.textContent = 'Kept in your Knowledge workspace.';
+      note.textContent = 'Kept with your account.';
       return;
     }
     var count = libCount();
@@ -1239,11 +1246,8 @@
     if (!libAuthKnown) return;
 
     if (libAuthed) {
-      var open = document.createElement('a');
-      open.className = 'g-btn g-btn--primary g-btn--sm rl-cta';
-      open.href = LIB_HOME;
-      open.textContent = 'Open in your workspace';
-      foot.append(open);
+      // No way into the workspace from here while it is off the public site
+      // (2026-11-17); the saved list is the whole of the drawer.
       var kept = document.createElement('p');
       kept.className = 'rl-foot__note';
       kept.textContent = 'Saved to your account. It follows you to any device you sign in on.';
@@ -1317,7 +1321,7 @@
      authenticated-as-nobody answer drops the mirror and falls back to whatever
      guest pile this browser has of its own. */
   function readerSignedOut() {
-    setWorkspaceLink(false);
+    setAccountLink(false);
     libAuthed = false;
     libAuthKnown = true;
     var mirror = false;

@@ -242,7 +242,7 @@ class GoogleOAuthFlowTests(TestCase):
             {'code': 'authorization-code', 'state': state},
         )
         self.assertEqual(callback.status_code, 302)
-        self.assertEqual(callback['Location'], 'https://graviquest.com/workspace')
+        self.assertEqual(callback['Location'], '/api/forum/resume/')
 
         user = User.objects.get(email='google-new@gravitas.test')
         self.assertFalse(user.has_usable_password())

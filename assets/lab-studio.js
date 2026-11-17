@@ -769,7 +769,7 @@ function showCatalog(){
       question.append(node('span','','The question'),document.createTextNode('Does faster research lead to more reliable knowledge?'));
       body.append(question);
     }
-    var cta=node('span','lab-card-cta');cta.innerHTML='<span>Preview the Lab</span>'+icon('arrow');body.append(cta);
+    var cta=node('span','lab-card-cta');cta.innerHTML='<span>Preview Lab</span>'+icon('arrow');body.append(cta);
     card.append(body);
     card.addEventListener('click',function(e){
       if(e.metaKey||e.ctrlKey||e.shiftKey||e.button!==0)return;

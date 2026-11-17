@@ -1,5 +1,14 @@
 from django.contrib import admin
 from .forum_models import ForumDiscussion
+from .models import CourseInterest
+
+
+@admin.register(CourseInterest)
+class CourseInterestAdmin(admin.ModelAdmin):
+    list_display = ('email', 'course', 'level', 'confirmed', 'created_at')
+    list_filter = ('course', 'level', 'confirmed')
+    search_fields = ('email',)
+    readonly_fields = ('created_at', 'updated_at', 'confirmation_sent_at')
 
 
 @admin.register(ForumDiscussion)

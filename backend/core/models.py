@@ -977,3 +977,35 @@ class TopicEssayReaction(models.Model):
             models.UniqueConstraint(fields=['essay', 'voter_key'], name='unique_topic_essay_reaction_voter'),
         ]
         indexes = [models.Index(fields=['essay', 'value'], name='topic_essay_reaction_value')]
+
+
+class CourseInterest(models.Model):
+    """One reader's wish for a course that is not open yet.
+
+    The landing page's Learn chapter lets a visitor say how keen they are on
+    a course and leave an email to hear when it opens. The email is held as
+    unconfirmed until the link sent to it is followed, so an address typed by
+    someone else never lands on a launch list. The course is a slug from the
+    fixed catalogue in `course_interest.COURSES`, not a foreign key: courses
+    still being built have no row anywhere else to point at.
+    """
+
+    class Level(models.IntegerChoices):
+        CURIOUS = 1, 'Curious'
+        KEEN = 2, 'Keen'
+        ALL_IN = 3, 'Count me in'
+
+    course = models.SlugField(max_length=80)
+    email = models.EmailField()
+    level = models.PositiveSmallIntegerField(choices=Level.choices, default=Level.KEEN)
+    confirmed = models.BooleanField(default=False)
+    confirmation_sent_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        constraints = [models.UniqueConstraint(fields=('course', 'email'), name='course_interest_once')]
+
+    def __str__(self):
+        return f'{self.email} · {self.course}'

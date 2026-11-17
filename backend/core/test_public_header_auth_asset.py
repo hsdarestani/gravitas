@@ -9,15 +9,25 @@ LOADER = ROOT / 'assets' / 'production-bridge.js'
 
 
 class PublicHeaderAuthAssetTests(SimpleTestCase):
-    def test_header_workspace_link_follows_the_session(self):
+    def test_header_account_link_follows_the_session(self):
+        # Since 2026-11-17 the header's one account control is Join Us, and a
+        # signed-in member is sent to the Forum: the workspace is off the
+        # public site and opens only by its address.
         source = BRIDGE.read_text(encoding='utf-8')
-        self.assertIn("function setWorkspaceLink(signedIn)", source)
-        self.assertIn("document.querySelectorAll('[data-workspace-link]')", source)
-        self.assertIn("link.href = signedIn ? '/workspace' : '/signup';", source)
-        self.assertIn("setWorkspaceLink(true);", source)
-        self.assertIn("setWorkspaceLink(false);", source)
+        self.assertIn("function setAccountLink(signedIn)", source)
+        self.assertIn("document.querySelectorAll('[data-account-link]')", source)
+        self.assertIn("link.href = signedIn ? FORUM_HOME : '/signup';", source)
+        self.assertIn("var FORUM_HOME = '/api/forum/resume/';", source)
+        self.assertIn("setAccountLink(true);", source)
+        self.assertIn("setAccountLink(false);", source)
 
-    def test_public_headers_carry_one_workspace_control(self):
+    def test_sign_in_never_lands_in_the_workspace(self):
+        for path in (BRIDGE, ROOT / 'assets' / 'site.js'):
+            source = path.read_text(encoding='utf-8')
+            self.assertNotIn("'/workspace'", source, path.name)
+            self.assertNotIn('/workspace/kms/library', source, path.name)
+
+    def test_public_headers_carry_one_account_control(self):
         headers = []
         for path in ROOT.glob('*.html'):
             source = path.read_text(encoding='utf-8')
@@ -26,14 +36,24 @@ class PublicHeaderAuthAssetTests(SimpleTestCase):
             headers.append(path.name)
             self.assertNotIn('gh-signin', source, path.name)
             self.assertNotIn('gh-nav-signin', source, path.name)
-            self.assertEqual(source.count('data-workspace-link'), 2, path.name)
-            self.assertIn('href="/signup" aria-label="Create your free workspace" data-workspace-link', source)
+            self.assertNotIn('data-workspace-link', source, path.name)
+            self.assertEqual(source.count('data-account-link'), 2, path.name)
+            self.assertIn('href="/signup" aria-label="Create your free account" data-account-link', source)
         self.assertTrue(headers)
+
+    def test_public_pages_do_not_link_to_the_workspace(self):
+        linked = []
+        for path in ROOT.glob('*.html'):
+            if path.name in ('workspace.html', 'GraviQuest Redesign.html'):
+                continue
+            source = path.read_text(encoding='utf-8')
+            if 'href="/workspace' in source or 'href="workspace.html' in source:
+                linked.append(path.name)
+        self.assertEqual(linked, [])
 
     def test_public_auth_bridge_loader_is_cache_busted(self):
         source = LOADER.read_text(encoding='utf-8')
-        self.assertIn('/assets/production-bridge-core.js?v=20261108-forum2', source)
-
+        self.assertIn('/assets/production-bridge-core.js?v=20261117-forum3', source)
 
     def test_public_pages_reference_current_auth_loader_version(self):
         stale = []
@@ -43,7 +63,7 @@ class PublicHeaderAuthAssetTests(SimpleTestCase):
             if 'production-bridge.js' not in source:
                 continue
             referenced.append(path.name)
-            if 'production-bridge.js?v=20261108-forum2' not in source:
+            if 'production-bridge.js?v=20261117-forum3' not in source:
                 stale.append(path.name)
 
         self.assertTrue(referenced)

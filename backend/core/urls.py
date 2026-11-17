@@ -256,6 +256,7 @@ from core.views import (
     password_reset_request,
 )
 
+from .course_interest import course_interest, course_interest_confirm
 from .lab_learning import lab_access, lab_conversation, lab_scenario_comparison
 from .lab_usage import lab_usage, admin_lab_usage, admin_usage_visits, admin_usage_visit, admin_usage_saved
 
@@ -282,6 +283,8 @@ urlpatterns = [
     path('content/media/<str:name>/', topic_media),
     path('newsletter/subscribe/', newsletter_subscribe),
     path('newsletter/confirm/', newsletter_confirm),
+    path('learn/interest/', course_interest),
+    path('learn/interest/confirm/', course_interest_confirm),
     path('auth/csrf/', auth_csrf),
     path('auth/signup/', auth_signup),
     path('auth/login/', auth_login),

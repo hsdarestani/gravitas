@@ -21,8 +21,14 @@
     return Number.isNaN(date.getTime()) ? '' : date.toLocaleDateString('en-GB', {day:'numeric', month:'short', year:'numeric'});
   }
 
+  // Published LMS courses run inside the workspace, and every card this drew
+  // linked to /workspace/learning/courses/<id>. The workspace left the public
+  // site on 2026-11-17 and opens only by its address, so the cards stay out
+  // until it returns; flip WORKSPACE_PUBLIC back on then.
+  var WORKSPACE_PUBLIC = false;
+
   function learn() {
-    if (location.pathname !== '/learn.html') return;
+    if (!WORKSPACE_PUBLIC || location.pathname !== '/learn.html') return;
     var grid = document.querySelector('.g-grid.g-grid--2');
     if (!grid) return;
     getJson('/api/lms/courses/').then(function (data) {

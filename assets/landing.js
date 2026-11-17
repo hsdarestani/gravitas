@@ -1,110 +1,116 @@
-// The workspace window on the home page (chapter 04).
+// The home page's two chapters that are still being built: Lab (02) and
+// Learn (03). Both have been shown as under construction since 2026-11-17, at
+// the owner's request, while lab.html and learn.html keep their own heroes.
 //
-// It was a still picture: a frame, aria-hidden, that showed one page and
-// nothing else. A visitor's first instinct with anything that looks like a
-// window is to click it, and a picture that ignores the click reads as a
-// broken app rather than as an illustration. So the rail is a real tablist
-// and the four spaces are real panels, which is also the honest way to say
-// "there are four places in here" without a paragraph explaining it.
-//
-// It is deliberately not a demo of the workspace. Nothing here fetches,
-// stores or pretends to save; switching a panel is the whole of it, and the
-// content of every panel is the public Topic's own material. All four panels
-// sit in one grid cell, so the window keeps the height of its tallest view
-// and does not jump as the visitor clicks through it. Without this script
-// the markup already shows Research, so nothing breaks; it just stays put.
+// The workspace window that used to open this file (chapter 04, a tablist
+// over four illustrated spaces) left with the chapter the same day: the
+// workspace is off the public site and opens only by its address. It is in
+// git history at 4576ac56 if the chapter returns.
+
+// Lab (02). The card shows one Lab by title and nothing else, and that title
+// comes from the registry and nowhere else: which experiments exist is not
+// this page's to decide, and a hard-coded name would outlive the Lab it named.
+// The first Lab the registry marks ready wins. Nothing published, a failed
+// request or a missing route leaves the placeholder title in the markup,
+// which is written to stand on its own.
 (function () {
-  var frame = document.querySelector('.lp-ws__frame');
-  if (!frame) return;
-  var tabs = Array.prototype.slice.call(frame.querySelectorAll('[role="tab"]'));
-  var title = frame.querySelector('[data-ws-title]');
-
-  function show(key, focus) {
-    tabs.forEach(function (t) {
-      var on = t.getAttribute('data-ws') === key;
-      t.setAttribute('aria-selected', on ? 'true' : 'false');
-      t.tabIndex = on ? 0 : -1;
-      var panel = document.getElementById(t.getAttribute('aria-controls'));
-      if (panel) panel.classList.toggle('is-on', on);
-      if (on) {
-        if (title) title.textContent = t.textContent.trim();
-        if (focus) t.focus();
-      }
-    });
-  }
-
-  frame.addEventListener('click', function (e) {
-    var t = e.target.closest('[data-ws], [data-ws-go]');
-    if (!t || !frame.contains(t)) return;
-    var go = t.getAttribute('data-ws-go');
-    // A jump from inside a panel moves focus to the tab it lands on, so a
-    // keyboard user is not left on a button that has just been hidden.
-    show(go || t.getAttribute('data-ws'), !!go);
-  });
-
-  // Roving tabindex, as a vertical tablist expects: one stop for the whole
-  // rail, arrows to move along it. Left and right work too, because on a
-  // phone the rail lies across the top of the window.
-  frame.querySelector('[role="tablist"]').addEventListener('keydown', function (e) {
-    var i = tabs.indexOf(document.activeElement);
-    if (i < 0) return;
-    var n = tabs.length, next = null;
-    if (e.key === 'ArrowDown' || e.key === 'ArrowRight') next = (i + 1) % n;
-    else if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') next = (i - 1 + n) % n;
-    else if (e.key === 'Home') next = 0;
-    else if (e.key === 'End') next = n - 1;
-    if (next === null) return;
-    e.preventDefault();
-    show(tabs[next].getAttribute('data-ws'), true);
-  });
-})();
-
-// The Lab chapter (02). The cards come from the registry and nowhere else:
-// the Lab is a space for every Topic, its experiences are not ours to name on
-// this page, and a hard-coded card would outlive the Lab it described. Only
-// Labs the registry marks ready are drawn, as on lab.html. Nothing published,
-// a failed request or a missing route leaves the list hidden and says nothing,
-// because the chapter's copy, steps and button already stand on their own.
-// Thumbnails follow the Lab page's naming, <slug>-preview.webp and
-// <slug>-preview-light.webp; one that fails to load removes its frame.
-(function () {
-  var list = document.querySelector('[data-lab-list]');
-  if (!list || !window.fetch) return;
-  function el(tag, cls, text) {
-    var n = document.createElement(tag);
-    if (cls) n.className = cls;
-    if (text != null) n.textContent = String(text);
-    return n;
-  }
-  function thumb(slug, suffix, cls) {
-    var img = el('img', cls);
-    img.src = 'assets/thumbnails/' + encodeURIComponent(slug) + '-preview' + suffix + '.webp';
-    img.alt = ''; img.width = 1280; img.height = 720; img.loading = 'lazy'; img.decoding = 'async';
-    return img;
-  }
+  var title = document.querySelector('[data-lab-title]');
+  if (!title || !window.fetch) return;
   fetch('/api/labs/', { credentials: 'same-origin', cache: 'no-store' })
     .then(function (r) { if (!r.ok) throw new Error('registry'); return r.json(); })
     .then(function (data) {
-      var labs = (Array.isArray(data && data.labs) ? data.labs : []).filter(function (l) { return l && l.ready && l.slug; });
-      if (!labs.length) return;
-      labs.forEach(function (lab) {
-        var card = el('a', 'g-card g-card--interactive lp-lab');
-        card.href = 'lab.html?lab=' + encodeURIComponent(lab.slug);
-        var media = el('span', 'lp-lab__media');
-        var dark = thumb(lab.slug, '', 'lp-lab__img--dark');
-        var light = thumb(lab.slug, '-light', 'lp-lab__img--light');
-        dark.onerror = function () { media.remove(); card.style.gridTemplateColumns = '1fr'; };
-        light.onerror = function () { light.remove(); };
-        media.append(dark, light);
-        var body = el('span', 'lp-lab__body');
-        body.append(el('span', 'lp-lab__k', 'Interactive model' + (lab.duration_text ? ' \u00b7 ' + lab.duration_text : '')));
-        body.append(el('h3', '', lab.title || 'Lab'));
-        if (lab.summary) body.append(el('p', '', lab.summary));
-        body.append(el('span', 'lp-lab__go', 'Preview the Lab \u2192'));
-        card.append(media, body);
-        list.append(card);
-      });
-      list.hidden = false;
+      var lab = (Array.isArray(data && data.labs) ? data.labs : []).filter(function (l) { return l && l.ready && l.title; })[0];
+      if (lab) title.textContent = String(lab.title);
     })
     .catch(function () {});
+})();
+
+// Learn (03): "tell me when it opens", with a say in how keen.
+//
+// Three chips pick a level (1 Curious, 2 Keen, 3 Count me in; Keen is
+// preselected so the form never posts without one), and the email goes with
+// it to /api/learn/interest/. The server holds the address unconfirmed and
+// mails a link; until that link is followed nobody writes to it, which is why
+// the success line asks the visitor to check their inbox rather than saying
+// they are on the list. The link comes back here with ?interest=1 or
+// ?interest=0, and the note says which.
+//
+// The POST needs Django's CSRF cookie, fetched first from /api/auth/csrf/, the
+// same way production-bridge-core.js does for sign-in.
+(function () {
+  var form = document.querySelector('[data-course-interest]');
+  if (!form) return;
+  var note = form.querySelector('[data-wish-note]');
+  var input = form.querySelector('input[type="email"]');
+  var submit = form.querySelector('button[type="submit"]');
+  var chips = Array.prototype.slice.call(form.querySelectorAll('[data-level]'));
+  var resting = note.textContent;
+
+  function level() {
+    var on = chips.filter(function (c) { return c.getAttribute('aria-pressed') === 'true'; })[0];
+    return on ? Number(on.getAttribute('data-level')) : 2;
+  }
+  function say(text, bad) {
+    note.textContent = text;
+    note.classList.toggle('is-bad', !!bad);
+  }
+  function cookie(name) {
+    var m = document.cookie.match(new RegExp('(?:^|;\s*)' + name + '=([^;]*)'));
+    return m ? decodeURIComponent(m[1]) : '';
+  }
+
+  chips.forEach(function (chip) {
+    chip.addEventListener('click', function () {
+      chips.forEach(function (c) { c.setAttribute('aria-pressed', c === chip ? 'true' : 'false'); });
+    });
+  });
+
+  var params = new URLSearchParams(location.search);
+  if (params.get('interest') === '1') say('Confirmed. Your spot is saved, and we\u2019ll write once it opens.');
+  else if (params.get('interest') === '0') say('That link has expired. Leave your email again and we\u2019ll send a fresh one.', true);
+  if (params.has('interest') && history.replaceState) history.replaceState({}, '', location.pathname + '#learn');
+
+  form.addEventListener('submit', function (e) {
+    e.preventDefault();
+    var email = input.value.trim();
+    if (!email || !input.checkValidity()) {
+      input.setAttribute('aria-invalid', 'true');
+      say('That email doesn\u2019t look quite right.', true);
+      input.focus();
+      return;
+    }
+    input.removeAttribute('aria-invalid');
+    submit.disabled = true;
+    say('Saving your spot\u2026');
+    fetch('/api/auth/csrf/', { credentials: 'same-origin', headers: { Accept: 'application/json' } })
+      .then(function () {
+        return fetch('/api/learn/interest/', {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: { Accept: 'application/json', 'Content-Type': 'application/json',
+                     'X-CSRFToken': cookie('csrftoken') || cookie('gravitas_staging_csrftoken') },
+          body: JSON.stringify({ course: form.getAttribute('data-course'), level: level(), email: email })
+        });
+      })
+      .then(function (r) {
+        return r.json().catch(function () { return {}; }).then(function (data) {
+          if (!r.ok || !data.ok) throw data;
+          return data;
+        });
+      })
+      .then(function (data) {
+        if (data.already_confirmed) say('You\u2019re already on the list. We\u2019ve noted how keen you are.');
+        else say('Almost there: check your inbox and confirm, and your spot is saved.');
+        input.value = '';
+      })
+      .catch(function (err) {
+        var code = err && err.error;
+        if (code === 'invalid_email') say('That email doesn\u2019t look quite right.', true);
+        else say('We couldn\u2019t save that just now. Please try again in a moment.', true);
+      })
+      .then(function () {
+        submit.disabled = false;
+        if (!note.classList.contains('is-bad') && !note.textContent) say(resting);
+      });
+  });
 })();
