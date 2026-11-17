@@ -210,6 +210,10 @@ class ManagedCloudflareProvider:
         usage = payload.get('usage') if isinstance(payload.get('usage'), dict) else {}
         if isinstance(result, dict):
             answer = result.get('response') or result.get('text') or result.get('answer')
+            if response_format is not None and answer is None:
+                # Workers AI may put schema-validated fields directly under
+                # result instead of nesting them in response/text/answer.
+                answer = result
             if isinstance(result.get('usage'), dict):
                 usage = result.get('usage')
         else:
