@@ -93,7 +93,7 @@ def model_decision(candidate):
     if (type(confidence) is not int or not 0 <= confidence <= 100
             or not isinstance(evidence, str) or len(evidence) > 200):
         return 'review', 'policy_uncertainty'
-    if (action == 'approve' and reason == 'ordinary_discussion'
+    if (action == 'approve' and reason == 'ordinary_discussion' and evidence == ''
             and confidence >= APPROVE_MIN_CONFIDENCE):
         return 'approve', 'ordinary_discussion'
     if (action == 'reject' and reason in PROHIBITED
