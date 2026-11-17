@@ -1064,8 +1064,25 @@ try:
  reason=obj.get("reason")
  safe=lambda value,choices: value if type(value) is str and value in choices else "other"
  shape=("json" if raw.strip().startswith("{") else "fenced_json" if raw.strip().startswith(chr(96)*3) else "other")
+ error_kind="none"
+ error_position=-1
+ trailing_after_first_object=-1
+ try:
+  json.loads(raw)
+ except json.JSONDecodeError as exc:
+  error_kind=exc.msg.lower().replace(" ","_")[:60]
+  error_position=exc.pos
+ try:
+  _,end=json.JSONDecoder().raw_decode(raw.strip())
+  trailing_after_first_object=len(raw.strip())-end
+ except ValueError:
+  pass
  print("PULSAR_ENVELOPE "+json.dumps({
   "shape":shape,"parsed":bool(obj),"keys":sorted(str(k) for k in obj)[:12],
+  "raw_chars":len(raw),"raw_lines":len(raw.splitlines()),
+  "raw_ends_brace":raw.strip().endswith("}"),
+  "parse_error_kind":error_kind,"parse_error_position":error_position,
+  "trailing_chars_after_object":trailing_after_first_object,
   "decision":safe(decision,{"approve","review","reject"}),
   "reason":safe(reason,{"ordinary_discussion","policy_uncertainty","targeted_threat","credential_solicitation","unsolicited_bulk_advertising"}),
   "confidence_type":type(confidence).__name__,
