@@ -60,6 +60,10 @@ export default apiInitializer((api) => {
   api.renderInOutlet("discovery-navigation-bar-above", ForumHome);
   api.renderInOutlet("topic-above-post-stream", ThreadBreadcrumb);
   api.renderInOutlet("below-footer", Footer);
+  // Every thread in a room shows one line of its opening post, as in the
+  // approved prototype; Discourse draws that line for pinned threads only.
+  // rooms.rb turns on the setting that sends the excerpt for every thread.
+  api.registerValueTransformer("topic-list-item-expand-pinned", () => true);
   api.registerValueTransformer("topic-reply-count", ({ value }) =>
     Number.isInteger(value) ? Math.max(0, value) : 0
   );

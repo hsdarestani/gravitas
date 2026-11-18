@@ -2200,7 +2200,7 @@ html body .gq-footer .g-footer__grid{display:grid;grid-template-columns:2fr 1fr 
 html body .gq-footer p{margin:.75rem 0 0;max-width:30ch;font-size:.8125rem;line-height:1.6;color:var(--g-text-subtle)}
 html body .gq-footer .g-footer__heading{margin:0 0 .75rem;font:600 .75rem/1 "DM Sans",sans-serif;letter-spacing:.12em;text-transform:uppercase;color:var(--g-text)}
 html body .gq-footer .g-stack{display:flex;flex-direction:column;gap:.5rem}
-html body .gq-footer .g-stack a{display:inline-flex;align-items:center;gap:.5rem;font-size:.875rem;color:var(--g-text-muted)}
+html body .gq-footer .g-stack>:is(a,span){display:inline-flex;align-items:center;gap:.5rem;font-size:.875rem;color:var(--g-text-muted)}
 html body .gq-footer a:hover{color:var(--g-text)}
 html body .gq-footer .g-ic{width:1rem;height:1rem;flex:none}
 html body .gq-footer .g-soon{margin-left:.25rem;padding:.1rem .45rem;border:1px solid var(--g-hairline);border-radius:99px;font:500 .625rem/1.4 "DM Mono",monospace;text-transform:uppercase;color:var(--g-text-subtle)}
@@ -2210,3 +2210,4 @@ html body .gq-footer .lp-social__link svg{width:1rem;height:1rem}
 html body .gq-footer .g-footer__legal{display:flex;flex-wrap:wrap;justify-content:space-between;gap:1rem;margin-top:3rem;padding-top:1.5rem;border-top:1px solid var(--g-hairline);font-size:.8125rem;color:var(--g-text-subtle)}
 html body .gq-footer .g-footer__fine a{margin-left:.9rem;color:var(--g-text)}
 @media (max-width:760px){html body .gq-footer .g-footer__grid{grid-template-columns:1fr 1fr}html body .gq-footer .g-footer__grid>div:first-child{grid-column:1/-1}}
+html body .gq-footer .g-stack>span>span:not(.g-soon){font-size:.875rem}
