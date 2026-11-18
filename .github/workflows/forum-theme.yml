@@ -13,13 +13,19 @@ jobs:
   theme:
     if: github.repository == 'hsdarestani/gravitas' && (github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[deploy-forum-theme]'))
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    # 2026-11-18: the browser install below hung for the whole 15 minutes
+    # (it usually takes under a minute), so the run was cancelled before the
+    # theme step. The install now has its own limit and the job more room, so
+    # a stuck install fails fast with its own name and a normal run still has
+    # time to apply the theme and test three browsers.
+    timeout-minutes: 25
     concurrency:
       group: gravitas-production
       cancel-in-progress: false
     steps:
       - uses: actions/checkout@v4
       - name: Assemble theme and install browser dependencies
+        timeout-minutes: 10
         run: |
           set -euo pipefail
           ruby -c ops/discourse/deploy_theme.rb
