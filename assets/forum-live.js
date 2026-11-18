@@ -247,7 +247,7 @@
           if (host.closest('[data-forum-topic]')) replaceLegacyWriter(host, key);
         }).catch(function () {
           failure(host, load, 'This conversation is not available here yet.');
-          host.append(link('Open the Forum', '/forum.html'));
+          host.append(link('Open the Forum', 'https://forum.graviquest.com/'));
         });
       }
       load();

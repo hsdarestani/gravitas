@@ -80,4 +80,10 @@ rooms = spec.fetch("rooms").map do |room|
 end
 
 SiteSetting.default_navigation_menu_categories = rooms.map(&:id).join("|")
+# Each thread in a room shows one line of its opening post, as the approved
+# prototype does (2026-11-18). Discourse sends excerpts only for pinned threads
+# unless this hidden setting is on; a Discourse without it keeps its default.
+if SiteSetting.respond_to?(:always_include_topic_excerpts=) && !SiteSetting.always_include_topic_excerpts
+  SiteSetting.always_include_topic_excerpts = true
+end
 puts "GraviQuest rooms in step with forum_rooms.json: #{rooms.map(&:slug).join(', ')}"

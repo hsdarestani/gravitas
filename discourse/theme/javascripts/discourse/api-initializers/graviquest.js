@@ -3,6 +3,7 @@ import I18n from "discourse-i18n";
 import Navigation from "../components/graviquest/navigation";
 import ForumHome from "../components/graviquest/forum-home";
 import ThemeToggle from "../components/graviquest/theme-toggle";
+import Footer from "../components/graviquest/footer";
 
 import { ThreadBreadcrumb } from "../components/graviquest/thread-details";
 
@@ -58,6 +59,7 @@ export default apiInitializer((api) => {
   api.headerIcons.add("gq-theme", ThemeToggle, { before: "hamburger" });
   api.renderInOutlet("discovery-navigation-bar-above", ForumHome);
   api.renderInOutlet("topic-above-post-stream", ThreadBreadcrumb);
+  api.renderInOutlet("below-footer", Footer);
   api.registerValueTransformer("topic-reply-count", ({ value }) =>
     Number.isInteger(value) ? Math.max(0, value) : 0
   );

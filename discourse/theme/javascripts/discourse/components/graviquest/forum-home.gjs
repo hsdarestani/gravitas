@@ -21,6 +21,12 @@ import DRelativeDate from "discourse/ui-kit/d-relative-date";
 
 const ROOMS = ["about-the-forum", "about-graviquest", "ai-in-research"];
 
+// A Topic's room links back to its published page (forum_rooms.json topic_url),
+// as the approved prototype's "Open the Topic" button does.
+const TOPIC_PAGES = {
+  "ai-in-research": "https://graviquest.com/topic-answer-that-looked-right.html",
+};
+
 export default class GraviQuestForumHome extends Component {
   @service site;
   @service currentUser;
@@ -33,6 +39,10 @@ export default class GraviQuestForumHome extends Component {
 
   get category() {
     return this.args.outletArgs?.category;
+  }
+
+  get topicPage() {
+    return TOPIC_PAGES[this.category?.slug];
   }
 
   get categories() {
@@ -80,6 +90,9 @@ export default class GraviQuestForumHome extends Component {
             <p class="gq-lead">{{this.category.description_text}}</p>
           {{/if}}
         </div>
+        {{#if this.topicPage}}
+          <a class="btn btn-default gq-page-top__action" href={{this.topicPage}}>Open the Topic</a>
+        {{/if}}
       </header>
     {{else}}
       <section class="gq-forum-heading gq-forum-home">

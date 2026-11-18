@@ -753,7 +753,7 @@
         card.classList.add('is-closed');
         live.innerHTML = '<div class="tq-room__foot"><span class="tq-room__quiet">' +
           (error && error.status === 404 ? 'This room isn’t linked to our Forum yet.' : 'Forum couldn’t be reached just now.') + '</span>' +
-          (main ? '<a class="g-btn g-btn--secondary g-btn--sm" href="/forum.html">Open Forum</a>' : '') + '</div>';
+          (main ? '<a class="g-btn g-btn--secondary g-btn--sm" href="https://forum.graviquest.com/">Open Forum</a>' : '') + '</div>';
       });
     });
     /* "Discuss the videos" and its kind point at a room by its section. */
