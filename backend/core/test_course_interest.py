@@ -21,7 +21,7 @@ class CourseInterestTests(TestCase):
         row = CourseInterest.objects.get()
         self.assertEqual((row.email, row.level, row.confirmed), ('reader@example.com', 3, False))
         self.assertEqual(len(mail.outbox), 1)
-        self.assertIn('AI in Research', mail.outbox[0].subject)
+        self.assertIn('AI Applications in Scientific Research', mail.outbox[0].subject)
 
     def test_repeat_inside_the_hour_updates_the_level_without_a_second_email(self):
         self.post(course='ai-in-research', level=1, email='reader@example.com')
@@ -41,6 +41,17 @@ class CourseInterestTests(TestCase):
         self.assertTrue(again.json()['already_confirmed'])
         self.assertEqual(len(mail.outbox), 1)
 
+    def test_email_alone_is_enough(self):
+        # The form asks only for an email since 2026-11-18; no level is sent.
+        response = self.client.post(self.URL, {'course': 'ai-in-research', 'email': 'only@example.com'}, content_type='application/json')
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(CourseInterest.objects.get().level, CourseInterest.Level.KEEN)
+
+    def test_a_skeptic_counts_too(self):
+        response = self.post(course='ai-in-research', level=0, email='doubter@example.com')
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(CourseInterest.objects.get().level, CourseInterest.Level.SKEPTICAL)
+
     def test_bad_token_says_so(self):
         response = self.client.get('/api/learn/interest/confirm/', {'token': 'nope'})
         self.assertEqual(response['Location'], 'https://graviquest.com/?interest=0#learn')
@@ -48,6 +59,7 @@ class CourseInterestTests(TestCase):
     def test_rejects_unknown_course_level_and_email(self):
         self.assertEqual(self.post(course='made-up', level=2, email='a@b.co').json()['error'], 'unknown_course')
         self.assertEqual(self.post(course='ai-in-research', level=9, email='a@b.co').json()['error'], 'invalid_level')
+        self.assertEqual(self.post(course='ai-in-research', level='lots', email='a@b.co').json()['error'], 'invalid_level')
         self.assertEqual(self.post(course='ai-in-research', level=2, email='nope').json()['error'], 'invalid_email')
         self.assertEqual(self.client.get(self.URL).status_code, 405)
         self.assertFalse(CourseInterest.objects.exists())

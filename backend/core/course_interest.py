@@ -38,7 +38,7 @@ from .models import CourseInterest
 from .views import _payload, _send_system_email
 
 COURSES = {
-    'ai-in-research': 'AI in Research',
+    'ai-in-research': 'AI Applications in Scientific Research',
     'computational-science': 'Computational Science',
     'philosophy-of-science': 'Philosophy of Science',
     'reading-a-paper': 'Reading a Paper Properly',
@@ -76,7 +76,7 @@ def course_interest(request):
     try:
         level = int(payload.get('level', CourseInterest.Level.KEEN))
     except (TypeError, ValueError):
-        level = 0
+        level = -1
     if course not in COURSES:
         return JsonResponse({'ok': False, 'error': 'unknown_course'}, status=400)
     if level not in CourseInterest.Level.values:

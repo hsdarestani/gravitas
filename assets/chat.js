@@ -74,7 +74,7 @@
     },
     {
       k: 'account sign in log in register password profile free cost price pay subscription paywall',
-      a: 'Everything on the site is free to read and free to play, and there is no paywall planned. An account is optional. It follows Topics, keeps your place in a path, and lets you join a discussion under your own name.',
+      a: 'Reading needs no account. An account follows Topics, keeps your place in a path, and lets you join a discussion under your own name.',
       l: [['Create an account', '/signup'], ['Sign in', 'account.html#in']]
     },
     {

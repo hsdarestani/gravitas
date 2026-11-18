@@ -65,7 +65,7 @@ class PublicHeaderAuthAssetTests(SimpleTestCase):
             self.assertNotIn('gh-nav-signin', source, path.name)
             self.assertNotIn('data-workspace-link', source, path.name)
             self.assertEqual(source.count('data-account-link'), 2, path.name)
-            self.assertIn('href="/signup" aria-label="Create your free account" data-account-link', source)
+            self.assertIn('href="/signup" aria-label="Create your account" data-account-link', source)
         self.assertTrue(headers)
 
     def test_public_pages_do_not_link_to_the_workspace(self):
@@ -90,7 +90,10 @@ class PublicHeaderAuthAssetTests(SimpleTestCase):
             if 'production-bridge.js' not in source:
                 continue
             referenced.append(path.name)
-            if 'production-bridge.js?v=20261118-signout1' not in source:
+            # One loader key on every page since the sign-out controls
+            # (2026-11-18), which every public page carries.
+            expected = '20261118-signout1'
+            if f'production-bridge.js?v={expected}' not in source:
                 stale.append(path.name)
 
         self.assertTrue(referenced)

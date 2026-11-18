@@ -53,16 +53,37 @@ def save_state(state)
   File.chmod(0600, STATE)
 end
 
+def qa_body(state, key)
+  check!(state.fetch("nonce").match?(/\A[0-9a-f]{12}\z/), "invalid private QA nonce")
+  check!(%w[observe apply].include?(key), "unsupported QA stage")
+  # Preserve the previously approved scientific wording but avoid creating an
+  # identical post again across a previous interrupted or retried rollout.
+  "How can we distinguish reproducible observations from hypotheses in a research discussion? " \
+    "I propose documenting methods, measurements, uncertainty and limitations before drawing conclusions. " \
+    "One independently repeatable trial could use reference #{state.fetch('nonce')}-#{key}."
+end
+
 def create_candidate(key)
   state = JSON.parse(File.read(STATE))
   s, author = member_login
   check!(author.id == state.fetch("pilot_id"), "pilot ID mismatch")
   category = Category.find_by!(slug: state.fetch("category"))
   title = "Pulsar acceptance #{key} #{state.fetch('nonce')}"
-  body = "How can we distinguish reproducible observations from hypotheses in a research discussion? I propose documenting methods, measurements, uncertainty and limitations before drawing conclusions."
+  body = qa_body(state, key)
   s.post "/posts.json", params: {title: title, raw: body, category: category.id},
     headers: session_csrf(s), as: :json
-  check!(s.response.status == 200, "member submission status #{s.response.status}")
+  if s.response.status != 200
+    # Do not print the submission, user data or raw remote error. For 422s
+    # expose only a fixed diagnostic bucket to guide safe acceptance retries.
+    details = JSON.parse(s.response.body) rescue {}
+    error_type = details.is_a?(Hash) ? details.fetch("error_type", "").to_s : ""
+    bucket = case error_type
+    when /rate_limit/i then "rate_limit"
+    when /too_similar|duplicate/i then "duplicate"
+    else "native_validation"
+    end
+    check!(false, "member submission status #{s.response.status} (#{bucket})")
+  end
   response = JSON.parse(s.response.body)
   check!(response["action"] == "enqueued", "submission must remain in native review queue")
   id = response.fetch("pending_post").fetch("id")
@@ -106,16 +127,31 @@ when "verify_observe", "verify_apply"
   check!(config && config[0]["mode"] == key, "worker configuration or mode mismatch")
   id = state.fetch("#{key}_id")
   item = ReviewableQueuedPost.find(id)
+  actor_id = User.find_by!(username: state.fetch("actor")).id
+  # The native scheduled worker can claim/process this exact disposable item
+  # concurrently with this synchronous acceptance runner. A one-shot read can
+  # falsely fail before the worker commits the audit note. Poll only this
+  # recorded item for at most 45 seconds; never alter existing user content or
+  # bypass the full observe/apply verification below.
   GraviQuestPulsarModeration.run
-  note = item.reviewable_notes.where(user_id: User.find_by!(username: state.fetch("actor")).id)
-    .where("content LIKE ?", "[GraviQuest Pulsar v1] version=% mode=#{key} %").last
-  check!(note, "native Pulsar decision and audit note missing")
+  note = nil
+  deadline = Process.clock_gettime(Process::CLOCK_MONOTONIC) + 45
+  loop do
+    item.reload
+    note = item.reviewable_notes.where(user_id: actor_id)
+      .where("content LIKE ?", "[GraviQuest Pulsar v1] version=% mode=#{key} %").order(id: :desc).first
+    break if note && (key == "observe" || item.approved? || note.content.include?("decision=review") ||
+      note.content.include?("decision=reject"))
+    break if Process.clock_gettime(Process::CLOCK_MONOTONIC) >= deadline
+    sleep 1
+  end
+  check!(note, "native Pulsar decision and audit note missing after bounded polling")
   check!(note.content.include?("decision=approve"), "safe candidate not confidently approved")
   if key == "observe"
     check!(item.reload.pending? && note.content.include?("applied=false"), "observe must not publish")
   else
     check!(item.reload.approved? && note.content.include?("applied=true"), "apply did not approve disposable pilot")
-    check!(Post.where(user_id: state.fetch("pilot_id"), raw: "How can we distinguish reproducible observations from hypotheses in a research discussion? I propose documenting methods, measurements, uncertainty and limitations before drawing conclusions.").exists?, "approved pilot post not persisted")
+    check!(Post.where(user_id: state.fetch("pilot_id"), raw: qa_body(state, "apply")).exists?, "approved pilot post not persisted")
   end
   puts "Native Pulsar #{key} verified: confident safe decision, native audit, expected state."
 when "cleanup"

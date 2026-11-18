@@ -1005,6 +1005,10 @@ window.addEventListener('message',function(e){
   }
 });
 var labs=[];
+// The catalog is off lab.html since 2026-11-17, at the owner's request: the
+// page shows only its under-construction card until the Lab is agreed. A
+// direct ?lab=<slug> link still opens that Lab. Set true to list them again.
+var CATALOG_PUBLIC=false;
 var directSlug=new URLSearchParams(location.search).get('lab');
 function showUnavailableLab(){
  var status=node('div','lab-entry-state');
@@ -1027,6 +1031,6 @@ fetch('/api/labs/',{credentials:'same-origin',cache:'no-store'})
       if(requested)runLab(requested);else showUnavailableLab();
     }else if(requested){
       if(enteredLab(requested.slug))runLab(requested);else{showCatalog();previewLab(requested);}
-    }else if(labs.length)showCatalog();
+    }else if(labs.length&&CATALOG_PUBLIC)showCatalog();
   }).catch(function(){if(directSlug==='science-universe')showUnavailableLab();});
 })();

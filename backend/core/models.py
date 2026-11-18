@@ -991,6 +991,9 @@ class CourseInterest(models.Model):
     """
 
     class Level(models.IntegerChoices):
+        # 0 since 2026-11-17: the scale had only keen answers, and a doubter's
+        # vote is worth as much to the tally as a fan's.
+        SKEPTICAL = 0, 'Skeptical'
         CURIOUS = 1, 'Curious'
         KEEN = 2, 'Keen'
         ALL_IN = 3, 'Count me in'

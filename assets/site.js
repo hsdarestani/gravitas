@@ -537,7 +537,7 @@
   [].forEach.call(document.querySelectorAll('a'), function (link) {
     var label = (link.textContent || '').replace(/\s+/g, ' ').trim().toLowerCase();
     if (label === 'create account' || label === 'create an account' ||
-        label.indexOf('create a free account') === 0 || label === 'sign up') {
+        label.indexOf('create a free account') === 0 || label.indexOf('create an account to') === 0 || label === 'sign up') {
       link.href = '/signup';
     }
   });

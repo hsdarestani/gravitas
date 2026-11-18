@@ -364,6 +364,7 @@ body:has(#lab-experiences[data-lab-slug]:not([data-lab-slug="directory"])) .lab-
    card splits in two on wide screens, the course on the left and the
    interest form on the right, and stacks below 860px. */
 .lp-soon { display: grid; gap: var(--g-space-lg); padding: var(--g-space-lg); margin-bottom: var(--g-space-xl); }
+.lp-soon:last-child { margin-bottom: 0; }  /* alone in its section (lab.html, learn.html): no trailing gap */
 .lp-soon--split { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--g-space-xl); }
 .lp-soon__main { display: flex; flex-direction: column; gap: var(--g-space-xs); min-width: 0; }
 .lp-soon__top { display: flex; flex-wrap: wrap; align-items: center; gap: var(--g-space-2xs) var(--g-space-sm); margin: 0; }

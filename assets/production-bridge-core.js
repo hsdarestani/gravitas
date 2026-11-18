@@ -103,7 +103,7 @@
   function setAccountLink(signedIn) {
     [].forEach.call(document.querySelectorAll('[data-account-link]'), function (link) {
       link.href = signedIn ? FORUM_HOME : '/signup';
-      link.setAttribute('aria-label', signedIn ? 'Open the Forum' : 'Create your free account');
+      link.setAttribute('aria-label', signedIn ? 'Open the Forum' : 'Create your account');
       var label = link.querySelector('span');
       if (label) label.textContent = signedIn ? 'Forum' : 'Join Us';
     });
@@ -203,7 +203,11 @@
     var original = resend.textContent;
     resend.textContent = 'Sending…';
     apiPost('/api/auth/email-confirm/resend/', { email: email })
-      .then(function () { resend.textContent = 'Sent — check your inbox'; })
+      .then(function (data) {
+        resend.textContent = data.sent ? 'Sent — check your inbox' :
+          data.already_verified ? 'Already confirmed — open the Forum' :
+          'If an eligible account exists, check your inbox';
+      })
       .catch(function () { resend.textContent = 'Could not send — try again'; resend.disabled = false; })
       .finally(function () {
         if (!resend.disabled) window.setTimeout(function () { resend.textContent = original; }, 1800);
@@ -222,7 +226,9 @@
   if (authStatus) {
     if (params.get('email_verified') === '1') {
       authStatus.hidden = false;
-      authStatus.innerHTML = '<h3 style="margin-top:0">Email confirmed</h3><p>Your email is verified. Sign in and join the conversation.</p>';
+      authStatus.innerHTML = '<h3 style="margin-top:0">Email confirmed</h3>' +
+        '<p>Your email is verified. Sign in if needed, then join the conversation.</p>' +
+        '<a class="g-btn g-btn--primary" href="/api/forum/resume/">Open the Forum</a>';
       if (history.replaceState) history.replaceState({}, '', '/login');
       window.setTimeout(function () { location.hash = 'in'; }, 0);
       var pending = '';
@@ -240,6 +246,16 @@
     } else if (params.get('email_verified') === '0') {
       authStatus.hidden = false;
       authStatus.innerHTML = '<h3 style="margin-top:0">Confirmation link expired</h3><p>Sign in with Google or resend the verification email from your pending account screen.</p>';
+    } else if (params.get('forum_email_verification') === 'required') {
+      // The Forum redirects only an already authenticated account here.
+      // Resend goes to that signed-in account; no address or SSO payload
+      // is carried in the URL, and approval still requires the email link.
+      authStatus.hidden = false;
+      authStatus.innerHTML = '<h3 style="margin-top:0">Confirm your email to join the Forum</h3>' +
+        '<p>Your GraviQuest account is signed in, but its email has not been confirmed yet. ' +
+        'Send a confirmation link to your account email, then open the Forum.</p>' +
+        '<button class="g-btn g-btn--primary" type="button" data-resend-verification>Send confirmation email</button>';
+      window.setTimeout(function () { location.hash = 'in'; }, 0);
     } else if (params.get('google_error')) {
       authStatus.hidden = false;
       authStatus.innerHTML = '<h3 style="margin-top:0">Google sign-in did not finish</h3><p>Please try again or use email and password.</p>';
@@ -384,6 +400,22 @@
 
     Promise.resolve(job).catch(function (err) {
       setNote(form, errorText(err));
+      if (isLogin && err && err.error === 'email_not_verified' &&
+          !form.querySelector('[data-login-verification-help]')) {
+        // Pending public signup accounts cannot sign in yet. The resend
+        // endpoint handles them without exposing whether an email exists.
+        var help = document.createElement('div');
+        help.className = 'g-mt-sm';
+        help.setAttribute('data-login-verification-help', '');
+        var resendButton = document.createElement('button');
+        resendButton.type = 'button';
+        resendButton.className = 'g-btn g-btn--secondary';
+        resendButton.textContent = 'Resend confirmation email';
+        resendButton.setAttribute('data-resend-verification', '');
+        resendButton.setAttribute('data-email', (form.elements.email && form.elements.email.value || '').trim());
+        help.appendChild(resendButton);
+        form.appendChild(help);
+      }
     }).finally(function () {
       setBusy(form, false);
     });
@@ -1319,7 +1351,7 @@
     var join = document.createElement('a');
     join.className = 'g-btn g-btn--primary g-btn--sm rl-cta';
     join.href = '/signup';
-    join.textContent = 'Create a free account to keep these';
+    join.textContent = 'Create an account to keep these';
     foot.append(join);
 
     var signIn = document.createElement('p');
