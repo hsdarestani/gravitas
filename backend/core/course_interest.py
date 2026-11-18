@@ -38,7 +38,7 @@ from .models import CourseInterest
 from .views import _payload, _send_system_email
 
 COURSES = {
-    'ai-in-research': 'AI in Research',
+    'ai-in-research': 'AI Applications in Scientific Research',
     'computational-science': 'Computational Science',
     'philosophy-of-science': 'Philosophy of Science',
     'reading-a-paper': 'Reading a Paper Properly',

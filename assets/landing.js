@@ -25,11 +25,12 @@
     .catch(function () {});
 })();
 
-// Learn (03): "tell me when it opens", with a say in how keen.
+// Learn (03): "tell me when it opens".
 //
-// Four chips pick a level (0 Skeptical, 1 Curious, 2 Keen, 3 Count me in; Keen is
-// preselected so the form never posts without one), and the email goes with
-// it to /api/learn/interest/. The server holds the address unconfirmed and
+// Only the email is asked. Until 2026-11-18 four chips also asked how keen the
+// visitor was; the owner took them off, so no level is sent and the server
+// stores its default. The email goes to /api/learn/interest/, which holds the
+// address unconfirmed and
 // mails a link; until that link is followed nobody writes to it, which is why
 // the success line asks the visitor to check their inbox rather than saying
 // they are on the list. The link comes back here with ?interest=1 or
@@ -43,30 +44,26 @@
   var note = form.querySelector('[data-wish-note]');
   var input = form.querySelector('input[type="email"]');
   var submit = form.querySelector('button[type="submit"]');
-  var chips = Array.prototype.slice.call(form.querySelectorAll('[data-level]'));
   var resting = note.textContent;
 
-  function level() {
-    var on = chips.filter(function (c) { return c.getAttribute('aria-pressed') === 'true'; })[0];
-    return on ? Number(on.getAttribute('data-level')) : 2;
-  }
   function say(text, bad) {
     note.textContent = text;
     note.classList.toggle('is-bad', !!bad);
   }
+  // Split rather than a RegExp built from a string: an earlier version wrote
+  // '\s' inside the string, which JavaScript reads as a plain 's', so any
+  // cookie after the first was never found and the POST lost its CSRF token.
   function cookie(name) {
-    var m = document.cookie.match(new RegExp('(?:^|;\s*)' + name + '=([^;]*)'));
-    return m ? decodeURIComponent(m[1]) : '';
+    var parts = document.cookie ? document.cookie.split(';') : [];
+    for (var i = 0; i < parts.length; i++) {
+      var kv = parts[i].trim();
+      if (kv.indexOf(name + '=') === 0) return decodeURIComponent(kv.slice(name.length + 1));
+    }
+    return '';
   }
 
-  chips.forEach(function (chip) {
-    chip.addEventListener('click', function () {
-      chips.forEach(function (c) { c.setAttribute('aria-pressed', c === chip ? 'true' : 'false'); });
-    });
-  });
-
   var params = new URLSearchParams(location.search);
-  if (params.get('interest') === '1') say('Confirmed. Your spot is saved, and we\u2019ll write once it opens.');
+  if (params.get('interest') === '1') say('Confirmed. We\u2019ll write once it opens.');
   else if (params.get('interest') === '0') say('That link has expired. Leave your email again and we\u2019ll send a fresh one.', true);
   if (params.has('interest') && history.replaceState) history.replaceState({}, '', location.pathname + '#learn');
 
@@ -81,7 +78,7 @@
     }
     input.removeAttribute('aria-invalid');
     submit.disabled = true;
-    say('Saving your spot\u2026');
+    say('Sending\u2026');
     fetch('/api/auth/csrf/', { credentials: 'same-origin', headers: { Accept: 'application/json' } })
       .then(function () {
         return fetch('/api/learn/interest/', {
@@ -89,7 +86,7 @@
           credentials: 'same-origin',
           headers: { Accept: 'application/json', 'Content-Type': 'application/json',
                      'X-CSRFToken': cookie('csrftoken') || cookie('gravitas_staging_csrftoken') },
-          body: JSON.stringify({ course: form.getAttribute('data-course'), level: level(), email: email })
+          body: JSON.stringify({ course: form.getAttribute('data-course'), email: email })
         });
       })
       .then(function (r) {
@@ -99,8 +96,8 @@
         });
       })
       .then(function (data) {
-        if (data.already_confirmed) say('You\u2019re already on the list. We\u2019ve noted how keen you are.');
-        else say('Almost there: check your inbox and confirm, and your spot is saved.');
+        if (data.already_confirmed) say('You\u2019re already on the list. We\u2019ll write once it opens.');
+        else say('Almost there: check your inbox and confirm your email.');
         input.value = '';
       })
       .catch(function (err) {
