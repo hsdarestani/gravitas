@@ -18,54 +18,47 @@ for (const { engine, name, options } of browsers) {
     const page = await browser.newPage(options);
     const errors = [];
     page.on("pageerror", error => errors.push(error.message));
+    // The front page is the room directory (forum-home.gjs), in the order of
+    // backend/core/forum_rooms.json, and nothing else (common.scss, "Rooms").
     await page.goto(site + "/latest", { waitUntil: "domcontentloaded" });
-    await page.locator(".gq-forum-heading h1").waitFor({ timeout: 45000 });
-    await page.locator(".gq-community-poll .poll").waitFor({ timeout: 45000 });
+    await page.locator(".gq-forum-home h1").waitFor({ timeout: 45000 });
+    const rooms = JSON.parse(await fs.readFile(new URL("../../backend/core/forum_rooms.json", import.meta.url), "utf8"));
+    const listed = rooms.rooms.map(room => room.slug);
+    const shown = await page.locator(".gq-forum-home a.gq-roomrow").evaluateAll(links =>
+      links.map(link => new URL(link.href).pathname.split("/").filter(Boolean).at(-2)));
+    assert.deepEqual(shown, listed);
+    assert.equal(await page.locator(".topic-list").filter({ visible: true }).count(), 0);
+    // Topic 01's room holds the team's three threads; open it, then a thread.
+    await page.locator('.gq-forum-home a.gq-roomrow[href*="/ai-in-research/"]').click();
+    await page.locator(".gq-room-head h1").waitFor({ timeout: 45000 });
     await page.locator(".topic-list a.title").first().click();
-    const rail = page.locator(".gq-thread-rail");
-    // Attached, not visible: phones hide the rail so the post comes first
-    // (common.scss, "Simpler (2026-11-16)").
-    await rail.waitFor({ state: "attached", timeout: 45000 });
-    await page.locator(".topic-post .cooked").first().waitFor();
+    await page.locator(".topic-post .cooked").first().waitFor({ timeout: 45000 });
     await page.locator("#topic-footer-buttons button.btn-primary").waitFor();
     assert.equal(new URL(page.url()).origin, site);
     assert.match(new URL(page.url()).pathname, /^\/t\//);
-    // Replies, Views, Likes, and Last reply once there is a reply to date
-    // (thread-details.gjs).
-    const replies = Number((await rail.locator(".gq-thread-facts dd").first().innerText()).replace(/\D/g, "") || 0);
-    assert.equal(await rail.locator(".gq-thread-facts dt").count(), replies > 0 ? 4 : 3);
+    // One column: the breadcrumb, the posts and the reply box; no rail beside
+    // the posts and no byline repeating the opening post's header.
     assert(await page.locator(".gq-thread-crumb").isVisible());
-    assert(await page.locator(".gq-thread-byline").isVisible());
+    assert.equal(await page.locator(".gq-thread-rail").count(), 0);
+    assert.equal(await page.locator(".gq-thread-byline").count(), 0);
     await page.evaluate(() => document.fonts.ready);
     const layout = await page.evaluate(() => {
-      const post = document.querySelector(".topic-post .cooked");
-      const rail = document.querySelector(".gq-thread-rail");
-      const container = document.querySelector(".container.posts");
+      const post = document.querySelector(".topic-post .cooked").getBoundingClientRect();
+      const stream = document.querySelector(".container.posts").getBoundingClientRect();
       return {
         width: document.documentElement.scrollWidth,
         viewport: innerWidth,
-        postLeft: post.getBoundingClientRect().left,
-        postTop: post.getBoundingClientRect().top,
-        railLeft: rail.getBoundingClientRect().left,
-        railTop: rail.getBoundingClientRect().top,
-        font: getComputedStyle(post).fontFamily,
-        areas: getComputedStyle(container).gridTemplateAreas,
+        postLeft: post.left,
+        postRight: post.right,
+        streamLeft: stream.left,
+        font: getComputedStyle(document.querySelector(".topic-post .cooked")).fontFamily,
       };
     });
     assert(layout.width <= layout.viewport + 1, JSON.stringify(layout));
     assert(layout.font.includes("Literata"));
     if (name === "desktop") {
-      assert(layout.railLeft > layout.postLeft);
-      const next = rail.getByRole("button", { name: "Next post" });
-      // The steps show only in a thread of three posts or more.
-      if (await next.isVisible() && await next.isEnabled()) {
-        const before = await rail.locator(".gq-thread-position").innerText();
-        await next.click();
-        await page.waitForFunction(previous =>
-          document.querySelector(".gq-thread-position")?.textContent.trim() !== previous, before);
-      }
-    } else {
-      assert(!(await rail.isVisible()), "the thread rail is hidden on phones");
+      // Centred: the column has as much room on its right as on its left.
+      assert(Math.abs(layout.viewport - layout.postRight - layout.streamLeft) < layout.viewport * 0.2, JSON.stringify(layout));
     }
     assert.deepEqual(errors, []);
     await page.screenshot({ path: `${output}/thread-${name}.png` });

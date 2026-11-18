@@ -19,7 +19,8 @@
       </a>
       {% if user.is_authenticated %}
       <h1>Finish signing out</h1>
-      <p>You’re signed out of the Forum. You’re still signed in to GraviQuest Workspace.</p>
+      {# The workspace left the public site on 2026-11-17; the account is GraviQuest's. #}
+      <p>You’re signed out of the Forum, but still signed in to your GraviQuest account on this browser.</p>
       <form action="{% url 'forum-logout' %}" method="post">
         {% csrf_token %}
         <button class="g-btn g-btn--primary" type="submit">Sign out of GraviQuest</button>

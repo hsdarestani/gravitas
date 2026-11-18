@@ -298,7 +298,10 @@ class ForumIdentityTests(TestCase):
         self.assertTrue(ForumLogout.objects.filter(external_id=identity, user__isnull=True).exists())
 
 
-@override_settings(GRAVITAS_FORUM_URL=BASE, GRAVITAS_DISCOURSE_API_KEY='must-never-be-in-public-reads')
+# Every public room, as before forum_rooms.json limited the feed; the listed
+# rooms have their own tests in test_forum_rooms.py.
+@override_settings(GRAVITAS_FORUM_URL=BASE, GRAVITAS_DISCOURSE_API_KEY='must-never-be-in-public-reads',
+                   GRAVITAS_FORUM_ROOM_SLUGS=None)
 class ForumPublicDataTests(TestCase):
     def setUp(self):
         cache.clear()

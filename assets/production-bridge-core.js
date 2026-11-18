@@ -113,7 +113,68 @@
     setAccountLink(true);
     var note = document.querySelector('.auth__note[data-form-note]');
     if (note && email) note.textContent = 'Signed in as ' + email + '.';
+    showSignOut(note);
+    markJoinCard();
   }
+
+  /* The Community page's account card ("Join the discussion.") offers Create
+     an Account and Sign in. A member has done both, so for them the card's
+     two actions become the two things an account is for there: the Forum,
+     entered already signed in, and starting a thread in it. The heading and
+     the line under it still hold. Found by class, not rewritten in the page,
+     so the page's own copy can change without this following it. */
+  function markJoinCard() {
+    [].forEach.call(document.querySelectorAll('.join__act'), function (act) {
+      if (act.dataset.member) return;
+      act.dataset.member = '1';
+      var primary = act.querySelector('.g-btn--primary');
+      var secondary = act.querySelector('.g-btn--secondary');
+      if (primary) { primary.href = FORUM_HOME; primary.textContent = 'Open the Forum'; }
+      if (secondary) { secondary.href = '/api/forum/start/'; secondary.textContent = 'Start a Thread'; }
+      var fine = act.parentNode && act.parentNode.querySelector('.join__fine');
+      if (fine) fine.textContent = 'You’re signed in. Read, reply, or start a thread of your own.';
+    });
+  }
+
+  /* Signing out (2026-11-18). The workspace's Settings were the only place to
+     sign out, and the workspace left the public site on 2026-11-17, so a
+     member had no way out at all. A member now finds Sign out on every page:
+     a circle in the desktop header beside saved and theme, and the phone
+     menu's last row (site.js makes both, hidden), plus the sign-in page,
+     under "Signed in as …", made here. All of them POST the same logout the
+     workspace used; Django's logout also ends the Forum session
+     (core/forum.py, _on_logout), so one sign-out covers both. The page then
+     reloads signed out, which also empties the saved-items mirror
+     (readerSignedOut below). */
+  function showSignOut(note) {
+    [].forEach.call(document.querySelectorAll('[data-sign-out]'), function (el) { el.hidden = false; });
+    if (note && !document.querySelector('.auth__signout')) {
+      var button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'g-btn g-btn--secondary g-btn--sm auth__signout';
+      button.setAttribute('data-sign-out', '');
+      button.textContent = 'Sign out';
+      note.insertAdjacentElement('afterend', button);
+    }
+  }
+
+  document.addEventListener('click', function (event) {
+    var button = event.target.closest && event.target.closest('[data-sign-out]');
+    if (!button || button.disabled) return;
+    button.disabled = true;
+    // The header's circle has no label to change; it says busy instead.
+    var label = button.querySelector('span') || (button.children.length ? null : button);
+    var original = label ? label.textContent : '';
+    if (label) label.textContent = 'Signing out…';
+    button.setAttribute('aria-busy', 'true');
+    apiPost('/api/auth/logout/', {})
+      .then(function () {
+        // The same page, signed out; on the account page, its sign-in tab.
+        if (document.getElementById('p-in')) location.hash = 'in';
+        location.reload();
+      })
+      .catch(function () { button.disabled = false; button.removeAttribute('aria-busy'); if (label) label.textContent = original; });
+  });
 
   var params = new URLSearchParams(location.search);
   var resetUid = params.get('reset_uid') || '';

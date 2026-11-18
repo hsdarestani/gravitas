@@ -10,7 +10,9 @@ import base64
 import binascii
 import hashlib
 import hmac
+import json
 import re
+from pathlib import Path
 from urllib.parse import parse_qs, urlencode, urlsplit
 
 import requests
@@ -127,6 +129,35 @@ def _public_categories():
     return [c for c in categories if not c.get('read_restricted')]
 
 
+ROOMS_FILE = Path(__file__).with_name('forum_rooms.json')
+
+
+def forum_rooms():
+    """The rooms the Forum lists, in its order (forum_rooms.json).
+
+    The same file builds the rooms on Discourse (ops/discourse/rooms.rb) and
+    tells the theme which to show, so the public feed here lists exactly what
+    the Forum's front page lists. GRAVITAS_FORUM_ROOM_SLUGS overrides it, and
+    None there means every public room (the behaviour before 2026-11-18).
+    """
+    if hasattr(settings, 'GRAVITAS_FORUM_ROOM_SLUGS'):
+        return settings.GRAVITAS_FORUM_ROOM_SLUGS
+    data = json.loads(ROOMS_FILE.read_text(encoding='utf-8'))
+    return [room['slug'] for room in data['rooms']]
+
+
+def _listed_categories():
+    """Public rooms the Forum lists, in forum_rooms.json's order. A published
+    discussion in a room the Forum no longer lists still opens by its link
+    (forum_discussion reads every public room); only the feed is limited."""
+    public = _public_categories()
+    slugs = forum_rooms()
+    if slugs is None:
+        return public
+    rank = {slug: index for index, slug in enumerate(slugs)}
+    return sorted((c for c in public if c.get('slug') in rank), key=lambda c: rank[c['slug']])
+
+
 def _count(value, offset=0):
     return max(0, value + offset) if isinstance(value, int) and not isinstance(value, bool) else None
 
@@ -212,7 +243,7 @@ def forum_feed(request):
     except (ValueError, TypeError):
         return _response({'ok': False, 'error': 'invalid_filter'}, 400)
     try:
-        categories = {c['id']: c for c in _public_categories()}
+        categories = {c['id']: c for c in _listed_categories()}
         if category_id and category_id not in categories:
             return _response({'ok': False, 'error': 'category_not_found'}, 404)
         # Search belongs to the native forum. Its permissions and relevance

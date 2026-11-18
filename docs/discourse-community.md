@@ -1,5 +1,32 @@
 # Community and Discourse operations
 
+## Rooms (since 2026-11-18)
+
+The Forum is three rooms and nothing else on its front page: About the Forum,
+About GraviQuest, and Topic 01 · AI in Research, which holds three of the
+team's threads (Videos, Essays, Discussion). Members read, reply, like and
+may start threads of their own, which a moderator reads first, as before. The
+rooms and the team's threads are one list,
+`backend/core/forum_rooms.json`:
+
+- `ops/discourse/rooms.rb` makes the rooms and the team's threads on
+  Discourse. The theme workflow (`.github/workflows/forum-theme.yml`) runs it
+  before every theme release, so the theme never lists a room that does not
+  exist. It changes no room's permissions.
+- The theme's front page (`components/graviquest/forum-home.gjs`) lists the
+  rooms in that order; the menu and the new-thread room picker follow
+  `common.scss`.
+- Django's public feed (`core/forum.py`, `/api/forum/feed/`, used by the
+  Community page) lists only these rooms.
+- `core/test_forum_rooms.py` fails when the theme and the file disagree.
+
+Rooms not in the list are not deleted or locked: their threads stay public at
+their URLs, and a published Topic page still opens its discussion. The Forum
+only stops listing them. To add or rename a room, change the JSON file and the
+theme's `ROOMS` together, then release the theme.
+
+## Earlier notes
+
 The public Community page uses the supplied redesign. The Forum keeps the live
 `forum.html` table, room chips, overlapping avatars and replies/views/activity
 columns, following the latest product direction. Its native Discourse theme

@@ -85,7 +85,7 @@ input,textarea,.select-kit .select-kit-header{background:var(--g-bg);border:1px 
     color: var(--g-text-muted);
   }
 
-  .container.posts:has(.gq-thread-rail) {
+  .container.posts:has(.post-stream) {
     --topic-avatar-width: 2.4rem;
     --topic-body-width-padding: 1rem;
     grid-template-columns: minmax(0, 44rem) minmax(0, 15rem);
@@ -217,13 +217,13 @@ input,textarea,.select-kit .select-kit-header{background:var(--g-bg);border:1px 
   }
 
   @media (min-width: 961px) {
-    .container.posts:has(.gq-thread-rail) .topic-navigation {
+    .container.posts:has(.post-stream) .topic-navigation {
       top: calc(var(--header-offset, 72px) + 1.5rem);
     }
   }
 
   @media (max-width: 960px) {
-    .container.posts:has(.gq-thread-rail) {
+    .container.posts:has(.post-stream) {
       grid-template-areas: "timeline" "posts";
       grid-template-columns: minmax(0, 1fr);
       row-gap: 1.5rem;
@@ -300,13 +300,13 @@ input,textarea,.select-kit .select-kit-header{background:var(--g-bg);border:1px 
 .archetype-regular .topic-post .names .svg-icon-title .d-icon{color:var(--g-text-subtle)}
 .archetype-regular .topic-post .read-state{display:none}
 /* Like and Reply sit under the words, on the left, where the design had them. */
-.archetype-regular .container.posts:has(.gq-thread-rail) .topic-post nav.post-controls{justify-content:flex-start;margin-left:-.6rem}
-.archetype-regular .container.posts:has(.gq-thread-rail) .topic-post nav.post-controls .actions{margin-left:0;justify-content:flex-start}
-.archetype-regular .container.posts:has(.gq-thread-rail) .topic-post nav.post-controls .btn{color:var(--g-text-muted)}
-.archetype-regular .container.posts:has(.gq-thread-rail) .topic-post nav.post-controls .btn:hover{color:var(--g-text);background:var(--g-surface)}
+.archetype-regular .container.posts:has(.post-stream) .topic-post nav.post-controls{justify-content:flex-start;margin-left:-.6rem}
+.archetype-regular .container.posts:has(.post-stream) .topic-post nav.post-controls .actions{margin-left:0;justify-content:flex-start}
+.archetype-regular .container.posts:has(.post-stream) .topic-post nav.post-controls .btn{color:var(--g-text-muted)}
+.archetype-regular .container.posts:has(.post-stream) .topic-post nav.post-controls .btn:hover{color:var(--g-text);background:var(--g-surface)}
 /* With nothing but a view count in it, the topic map was an empty box saying
    what the facts beside the post already say. */
-.archetype-regular .container.posts:has(.gq-thread-rail) .topic-map:has(.topic-map__stats.--single-stat){display:none}
+.archetype-regular .container.posts:has(.post-stream) .topic-map:has(.topic-map__stats.--single-stat){display:none}
 /* Answer Back: the reply control in the post column, as the design's closing
    callout, rather than a button hanging off the column's right edge. */
 html body.archetype-regular #topic-footer-buttons{box-sizing:border-box;display:flex;flex-direction:row;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:1rem;width:100%;max-width:44rem;margin:1.5rem 0 0;padding:1.25rem 1.5rem;border:1px solid var(--g-hairline);border-radius:12px;background:var(--g-surface)}
@@ -322,7 +322,7 @@ html body.archetype-regular #topic-footer-buttons .topic-footer-main-buttons{mar
 /* Phones. The facts take the full width; Discourse's own "1 / 1" jump box,
    which sat on top of them, goes back to being a small control on its own
    line. Rows lose the 48px poster and the italic reply badge. */
-.mobile-view.mobile-view .archetype-regular .container.posts:has(.gq-thread-rail) .topic-navigation{display:block}
+.mobile-view.mobile-view .archetype-regular .container.posts:has(.post-stream) .topic-navigation{display:block}
 .mobile-view .archetype-regular .gq-thread-rail{width:100%}
 .mobile-view .archetype-regular #topic-progress-wrapper{position:static;display:flex;justify-content:flex-end;margin:.75rem 0 0;width:auto}
 .mobile-view .archetype-regular #topic-progress{min-width:0;border:1px solid var(--g-hairline);border-radius:99px;background:none;box-shadow:none}
@@ -1299,13 +1299,13 @@ html body.archetype-regular #topic-title .topic-category .badge-category__wrappe
 html body.archetype-regular #topic-title .topic-category:not(:has(.discourse-tags)){display:none}
 html body.archetype-regular #topic-title:has(.gq-thread-byline){padding-bottom:1.5rem;margin-bottom:2rem;border-bottom:1px solid var(--g-hairline)}
 
-html body.archetype-regular .container.posts:has(.gq-thread-rail){grid-template-columns:minmax(0,46rem) minmax(0,11rem);column-gap:clamp(2rem,5vw,4.5rem)}
-html body.archetype-regular .container.posts:has(.gq-thread-rail) .topic-post .topic-avatar img.avatar{width:2.75rem;height:2.75rem}
-html body.archetype-regular .container.posts:has(.gq-thread-rail) .topic-post .topic-meta-data{min-height:2.75rem}
-html body.archetype-regular .container.posts:has(.gq-thread-rail) .topic-post .cooked{color:var(--g-text);font-size:1.0625rem;padding-top:.5rem}
+html body.archetype-regular .container.posts:has(.post-stream){grid-template-columns:minmax(0,46rem) minmax(0,11rem);column-gap:clamp(2rem,5vw,4.5rem)}
+html body.archetype-regular .container.posts:has(.post-stream) .topic-post .topic-avatar img.avatar{width:2.75rem;height:2.75rem}
+html body.archetype-regular .container.posts:has(.post-stream) .topic-post .topic-meta-data{min-height:2.75rem}
+html body.archetype-regular .container.posts:has(.post-stream) .topic-post .cooked{color:var(--g-text);font-size:1.0625rem;padding-top:.5rem}
 /* Actions at the foot of the post, on the right, Reply last. */
-html body.archetype-regular .container.posts:has(.gq-thread-rail) .topic-post nav.post-controls{justify-content:flex-end;margin:1rem -.5rem 0 0}
-html body.archetype-regular .container.posts:has(.gq-thread-rail) .topic-post nav.post-controls .actions{justify-content:flex-end;margin-left:auto;gap:.125rem}
+html body.archetype-regular .container.posts:has(.post-stream) .topic-post nav.post-controls{justify-content:flex-end;margin:1rem -.5rem 0 0}
+html body.archetype-regular .container.posts:has(.post-stream) .topic-post nav.post-controls .actions{justify-content:flex-end;margin-left:auto;gap:.125rem}
 
 /* The closing reply box is as wide as the column it closes. */
 html body.archetype-regular #topic-footer-buttons{max-width:46rem;margin-top:1rem}
@@ -1343,7 +1343,7 @@ html body.archetype-regular .gq-thread-talking .gq-thread-name{position:absolute
 /* Under 961px the rail sits above the posts as one row of facts; the timeline
    is a desktop instrument. */
 @media (max-width:960px){
-  html body.archetype-regular .container.posts:has(.gq-thread-rail){grid-template-columns:minmax(0,1fr)}
+  html body.archetype-regular .container.posts:has(.post-stream){grid-template-columns:minmax(0,1fr)}
   html body.archetype-regular .gq-thread-steps,html body.archetype-regular .gq-thread-talking{display:none}
   html body.archetype-regular .gq-thread-facts{grid-template-columns:repeat(4,minmax(0,1fr));padding-top:0;border-top:0}
 }
@@ -1852,14 +1852,10 @@ html body.user-summary-page .user-content > :is(.links-and-replied-to-section,.m
 html body .search-container #search-type{display:none!important}
 html body .search-container .search-page-heading .term{background:none;color:var(--g-text)}
 
-/* The header. The site nav was centred by flex between the logo and the
-   icons, so it shifted whenever an icon came or went (the search page drops
-   the search icon). Wide enough, it is centred on the bar itself. */
-@media (min-width:1100px){
-  html body .d-header .contents{position:relative}
-  html body .d-header .gq-site-nav{position:absolute;left:50%;transform:translateX(-50%);margin:0}
-  html body .d-header .panel{margin-left:auto}
-}
+/* The header's site nav is centred the way graviquest.com centres it, in the
+   space between the logo and the controls (see "Header like the site",
+   2026-11-18). It was centred on the bar here for a while, which put it some
+   30px from where the same nav sits on every other page. */
 
 /* Phones. The thread's four figures sat between the title and the first
    words, and the "1 / 1" pill under them; on a phone the post comes first.
@@ -1988,3 +1984,188 @@ html body #main-outlet .user-navigation-primary :is(.user-nav__summary, .user-na
     min-height: 44px !important;
   }
 }
+
+/* ---- Fewer buttons (2026-11-17) -------------------------------------------------
+   The taped-over remote: someone covers forty buttons with paper so a parent
+   sees power, volume and channel. The same test, page by page: what does a
+   person come here to do, and what on the screen does not help them do it?
+   Reading a thread, choosing a room, replying, voting. A figure that measures
+   attention rather than conversation, a second way to the same place, a
+   sentence that describes the page instead of acting on it: those go. As
+   before, nothing is disabled; every page is still at its URL.
+
+   The list. */
+/* Views counted attention, not discussion, and on a young forum the column
+   read as a scoreboard. Replies and the last activity say whether a thread
+   is alive. */
+html body .topic-list :is(th.views,td.views,.topic-list-data.views){display:none!important}
+/* Hot is Latest re-sorted, and with a few dozen threads it is the same list.
+   A visitor then had a single "Latest" pill choosing between nothing, so the
+   row goes for them; a member keeps it for New and Unread. */
+html body #navigation-bar .nav-item_hot{display:none!important}
+html.anon body .navigation-container :is(#navigation-bar,.nav-pills,.list-control-toggle-link-trigger){display:none!important}
+html.anon body .navigation-container{margin-block:0 .5rem}
+/* The heading lost its eyebrow; the title starts where the eyebrow did. */
+html body .gq-forum-heading h1{margin-top:0}
+html body .gq-forum-heading p{margin-bottom:0}
+html body .gq-forum-heading .gq-pinned-question{margin-top:1.5rem}
+html body .gq-forum-heading .gq-room-links{margin-top:1.5rem}
+/* On a phone the reply figure has no caption; with nothing to count it goes
+   and the row keeps its date (api-initializers/graviquest.js marks the row). */
+.mobile-view .topic-list-item.gq-no-replies .badge-posts{display:none!important}
+@media (max-width:640px){html body .topic-list-item.gq-no-replies .badge-posts{display:none!important}}
+
+/* The thread. */
+/* "Want to read more? Browse other threads in … or see the latest threads."
+   under the suggested list: the breadcrumb at the top and the header already
+   go to both. */
+html body .more-topics__browse-more{display:none!important}
+
+/* A profile. Seen, Views and Trust Level describe how Discourse rates an
+   account, not the person; Joined and Last Post stay. The figures keep what a
+   person did here (threads, replies, likes received) and drop what the
+   software measured about their reading (days visited, read time, threads
+   viewed, posts read, likes given, bookmarks). */
+html body .user-main .secondary dl > div:has(> dt:is(.last-seen-at,.profile-view-count,.trust-level)){display:none!important}
+html body .user-content .stats-section li:is(.stats-days-visited,.stats-time-read,.stats-recent-read,.stats-topics-entered,.stats-posts-read,.stats-likes-given,.stats-bookmark-count){display:none!important}
+/* Three figures stay, so a phone shows them on one row rather than two and one. */
+@media (max-width:700px){html body .user-content .stats-section ul{grid-template-columns:repeat(3,minmax(0,1fr))}}
+/* What they started, what they answered, what others thought of it. */
+html body .user-content .stats-section li.stats-topic-count{order:1}
+html body .user-content .stats-section li.stats-post-count{order:2}
+html body .user-content .stats-section li.stats-likes-received{order:3}
+/* On a phone a row's date had a line of its own under the title, the only
+   thing on it. It sits at the end of the room line instead, so a row is two
+   lines: where and when, then what. */
+.mobile-view .topic-list-item .topic-item-metadata{position:relative}
+.mobile-view .topic-list-item .topic-item-metadata .topic-item-stats{position:absolute;top:0;right:0;width:auto;margin:0!important;padding:0!important}
+.mobile-view .topic-list-item .gq-row-room{padding-right:3.5rem}
+
+/* ---- Rooms (2026-11-18) ----------------------------------------------------------
+   The owner's brief: open the Forum and see three rooms, one saying what the
+   Forum is, one saying what GraviQuest is, and Topic 01, which holds three of
+   the team's threads (its videos, its essays, its discussion). Anyone signed
+   in reads, replies and likes, and may start a thread, which a moderator reads
+   before it appears, as the forum always has. As plain as a feed, and the top
+   of the page as plain as graviquest.com/forum.html's, whose head and rows
+   these are (assets/forum.css there: .fm-top, .fm-h1, .fm-row).
+
+   The rooms are backend/core/forum_rooms.json, made on Discourse by
+   ops/discourse/rooms.rb; the front page is components/graviquest/
+   forum-home.gjs. Everything below hides, it never disables: a thread in a
+   room the Forum no longer lists still opens at its URL.
+
+   The front page (and /categories, where "All rooms" leads): the room rows
+   replace Discourse's list, its tabs and the panels that sat under it. */
+html body:is(.navigation-topics,.navigation-categories) #main-outlet .list-controls > .container,
+html body:is(.navigation-topics,.navigation-categories) #main-outlet :is(.list-container,.category-list,.categories-and-latest,.gq-community-sidebar,.gq-pinned-question,.gq-room-links){display:none!important}
+
+/* The page head: forum.html's .fm-top. Eyebrow in mono, h1, lead, and the one
+   action on the right (a visitor's sign-in; a member has nothing to start). */
+html body .gq-page-top{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:1.5rem;align-items:end;padding-top:4rem;margin-bottom:2rem}
+html body .gq-page-top h1{margin:0 0 1rem;font-size:clamp(2.1rem,1.5rem + 2.6vw,3.25rem);line-height:1.1;letter-spacing:-.02em}
+html body .gq-eyebrow,html body .gq-crumb{display:block;margin-bottom:.75rem;font:400 .8125rem/1.4 "DM Mono",monospace;letter-spacing:.04em;color:var(--g-accent)}
+html body .gq-crumb a{color:var(--g-accent)}
+html body .gq-crumb a::before{content:"\2190\00a0"}
+html body .gq-lead{margin:0;max-width:46rem;font-size:clamp(1.05rem,1rem + .35vw,1.25rem);line-height:1.45;color:var(--g-text-muted)}
+html body .gq-page-top__action{justify-self:end}
+@media (max-width:640px){html body .gq-page-top{grid-template-columns:minmax(0,1fr);padding-top:2rem}html body .gq-page-top__action{justify-self:start}}
+
+/* The rooms: forum.html's rows (hairline between, mono figures on the right,
+   the title taking the accent on hover). */
+html body .gq-forum-home{margin-bottom:4rem}
+html body .gq-rooms{list-style:none;margin:0;padding:0}
+html body .gq-rooms > li{margin:0;padding:0}
+html body .gq-roomrow{display:grid;grid-template-columns:minmax(0,1fr) 4.5rem 4.5rem 4.5rem;gap:1rem;align-items:center;padding:1.5rem .5rem;border-bottom:1px solid var(--g-hairline);color:var(--g-text);text-decoration:none;transition:background-color .2s ease}
+html body a.gq-roomrow:hover{background:var(--g-surface);color:var(--g-text)}
+html body a.gq-roomrow:hover .gq-roomrow__name{color:var(--g-accent)}
+html body a.gq-roomrow:focus-visible{outline:2px solid var(--g-text);outline-offset:-2px}
+html body .gq-roomrow--head{padding-block:0 .75rem;font:400 .8125rem/1.4 "DM Mono",monospace;color:var(--g-text-subtle)}
+html body .gq-roomrow__main{display:grid;gap:.3rem;min-width:0}
+html body .gq-roomrow__name{font-size:1.25rem;font-weight:600;line-height:1.3}
+html body .gq-roomrow__desc{font-size:.9375rem;line-height:1.5;color:var(--g-text-muted)}
+html body .gq-n{text-align:center;font:400 .9375rem/1.3 "DM Mono",monospace;font-variant-numeric:tabular-nums;color:var(--g-text-muted)}
+html body .gq-roomrow--head .gq-n{font-size:.8125rem;color:var(--g-text-subtle)}
+html body .gq-n--age{color:var(--g-text-subtle)}
+@media (max-width:640px){html body .gq-roomrow{grid-template-columns:minmax(0,1fr) 3.5rem 3.5rem}html body .gq-n--threads{display:none}}
+@media (prefers-reduced-motion:reduce){html body .gq-roomrow{transition:none}}
+
+/* A room: the same head, then its threads. Discourse's own heading for the
+   category, its breadcrumb pickers and its tabs go. */
+html body.navigation-category #main-outlet :is(.category-heading,.category-breadcrumb,#navigation-bar,.nav-pills,.list-control-toggle-link-trigger){display:none!important}
+html body.navigation-category #main-outlet .navigation-container{margin-block:0 1rem}
+/* Every row in a room is that room's; the label above each title said so. */
+html body.navigation-category .topic-list .gq-row-room{display:none!important}
+
+/* A room's threads as forum.html's table (2026-11-18): who is talking, replies,
+   views and the last activity. The front page's lists dropped the faces and
+   the views ("Simpler", "Fewer buttons"); in a room the owner wants them, so
+   they come back here. Each figure is centred under its word: flush right, a
+   short figure sat under the last letter of "Replies" and read as misaligned. */
+html body.navigation-category .topic-list :is(th.posters,td.posters,.topic-list-data.posters),
+html body.navigation-category .topic-list :is(th.views,td.views,.topic-list-data.views){display:table-cell!important}
+html body.navigation-category .topic-list th.posters::before{content:"People"}
+html body .topic-list :is(th,td).num,html body .topic-list .topic-list-data.num{text-align:center!important}
+html body .topic-list th.num :is(button,.header-contents,span){justify-content:center;margin-inline:auto;text-align:center}
+html body.navigation-category .topic-list td.posters a:not(:first-child){margin-left:-.45rem}
+html body.navigation-category .topic-list td.posters img.avatar{box-shadow:0 0 0 2px var(--g-bg)}
+@media (max-width:640px){html body.navigation-category .topic-list :is(th,td).posters,html body.navigation-category .topic-list :is(th,td).views{display:none!important}}
+.mobile-view.mobile-view .topic-list :is(th,td).posters,.mobile-view.mobile-view .topic-list :is(th,td).views{display:none!important}
+
+/* Starting a thread: the room picker offers the Forum's three rooms, by their
+   Discourse names (backend/core/forum_rooms.json), not the rooms it no longer
+   lists. Starting from a room's page picks that room already. Only in the
+   composer: staff moving a thread still see every room. */
+html body #reply-control .category-chooser .select-kit-row:not(:is([data-name="About the Forum"],[data-name="About GraviQuest"],[data-name="Topic 01 · AI in Research"])){display:none!important}
+
+/* A thread: one column, posts then the reply box. The rail of counts and
+   faces left in thread-details.gjs; the "More threads" list under the reply
+   box was a second front page. */
+html body .more-topics__container,html body .suggested-topics{display:none!important}
+html body.archetype-regular .gq-thread-rail{display:none!important}
+
+/* The menu lists the same rooms as the front page, in its order, and no
+   others; "All rooms" leads to the front page. The forum-wide "Topics" list
+   (renamed "All threads" above) went with the front page's list. */
+html body .menu-panel [data-section-name="categories"] li{display:none!important}
+html body .menu-panel [data-section-name="categories"] li:has(a:is([href*="/about-the-forum/"],[href*="/about-graviquest/"],[href*="/ai-in-research/"],[data-link-name="all-categories"])){display:list-item!important}
+html body .menu-panel [data-section-name="categories"] li:has(a[href*="/about-the-forum/"]){order:1}
+html body .menu-panel [data-section-name="categories"] li:has(a[href*="/about-graviquest/"]){order:2}
+html body .menu-panel [data-section-name="categories"] li:has(a[href*="/ai-in-research/"]){order:3}
+html body .sidebar-section-link-wrapper:has([data-link-name="everything"]){display:none!important}
+
+/* With the rail gone the thread is one column, centred like the rooms, and
+   the title, the breadcrumb and the reply box share its edges. The layout
+   rules above were keyed to the rail's presence; they now key to the post
+   stream, which every thread has. Discourse's own timeline (a long thread's
+   scrubber beside the posts) goes with the rail; a phone keeps its progress
+   pill. */
+html body.archetype-regular .container.posts:has(.post-stream){grid-template-columns:minmax(0,48rem)!important;grid-template-areas:"posts"!important;justify-content:center;column-gap:0!important}
+@media (min-width:641px){html body.archetype-regular .container.posts:has(.post-stream) .topic-navigation{display:none!important}}
+html body.archetype-regular :is(.gq-thread-crumb,#topic-title .title-wrapper,#topic-footer-buttons,.topic-above-footer-buttons-outlet){max-width:48rem;margin-inline:auto!important;box-sizing:border-box}
+html body.archetype-regular .gq-thread-crumb.container{padding-inline:0!important}
+@media (max-width:48rem){html body.archetype-regular .gq-thread-crumb.container{padding-inline:var(--d-wrap-padding-x,1rem)!important}}
+
+/* ---- Header like the site (2026-11-18) ---------------------------------------
+   Measured against graviquest.com/community at 1440px, the Forum's header was
+   the site's in colour, height, blur and type, and different in four ways:
+   it was about 60px wider (the logo 21px further left, the controls further
+   right), its nav sat on the bar's centre rather than between the logo and
+   the controls, its nav pill was 46px tall where the site's is 48, and its
+   icon buttons were 42px (40 plus a transparent border) where the site's are
+   40. The account control said Workspace, which left the site on 2026-11-17;
+   it is the site's "Join Us" now (components/graviquest/navigation.gjs).
+
+   The site's container: 1200px including a gutter that grows to 2.5rem
+   (gravitas.css, --g-gutter). The page under the header takes the same edges,
+   so the Forum's title starts under the logo as the site's do. */
+html body .d-header > .wrap,html body #main-outlet-wrapper.wrap{box-sizing:border-box;max-width:1200px;padding-inline:clamp(1.25rem,.5rem + 3vw,2.5rem)}
+/* The nav pill: the site's link line-height gives its 37px links and 48px pill. */
+html body .d-header .gq-site-nav{margin-inline:auto}
+html body .d-header .gq-site-nav a{line-height:1.6}
+/* Icon buttons are 40px across, border included, as the site's are. */
+html body .d-header :is(.d-header-icons .btn,.header-dropdown-toggle > button,.header-dropdown-toggle > a,.auth-buttons .btn){box-sizing:border-box}
+/* "Join Us": the site's pill, its icon drawn inline rather than as the
+   Workspace pill's background image. */
+html body .d-header .gq-workspace.gq-join{background-image:none!important;gap:.45rem;padding:0 1.375rem 0 .625rem}
+html body .d-header .gq-workspace.gq-join svg{width:1em;height:1em;flex:none}

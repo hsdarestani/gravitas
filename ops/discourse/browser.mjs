@@ -40,8 +40,8 @@ try {
     try {
     await page.goto('https://forum.graviquest.com/latest', {waitUntil:'domcontentloaded'});
     await page.locator('.gq-forum-heading h1').waitFor({timeout:60000});
-    await page.locator('.topic-list .topic-list-item').first().waitFor({timeout:60000});
-    await page.locator('.gq-community-poll .poll').waitFor({timeout:30000});
+    // The front page is the room directory (forum-home.gjs, backend/core/forum_rooms.json).
+    await page.locator('.gq-forum-home a.gq-roomrow').first().waitFor({timeout:60000});
     await page.evaluate(()=>document.fonts.ready);
     // S3 images finish independently of the document and web fonts. Decode
     // the actual brand asset before measuring its rendered dimensions.
@@ -51,23 +51,25 @@ try {
       heading:document.querySelector('.gq-forum-heading h1')?.textContent,
       background:getComputedStyle(document.body).backgroundColor,
       font:getComputedStyle(document.body).fontFamily,
-      topicRows:document.querySelectorAll('.topic-list .topic-list-item').length,
+      rooms:document.querySelectorAll('.gq-forum-home a.gq-roomrow').length,
       themeFonts:[...document.fonts].filter(f=>f.family.includes('DM Sans')).map(f=>f.status),
       logo:(()=>{const img=document.querySelector('img#site-logo');return img?{width:img.getBoundingClientRect().width,height:img.getBoundingClientRect().height,loaded:img.complete&&img.naturalWidth>0}:null;})(),
     }));
-    assert.equal(measurements.heading,'The Forum');
+    assert.equal(measurements.heading,'Forum');
     assert(measurements.width<=measurements.viewport+1,'No horizontal page overflow');
     assert(measurements.font.includes('DM Sans'),'Existing brand typography loaded');
     assert(measurements.themeFonts.includes('loaded'),'Bundled brand font file actually loaded');
     assert(measurements.logo?.loaded && measurements.logo.width>=100 && measurements.logo.height>=20,'Brand logo is visible at its intended size');
-    assert(measurements.topicRows>0,'Real public discussions rendered');
+    assert(measurements.rooms>0,'The Forum lists its rooms');
     assert.deepEqual(errors,[],'Native theme has no uncaught runtime errors');
     await page.screenshot({path:`${out}/forum-${project.tag}.png`,fullPage:true});
-    console.log(JSON.stringify({engine:project.name,viewport:viewport.width,...measurements,nativePollRendered:true,uncaughtErrors:errors.length}));
+    console.log(JSON.stringify({engine:project.name,viewport:viewport.width,...measurements,uncaughtErrors:errors.length}));
     // Small diagnostic thumbnail is safe: anonymous public UI only, no sessions,
     // private discussions, email addresses or secrets in screenshots/logs.
     const thumbnail=await page.screenshot({type:'jpeg',quality:35,fullPage:false,scale:'css'});
     console.log(`GQ_PUBLIC_SCREENSHOT_${project.tag}:`+thumbnail.toString('base64'));
+    await page.locator('.gq-forum-home a.gq-roomrow[href*="/ai-in-research/"]').click();
+    await page.locator('.gq-room-head h1').waitFor({timeout:30000});
     const topic=page.locator('.topic-list a.title').first();
     await topic.click();
     await page.locator('.topic-post').first().waitFor({timeout:30000});

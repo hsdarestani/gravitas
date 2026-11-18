@@ -3,7 +3,7 @@ name: Deploy and verify the GraviQuest Forum theme
 on:
   push:
     branches: ['feat/discourse-*']
-    paths: ['discourse/theme/**', 'ops/discourse/**', '.github/workflows/forum-theme.yml']
+    paths: ['discourse/theme/**', 'ops/discourse/**', 'backend/core/forum_rooms.json', '.github/workflows/forum-theme.yml']
   workflow_dispatch:
 
 permissions:
@@ -23,6 +23,8 @@ jobs:
         run: |
           set -euo pipefail
           ruby -c ops/discourse/deploy_theme.rb
+          ruby -c ops/discourse/rooms.rb
+          python3 -c 'import json; json.load(open("backend/core/forum_rooms.json"))'
           python3 ops/discourse/assemble_theme.py "$GITHUB_WORKSPACE" "$RUNNER_TEMP/forum-theme/candidate"
           npm install --prefix "$RUNNER_TEMP/forum-browser" --no-audit --no-fund playwright@1.65.0
           "$RUNNER_TEMP/forum-browser/node_modules/.bin/playwright" install --with-deps chromium webkit
@@ -48,8 +50,8 @@ jobs:
           REMOTE="/tmp/graviquest-$RELEASE"
           SHARED="/var/discourse/shared/graviquest/graviquest-integration/$RELEASE"
           CONTAINER="/shared/graviquest-integration/$RELEASE"
-          cp ops/discourse/deploy_theme.rb "$RUNNER_TEMP/forum-theme/"
-          tar -C "$RUNNER_TEMP/forum-theme" -czf "$RUNNER_TEMP/forum-theme.tgz" candidate deploy_theme.rb
+          cp ops/discourse/deploy_theme.rb ops/discourse/rooms.rb backend/core/forum_rooms.json "$RUNNER_TEMP/forum-theme/"
+          tar -C "$RUNNER_TEMP/forum-theme" -czf "$RUNNER_TEMP/forum-theme.tgz" candidate deploy_theme.rb rooms.rb forum_rooms.json
           ssh "${OPTS[@]}" "$TARGET" "umask 077 && mkdir '$REMOTE'"
           scp -i ~/.ssh/forum-theme -P "$PORT" "$RUNNER_TEMP/forum-theme.tgz" "$TARGET:$REMOTE/source.tgz"
           ssh "${OPTS[@]}" "$TARGET" "sudo install -d -m 700 '$SHARED' &&
@@ -67,6 +69,9 @@ jobs:
             fi
           }
           trap rollback EXIT
+          # The rooms first: the theme lists them, and must never list one that
+          # does not exist yet (ops/discourse/rooms.rb, backend/core/forum_rooms.json).
+          ssh "${OPTS[@]}" "$TARGET" "sudo docker exec -u discourse -w /var/www/discourse -e GQ_THEME_RELEASE='$CONTAINER' graviquest bundle exec rails runner '$CONTAINER/rooms.rb'"
           run_theme apply
           export PLAYWRIGHT_MODULE="$RUNNER_TEMP/forum-browser/node_modules/playwright/index.mjs"
           export GQ_BROWSER_OUTPUT="$RUNNER_TEMP/forum-theme-screenshots"

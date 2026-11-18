@@ -1,12 +1,10 @@
 import { apiInitializer } from "discourse/lib/api";
 import I18n from "discourse-i18n";
 import Navigation from "../components/graviquest/navigation";
-import ForumHeading from "../components/graviquest/forum-heading";
-import CommunityPanels from "../components/graviquest/community-panels";
-import RoomLabel from "../components/graviquest/room-label";
+import ForumHome from "../components/graviquest/forum-home";
 import ThemeToggle from "../components/graviquest/theme-toggle";
 
-import { ThreadBreadcrumb, ThreadByline, ThreadRail } from "../components/graviquest/thread-details";
+import { ThreadBreadcrumb } from "../components/graviquest/thread-details";
 
 // Discourse calls a discussion a "topic" and a room a "category". On
 // GraviQuest a Topic is a published dossier ("Topic 01 · AI in Research" is a
@@ -27,16 +25,29 @@ const WORDS = {
   "topic.read_more": "Want to read more? <a href='%{categoryLink}'>Browse the rooms</a> or <a href='%{latestLink}'>see the latest threads</a>.",
   "sidebar.sections.categories.header_link_text": "Rooms",
   "sidebar.all_categories": "All rooms",
+  // A profile's figures, in the forum's words. Discourse's post_count counts
+  // replies only (the opening post is the topic_count), so "replies" is exact.
+  "user.summary.topic_count": { one: "thread started", other: "threads started" },
+  "user.summary.post_count": { one: "reply", other: "replies" },
+  "user.summary.likes_received": { one: "like received", other: "likes received" },
+  "user.summary.top_topics": "Top threads",
 };
 
+// A string replaces a string; a plural ({one, other}) replaces a plural, form
+// by form. Anything else leaves Discourse's own wording in place.
 function useHouseWords() {
   const strings = I18n.translations?.[I18n.locale]?.js;
   for (const [path, text] of Object.entries(WORDS)) {
     const keys = path.split(".");
     const last = keys.pop();
     const parent = keys.reduce((node, key) => node?.[key], strings);
-    if (parent && typeof parent[last] === "string") {
+    const current = parent?.[last];
+    if (typeof text === "string" && typeof current === "string") {
       parent[last] = text;
+    } else if (typeof text === "object" && current && typeof current === "object") {
+      for (const form of Object.keys(text)) {
+        if (typeof current[form] === "string") current[form] = text[form];
+      }
     }
   }
 }
@@ -45,12 +56,8 @@ export default apiInitializer((api) => {
   useHouseWords();
   api.renderInOutlet("before-header-panel", Navigation);
   api.headerIcons.add("gq-theme", ThemeToggle, { before: "hamburger" });
-  api.renderInOutlet("discovery-navigation-bar-above", ForumHeading);
-  api.renderInOutlet("after-topic-list", CommunityPanels);
-  api.renderInOutlet("topic-list-before-link", RoomLabel);
+  api.renderInOutlet("discovery-navigation-bar-above", ForumHome);
   api.renderInOutlet("topic-above-post-stream", ThreadBreadcrumb);
-  api.renderInOutlet("topic-title", ThreadByline);
-  api.renderInOutlet("topic-navigation", ThreadRail);
   api.registerValueTransformer("topic-reply-count", ({ value }) =>
     Number.isInteger(value) ? Math.max(0, value) : 0
   );
@@ -77,6 +84,12 @@ export default apiInitializer((api) => {
     if (topic?.id && url && url.split("/").pop() === String(topic.id)) {
       value.push("gq-room-about");
     }
+    // On a phone a row's reply count is a bare figure with no caption; a lone
+    // "0" beside every new thread read as a score. common.scss hides it there
+    // when there is nothing to count.
+    if (topic && !(topic.replyCount > 0)) {
+      value.push("gq-no-replies");
+    }
     return value;
   });
 
@@ -89,7 +102,8 @@ export default apiInitializer((api) => {
     ["lab", "Lab", "https://graviquest.com/lab.html"],
     ["learn", "Learn", "https://graviquest.com/learn.html"],
     ["community", "Community", "https://graviquest.com/community"],
-    ["workspace", "Workspace", "https://graviquest.com/workspace"],
+    // Workspace left the public site on 2026-11-17 (nothing links to it while
+    // it is rebuilt), so it left this menu too.
   ];
   api.addSidebarSection((BaseCustomSidebarSection, BaseCustomSidebarSectionLink) => {
     const links = siteLinks.map(

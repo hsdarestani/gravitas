@@ -21,6 +21,33 @@ class PublicHeaderAuthAssetTests(SimpleTestCase):
         self.assertIn("setAccountLink(true);", source)
         self.assertIn("setAccountLink(false);", source)
 
+    def test_a_member_can_sign_out_without_the_workspace(self):
+        # The workspace's Settings were the only way out until 2026-11-18, and
+        # the workspace is off the public site. The phone menu (site.js) and
+        # the sign-in page (production-bridge-core.js) carry Sign out, shown
+        # once the session answer says signed in, posting Django's logout.
+        site = (ROOT / 'assets' / 'site.js').read_text(encoding='utf-8')
+        self.assertIn("signOutTool.setAttribute('data-sign-out', '')", site)
+        self.assertIn('signOutTool.hidden = true;', site)
+        # And on a wide screen, in the header row, for a member only.
+        self.assertIn("headerSignOut.setAttribute('data-sign-out', '')", site)
+        self.assertIn('headerSignOut.hidden = true;', site)
+        source = BRIDGE.read_text(encoding='utf-8')
+        self.assertIn('showSignOut(note);', source)
+        self.assertIn("apiPost('/api/auth/logout/', {})", source)
+        self.assertIn("closest('[data-sign-out]')", source)
+
+    def test_the_account_card_offers_a_member_the_forum(self):
+        # Community's "Join the discussion." card: Create an Account and Sign
+        # in for a visitor; the Forum and a new thread for a member.
+        source = BRIDGE.read_text(encoding='utf-8')
+        self.assertIn('markJoinCard();', source)
+        self.assertIn("document.querySelectorAll('.join__act')", source)
+        self.assertIn("primary.href = FORUM_HOME; primary.textContent = 'Open the Forum';", source)
+        self.assertIn("secondary.href = '/api/forum/start/'; secondary.textContent = 'Start a Thread';", source)
+        page = (ROOT / 'community.html').read_text(encoding='utf-8')
+        self.assertIn('<div class="join__act">', page)
+
     def test_sign_in_never_lands_in_the_workspace(self):
         for path in (BRIDGE, ROOT / 'assets' / 'site.js'):
             source = path.read_text(encoding='utf-8')
@@ -53,7 +80,7 @@ class PublicHeaderAuthAssetTests(SimpleTestCase):
 
     def test_public_auth_bridge_loader_is_cache_busted(self):
         source = LOADER.read_text(encoding='utf-8')
-        self.assertIn('/assets/production-bridge-core.js?v=20261117-forum3', source)
+        self.assertIn('/assets/production-bridge-core.js?v=20261118-signout1', source)
 
     def test_public_pages_reference_current_auth_loader_version(self):
         stale = []
@@ -63,7 +90,7 @@ class PublicHeaderAuthAssetTests(SimpleTestCase):
             if 'production-bridge.js' not in source:
                 continue
             referenced.append(path.name)
-            if 'production-bridge.js?v=20261117-forum3' not in source:
+            if 'production-bridge.js?v=20261118-signout1' not in source:
                 stale.append(path.name)
 
         self.assertTrue(referenced)

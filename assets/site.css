@@ -109,6 +109,19 @@
      toggle. */
   .gh-actions .rl-trigger { order: 1; }
   .gh-actions .theme-toggle { order: 2; }
+  /* Sign out, for a member only (site.js makes it hidden; production-bridge
+     shows it once the session answer says so): a third circle beside saved
+     and theme, before the account pill, so the pill keeps its separator. */
+  .gh-actions .gh-signout {
+    order: 2; display: inline-flex; align-items: center; justify-content: center;
+    width: var(--gh-control); height: var(--gh-control); flex: none; padding: 0;
+    border: 1px solid transparent; border-radius: var(--g-radius-pill);
+    background: transparent; color: var(--g-text-muted); cursor: pointer;
+    transition: color var(--g-dur) var(--g-ease-orbit), background-color var(--g-dur) var(--g-ease-orbit);
+  }
+  .gh-actions .gh-signout:hover { background: rgb(var(--g-tint) / 0.1); color: var(--g-text); }
+  .gh-actions .gh-signout svg { width: 1.125rem; height: 1.125rem; }
+  .gh-actions .gh-signout[hidden] { display: none; }
   .gh-actions .lp-header__cta { order: 3; position: relative; margin-left: var(--g-space-xs); }
   .gh-actions .lp-header__cta::before {
     content: ''; position: absolute; left: calc(var(--g-space-xs) * -1 - 1px); top: 25%; bottom: 25%;
@@ -131,7 +144,8 @@
      is in the sheet now (site.js moves or proxies it there). */
   .gh-actions .lp-header__cta,
   .gh-actions .theme-toggle,
-  .gh-actions .rl-trigger { display: none; }
+  .gh-actions .rl-trigger,
+  .gh-actions .gh-signout { display: none; }
 
   /* No outline at rest. The one remaining control does not need a ring to be
      found, and the ring was what made the header look like a row of buttons. */
@@ -249,6 +263,9 @@
   .g-nav__foot .theme-toggle { order: 1; }
   .g-nav__saved { order: 2; }
   .g-nav__foot .gh-nav-join { order: 3; grid-column: 1 / -1; }
+  /* Sign out, for a member only (production-bridge shows it once the session
+     answer says so): the last row, quieter than the account pill above it. */
+  .g-nav__signout { order: 4; grid-column: 1 / -1; color: var(--g-text-muted); }
   .g-nav__foot > [hidden] { display: none; }
   .g-nav__saved[hidden] + .theme-toggle { grid-column: 1 / -1; }
   /* The theme proxy is a .theme-toggle, so it picks up the header circle's
@@ -1168,6 +1185,8 @@ body.is-deep .entry__lvl { color: var(--g-accent); border-color: var(--g-border)
 .auth__note { font-family: var(--g-font); font-size: var(--g-fs-caption);
   color: var(--g-text-subtle); margin: var(--g-space-lg) 0 0;
   border-top: 1px solid var(--g-hairline); padding-top: var(--g-space-sm); }
+/* Sign out, under "Signed in as …" (production-bridge-core.js). */
+.auth__signout { margin-top: var(--g-space-xs); }
 /* Account creation is where the site first collects personal data, so the
    Privacy Policy is linked at that moment, under the button, not only from the
    footer. It is information, not a consent box: the account rests on the

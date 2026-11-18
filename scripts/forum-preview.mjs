@@ -100,6 +100,13 @@ const server = http.createServer(async (req, res) => {
       res.end(await fs.readFile(path.join(ROOT, 'scripts', 'forum-preview-shim.js')));
       return;
     }
+    /* The rooms list the theme and backend share (backend/core/forum_rooms.json),
+       so the shim can draw rooms that rooms.rb has not created yet. */
+    if (url === '/__gq/forum-rooms.json') {
+      res.writeHead(200, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' });
+      res.end(await fs.readFile(path.join(ROOT, 'backend', 'core', 'forum_rooms.json')));
+      return;
+    }
     if (url.startsWith('/service-worker')) { res.writeHead(404, { 'cache-control': 'no-store' }); res.end(); return; }
     const m = url.match(/^\/stylesheets\/(common_theme|desktop_theme|mobile_theme)_\d+_[0-9a-f]+\.css/);
     if (m) {
@@ -120,7 +127,11 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
-    const headers = { ...req.headers, host: 'forum.graviquest.com', 'accept-encoding': 'identity' };
+    /* Compressed upstream, decoded by fetch (content-encoding is dropped from
+       the reply below). Uncompressed, every response over about 40KB froze
+       after its first 32KB on some networks (seen 2026-11-17, Discourse pages
+       included), and every page then failed as "upstream too slow". */
+    const headers = { ...req.headers, host: 'forum.graviquest.com', 'accept-encoding': 'gzip, deflate, br' };
     delete headers.connection;
     /* Anonymous on purpose: a stale _forum_session from a half-finished
        sign-in made the forum stall every page for that browser. */

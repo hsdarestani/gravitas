@@ -74,7 +74,9 @@ a.fm-row:focus-visible { outline: 2px solid var(--g-focus); outline-offset: -2px
 a.fm-row:hover .fm-row__title { color: var(--g-accent); }
 .fm-row__tags { display: flex; gap: var(--g-space-2xs); }
 .fm-row__tags .g-tag { align-self: center; }
-.fm-c-n { text-align: right; font-family: var(--g-font-mono); font-size: var(--g-fs-small); color: var(--g-text-muted); font-variant-numeric: tabular-nums; }
+/* Centred under the column word, not flush to its last letter: a short figure
+   flush right sat under the "s" of Replies and read as misaligned (2026-11-18). */
+.fm-c-n { text-align: center; font-family: var(--g-font-mono); font-size: var(--g-fs-small); color: var(--g-text-muted); font-variant-numeric: tabular-nums; }
 .fm-row--head .fm-c-n { font-size: var(--g-fs-caption); color: var(--g-text-subtle); }
 .fm-c-age { color: var(--g-text-subtle); }
 .fm-who { display: inline-flex; }

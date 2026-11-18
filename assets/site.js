@@ -96,6 +96,26 @@
      Sign in as Workspace and hides Join for members by finding them by class,
      so there must stay exactly one of each. Theme and Saved are thin proxies
      onto the real header controls, which keep owning their state. */
+  /* Sign out in the header row, beside saved and theme (2026-11-18). Hidden
+     until production-bridge learns there is a session, and it owns the click
+     ([data-sign-out]). A phone gets the same control as the menu's last row
+     below; site.css hides this one there. Made here rather than written into
+     every page's header, which carries exactly one account control. */
+  var headerActions = document.querySelector('.gh-actions');
+  if (headerActions && !headerActions.querySelector('.gh-signout')) {
+    var headerSignOut = document.createElement('button');
+    headerSignOut.type = 'button';
+    headerSignOut.className = 'gh-signout';
+    headerSignOut.hidden = true;
+    headerSignOut.setAttribute('data-sign-out', '');
+    headerSignOut.setAttribute('aria-label', 'Sign out');
+    headerSignOut.title = 'Sign out';
+    headerSignOut.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4.75H6.75a2 2 0 0 0-2 2v10.5a2 2 0 0 0 2 2H14"/><path d="M10.5 12h9"/><path d="M16.5 8.5 20 12l-3.5 3.5"/></svg>';
+    var themeButton = headerActions.querySelector('.theme-toggle');
+    if (themeButton) themeButton.insertAdjacentElement('afterend', headerSignOut);
+    else headerActions.appendChild(headerSignOut);
+  }
+
   var mb = document.querySelector('.lp-menu-btn');
   var nav = document.querySelector('.g-nav');
   if (mb && nav) {
@@ -131,6 +151,17 @@
     if (themeTool) foot.appendChild(themeTool);
     var workspace = nav.querySelector('.gh-nav-join');
     if (workspace) foot.appendChild(workspace);
+    // Sign out, the last row. Hidden until production-bridge learns there is
+    // a session, and it owns the click ([data-sign-out]). Since the workspace
+    // left the public site on 2026-11-17 its Settings were the only place to
+    // sign out, and nothing linked there any more.
+    var signOutTool = document.createElement('button');
+    signOutTool.type = 'button';
+    signOutTool.className = 'g-nav__tool g-nav__signout';
+    signOutTool.hidden = true;
+    signOutTool.setAttribute('data-sign-out', '');
+    signOutTool.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4.75H6.75a2 2 0 0 0-2 2v10.5a2 2 0 0 0 2 2H14"/><path d="M10.5 12h9"/><path d="M16.5 8.5 20 12l-3.5 3.5"/></svg><span>Sign out</span>';
+    foot.appendChild(signOutTool);
     var sep = nav.querySelector('.g-nav__sep');
     if (sep) sep.remove();
     nav.appendChild(foot);
