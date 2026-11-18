@@ -34,6 +34,9 @@ jobs:
           ruby -c ops/discourse/rooms.rb
           python3 -c 'import json; json.load(open("backend/core/forum_rooms.json"))'
           python3 ops/discourse/assemble_theme.py "$GITHUB_WORKSPACE" "$RUNNER_TEMP/forum-theme/candidate"
+          # 2026-11-18: the runner's regional Ubuntu mirror served a few packages
+          # a minute, three runs in a row; the main archive does not.
+          sudo sed -i -E 's#http://[a-z0-9.-]*\.ec2\.archive\.ubuntu\.com#http://archive.ubuntu.com#g' /etc/apt/sources.list.d/*.sources /etc/apt/sources.list 2>/dev/null || true
           npm install --prefix "$RUNNER_TEMP/forum-browser" --no-audit --no-fund playwright@1.65.0
           "$RUNNER_TEMP/forum-browser/node_modules/.bin/playwright" install --with-deps chromium webkit
       - name: Apply theme and verify the public thread on three browsers
