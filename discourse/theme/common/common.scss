@@ -2058,7 +2058,8 @@ html body .user-content .stats-section li.stats-likes-received{order:3}
    The front page (and /categories, where "All rooms" leads): the room rows
    replace Discourse's list, its tabs and the panels that sat under it. */
 html body:is(.navigation-topics,.navigation-categories) #main-outlet .list-controls > .container,
-html body:is(.navigation-topics,.navigation-categories) #main-outlet :is(.list-container,.category-list,.categories-and-latest,.gq-community-sidebar,.gq-pinned-question,.gq-room-links){display:none!important}
+html body.navigation-categories #main-outlet .list-container,
+html body:is(.navigation-topics,.navigation-categories) #main-outlet :is(.category-list,.categories-and-latest,.gq-community-sidebar,.gq-pinned-question,.gq-room-links){display:none!important}
 
 /* The page head: forum.html's .fm-top. Eyebrow in mono, h1, lead, and the one
    action on the right (a visitor's sign-in; a member has nothing to start). */
@@ -2102,14 +2103,14 @@ html body.navigation-category .topic-list .gq-row-room{display:none!important}
    the views ("Simpler", "Fewer buttons"); in a room the owner wants them, so
    they come back here. Each figure is centred under its word: flush right, a
    short figure sat under the last letter of "Replies" and read as misaligned. */
-html body.navigation-category .topic-list :is(th.posters,td.posters,.topic-list-data.posters),
-html body.navigation-category .topic-list :is(th.views,td.views,.topic-list-data.views){display:table-cell!important}
-html body.navigation-category .topic-list th.posters::before{content:"People"}
+html body:is(.navigation-category,.navigation-topics) .topic-list :is(th.posters,td.posters,.topic-list-data.posters),
+html body:is(.navigation-category,.navigation-topics) .topic-list :is(th.views,td.views,.topic-list-data.views){display:table-cell!important}
+html body:is(.navigation-category,.navigation-topics) .topic-list th.posters::before{content:"People"}
 html body .topic-list :is(th,td).num,html body .topic-list .topic-list-data.num{text-align:center!important}
 html body .topic-list th.num :is(button,.header-contents,span){justify-content:center;margin-inline:auto;text-align:center}
-html body.navigation-category .topic-list td.posters a:not(:first-child){margin-left:-.45rem}
-html body.navigation-category .topic-list td.posters img.avatar{box-shadow:0 0 0 2px var(--g-bg)}
-@media (max-width:640px){html body.navigation-category .topic-list :is(th,td).posters,html body.navigation-category .topic-list :is(th,td).views{display:none!important}}
+html body:is(.navigation-category,.navigation-topics) .topic-list td.posters a:not(:first-child){margin-left:-.45rem}
+html body:is(.navigation-category,.navigation-topics) .topic-list td.posters img.avatar{box-shadow:0 0 0 2px var(--g-bg)}
+@media (max-width:640px){html body:is(.navigation-category,.navigation-topics) .topic-list :is(th,td).posters,html body:is(.navigation-category,.navigation-topics) .topic-list :is(th,td).views{display:none!important}}
 .mobile-view.mobile-view .topic-list :is(th,td).posters,.mobile-view.mobile-view .topic-list :is(th,td).views{display:none!important}
 
 /* Starting a thread: the room picker offers the Forum's three rooms, by their
@@ -2211,3 +2212,33 @@ html body .gq-footer .g-footer__legal{display:flex;flex-wrap:wrap;justify-conten
 html body .gq-footer .g-footer__fine a{margin-left:.9rem;color:var(--g-text)}
 @media (max-width:760px){html body .gq-footer .g-footer__grid{grid-template-columns:1fr 1fr}html body .gq-footer .g-footer__grid>div:first-child{grid-column:1/-1}}
 html body .gq-footer .g-stack>span>span:not(.g-soon){font-size:.875rem}
+
+/* ---- Front page as forum.html (2026-11-18, second pass) ----------------------
+   The owner preferred graviquest.com/forum.html's page: every thread in one
+   table, filtered by room with chips, sorted Latest or Top, and searchable
+   (forum-home.gjs). The table is Discourse's list, shown again here. Threads
+   in rooms the Forum no longer lists stay at their URLs but are not listed. */
+html body .topic-list .topic-list-item:not(.category-about-the-forum):not(.category-about-graviquest):not(.category-ai-in-research){display:none!important}
+html body .gq-filters{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:1rem;margin:0 0 1rem}
+html body .gq-chips{display:flex;flex-wrap:wrap;gap:.5rem}
+html body .gq-chips--sort{margin:0 0 1.5rem}
+html body .gq-chip{display:inline-flex;align-items:center;min-height:40px;padding:0 1rem;border:1px solid var(--g-hairline);border-radius:99px;font:500 .875rem/1 "DM Sans",sans-serif;color:var(--g-text-muted);text-decoration:none;transition:background-color .2s ease,color .2s ease}
+html body .gq-chip:hover{background:var(--g-surface);color:var(--g-text)}
+html body .gq-chip.is-active{background:var(--gq-wash-strong);border-color:var(--g-border);color:var(--g-text)}
+html body .gq-search{display:flex;gap:.5rem;align-items:center;margin:0}
+html body .gq-search input[type=search]{width:15rem;min-height:40px;margin:0;padding:0 1rem;border:1px solid var(--g-hairline);border-radius:99px;background:transparent;color:var(--g-text);font:400 .875rem "DM Sans",sans-serif}
+html body .gq-search input[type=search]:focus{outline:2px solid var(--g-text);outline-offset:1px}
+html body .gq-search .btn{min-height:40px;border-radius:99px}
+@media (max-width:640px){html body .gq-filters{flex-direction:column;align-items:stretch}html body .gq-search input[type=search]{flex:1;width:auto}}
+@media (prefers-reduced-motion:reduce){html body .gq-chip{transition:none}}
+/* A room's two actions sit together in its head; Discourse's own New Topic
+   button under the head would be the same action twice. */
+html body .gq-room-actions{display:flex;flex-wrap:wrap;gap:.75rem}
+html body.navigation-category #main-outlet #create-topic{display:none!important}
+
+/* ---- The composer as a plain box (2026-11-18) --------------------------------
+   Discourse posts only through its composer, so it stays, but as a box to
+   type in: no formatting toolbar (Markdown still works, and images still go
+   in by pasting or dragging), and a short placeholder, "Write here…" (graviquest.js WORDS). */
+html body #reply-control .d-editor-button-bar{display:none!important}
+html body #reply-control .d-editor-input{padding:1rem!important;font:400 1rem/1.6 "DM Sans",sans-serif!important}

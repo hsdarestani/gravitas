@@ -1,23 +1,24 @@
-// The Forum's front page and each room's head.
+// The Forum's front page head and each room's head.
 //
-// 2026-11-18. The owner asked for the Forum to be as plain as a feed: open it,
-// see three rooms (what the Forum is, what GraviQuest is, Topic 01), open one,
-// read, reply, like, or start a thread (held for review, as always). The page
-// head is the one graviquest.com/forum.html already uses (eyebrow, h1, lead);
-// under it the rooms are that page's rows. common.scss hides Discourse's own
-// list on the front page, so this is the whole page.
+// 2026-11-18, second pass. The first pass made the front page a list of three
+// rooms. Seen live, the owner preferred graviquest.com/forum.html's page,
+// which this Forum has now replaced (that URL redirects here): one list of
+// every thread, filtered by room with a row of chips, sorted Latest or Top,
+// and searchable. So the front page is that page's head, its chips, its
+// search and Discourse's own thread list (common.scss draws the list as
+// forum.html's table). A room's page keeps its own head, with Open the Topic
+// and New thread side by side as in the approved prototype, and the same
+// chips with that room lit, so moving between rooms reads as filtering one
+// list.
 //
 // Which rooms, and in what order, is backend/core/forum_rooms.json; the slugs
 // below must match it (core/test_forum_rooms.py fails otherwise), and
 // ops/discourse/rooms.rb creates them on Discourse before every theme release.
-// Names and descriptions are read from Discourse, never written here. Thread
-// and reply counts and the last activity come from each room's own latest
-// list; a room whose list cannot be read shows its name and line, no figures.
+// Names are read from Discourse, never written here.
 import Component from "@glimmer/component";
-import { tracked } from "@glimmer/tracking";
+import { action } from "@ember/object";
+import { on } from "@ember/modifier";
 import { service } from "@ember/service";
-import { ajax } from "discourse/lib/ajax";
-import DRelativeDate from "discourse/ui-kit/d-relative-date";
 
 const ROOMS = ["about-the-forum", "about-graviquest", "ai-in-research"];
 
@@ -30,12 +31,8 @@ const TOPIC_PAGES = {
 export default class GraviQuestForumHome extends Component {
   @service site;
   @service currentUser;
-  @tracked figures = {};
-
-  constructor() {
-    super(...arguments);
-    if (!this.category) this.loadFigures();
-  }
+  @service composer;
+  @service router;
 
   get category() {
     return this.args.outletArgs?.category;
@@ -45,39 +42,37 @@ export default class GraviQuestForumHome extends Component {
     return TOPIC_PAGES[this.category?.slug];
   }
 
-  get categories() {
+  get chips() {
     const bySlug = new Map(this.site.categories.map((c) => [c.slug, c]));
-    return ROOMS.map((slug) => bySlug.get(slug)).filter(Boolean);
+    const current = this.category?.slug;
+    return ROOMS.map((slug) => bySlug.get(slug))
+      .filter(Boolean)
+      .map((c) => ({ slug: c.slug, name: c.name, url: c.url, active: c.slug === current }));
   }
 
-  get rooms() {
-    return this.categories.map((c) => ({
-      id: c.id,
-      name: c.name,
-      url: c.url,
-      description: c.description_text,
-      ...(this.figures[c.id] || {}),
-    }));
+  get sort() {
+    const name = this.router.currentRouteName || "";
+    return name.includes("top") ? "top" : "latest";
   }
 
-  async loadFigures() {
-    const figures = {};
-    await Promise.all(this.categories.map(async (c) => {
-      try {
-        const data = await ajax(`/c/${c.slug}/${c.id}/l/latest.json`);
-        const about = c.topic_url?.split("/").pop();
-        const topics = (data.topic_list?.topics || []).filter((t) => String(t.id) !== about);
-        figures[c.id] = {
-          known: true,
-          threads: topics.length,
-          replies: topics.reduce((n, t) => n + Math.max(0, (t.posts_count || 1) - 1), 0),
-          last: topics.map((t) => t.last_posted_at).filter(Boolean).sort().pop(),
-        };
-      } catch {
-        // No figures rather than wrong ones.
-      }
-    }));
-    if (!this.isDestroying && !this.isDestroyed) this.figures = figures;
+  get isLatest() {
+    return this.sort === "latest";
+  }
+
+  get isTop() {
+    return this.sort === "top";
+  }
+
+  // A member's thread starts in this room; a visitor is asked to sign in,
+  // as Discourse's own button does.
+  @action
+  newThread(event) {
+    event.preventDefault();
+    if (!this.currentUser) {
+      window.location.href = "/login";
+      return;
+    }
+    this.composer.openNewTopic({ category: this.category });
   }
 
   <template>
@@ -90,46 +85,40 @@ export default class GraviQuestForumHome extends Component {
             <p class="gq-lead">{{this.category.description_text}}</p>
           {{/if}}
         </div>
-        {{#if this.topicPage}}
-          <a class="btn btn-default gq-page-top__action" href={{this.topicPage}}>Open the Topic</a>
-        {{/if}}
+        <div class="gq-page-top__action gq-room-actions">
+          {{#if this.topicPage}}
+            <a class="btn btn-default" href={{this.topicPage}}>Open the Topic</a>
+          {{/if}}
+          <a class="btn btn-primary gq-new-thread" href="/new-topic" {{on "click" this.newThread}}>New thread</a>
+        </div>
       </header>
     {{else}}
-      <section class="gq-forum-heading gq-forum-home">
-        <header class="gq-page-top">
-          <div>
-            <span class="gq-eyebrow">Community · Forum</span>
-            <h1>Forum</h1>
-            <p class="gq-lead">A few rooms, set up by the team. Read any thread without an account; sign in when you want to reply.</p>
-          </div>
-          {{! forum.html's one action. A visitor is asked to sign in first. }}
-          <a class="btn btn-primary gq-page-top__action" href="/new-topic">Start a Thread</a>
-        </header>
-        <div class="gq-roomlist">
-          <div class="gq-roomrow gq-roomrow--head" aria-hidden="true">
-            <span>Room</span><span class="gq-n gq-n--threads">Threads</span><span class="gq-n">Replies</span><span class="gq-n">Activity</span>
-          </div>
-          <ol class="gq-rooms">
-            {{#each this.rooms key="id" as |room|}}
-              <li>
-                <a class="gq-roomrow" href={{room.url}}>
-                  <span class="gq-roomrow__main">
-                    <span class="gq-roomrow__name">{{room.name}}</span>
-                    {{#if room.description}}<span class="gq-roomrow__desc">{{room.description}}</span>{{/if}}
-                  </span>
-                  {{#if room.known}}
-                    <span class="gq-n gq-n--threads">{{room.threads}}</span>
-                    <span class="gq-n">{{room.replies}}</span>
-                    <span class="gq-n gq-n--age">{{#if room.last}}<DRelativeDate @date={{room.last}} />{{/if}}</span>
-                  {{else}}
-                    <span class="gq-n gq-n--threads"></span><span class="gq-n"></span><span class="gq-n gq-n--age"></span>
-                  {{/if}}
-                </a>
-              </li>
-            {{/each}}
-          </ol>
+      <header class="gq-page-top gq-forum-home">
+        <div>
+          <span class="gq-eyebrow">Community · Forum</span>
+          <h1>Forum</h1>
+          <p class="gq-lead">A few rooms, set up by the team. Read any thread without an account; sign in when you want to reply.</p>
         </div>
-      </section>
+        <a class="btn btn-primary gq-page-top__action" href="/new-topic">Start a Thread</a>
+      </header>
     {{/if}}
+    <div class="gq-filters">
+      <nav class="gq-chips" aria-label="Rooms">
+        <a class="gq-chip {{unless this.category 'is-active'}}" href="/latest" aria-current={{unless this.category "page"}}>All</a>
+        {{#each this.chips key="slug" as |chip|}}
+          <a class="gq-chip {{if chip.active 'is-active'}}" href={{chip.url}} data-room={{chip.slug}} aria-current={{if chip.active "page"}}>{{chip.name}}</a>
+        {{/each}}
+      </nav>
+      <form class="gq-search" action="/search" method="get" role="search">
+        <input type="search" name="q" placeholder="Search threads" aria-label="Search threads" />
+        <button class="btn btn-default" type="submit">Search</button>
+      </form>
+    </div>
+    {{#unless this.category}}
+      <nav class="gq-chips gq-chips--sort" aria-label="Sort">
+        <a class="gq-chip {{if this.isLatest 'is-active'}}" href="/latest">Latest</a>
+        <a class="gq-chip {{if this.isTop 'is-active'}}" href="/top">Top</a>
+      </nav>
+    {{/unless}}
   </template>
 }
