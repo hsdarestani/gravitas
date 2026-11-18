@@ -34,11 +34,12 @@ jobs:
           ruby -c ops/discourse/rooms.rb
           python3 -c 'import json; json.load(open("backend/core/forum_rooms.json"))'
           python3 ops/discourse/assemble_theme.py "$GITHUB_WORKSPACE" "$RUNNER_TEMP/forum-theme/candidate"
-          # 2026-11-18: the runner's regional Ubuntu mirror served a few packages
-          # a minute, three runs in a row; the main archive does not.
-          sudo sed -i -E 's#http://[a-z0-9.-]*\.ec2\.archive\.ubuntu\.com#http://archive.ubuntu.com#g' /etc/apt/sources.list.d/*.sources /etc/apt/sources.list 2>/dev/null || true
           npm install --prefix "$RUNNER_TEMP/forum-browser" --no-audit --no-fund playwright@1.65.0
-          "$RUNNER_TEMP/forum-browser/node_modules/.bin/playwright" install --with-deps chromium webkit
+          # 2026-11-18: installing the browsers' system packages from the
+          # runner's Ubuntu mirror stalled past ten minutes four runs in a row.
+          # The browsers now run in Playwright's own image, which carries them
+          # and every library they need, so no apt step is left to stall.
+          docker pull --quiet mcr.microsoft.com/playwright:v1.65.0-noble
       - name: Apply theme and verify the public thread on three browsers
         env:
           SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
@@ -84,9 +85,8 @@ jobs:
           # does not exist yet (ops/discourse/rooms.rb, backend/core/forum_rooms.json).
           ssh "${OPTS[@]}" "$TARGET" "sudo docker exec -u discourse -w /var/www/discourse -e GQ_THEME_RELEASE='$CONTAINER' graviquest bundle exec rails runner '$CONTAINER/rooms.rb'"
           run_theme apply
-          export PLAYWRIGHT_MODULE="$RUNNER_TEMP/forum-browser/node_modules/playwright/index.mjs"
-          export GQ_BROWSER_OUTPUT="$RUNNER_TEMP/forum-theme-screenshots"
-          node ops/discourse/thread-browser.mjs
+          mkdir -p "$RUNNER_TEMP/forum-theme-screenshots"
+          docker run --rm --ipc=host             -v "$GITHUB_WORKSPACE:/work:ro" -v "$RUNNER_TEMP/forum-browser:/forum-browser:ro"             -v "$RUNNER_TEMP/forum-theme-screenshots:/out" -w /work             -e PLAYWRIGHT_MODULE=/forum-browser/node_modules/playwright/index.mjs             -e GQ_BROWSER_OUTPUT=/out             mcr.microsoft.com/playwright:v1.65.0-noble node ops/discourse/thread-browser.mjs
       - uses: actions/upload-artifact@v4
         if: always()
         with:
