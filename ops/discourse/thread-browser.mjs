@@ -31,7 +31,9 @@ for (const { engine, name, options } of browsers) {
     // Topic 01's room holds the team's three threads; open it, then a thread.
     await page.locator('.gq-forum-home a.gq-roomrow[href*="/ai-in-research/"]').click();
     await page.locator(".gq-room-head h1").waitFor({ timeout: 45000 });
-    await page.locator(".topic-list a.title").first().click();
+    // The room's "About the … category" row is first in the list but hidden
+    // by common.scss; open the first thread a reader can actually see.
+    await page.locator(".topic-list a.title").filter({ visible: true }).first().click();
     await page.locator(".topic-post .cooked").first().waitFor({ timeout: 45000 });
     await page.locator("#topic-footer-buttons button.btn-primary").waitFor();
     assert.equal(new URL(page.url()).origin, site);
