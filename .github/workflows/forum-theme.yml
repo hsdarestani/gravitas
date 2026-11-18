@@ -12,7 +12,9 @@ permissions:
 jobs:
   theme:
     if: github.repository == 'hsdarestani/gravitas' && (github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[deploy-forum-theme]'))
-    runs-on: ubuntu-latest
+    # Pinned (2026-11-18): on ubuntu-latest, now Ubuntu 26, installing the
+    # browsers' system packages stalled for the whole 10-minute limit twice.
+    runs-on: ubuntu-24.04
     # 2026-11-18: the browser install below hung for the whole 15 minutes
     # (it usually takes under a minute), so the run was cancelled before the
     # theme step. The install now has its own limit and the job more room, so
