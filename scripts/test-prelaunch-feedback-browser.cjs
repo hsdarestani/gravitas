@@ -57,14 +57,24 @@ const server=http.createServer((req,res)=>{
         await page.locator('[data-question="site_works"]').waitFor();
         assert.equal(await page.locator('#prelaunch-form [required]').count(),0,'All fields optional');
         assert.equal(await page.locator('input[type="password"]').count(),0,'No login');
-        assert.equal(await page.locator('.fb-group').count(),9,'Nine categories A–I');
+        assert.equal(await page.locator('.fb-group').count(),10,'Ten categories A–J with separate final comments');
+        assert.equal(await page.locator('.fb-question__optional').count(),0,'Do not repeat Optional beside each question');
+        assert.equal(await page.locator('[data-more="about"]').count(),0,'No empty About you accordion');
+        assert.equal(await page.locator('[data-more="overall"]').count(),0,'Final comments must not be buried in Overall accordion');
+        assert.equal(await page.locator('[data-section="final_comments"] [data-question="other_feedback"]').isVisible(),true,'Final freeform feedback is visible');
+        assert.equal(await page.locator('[data-question="contact_email"]').isVisible(),true,'Follow-up email is visible');
         const widthCheck=await page.evaluate(()=>({
           scroll:document.documentElement.scrollWidth,
           viewport:window.innerWidth
         }));
         assert.ok(widthCheck.scroll<=widthCheck.viewport+1,'Horizontal overflow at '+width+'px '+JSON.stringify(widthCheck));
         if(width===340){
+          assert.equal(await page.locator('[data-question="persona_other"]').isHidden(),true);
+          await page.locator('[data-question="persona"] label.fb-persona').last().click();
+          assert.equal(await page.locator('[data-question="persona_other"]').isVisible(),true,'Other reveals its inline follow-up');
+          await page.locator('[data-question="persona_other"] textarea').fill('Educator');
           await page.locator('[data-question="persona"] label.fb-persona').first().click();
+          assert.equal(await page.locator('[data-question="persona_other"]').isHidden(),true,'Follow-up hides for other choices');
           assert.equal(await page.locator('input[name="persona"]:checked').count(),1);
           await page.locator('[data-clear-radio="persona"]').click();
           assert.equal(await page.locator('input[name="persona"]:checked').count(),0);
@@ -85,8 +95,7 @@ const server=http.createServer((req,res)=>{
 
           await page.locator('[data-question="recommend_likelihood"] .fb-choice').nth(10).click();
           await page.locator('[data-question="one_change"] textarea').fill('Make the first-time navigation simpler.');
-          const more=page.locator('[data-more="overall"]');
-          await more.locator('summary').click();
+          await page.locator('[data-section="final_comments"] [data-question="other_feedback"] textarea').fill('The forum discussion needs clearer guidance.');
           await page.locator('input[name="contact_email"]').fill('visitor@example.com');
           await page.locator('#fb-submit-button').click();
           await page.waitForFunction(()=>document.querySelector('#fb-status')?.dataset.state==='success');
@@ -100,6 +109,8 @@ const server=http.createServer((req,res)=>{
           assert.ok(!('community_purpose' in captured[0].answers));
           assert.ok(!('broken_where' in captured[0].answers));
           assert.equal(captured[0].answers.contact_email,'visitor@example.com');
+          assert.equal(captured[0].answers.other_feedback,'The forum discussion needs clearer guidance.');
+          assert.ok(!('persona_other' in captured[0].answers),'Hidden Other details do not submit');
           assert.ok(!('persona' in captured[0].answers));
           assert.match(page.url(),/prelaunch-feedback.html/);
         }else if(width===390){

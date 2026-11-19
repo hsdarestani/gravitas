@@ -1,14 +1,14 @@
 /* One questionnaire definition for public form and admin reporting.
    The original Ahmad survey is preserved; expanded sections remain optional. */
 export const GROUPS = [
-  { id:'about', letter:'A', title:'About you', note:'Optional. Your perspective helps us understand responses.', fields:[
+  { id:'about', letter:'A', title:'About you', note:'Your perspective helps us understand responses.', fields:[
     { key:'persona', label:'Which description fits you best?', type:'persona', options:[
       ['a1','Curious Explorer','I enjoy discovering science without needing technical detail.'],
       ['a2','Early-Career Researcher','I am studying or starting out in scientific research.'],
       ['a3','Working Scientist','Research is part of my professional work.'],
       ['other','Other / None of these','I see myself differently.']
     ] },
-    { key:'persona_other', label:'If other, how would you describe yourself?', type:'text', max:160, gate:'persona:other', extra:true },
+    { key:'persona_other', label:'If other, how would you describe yourself?', type:'text', max:160, gate:'persona:other' },
     { key:'name', label:'Your name (leave blank to remain anonymous)', type:'input', max:120 }
   ]},
   { id:'first', letter:'B', title:'First impression and goals', note:'What did you think GraviQuest was trying to achieve?', fields:[
@@ -64,12 +64,14 @@ export const GROUPS = [
   { id:'future', letter:'H', title:'Coming soon: Lab and Learn', note:'These features are not available in this prelaunch. We are asking about expectations, not usability.', fields:[
     {key:'lab_learn_expectations', number:38, label:'What would you expect to find in Lab? And in Learn?', type:'text'}
   ]},
-  { id:'overall', letter:'I', title:'Overall', note:'Your final thoughts, and optional contact details.', fields:[
+  { id:'overall', letter:'I', title:'Overall', note:'Think about your experience as a whole.', fields:[
     {key:'return_likelihood', number:40, star:true, label:'How likely are you to come back to the site?', type:'score5', low:'Very unlikely', high:'Very likely'},
     {key:'recommend_likelihood', number:41, star:true, label:'How likely are you to recommend the site to a friend or colleague?', type:'score10', low:'Not at all likely', high:'Extremely likely'},
-    {key:'one_change', number:42, star:true, label:'If you could change one thing, what would it be?', type:'text'},
-    {key:'other_feedback', number:43, label:'Anything else you would like to tell us?', type:'text', extra:true},
-    {key:'contact_email', number:44, label:'May we contact you with follow-up questions? Leave your email only if you agree.', type:'email', max:254, extra:true, hint:'Adding your email gives us permission to contact you about this feedback only. No marketing subscription.'}
+    {key:'one_change', number:42, star:true, label:'If you could change one thing, what would it be?', type:'text'}
+  ]},
+  { id:'final_comments', letter:'J', title:'Final comments and suggestions', note:'Have a specific criticism, suggestion or anything else to add? Tell us here.', fields:[
+    {key:'other_feedback', number:43, label:'Anything else you would like to tell us?', type:'text'},
+    {key:'contact_email', number:44, label:'May we contact you with follow-up questions? Leave your email only if you agree.', type:'email', max:254, hint:'Adding your email gives us permission to contact you about this feedback only. No marketing subscription.'}
   ]}
 ];
 export const FIELDS = GROUPS.flatMap(group => group.fields);
