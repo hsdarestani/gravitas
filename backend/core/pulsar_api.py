@@ -135,6 +135,10 @@ def public_pulsar_ask(request):
     observation = snapshot.get('observation') or page_observation(data.get('page_context') if key else {})
     catalog = public_topic_catalog(pages.get('/topics.html', {}).get('topic_catalog', data.get('topic_catalog')))
     history = recent_history(data.get('history'))
+    if not snapshot and re.search(r'\b(summari[sz]e (?:this|the)(?: page)?|what (?:is|s) this page about)\b', message, re.I):
+        return JsonResponse({'ok': True,
+            'reply': 'I do not have verified content for this page, so I cannot summarize it. You can ask about a specific concept or choose a published Topic.',
+            'links': [], 'provider': 'public_context_missing', 'version': 'public-guide-v2'})
     db_topics = []
     if not catalog:
         db_topics = topic_rows_from_db(ContentItem.objects.filter(kind='topic', status='published')[:20])

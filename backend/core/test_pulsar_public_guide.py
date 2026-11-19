@@ -69,7 +69,7 @@ class PublicGuideTests(TestCase):
     @patch('core.pulsar_api.run_text')
     def test_missing_or_private_context_cannot_inject_private_dom(self, model, configured):
         model.return_value = SimpleNamespace(text='I do not have this page’s content.', provider='test', run_id='one')
-        self.ask('Summarize this.', page='/workspace/private', page_context={'heading': 'PRIVATE_TOKEN'})
+        self.ask('Explain a confidence interval.', page='/workspace/private', page_context={'heading': 'PRIVATE_TOKEN'})
         prompt = model.call_args.kwargs['user']
         self.assertNotIn('PRIVATE_TOKEN', prompt)
         self.assertFalse(json.loads(prompt)['Current page']['page_context_available'])
@@ -111,6 +111,12 @@ class PublicGuideTests(TestCase):
         self.assertIn('without an account', payload['reply'])
         self.assertIn('Sign in', payload['reply'])
         self.assertIn('reviewed before', payload['reply'])
+
+    def test_missing_content_does_not_imply_the_page_is_offline(self):
+        payload = self.ask('Summarize this page.', page='/survey.html').json()
+        self.assertEqual(payload['provider'], 'public_context_missing')
+        self.assertIn('verified content', payload['reply'])
+        self.assertNotIn('page is unavailable', payload['reply'])
 
     @patch('core.pulsar_api.configured', return_value=True)
     @patch('core.pulsar_api.run_text')
