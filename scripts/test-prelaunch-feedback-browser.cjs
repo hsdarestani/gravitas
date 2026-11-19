@@ -43,6 +43,15 @@ const server=http.createServer((req,res)=>{
   res.setHeader('Content-Type',types[path.extname(filename)]||'application/octet-stream');
   res.end(fs.readFileSync(filename));
 });
+async function assertSequentialVisibleNumbers(page,scenario){
+  // The native details "toggle" event is queued; wait for numbering to settle.
+  await page.waitForFunction(()=>{
+    const visible=Array.from(document.querySelectorAll('#fb-question-groups .fb-question'))
+      .filter(question=>!question.hidden && (!question.closest('details') || question.closest('details').open));
+    return visible.length>0 && visible.every((question,index)=>
+      question.querySelector('.fb-question__id')?.textContent===String(index+1).padStart(2,'0'));
+  },null,{timeout:3000}).catch(error=>{throw new Error('Non-sequential numbering: '+scenario,{cause:error});});
+}
 (async()=>{
   await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
   const browser=await chromium.launch({
@@ -63,6 +72,7 @@ const server=http.createServer((req,res)=>{
         assert.equal(await page.locator('[data-more="overall"]').count(),0,'Final comments must not be buried in Overall accordion');
         assert.equal(await page.locator('[data-section="final_comments"] [data-question="other_feedback"]').isVisible(),true,'Final freeform feedback is visible');
         assert.equal(await page.locator('[data-question="contact_email"]').isVisible(),true,'Follow-up email is visible');
+        await assertSequentialVisibleNumbers(page,width+'px: initial collapsed form');
         const widthCheck=await page.evaluate(()=>({
           scroll:document.documentElement.scrollWidth,
           viewport:window.innerWidth
@@ -73,8 +83,10 @@ const server=http.createServer((req,res)=>{
           await page.locator('[data-question="persona"] label.fb-persona').last().click();
           assert.equal(await page.locator('[data-question="persona_other"]').isVisible(),true,'Other reveals its inline follow-up');
           await page.locator('[data-question="persona_other"] textarea').fill('Educator');
+          await assertSequentialVisibleNumbers(page,'Other-persona revealed');
           await page.locator('[data-question="persona"] label.fb-persona').first().click();
           assert.equal(await page.locator('[data-question="persona_other"]').isHidden(),true,'Follow-up hides for other choices');
+          await assertSequentialVisibleNumbers(page,'Other-persona hidden');
           assert.equal(await page.locator('input[name="persona"]:checked').count(),1);
           await page.locator('[data-clear-radio="persona"]').click();
           assert.equal(await page.locator('input[name="persona"]:checked').count(),0);
@@ -84,15 +96,22 @@ const server=http.createServer((req,res)=>{
           assert.equal(await page.locator('[data-question="broken_where"]').isVisible(),true);
           await page.locator('[data-question="anything_broken"] label.fb-option').last().click();
           assert.equal(await page.locator('[data-question="broken_where"]').isHidden(),true);
+          await assertSequentialVisibleNumbers(page,'broken-location field hidden');
 
           await page.locator('[data-question="video_watched"] label.fb-option').last().click();
           assert.equal(await page.locator('[data-question="video_content_quality"]').isHidden(),true,'No video => skip video ratings');
           await page.locator('[data-question="video_watched"] label.fb-option').nth(1).click();
           assert.equal(await page.locator('[data-question="video_content_quality"]').isVisible(),true);
+          await assertSequentialVisibleNumbers(page,'video-rating question revealed');
           await page.locator('[data-question="video_content_quality"] .fb-choice').nth(4).click();
           await page.locator('[data-question="community_visited"] label.fb-option').last().click();
           assert.equal(await page.locator('[data-question="community_purpose"]').isHidden(),true);
 
+          const more=page.locator('[data-more="first"]');
+          await more.locator('summary').click();
+          await assertSequentialVisibleNumbers(page,'extra questions accordion expanded');
+          await more.locator('summary').click();
+          await assertSequentialVisibleNumbers(page,'extra questions accordion collapsed');
           await page.locator('[data-question="recommend_likelihood"] .fb-choice').nth(10).click();
           await page.locator('[data-question="one_change"] textarea').fill('Make the first-time navigation simpler.');
           await page.locator('[data-section="final_comments"] [data-question="other_feedback"] textarea').fill('The forum discussion needs clearer guidance.');

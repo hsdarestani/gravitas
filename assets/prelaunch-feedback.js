@@ -1,4 +1,4 @@
-import { GROUPS, FIELDS, PRIORITY_KEYS } from './prelaunch-feedback-schema.js?v=20261119-ahmad-fix1';
+import { GROUPS, FIELDS, PRIORITY_KEYS } from './prelaunch-feedback-schema.js?v=20261119-sequential1';
 
 const form = document.getElementById('prelaunch-form');
 const host = document.getElementById('fb-question-groups');
@@ -25,7 +25,8 @@ function fieldControl(field) {
   wrap.dataset.question = field.key;
   if (field.gate) wrap.dataset.gate = field.gate;
   const title = el('div', 'fb-question__title');
-  if (field.number) title.append(el('span', 'fb-question__id', String(field.number).padStart(2,'0')));
+  // Numbers are assigned after visibility changes, so hidden questions never leave gaps.
+  title.append(el('span', 'fb-question__id', ''));
   if (field.star) {
     const badge = el('span', 'fb-priority', '★');
     badge.setAttribute('aria-label', 'Priority question');
@@ -106,6 +107,7 @@ function build() {
       const extra=el('div','fb-questions fb-questions--extra');
       moreQuestions.forEach(field=>extra.append(fieldControl(field)));
       details.append(extra);section.append(details);
+      details.addEventListener('toggle', syncState);
     }
     host.append(section);
   });
@@ -134,6 +136,15 @@ function syncState() {
     question.querySelectorAll('input,textarea,select').forEach(input=>{
       input.disabled=question.hidden;
     });
+  }
+  // Number questions in the exact order the visitor can currently see.
+  // Accordion contents and conditional follow-ups do not reserve numbers when hidden.
+  let visibleNumber=0;
+  for (const question of host.querySelectorAll('.fb-question')) {
+    const accordion=question.closest('details');
+    const visible=!question.hidden && (!accordion || accordion.open);
+    const number=question.querySelector('.fb-question__id');
+    if(number)number.textContent=visible?String(++visibleNumber).padStart(2,'0'):'';
   }
   const available=FIELDS.filter(field=>field.star&&gateSatisfied(field));
   const completed=available.filter(field=>fieldValue(field.key)!=='').length;
