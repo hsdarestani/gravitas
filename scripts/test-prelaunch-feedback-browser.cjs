@@ -44,13 +44,13 @@ const server=http.createServer((req,res)=>{
   res.end(fs.readFileSync(filename));
 });
 async function assertSequentialVisibleNumbers(page,scenario){
-  const numbers=await page.evaluate(()=>Array.from(
-    document.querySelectorAll('#fb-question-groups .fb-question')
-  ).filter(question=>!question.hidden && (!question.closest('details') || question.closest('details').open))
-    .map(question=>question.querySelector('.fb-question__id')?.textContent));
-  assert.ok(numbers.length>0,'Found visible survey questions: '+scenario);
-  assert.deepEqual(numbers,numbers.map((_,index)=>String(index+1).padStart(2,'0')),
-    'Continuous visible question numbering for '+scenario);
+  // The native details "toggle" event is queued; wait for numbering to settle.
+  await page.waitForFunction(()=>{
+    const visible=Array.from(document.querySelectorAll('#fb-question-groups .fb-question'))
+      .filter(question=>!question.hidden && (!question.closest('details') || question.closest('details').open));
+    return visible.length>0 && visible.every((question,index)=>
+      question.querySelector('.fb-question__id')?.textContent===String(index+1).padStart(2,'0'));
+  },null,{timeout:3000}).catch(error=>{throw new Error('Non-sequential numbering: '+scenario,{cause:error});});
 }
 (async()=>{
   await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
