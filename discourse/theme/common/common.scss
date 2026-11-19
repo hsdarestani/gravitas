@@ -1973,6 +1973,18 @@ html body .pref-auth-tokens .auth-token-icon{grid-column:1;grid-row:1 / span 2;f
 html body .pref-auth-tokens .auth-token-first{grid-column:2;grid-row:1;margin:0!important}
 html body .pref-auth-tokens .auth-token-second{grid-column:2;grid-row:2;margin:0!important;color:var(--g-text-muted)}
 html body .pref-auth-tokens .auth-token-dropdown{grid-column:3;grid-row:1 / span 2;float:none!important;margin:0!important}
+/* An icon-only select-kit header (the wrench above, and any other) is a round
+   40px button, but its inner wrapper is a full-width flex row with no
+   justification, so the icon sat against the left edge of the circle. */
+html body .select-kit .select-kit-header.no-text .select-kit-header-wrapper{justify-content:center!important;align-items:center!important;gap:0!important;width:100%;height:100%}
+html body .select-kit .select-kit-header.no-text .select-kit-header-wrapper>.d-icon{margin:0!important}
+/* Preferences' round icon buttons (Account's username pencil, the email and
+   device wrenches) came out two ways: the pencil filled with a bright icon,
+   the wrenches transparent with a dimmed icon that read as disabled. One
+   outlined look, the theme's own for its round buttons. */
+html body .user-preferences .btn.btn-default.no-text{background:transparent!important;border:1px solid var(--g-border-strong)!important;color:var(--g-text)!important}
+html body .user-preferences .btn.btn-default.no-text .d-icon{color:var(--g-text)!important}
+html body .user-preferences .btn.btn-default.no-text:hover,html body .user-preferences .select-kit.is-expanded .btn.btn-default.no-text{border-color:var(--g-accent)!important;background:var(--gq-wash)!important}
 
 /* The stock mobile profile tabs hide these labels. Keep both controls named. */
 html body #main-outlet .user-navigation-primary :is(.user-nav__summary, .user-nav__activity) > a > span {
