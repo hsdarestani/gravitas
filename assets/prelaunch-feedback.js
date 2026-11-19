@@ -182,6 +182,11 @@ function gather() {
     if(field.type==='score5'||field.type==='score10')answers[field.key]=Number(value);
     else answers[field.key]=value;
   }
+  // Earlier visitors may have written video feedback before the watch gate
+  // existed. Editing the expanded form must not erase that earlier answer.
+  if(!fieldValue('video_watched') && savedAnswers.video_feedback && !answers.video_feedback) {
+    answers.video_feedback=savedAnswers.video_feedback;
+  }
   return {name:String(fieldValue('name')).trim(),answers,website:form.elements.namedItem('website').value};
 }
 function cookie(name) {

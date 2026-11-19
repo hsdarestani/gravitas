@@ -9,7 +9,7 @@ export const GROUPS = [
       ['other','Other / None of these','I see myself differently.']
     ] },
     { key:'persona_other', label:'If other, how would you describe yourself?', type:'text', max:160, gate:'persona:other', extra:true },
-    { key:'name', label:'Your name (leave blank to remain anonymous)', type:'input', max:120, extra:true }
+    { key:'name', label:'Your name (leave blank to remain anonymous)', type:'input', max:120 }
   ]},
   { id:'first', letter:'B', title:'First impression and goals', note:'What did you think GraviQuest was trying to achieve?', fields:[
     {key:'site_works', number:5, star:true, label:'Overall, how well does the site work?', type:'score5', low:'Not well', high:'Very well'},

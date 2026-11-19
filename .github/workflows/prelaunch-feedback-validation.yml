@@ -45,7 +45,8 @@ jobs:
         run: python -m django makemigrations core --check --dry-run
       - name: Validate page and admin JavaScript
         run: |
-          node --check assets/prelaunch-feedback.js
+          node --input-type=module --check < assets/prelaunch-feedback.js
+          node --input-type=module --check < assets/prelaunch-feedback-schema.js
           node --input-type=module --check < assets/ws/ws-prelaunch-feedback.js
           node --input-type=module --check < assets/ws/ws-five-layer.js
           node --input-type=module --check < assets/ws/ws-admin.js
@@ -53,17 +54,23 @@ jobs:
         run: |
           npm install --prefix "$RUNNER_TEMP/gq-prelaunch-browser" --no-save --ignore-scripts --no-audit --no-fund playwright-core@1.56.1
           NODE_PATH="$RUNNER_TEMP/gq-prelaunch-browser/node_modules" node scripts/test-prelaunch-feedback-browser.cjs
-      - name: Check public form questions and optionality
+      - name: Verify all question categories and optional submission contract
         run: |
           python3 - <<'PY'
           from pathlib import Path
           page = Path('prelaunch-feedback.html').read_text()
-          assert 'name="persona"' in page and 'name="name"' in page
-          assert 'name="video_feedback"' in page
-          assert 'name="scientific_content_feedback"' in page
-          assert 'name="usability"' in page and 'name="expectations_difference"' in page
-          assert 'name="first_impression"' in page and 'name="visual_feedback"' in page
+          schema = Path('assets/prelaunch-feedback-schema.js').read_text()
+          backend = Path('backend/core/prelaunch_feedback_api.py').read_text()
+          assert 'No sign-in required' in page
           assert 'required>' not in page and ' required ' not in page
-          assert 'No account needed' in page
-          print('Anonymous optional survey contract verified.')
+          assert 'type="module" src="/assets/prelaunch-feedback.js' in page
+          for letter in 'ABCDEFGHI':
+              assert "letter:'" + letter + "'" in schema
+          for key in ('site_works', 'goals_clear', 'findability',
+                      'visual_attractiveness', 'video_watched',
+                      'community_visited', 'return_likelihood',
+                      'recommend_likelihood', 'one_change', 'contact_email'):
+              assert "key:'" + key + "'" in schema
+              assert "'" + key + "'" in backend
+          print('A–I survey and optional anonymous submission contract verified.')
           PY
