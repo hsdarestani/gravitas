@@ -12,7 +12,7 @@ from .pulsar_public_context import (
 
 
 CATALOG = [
-    {'title': 'Can you trust an answer that looks right?', 'status': 'open',
+    {'title': 'Is AI reliable in research and learning?', 'status': 'open',
      'href': 'topic-answer-that-looked-right.html'},
     {'title': 'Can a machine form a hypothesis?', 'status': 'open',
      'href': 'topic-machine-hypothesis.html'},
@@ -128,12 +128,12 @@ class PublicPulsarApiTests(TestCase):
             'What is the topic?',
             page_context={
                 'heading': 'Hard questions, worked through together.',
-                'featured_topic': 'Can you trust an answer that looks right?',
+                'featured_topic': 'Is AI reliable in research and learning?',
                 'featured_href': 'topic-answer-that-looked-right.html',
             },
         )
         payload = response.json()
-        self.assertIn('Can you trust an answer', payload['reply'])
+        self.assertIn('Is AI reliable in research', payload['reply'])
         self.assertNotIn('Is the universe computable', payload['reply'])
         self.assertEqual(
             payload['links'][0]['href'], '/topic-answer-that-looked-right.html',
@@ -145,7 +145,7 @@ class PublicPulsarApiTests(TestCase):
         response = self.ask(
             "Don't you have access to the 1st page?",
             page_context={
-                'featured_topic': 'Can you trust an answer that looks right?',
+                'featured_topic': 'Is AI reliable in research and learning?',
                 'featured_href': 'topic-answer-that-looked-right.html',
             },
         )
@@ -161,7 +161,7 @@ class PublicPulsarApiTests(TestCase):
         response = self.ask(
             'How does this simulation work?',
             page_context={'heading': 'Hard questions',
-                          'featured_topic': 'Can you trust an answer that looks right?',
+                          'featured_topic': 'Is AI reliable in research and learning?',
                           'featured_href': 'topic-answer-that-looked-right.html',
                           'actions': [{'label': 'Open the Topic',
                                        'href': 'topic-answer-that-looked-right.html'}]},

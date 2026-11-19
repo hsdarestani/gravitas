@@ -151,7 +151,7 @@ class TopicEssayPublicationTests(TestCase):
         prompt = model.call_args.kwargs['user']
         self.assertIn('Published material from Nextcloud.', prompt)
         self.assertIn('Synchronized public page copy', prompt)
-        self.assertIn('Can you trust an answer that looks right?', prompt)
+        self.assertIn('Is AI reliable in research and learning?', prompt)
         self.assertNotIn('Obsolete Topic', prompt)
         self.assertNotIn('The dangerous answer from an AI assistant', prompt)
         self.assertNotIn(SOURCE_PATH, prompt)

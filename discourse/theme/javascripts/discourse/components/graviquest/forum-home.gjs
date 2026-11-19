@@ -60,7 +60,7 @@ const TOPIC_PAGES = {
 // next Topic opens, change these three lines.
 const WEEK = {
   topic: "Topic 01 · AI in Research",
-  question: "Can you trust an answer that looks right?",
+  question: "Is AI reliable in research and learning?",
   url: "https://graviquest.com/api/forum/open/answer-that-looked-right/",
 };
 

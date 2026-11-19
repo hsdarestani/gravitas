@@ -31,7 +31,7 @@
   const TOPIC_PAGES = { 'ai-in-research': 'https://graviquest.com/topic-answer-that-looked-right.html' };
   const WEEK = {
     topic: 'Topic 01 · AI in Research',
-    question: 'Can you trust an answer that looks right?',
+    question: 'Is AI reliable in research and learning?',
     url: 'https://graviquest.com/api/forum/open/answer-that-looked-right/',
   };
   const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
