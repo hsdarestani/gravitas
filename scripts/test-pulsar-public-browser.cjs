@@ -107,7 +107,21 @@ async function fits(page, width) {
         await page.getByRole('button',{name:'Ask Pulsar',exact:true}).click();
         await fits(page,width);
       }
-      results.push({width,homeBounds,shortBounds,persisted:true,failureRecovery:!live});
+      let forumReply='';
+      if(live) {
+        await page.goto('https://forum.graviquest.com/t/108',{waitUntil:'domcontentloaded'});
+        await page.getByRole('button',{name:'Ask Pulsar',exact:true}).click();
+        const responsePromise=page.waitForResponse(r=>r.url().includes('/gq-pulsar/ask/') && r.request().method()==='POST');
+        await ask(page,'Summarize this discussion.');
+        const response=await responsePromise, payload=await response.json();
+        assert.equal(payload.version,'public-guide-v2');
+        assert.equal(response.request().postDataJSON().forum_topic,108);
+        assert.notEqual(payload.provider,'fallback');
+        forumReply=payload.reply;
+        await fits(page,width);
+        await page.screenshot({path:path.join(out,`pulsar-forum-${width}.png`)});
+      }
+      results.push({width,homeBounds,shortBounds,persisted:true,failureRecovery:!live,forumReply});
       await context.close();
     }
   } finally { await browser.close(); }

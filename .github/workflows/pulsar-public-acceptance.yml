@@ -3,10 +3,14 @@ on:
   push:
     branches: ['feat/pulsar-public-guide']
   workflow_dispatch:
+  workflow_run:
+    workflows: ['Deploy Gravitas to Strato']
+    types: [completed]
 permissions:
   contents: read
 jobs:
   published-conversations:
+    if: github.event_name != 'workflow_run'
     runs-on: ubuntu-24.04
     timeout-minutes: 18
     steps:
@@ -56,6 +60,32 @@ jobs:
         with:
           name: pulsar-published-conversations
           path: qa-artifacts/pulsar-conversations.json
+          retention-days: 30
+  production-public-guide:
+    if: github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm install --prefix "$RUNNER_TEMP/pulsar-browser" --no-save --ignore-scripts --no-audit --no-fund playwright-core@1.56.1
+      - name: Verify actual public answers and responsive behavior after deployment
+        env:
+          NODE_PATH: ${{ runner.temp }}/pulsar-browser/node_modules
+          CHROME_PATH: /usr/bin/google-chrome
+          PULSAR_LIVE: '1'
+        run: node scripts/test-pulsar-public-browser.cjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: pulsar-production-acceptance
+          path: |
+            qa-artifacts/pulsar-*.png
+            qa-artifacts/pulsar-responsive.json
           retention-days: 30
   responsive-widget:
     needs: published-conversations
