@@ -2,6 +2,7 @@ from core.canonical_api import project_files, project_file_content, project_file
 from core.topic_essay_api import project_topic_essays, public_topic_essays, topic_essay_reaction
 from core.work_reports import reports_api, report_decision_api, report_overview_api
 from django.urls import path
+from core.prelaunch_feedback_api import prelaunch_feedback, admin_prelaunch_feedback
 
 from core.content_api import community_polls, content_detail, content_list, topic_media, topic_poll
 from core.core_links_api import task_cross_layer_links
@@ -285,6 +286,8 @@ urlpatterns = [
     path('newsletter/confirm/', newsletter_confirm),
     path('learn/interest/', course_interest),
     path('learn/interest/confirm/', course_interest_confirm),
+    path('prelaunch/feedback/', prelaunch_feedback),
+    path('platform/admin/prelaunch-feedback/', admin_prelaunch_feedback),
     path('auth/csrf/', auth_csrf),
     path('auth/signup/', auth_signup),
     path('auth/login/', auth_login),

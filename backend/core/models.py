@@ -1012,3 +1012,22 @@ class CourseInterest(models.Model):
 
     def __str__(self):
         return f'{self.email} · {self.course}'
+
+
+class PrelaunchFeedback(models.Model):
+    """Anonymous survey submission; browser session only holds the random ID."""
+
+    import uuid as _uuid
+
+    id = models.UUIDField(primary_key=True, default=_uuid.uuid4, editable=False)
+    survey_version = models.CharField(max_length=48, default='prelaunch-2026-v1', db_index=True)
+    name = models.CharField(max_length=120, blank=True)
+    answers = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return self.name or 'Anonymous response'

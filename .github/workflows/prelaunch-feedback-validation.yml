@@ -1,0 +1,69 @@
+name: Prelaunch Feedback Validation
+
+on:
+  pull_request:
+    paths:
+      - 'prelaunch-feedback.html'
+      - 'assets/prelaunch-feedback.*'
+      - 'assets/ws/ws-prelaunch-feedback.*'
+      - 'assets/ws/ws-five-layer.js'
+      - 'assets/ws/ws-admin.js'
+      - 'assets/ws/ws-app.js'
+      - 'workspace.html'
+      - 'backend/core/models.py'
+      - 'backend/core/prelaunch_feedback_api.py'
+      - 'backend/core/urls.py'
+      - 'backend/core/migrations/0106_prelaunch_feedback.py'
+      - 'backend/core/test_prelaunch_feedback.py'
+      - 'privacy.html'
+      - 'scripts/test-prelaunch-feedback-browser.cjs'
+      - '.github/workflows/prelaunch-feedback-validation.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      PYTHONPATH: backend
+      DJANGO_SETTINGS_MODULE: gravitas_backend.test_settings
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: pip install -q -r backend/requirements.txt
+      - name: Test anonymous feedback, CSRF, access, export
+        run: python -m django test core.test_prelaunch_feedback --noinput
+      - name: Verify migration model matches schema
+        run: python -m django makemigrations core --check --dry-run
+      - name: Validate page and admin JavaScript
+        run: |
+          node --check assets/prelaunch-feedback.js
+          node --input-type=module --check < assets/ws/ws-prelaunch-feedback.js
+          node --input-type=module --check < assets/ws/ws-five-layer.js
+          node --input-type=module --check < assets/ws/ws-admin.js
+      - name: Browser QA at 340, 390, 768 and 1363 pixels
+        run: |
+          npm install --prefix "$RUNNER_TEMP/gq-prelaunch-browser" --no-save --ignore-scripts --no-audit --no-fund playwright-core@1.56.1
+          NODE_PATH="$RUNNER_TEMP/gq-prelaunch-browser/node_modules" node scripts/test-prelaunch-feedback-browser.cjs
+      - name: Check public form questions and optionality
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          page = Path('prelaunch-feedback.html').read_text()
+          assert 'name="persona"' in page and 'name="name"' in page
+          assert 'name="video_feedback"' in page
+          assert 'name="scientific_content_feedback"' in page
+          assert 'name="usability"' in page and 'name="expectations_difference"' in page
+          assert 'name="first_impression"' in page and 'name="visual_feedback"' in page
+          assert 'required>' not in page and ' required ' not in page
+          assert 'No account needed' in page
+          print('Anonymous optional survey contract verified.')
+          PY
