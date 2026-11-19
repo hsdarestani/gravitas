@@ -174,7 +174,9 @@ async function smoke() {
   assert.equal(indexResponse.status(),200);
   assert.match(await idx.locator("main h1").innerText(),/^Change one thing/);
   assert.equal(await idx.locator(".ai-path-card,.ai-panel,.games > .game-card,.lab-catalog-card").count(),0);
-  assert.equal(await idx.locator("main button").count(),0);
+  assert.equal(await idx.locator("main button:not([disabled])").count(),0);
+  assert.equal(await idx.getByRole('button',{name:'Open This Lab',exact:true}).isDisabled(),true,
+    'the existing under-construction preview must not activate the Lab');
   assert.equal(await idx.locator("main iframe").count(),0);
   assert.ok(await idx.locator("#lab-experiences").isHidden());
   assert.ok(await idx.evaluate(()=>document.documentElement.scrollWidth-document.documentElement.clientWidth)<=1);

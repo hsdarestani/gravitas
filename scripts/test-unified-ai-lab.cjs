@@ -32,7 +32,8 @@ assert.ok(!html.includes('ai-hero')&&!html.includes('ai-panel')&&!html.includes(
 assert.ok(!html.includes('ai-lab.js')&&!html.includes('ai-lab.css'),'prototype assets must not be used');
 assert.ok(!fs.existsSync('assets/ai-lab.js')&&!fs.existsSync('assets/ai-lab.css'),'discarded prototype assets must be removed');
 assert.ok(!integrations.includes('games.prepend(a)'),'legacy CMS catalog must not be injected');
-assert.match(chat, /lists only the models that have been published/,'site guide must be truthful');
+assert.doesNotMatch(chat, /An account opens a workspace|AI in Research.*is the one that is live/,
+  'public fallback must not advertise unreleased Workspace or courses');
 assert.match(brand, /current centre of gravity is AI and machine learning in scientific research/);
 assert.match(guidance, /canonical source of truth for all UI design is/,'future brand guidance missing');
 console.log('Topic-agnostic Lab: generic landing, registry-only experiences, brand foundations and public messaging PASS.');

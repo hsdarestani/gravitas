@@ -6,6 +6,7 @@ on:
       - 'backend/core/pulsar.py'
       - 'backend/core/pulsar_api.py'
       - 'backend/core/pulsar_public_context.py'
+      - 'backend/core/pulsar_public_guide.py'
       - 'backend/core/test_public_pulsar_api.py'
       - 'assets/chat.js'
       - 'backend/core/pulsar_profile_api.py'
@@ -46,6 +47,7 @@ on:
       - 'backend/core/pulsar.py'
       - 'backend/core/pulsar_api.py'
       - 'backend/core/pulsar_public_context.py'
+      - 'backend/core/pulsar_public_guide.py'
       - 'backend/core/test_public_pulsar_api.py'
       - 'assets/chat.js'
       - 'backend/core/pulsar_profile_api.py'
@@ -108,6 +110,7 @@ jobs:
           "$PY" -m django test \
             core.test_pulsar_runtime \
             core.test_public_pulsar_api \
+            core.test_pulsar_public_guide \
             core.test_pulsar_context_profile \
             core.test_pulsar_memory \
             core.test_pulsar_evalset \

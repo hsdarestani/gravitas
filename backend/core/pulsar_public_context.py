@@ -12,15 +12,9 @@ PUBLIC_FAQ = (
     (('where are the topics', 'where can i find topics', 'where is the topics page'),
      'Open the Topics index to see published and planned questions.',
      '/topics.html', 'Browse Topics'),
-    (('where is the lab', 'where can i find the lab', 'open the lab'),
-     'The interactive simulations are in the Lab.',
-     '/lab.html', 'Open Lab'),
     (('where is the community', 'how can i join the community', 'propose a topic'),
      'You can suggest questions and join the discussion in Community.',
      '/community.html', 'Community'),
-    (('where can i learn', 'where are the courses', 'open learning'),
-     'Learning paths and courses are on the Learn page.',
-     '/learn.html', 'Open Learn'),
 )
 
 
@@ -39,12 +33,25 @@ def public_href(value):
 
 
 def public_page(value):
-    path = urlsplit(clean_text(value, 250)).path
+    try:
+        parsed = urlsplit(clean_text(value, 250))
+    except ValueError:
+        return ''
+    if parsed.scheme or parsed.netloc:
+        return ''
+    path = parsed.path
+    if re.match(r'^/(workspace|account|admin|login|signup)(?:[/.]|$)', path):
+        return ''
     if path in ('', '/'):
         return '/'
     if re.fullmatch(r'/[a-z0-9-]+\.html', path):
         return path
-    return '/'
+    # Unknown/private routes must never silently become the homepage.
+    if path == '/community':
+        return '/community.html'
+    if re.fullmatch(r'/[a-z0-9-]+', path):
+        return path + '.html'
+    return ''
 
 
 def public_navigation_href(value):
@@ -151,7 +158,7 @@ def _topic_links(rows, limit=2):
     return links
 
 
-def short_public_answer(message, *, page='/', observation=None, catalog=None, db_topics=None):
+def short_public_answer(message, *, page='/', observation=None, catalog=None, db_topics=None, history=None):
     """Deterministic answers for common site questions; do not ask the model to guess."""
     q = clean_text(message, 500).casefold().strip(' .?!')
     page = public_page(page)
@@ -159,6 +166,23 @@ def short_public_answer(message, *, page='/', observation=None, catalog=None, db
     catalog = public_topic_catalog(catalog)
     rows = catalog or (db_topics or [])
     if not q:
+        return None
+
+    if q in ('how can i participate', 'how can i participate in the discussion',
+             'how do i join the discussion', 'how can i join the community'):
+        return ('You can read public Forum threads without an account. Sign in to reply, like or start a thread; '
+                'posts are reviewed before they appear. Bring a specific question, claim or source you want to discuss.',
+                [{'label': 'Open the Forum', 'href': '/forum.html'}])
+
+    if re.search(r'\b(lab|workspace|lms|courses?|learning paths?)\b', q) and re.search(
+        r'\b(can i|where|open|use|available|start|access|now|join)\b', q,
+    ):
+        return ('The Lab, Workspace and learning courses are not available in the public pre-launch experience. '
+                'You can read published Topics and take part in the Forum.', [])
+
+    # A follow-up needs the conversation and the page's substance. Only the
+    # availability boundary above should bypass the model after a first turn.
+    if history:
         return None
 
     # These questions must be answered from the actual public cards, not from

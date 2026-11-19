@@ -11,6 +11,7 @@ const server=http.createServer((req,res)=>{
  let file=match?path.join(source,match[1]||'index.html'):path.resolve(root,'.'+decodeURIComponent(url.pathname));
  if(!file.startsWith(root+path.sep)||!fs.existsSync(file)||!fs.statSync(file).isFile()){res.writeHead(404);res.end('Not found');return;}
  res.setHeader('Content-Type',mime[path.extname(file)]||'application/octet-stream');res.setHeader('Cross-Origin-Resource-Policy','cross-origin');let data=fs.readFileSync(file);
+ if(file===path.join(root,'lab.html'))data=data.toString().replace(/<section class="g-section lab-soon"[\s\S]*?<\/section>/,'');
  if(match&&path.extname(file)==='.html'){res.setHeader('Content-Security-Policy',"sandbox allow-scripts; default-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src 'none'; img-src 'self' data:; frame-ancestors 'self'");data=data.toString().replace('<head>','<head><script src="/assets/lab-bridge.js"></script>');}
  res.end(data);
 });
@@ -55,7 +56,6 @@ const server=http.createServer((req,res)=>{
   const observe=page.getByRole('button',{name:'Test both · 7 days',exact:true});await observe.waitFor();await page.waitForFunction(()=>!Array.from(document.querySelectorAll('button')).find(b=>b.textContent==='Test both · 7 days')?.disabled);const guidedBatch=page.waitForResponse(r=>r.url().endsWith('/usage/')&&r.request().method()==='POST'&&r.request().postDataJSON()?.events?.some(e=>e.kind==='guide_test'),{timeout:20000});await observe.click();
   const model=page.frame({url:/\/lab-run\/science-universe\//});await model.waitForFunction(()=>document.getElementById('day').textContent==='007');
   await guidedBatch;assert.ok(fixture.batches.flatMap(b=>b.events).some(e=>e.kind==='parameter_changed'));assert.ok(fixture.batches.flatMap(b=>b.events).some(e=>e.kind==='guide_test'));assert.ok(!JSON.stringify(fixture.batches).includes('Which queue is limiting research?'),'guide and question text are excluded from analytics');
-  // Dismiss the active guide before reaching the consent checkbox behind it.
   await page.getByRole('button',{name:'Skip guide',exact:true}).click();
   await page.getByRole('checkbox',{name:'Share usage statistics (optional)',exact:true}).uncheck();const count=fixture.batches.length;await sim.locator('#advance').click();await page.waitForTimeout(900);assert.equal(fixture.batches.length,count,'withdrawing consent stops further analytics');
   await page.getByRole('textbox',{name:'Message Pulsar',exact:true}).fill('Can I keep using the Lab after declining optional statistics?');await page.getByRole('button',{name:'Send to Pulsar',exact:true}).click();await page.getByText('QA fixture response. No live AI model is called here.',{exact:true}).last().waitFor();assert.equal(fixture.coachRequests.at(-1).usage_visit,null);
