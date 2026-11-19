@@ -2509,3 +2509,27 @@ html body .filter-input-container .filter-input{border:0!important;background:tr
 html body .filter-input-container:focus-within{border-color:var(--g-accent)!important;box-shadow:0 0 0 3px var(--gq-ring)!important}
 /* The wide tables' second scrollbar, above them: thin, in the brand's line. */
 html body .horizontal-scroll-sync__top-scroll,html body .directory-table-container{scrollbar-width:thin;scrollbar-color:var(--g-border) transparent}
+
+/* ---- The reply box, placed and drawn again (2026-11-19) ---------------------------
+   Seen by the owner: it opened at the window's lower left, 200px off the
+   thread's column and over the posts, under a full-width drag bar, a title
+   and three ringed buttons. On a wide screen it now opens on the thread's own
+   column, as wide as the posts it answers, a sheet with rounded top corners.
+   The drag handle is a short bar in the middle, the title says what is being
+   written in the interface type, and the window controls are quiet icons, not
+   three more circles. Phones keep Discourse's full-screen box. */
+@media (min-width:768px){
+  html.desktop-view body #reply-control:not(.closed){left:0!important;right:0!important;width:min(calc(48rem + 3rem),calc(100vw - 2rem))!important;max-width:none!important;margin:0 auto!important;border:1px solid var(--g-border)!important;border-bottom:0!important;border-radius:16px 16px 0 0!important;box-shadow:0 -24px 60px -28px var(--gq-shadow-ink)!important;overflow:hidden}
+  html.desktop-view body #reply-control.fullscreen{width:auto!important;border-radius:0!important}
+  html.desktop-view body #reply-control .reply-area{padding:0 1.5rem 1.25rem!important;max-width:none!important}
+}
+html body #reply-control .grippie{position:relative;height:18px!important;border:0!important;background:transparent!important;cursor:row-resize}
+html body #reply-control .grippie::before{content:"";position:absolute;left:50%;top:7px;width:44px;height:4px;margin-left:-22px;border-radius:2px;background:var(--g-border)}
+html body #reply-control .grippie:hover::before{background:var(--g-text-subtle)}
+html body #reply-control .reply-to{align-items:center;min-height:0!important;margin:0 0 .75rem!important;padding:0!important;border:0!important}
+html body #reply-control .action-title:not(:has(.composer-actions-reply-target-link))::before{font:600 1rem/1.3 "DM Sans",sans-serif!important;letter-spacing:-.005em}
+html body #reply-control .composer-controls{gap:.125rem}
+html body #reply-control .composer-controls .btn{width:32px!important;height:32px!important;min-width:0!important;min-height:0!important;aspect-ratio:auto!important;padding:0!important;border:0!important;border-radius:8px!important;background:transparent!important;box-shadow:none!important;color:var(--g-text-subtle)!important}
+html body #reply-control .composer-controls .btn:hover{background:var(--gq-wash)!important;color:var(--g-text)!important}
+html body #reply-control .composer-controls .btn .d-icon{width:.875rem;height:.875rem}
+html body #reply-control .submit-panel{margin-top:.875rem!important}

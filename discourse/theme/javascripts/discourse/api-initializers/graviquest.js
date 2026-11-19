@@ -105,6 +105,28 @@ export default apiInitializer((api) => {
     return value;
   });
 
+  // The system account posts the team's threads and sends account notices.
+  // rooms.rb names it GraviQuest, but Discourse labels notifications and
+  // messages with the username, so a member read "system" (2026-11-19, the
+  // owner: write GraviQuest instead). Any label that says exactly "system" is
+  // rewritten in place: only the text node's value changes, so Ember still
+  // owns the node and redraws it as before. Posts are named in common.scss.
+  const TEAM_LABELS = ".item-label, .user-card .names__secondary.username, .user-card .username";
+  let naming = 0;
+  const nameTheTeam = () => {
+    naming = 0;
+    document.querySelectorAll(TEAM_LABELS).forEach((label) => {
+      for (const node of label.childNodes) {
+        if (node.nodeType === Node.TEXT_NODE && node.nodeValue.trim() === "system") {
+          node.nodeValue = node.nodeValue.replace("system", "GraviQuest");
+        }
+      }
+    });
+  };
+  new MutationObserver(() => {
+    naming ||= requestAnimationFrame(nameTheTeam);
+  }).observe(document.body, { childList: true, subtree: true, characterData: true });
+
   // Below 905px the header hides the site's sections and Workspace, and the
   // menu never offered them, so a phone had no way back to graviquest.com
   // except the logo. They are a menu section of their own; on a wide screen

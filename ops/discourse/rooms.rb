@@ -15,10 +15,9 @@
 # discussion). Members read, reply, like and may start threads, held for
 # review, exactly as before.
 #
-# What it does not do. It changes no room's permissions: rooms it creates get
-# the same access as every other public room (bootstrap.rb), and existing
-# rooms keep theirs. Rooms that are not in the list are left exactly as they are: their
-# threads stay public at their URLs; the Forum only stops listing them.
+# Permissions. Rooms it creates get the same access as every other public
+# room (bootstrap.rb), and listed rooms keep theirs. Since 2026-11-19 rooms
+# that are not in the list are made admin-only (see the end of this file).
 #
 # What it does:
 # - creates each missing room, and keeps each room's name in step;
@@ -29,7 +28,8 @@
 # - for a thread marked existing, keeps it in its room and its title in step,
 #   and leaves its text alone;
 # - makes the rooms the default menu for visitors;
-# - names the system account GraviQuest.
+# - names the system account GraviQuest;
+# - makes every room that is not in the list admin-only.
 require "json"
 
 release = Pathname.new(ENV.fetch("GQ_THEME_RELEASE"))
@@ -86,6 +86,31 @@ rooms = spec.fetch("rooms").map do |room|
 end
 
 SiteSetting.default_navigation_menu_categories = rooms.map(&:id).join("|")
+
+# Rooms that are not in the list are admin-only (2026-11-19, the owner: "make
+# the old rooms private, so nobody sees them; moderators see only the three
+# rooms"). Until then they were only unlisted, and their threads still showed
+# on profiles, in search filters and at their URLs. Admins keep full access,
+# so nothing is lost and a room can be listed again by adding it to
+# forum_rooms.json. Moderators are not admins, so they see the three rooms
+# only. A room's own sub-rooms stay as they are, and Uncategorized, which
+# Discourse does not let anyone restrict, is skipped. Safe to repeat: a room
+# that is already admin-only is not touched.
+listed = rooms.map(&:id)
+admins = Group::AUTO_GROUPS[:admins]
+admin_only = [[admins, CategoryGroup.permission_types[:full]]]
+closed = Category
+  .where.not(id: listed)
+  .where.not(id: SiteSetting.uncategorized_category_id)
+  .where("parent_category_id IS NULL OR parent_category_id NOT IN (?)", listed)
+  .filter_map { |category|
+    next if category.read_restricted && category.category_groups.pluck(:group_id, :permission_type) == admin_only
+    category.set_permissions(admins: :full)
+    category.save!
+    category.slug
+  }
+puts "Rooms made admin-only: #{closed.any? ? closed.join(', ') : 'none'}"
+
 # Each thread in a room shows one line of its opening post, as the approved
 # prototype does (2026-11-18). Discourse sends excerpts only for pinned threads
 # unless this hidden setting is on; a Discourse without it keeps its default.
