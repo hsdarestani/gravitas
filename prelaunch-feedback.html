@@ -14,7 +14,7 @@
 <link rel="stylesheet" href="/assets/site.css?v=up-f706806e3a02-g1df6ff09-ds12">
 <link rel="stylesheet" href="/assets/chat.css?v=20261010-pulsar8">
 <link rel="stylesheet" href="/assets/production-overrides.css?v=up-f706806e3a02-g1df6ff09-rl3">
-<link rel="stylesheet" href="/assets/prelaunch-feedback.css?v=20261119-v1">
+<link rel="stylesheet" href="/assets/prelaunch-feedback.css?v=20261119-v2">
 </head>
 <body class="is-overview">
 <a class="g-skip-link" href="#main">Skip to content</a>
@@ -48,83 +48,26 @@
     <div class="g-container fb-hero__inner">
       <p class="fb-eyebrow"><span class="fb-eyebrow__dot" aria-hidden="true"></span> PRELAUNCH / YOUR PERSPECTIVE</p>
       <h1>Help shape what<br><em>comes next.</em></h1>
-      <p class="fb-lead">You have explored GraviQuest. Now we would love to hear what you think. Every answer helps us make the next version better.</p>
-      <div class="fb-hero__facts"><span>All questions optional</span><span>No account needed</span><span>About 2–3 minutes</span></div>
+      <p class="fb-lead">Tell us what you think about GraviQuest: its purpose, content, design and experience. The questions marked ★ are our main priorities; the rest let you go deeper.</p>
+      <div class="fb-hero__facts"><span>Every question is optional</span><span>No sign-in required</span><span>Share as much or as little as you like</span></div>
     </div>
     <div class="fb-orbit fb-orbit--one" aria-hidden="true"></div>
     <div class="fb-orbit fb-orbit--two" aria-hidden="true"></div>
   </section>
   <div class="g-container fb-layout">
-    <div class="fb-intro"><span class="fb-kicker">YOUR FEEDBACK</span><p>Give as much or as little detail as you like. You may submit without sharing your name.</p></div>
+    <div class="fb-intro">
+      <div><p class="fb-kicker">YOUR FEEDBACK</p><p>Answer the main questions or open the additional questions in any section. You can also submit anonymously. Please rate only the content you explored.</p></div>
+      <p class="fb-progress" id="fb-count" role="status" aria-live="polite">Your progress is optional.</p>
+    </div>
     <form id="prelaunch-form" class="fb-form" novalidate>
-      <section class="fb-panel" aria-labelledby="fb-q1">
-        <div class="fb-panel__head"><span class="fb-number">01</span><div><p class="fb-kicker">ABOUT YOU</p><h2 id="fb-q1">Which best describes you?</h2><p>Pick the perspective closest to yours, or skip this question.</p></div></div>
-        <div class="fb-personas" role="radiogroup" aria-labelledby="fb-q1">
-          <label class="fb-persona"><input type="radio" name="persona" value="a1"><span class="fb-persona__content"><strong>Curious Explorer</strong><small>I enjoy discovering science, without needing technical detail.</small></span></label>
-          <label class="fb-persona"><input type="radio" name="persona" value="a2"><span class="fb-persona__content"><strong>Early-Career Researcher</strong><small>I am studying or starting out in scientific research.</small></span></label>
-          <label class="fb-persona"><input type="radio" name="persona" value="a3"><span class="fb-persona__content"><strong>Working Scientist</strong><small>Research is part of my professional work.</small></span></label>
-          <label class="fb-persona"><input type="radio" name="persona" value="other"><span class="fb-persona__content"><strong>Other / None of these</strong><small>I see myself differently.</small></span></label>
-        </div>
-        <button class="fb-clear" type="button" data-clear-radio="persona">Clear selection</button>
-        <label class="fb-field" id="fb-other-wrap" hidden><span>If other, how would you describe yourself? <small>Optional</small></span><input class="g-input fb-input" name="persona_other" maxlength="160" placeholder="A few words are enough"></label>
-      </section>
-      <section class="fb-panel" aria-labelledby="fb-q2">
-        <div class="fb-panel__head"><span class="fb-number">02</span><div><p class="fb-kicker">THE VIDEO</p><h2 id="fb-q2">What did you think of the video?</h2><p>What worked for you, and what would you change?</p></div></div>
-        <label class="fb-field"><span>Your thoughts <small>Optional</small></span><textarea class="g-input fb-input" name="video_feedback" rows="4" maxlength="2000" placeholder="Tell us about your experience watching the video…"></textarea></label>
-        <fieldset class="fb-rating"><legend>How would you rate your overall experience? <small>Optional</small></legend><div class="fb-score-grid"><label class="fb-choice"><input type="radio" name="overall_rating" value="1"><span>1</span></label>
-<label class="fb-choice"><input type="radio" name="overall_rating" value="2"><span>2</span></label>
-<label class="fb-choice"><input type="radio" name="overall_rating" value="3"><span>3</span></label>
-<label class="fb-choice"><input type="radio" name="overall_rating" value="4"><span>4</span></label>
-<label class="fb-choice"><input type="radio" name="overall_rating" value="5"><span>5</span></label>
-<label class="fb-choice"><input type="radio" name="overall_rating" value="6"><span>6</span></label>
-<label class="fb-choice"><input type="radio" name="overall_rating" value="7"><span>7</span></label>
-<label class="fb-choice"><input type="radio" name="overall_rating" value="8"><span>8</span></label>
-<label class="fb-choice"><input type="radio" name="overall_rating" value="9"><span>9</span></label>
-<label class="fb-choice"><input type="radio" name="overall_rating" value="10"><span>10</span></label></div><p class="fb-scale-ends"><span>1 · Poor</span><span>10 · Excellent</span></p><button class="fb-clear" type="button" data-clear-radio="overall_rating">Clear rating</button></fieldset>
-      </section>
-      <section class="fb-panel" aria-labelledby="fb-q3">
-        <div class="fb-panel__head"><span class="fb-number">03</span><div><p class="fb-kicker">DESIGN &amp; CONTENT</p><h2 id="fb-q3">How did the site feel?</h2><p>We would love your impressions of both the visuals and the science.</p></div></div>
-        <div class="fb-two-fields">
-          <label class="fb-field"><span>What do you think of the site's visual design? <small>Optional</small></span><textarea class="g-input fb-input" name="visual_feedback" rows="4" maxlength="2000" placeholder="Colours, layout, imagery, atmosphere…"></textarea></label>
-          <label class="fb-field"><span>What do you think of the scientific content? <small>Optional</small></span><textarea class="g-input fb-input" name="scientific_content_feedback" rows="4" maxlength="2000" placeholder="Clarity, quality, depth, accuracy…"></textarea></label>
-        </div>
-      </section>
-      <section class="fb-panel" aria-labelledby="fb-q4">
-        <div class="fb-panel__head"><span class="fb-number">04</span><div><p class="fb-kicker">USABILITY</p><h2 id="fb-q4">How easy was it to use the site?</h2><p>Think about finding your way around and understanding where to go next.</p></div></div>
-        <div class="fb-range-card">
-          <div class="fb-range-card__top"><label for="fb-usability">Ease of use <small>Optional</small></label><output id="fb-usability-output" for="fb-usability" class="fb-range-state">Not rated</output></div>
-          <input id="fb-usability" class="fb-range" type="range" min="1" max="5" step="1" value="3" name="usability" data-optional-range="true" aria-describedby="fb-usability-ends">
-          <div id="fb-usability-ends" class="fb-scale-ends"><span>Very easy</span><span>Very confusing</span></div>
-          <button class="fb-clear" type="button" data-clear-range="usability">Clear rating</button>
-        </div>
-      </section>
-      <section class="fb-panel" aria-labelledby="fb-q5">
-        <div class="fb-panel__head"><span class="fb-number">05</span><div><p class="fb-kicker">FIRST IMPRESSIONS</p><h2 id="fb-q5">What did you expect to find?</h2><p>Share your first idea when you saw GraviQuest, before you explored it.</p></div></div>
-        <label class="fb-field"><span>Your first impression <small>Optional</small></span><textarea class="g-input fb-input" name="first_impression" rows="3" maxlength="2000" placeholder="At first, I thought this website would be…"></textarea></label>
-        <div class="fb-range-card">
-          <div class="fb-range-card__top"><label for="fb-expectations">How different was the actual experience? <small>Optional</small></label><output id="fb-expectations-output" for="fb-expectations" class="fb-range-state">Not rated</output></div>
-          <input id="fb-expectations" class="fb-range" type="range" min="1" max="5" step="1" value="3" name="expectations_difference" data-optional-range="true" aria-describedby="fb-expectations-ends">
-          <div id="fb-expectations-ends" class="fb-scale-ends"><span>Exactly as expected</span><span>Completely different</span></div>
-          <button class="fb-clear" type="button" data-clear-range="expectations_difference">Clear rating</button>
-        </div>
-      </section>
-      <section class="fb-panel" aria-labelledby="fb-q6">
-        <div class="fb-panel__head"><span class="fb-number">06</span><div><p class="fb-kicker">SECTION RATINGS</p><h2 id="fb-q6">How would you rate each section?</h2><p>Only rate sections you have explored. The rest can stay blank.</p></div></div>
-        <div class="fb-sections"><label class="fb-section"><span>Video</span><select name="section_video" aria-label="Rate Video"><option value="">Not explored / Skip</option><option value="1">1 / 10</option><option value="2">2 / 10</option><option value="3">3 / 10</option><option value="4">4 / 10</option><option value="5">5 / 10</option><option value="6">6 / 10</option><option value="7">7 / 10</option><option value="8">8 / 10</option><option value="9">9 / 10</option><option value="10">10 / 10</option></select></label>
-<label class="fb-section"><span>Essay</span><select name="section_essay" aria-label="Rate Essay"><option value="">Not explored / Skip</option><option value="1">1 / 10</option><option value="2">2 / 10</option><option value="3">3 / 10</option><option value="4">4 / 10</option><option value="5">5 / 10</option><option value="6">6 / 10</option><option value="7">7 / 10</option><option value="8">8 / 10</option><option value="9">9 / 10</option><option value="10">10 / 10</option></select></label>
-<label class="fb-section"><span>Sources</span><select name="section_sources" aria-label="Rate Sources"><option value="">Not explored / Skip</option><option value="1">1 / 10</option><option value="2">2 / 10</option><option value="3">3 / 10</option><option value="4">4 / 10</option><option value="5">5 / 10</option><option value="6">6 / 10</option><option value="7">7 / 10</option><option value="8">8 / 10</option><option value="9">9 / 10</option><option value="10">10 / 10</option></select></label>
-<label class="fb-section"><span>Viewpoints</span><select name="section_viewpoints" aria-label="Rate Viewpoints"><option value="">Not explored / Skip</option><option value="1">1 / 10</option><option value="2">2 / 10</option><option value="3">3 / 10</option><option value="4">4 / 10</option><option value="5">5 / 10</option><option value="6">6 / 10</option><option value="7">7 / 10</option><option value="8">8 / 10</option><option value="9">9 / 10</option><option value="10">10 / 10</option></select></label>
-<label class="fb-section"><span>Pulsar</span><select name="section_pulsar" aria-label="Rate Pulsar"><option value="">Not explored / Skip</option><option value="1">1 / 10</option><option value="2">2 / 10</option><option value="3">3 / 10</option><option value="4">4 / 10</option><option value="5">5 / 10</option><option value="6">6 / 10</option><option value="7">7 / 10</option><option value="8">8 / 10</option><option value="9">9 / 10</option><option value="10">10 / 10</option></select></label>
-<label class="fb-section"><span>Forum</span><select name="section_forum" aria-label="Rate Forum"><option value="">Not explored / Skip</option><option value="1">1 / 10</option><option value="2">2 / 10</option><option value="3">3 / 10</option><option value="4">4 / 10</option><option value="5">5 / 10</option><option value="6">6 / 10</option><option value="7">7 / 10</option><option value="8">8 / 10</option><option value="9">9 / 10</option><option value="10">10 / 10</option></select></label></div>
-      </section>
-      <section class="fb-panel fb-final" aria-labelledby="fb-q7">
-        <div class="fb-panel__head"><span class="fb-number">07</span><div><p class="fb-kicker">ONE LAST THING</p><h2 id="fb-q7">Would you like to leave your name?</h2><p>Completely optional — anonymous feedback is just as welcome.</p></div></div>
-        <label class="fb-field"><span>Your name <small>Optional</small></span><input class="g-input fb-input" type="text" name="name" autocomplete="name" maxlength="120" placeholder="Leave this blank to remain anonymous"></label>
+      <div id="fb-question-groups"></div>
+      <section class="fb-panel fb-final" aria-labelledby="fb-submit-title">
+        <div class="fb-panel__head"><span class="fb-number">✓</span><div><p class="fb-kicker">FINISH</p><h2 id="fb-submit-title">Ready to share?</h2><p>There are no required answers. We appreciate every perspective.</p></div></div>
         <div class="fb-submit-wrap">
-          <label class="fb-honeypot" aria-hidden="true">Leave empty<input name="website" tabindex="-1" autocomplete="off"></label>
-          <button class="g-btn g-btn--primary fb-submit" type="submit" id="fb-submit-button">Send feedback <span aria-hidden="true">→</span></button>
-          <p class="fb-privacy">We store your responses and optional name for the GraviQuest team to review. No sign-in needed. See our <a href="/privacy.html">Privacy Policy</a>.</p>
-          <p class="fb-status" id="fb-status" role="status" aria-live="polite"></p>
+          <label class="fb-honeypot" aria-hidden="true">Leave this blank<input name="website" tabindex="-1" autocomplete="off"></label>
+          <button class="g-btn g-btn--primary fb-submit" id="fb-submit-button" type="submit">Send feedback <span aria-hidden="true">→</span></button>
+          <p class="fb-privacy">Your responses and any name or follow-up email you choose to share are visible only to authorised GraviQuest admins. Adding an email gives us permission to contact you about this feedback, not to send marketing. See our <a href="/privacy.html">Privacy Policy</a>.</p>
+          <p id="fb-status" class="fb-status" role="status" aria-live="polite"></p>
         </div>
       </section>
     </form>
@@ -152,7 +95,7 @@
 </footer>
 <noscript><p class="g-container">Please enable JavaScript to submit feedback.</p></noscript>
 <script src="/assets/site.js?v=20261119-forum1"></script>
-<script src="/assets/prelaunch-feedback.js?v=20261119-v1" defer></script>
+<script type="module" src="/assets/prelaunch-feedback.js?v=20261119-v2"></script>
 <script src="/assets/chat.js?v=20261117-free1" defer></script>
 <script src="/assets/production-bridge.js?v=20261119-forum1" defer></script>
 </body>
