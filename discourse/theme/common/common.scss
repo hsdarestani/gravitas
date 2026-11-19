@@ -2034,12 +2034,28 @@ html body .user-content .stats-section li:is(.stats-days-visited,.stats-time-rea
 html body .user-content .stats-section li.stats-topic-count{order:1}
 html body .user-content .stats-section li.stats-post-count{order:2}
 html body .user-content .stats-section li.stats-likes-received{order:3}
-/* On a phone a row's date had a line of its own under the title, the only
-   thing on it. It sits at the end of the room line instead, so a row is two
-   lines: where and when, then what. */
+/* A thread on a phone (2026-11-19): the title, one line of its opening post,
+   then a line saying where and when (the room in mono, the time), with the
+   reply count and its speech mark on the right of that line. The time used
+   to be pinned to the row's top corner, from when a row had a room line of
+   its own; with that line gone it sat on top of the reply count. */
 .mobile-view .topic-list-item .topic-item-metadata{position:relative}
-.mobile-view .topic-list-item .topic-item-metadata .topic-item-stats{position:absolute;top:0;right:0;width:auto;margin:0!important;padding:0!important}
-.mobile-view .topic-list-item .gq-row-room{padding-right:3.5rem}
+html.mobile-view body .topic-list-item .topic-item-metadata .topic-item-stats{position:static;display:flex;align-items:center;gap:0;width:auto;min-width:0;margin:.5rem 0 0!important;padding:0 3.5rem 0 0!important}
+html.mobile-view body .topic-list .topic-item-stats .topic-item-stats__category-tags{display:inline-flex;min-width:0}
+html.mobile-view body .topic-list .topic-item-stats .topic-item-stats__category-tags .badge-category__wrapper{display:inline-flex!important;min-width:0}
+html.mobile-view body .topic-list .topic-item-stats .badge-category__name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:400 .75rem/1.3 "DM Mono",monospace!important;letter-spacing:.02em;color:var(--g-accent)!important}
+html.mobile-view body .topic-list .topic-item-stats .badge-category::before{display:none!important}
+html.mobile-view body .topic-list .topic-item-stats .num.activity{flex:none;margin:0!important;padding:0!important}
+html.mobile-view body .topic-list .topic-item-stats .topic-item-stats__category-tags{margin:0!important}
+html.mobile-view body .topic-list .topic-item-stats .badge-category__wrapper{padding:0!important;margin:0!important;align-items:center}
+html.mobile-view body .topic-list .topic-item-metadata .main-link{display:block;box-sizing:border-box;width:100%;max-width:100%;padding-right:2.5rem}
+html.mobile-view body .topic-list .topic-item-metadata .topic-excerpt{display:block!important;width:auto!important;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+html.mobile-view body .topic-list .topic-item-stats .badge-category__wrapper::after{content:"\00b7";margin:0 .5rem;font:400 .75rem/1.3 "DM Mono",monospace;color:var(--g-text-subtle)}
+html.mobile-view body .topic-list .topic-item-stats .num.activity a{font:400 .75rem/1.3 "DM Mono",monospace;color:var(--g-text-subtle)!important}
+html.mobile-view body .topic-list-item .pull-right{position:absolute;right:0;bottom:0;float:none;margin:0}
+html.mobile-view body .topic-list .pull-right .posts-map{padding:0!important;background:none!important}
+html.mobile-view body .topic-list .pull-right .badge-posts{display:inline-flex;align-items:center;gap:.3rem;padding:0;font:400 .75rem/1.3 "DM Mono",monospace;color:var(--g-text-subtle)!important}
+html.mobile-view body .topic-list .pull-right .badge-posts::before{content:"";width:.875rem;height:.875rem;background:currentColor;-webkit-mask:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%23000%22%20stroke-width%3D%221.8%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M4.5%2018.5V6.75A2.25%202.25%200%200%201%206.75%204.5h10.5a2.25%202.25%200%200%201%202.25%202.25v7.5a2.25%202.25%200%200%201-2.25%202.25H8.25z%22%2F%3E%3C%2Fsvg%3E") center/contain no-repeat;mask:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%23000%22%20stroke-width%3D%221.8%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M4.5%2018.5V6.75A2.25%202.25%200%200%201%206.75%204.5h10.5a2.25%202.25%200%200%201%202.25%202.25v7.5a2.25%202.25%200%200%201-2.25%202.25H8.25z%22%2F%3E%3C%2Fsvg%3E") center/contain no-repeat}
 
 /* ---- Rooms (2026-11-18) ----------------------------------------------------------
    The owner's brief: open the Forum and see three rooms, one saying what the
@@ -2185,8 +2201,6 @@ html body .topic-list .topic-excerpt .topic-excerpt-more{display:none}
 html body .topic-list .badge-notification.new-topic,html body .topic-list .topic-post-badges .badge-notification{display:none!important}
 html body .topic-list .topic-statuses{display:none}
 html body .category-navigation :is(.edit-category,.category-notifications-button,.notifications-tracking-trigger-btn),html body .navigation-container :is(.edit-category,.category-notifications-button){display:none!important}
-html body .gq-room-head{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:end;gap:1.5rem}
-@media (max-width:640px){html body .gq-room-head{grid-template-columns:minmax(0,1fr)}html body .gq-room-head .gq-page-top__action{justify-self:start}}
 
 /* Header: the prototype carries the four sections, the theme control and the
    account control only. Search and the sidebar menu duplicate the rooms; the
@@ -2219,56 +2233,85 @@ html body .gq-footer .g-stack>span>span:not(.g-soon){font-size:.875rem}
    (forum-home.gjs). The table is Discourse's list, shown again here. Threads
    in rooms the Forum no longer lists stay at their URLs but are not listed. */
 html body .topic-list .topic-list-item:not(.category-about-the-forum):not(.category-about-graviquest):not(.category-ai-in-research){display:none!important}
-/* 2026-11-19: no capsules here. Only actions are buttons. Rooms are text tabs
-   over one hairline, the active room underlined in the accent; search is a
-   plain field with its icon and no button (Enter searches); sort is two small
-   words. Below 640px the tabs scroll sideways and search takes the full width. */
-html body .gq-filters{display:flex;align-items:flex-end;justify-content:space-between;gap:1.5rem;margin:0;border-bottom:1px solid var(--g-hairline)}
-html body .gq-tabs{display:flex;gap:1.75rem;min-width:0;overflow-x:auto;scrollbar-width:none}
-html body .gq-tabs::-webkit-scrollbar{display:none}
-html body .gq-tab{position:relative;flex:none;padding:.875rem 0 1rem;font:500 .9375rem/1.2 "DM Sans",sans-serif;color:var(--g-text-subtle);text-decoration:none;white-space:nowrap;transition:color .2s ease}
-html body .gq-tab::after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:2px;border-radius:2px;background:transparent;transition:background-color .2s ease}
-html body .gq-tab:hover{color:var(--g-text)}
-html body .gq-tab.is-active{color:var(--g-text)}
-html body .gq-tab.is-active::after{background:var(--g-accent)}
-html body .gq-tab:focus-visible{outline:2px solid var(--g-accent);outline-offset:2px;border-radius:4px}
-html body .gq-search{position:relative;flex:0 1 16rem;margin:0 0 .625rem}
-html body .gq-search::before{content:"";position:absolute;left:.75rem;top:50%;width:1rem;height:1rem;transform:translateY(-50%);background:var(--g-text-subtle);-webkit-mask:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%23000%22%20stroke-width%3D%221.8%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Ccircle%20cx%3D%2210.5%22%20cy%3D%2210.5%22%20r%3D%226.5%22%2F%3E%3Cpath%20d%3D%22m15.5%2015.5%204.5%204.5%22%2F%3E%3C%2Fsvg%3E") center/contain no-repeat;mask:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%23000%22%20stroke-width%3D%221.8%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Ccircle%20cx%3D%2210.5%22%20cy%3D%2210.5%22%20r%3D%226.5%22%2F%3E%3Cpath%20d%3D%22m15.5%2015.5%204.5%204.5%22%2F%3E%3C%2Fsvg%3E") center/contain no-repeat;pointer-events:none}
-html body .gq-search input[type=search]{width:100%;min-height:38px;margin:0;padding:0 .875rem 0 2.25rem;border:1px solid var(--g-hairline);border-radius:8px;background:var(--g-surface-sunken);color:var(--g-text);font:400 .875rem "DM Sans",sans-serif;box-shadow:none}
-html body .gq-search input[type=search]::placeholder{color:var(--g-text-subtle)}
-html body .gq-search input[type=search]:hover{border-color:var(--g-border)}
-html body .gq-sort{display:flex;justify-content:flex-end;align-items:baseline;gap:1rem;margin:.875rem 0 .5rem;font:400 .8125rem/1 "DM Mono",monospace;letter-spacing:.02em}
-html body .gq-sort__label{color:var(--g-text-subtle)}
-html body .gq-sort a{color:var(--g-text-subtle);text-decoration:none}
-html body .gq-sort a:hover{color:var(--g-text)}
-html body .gq-sort a.is-active{color:var(--g-text);text-decoration:underline;text-decoration-color:var(--g-accent);text-underline-offset:.35em;text-decoration-thickness:1.5px}
-html body.navigation-category .gq-filters{margin-bottom:1.5rem}
-@media (max-width:640px){html body .gq-filters{flex-direction:column-reverse;align-items:stretch;gap:.5rem}html body .gq-search{flex:none;margin:0}html body .gq-tabs{gap:1.25rem}}
+/* ---- Forum list pages, redesigned (2026-11-19) -------------------------------
+   One page, not two. All, Top and every room share the same head and the
+   same week's card (forum-home.gjs), so the row of rooms never moves when
+   the reader switches; what belongs to a room is a band under that row.
+   Only actions are buttons; the rooms are chips; sort is a segmented switch
+   shaped like the search field; search is a plain field with its icon and no
+   button (Enter searches). */
+html body .gq-page-top__action.gq-is-held{visibility:hidden}
 
-/* This Week's Question, between the head and the list: a quiet card (no side
-   stripe), the label in mono, the question in Literata, and a text link. */
-html body .gq-week{margin:0 0 2.5rem;padding:1.75rem 2rem;border:1px solid var(--g-hairline);border-radius:var(--g-radius,12px);background:var(--g-surface)}
-html body .gq-week__label{margin:0 0 .75rem;font:400 .8125rem/1.4 "DM Mono",monospace;letter-spacing:.04em;color:var(--g-accent)}
-html body .gq-week__question{max-width:44rem;margin:0 0 1.25rem;font:400 clamp(1.15rem,1.05rem + .45vw,1.4rem)/1.45 Literata,Georgia,serif;color:var(--g-text)}
+/* This Week's Question: the page's one editorial moment. The question in
+   Literata at display size, the brand's well drawn faintly on the right (the
+   line the site's loading mark bends), no side stripe. */
+html body .gq-week{position:relative;display:grid;grid-template-columns:minmax(0,1fr) 15rem;align-items:center;gap:2rem;margin:0 0 3rem;padding:2rem 2.25rem;border:1px solid var(--g-hairline);border-radius:var(--g-radius,12px);background:var(--g-surface);overflow:hidden}
+html body #main-outlet .gq-week__label{margin:0 0 .875rem;font:400 .8125rem/1.4 "DM Mono",monospace;letter-spacing:.04em;color:var(--g-accent)}
+html body .gq-week__question{max-width:40rem;margin:0 0 1.5rem;font:400 clamp(1.4rem,1.15rem + 1vw,2rem)/1.3 Literata,Georgia,serif;letter-spacing:-.01em;color:var(--g-text);text-wrap:balance}
 html body .gq-week__link{font-weight:600;font-size:.9375rem;color:var(--g-text);text-decoration:underline;text-decoration-color:var(--g-accent);text-underline-offset:.3em;text-decoration-thickness:1.5px}
 html body .gq-week__link span{display:inline-block;margin-left:.25rem;transition:transform .2s ease}
 html body .gq-week__link:hover{color:var(--g-accent)}
 html body .gq-week__link:hover span{transform:translateX(3px)}
-@media (max-width:640px){html body .gq-week{padding:1.25rem 1.25rem 1.375rem}}
+html body .gq-week__well{width:100%;height:auto;overflow:visible}
+html body .gq-week__well path{fill:none;stroke:var(--g-accent);stroke-width:1.5;stroke-linecap:round;opacity:.55}
+html body .gq-week__well circle{fill:var(--g-text-muted)}
+@media (max-width:760px){html body .gq-week{grid-template-columns:minmax(0,1fr);padding:1.5rem 1.375rem 1.625rem;margin-bottom:2.25rem}html body .gq-week__well{display:none}}
 
-/* House Rules, under every thread list: four numbered lines in one band. */
-html body .gq-rules{margin:3rem 0 1rem;padding-top:1.5rem;border-top:1px solid var(--g-hairline)}
-html body .gq-rules__title{margin:0 0 1rem;font:400 .8125rem/1.4 "DM Mono",monospace;letter-spacing:.04em;color:var(--g-accent)}
-html body .gq-rules__list{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1.5rem;margin:0;padding:0;list-style:none;counter-reset:gq-rule}
-html body .gq-rules__list li{counter-increment:gq-rule;margin:0;font-size:.9375rem;line-height:1.5;color:var(--g-text-muted)}
-html body .gq-rules__list li::before{content:counter(gq-rule,decimal-leading-zero);display:block;margin-bottom:.375rem;font:400 .75rem/1 "DM Mono",monospace;color:var(--g-text-subtle)}
+/* The row: rooms on the left, the list's tools on the right. */
+html body .gq-filters{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:1rem;margin:0 0 1.75rem}
+html body .gq-tools{display:flex;align-items:center;gap:.75rem}
+html body .gq-chips{display:flex;flex-wrap:wrap;gap:.5rem}
+html body .gq-chip{display:inline-flex;align-items:center;flex:none;min-height:40px;padding:0 1rem;border:1px solid var(--g-hairline);border-radius:99px;font:500 .875rem/1 "DM Sans",sans-serif;color:var(--g-text-muted);text-decoration:none;white-space:nowrap;transition:background-color .2s ease,color .2s ease,border-color .2s ease}
+html body .gq-chip:hover{background:var(--g-surface);color:var(--g-text)}
+html body .gq-chip.is-active{background:var(--gq-wash-strong);border-color:var(--g-border);color:var(--g-text)}
+html body .gq-chip:focus-visible{outline:2px solid var(--g-accent);outline-offset:2px}
+html body .gq-search{position:relative;width:15rem;margin:0}
+html body .gq-search::before{content:"";position:absolute;left:.75rem;top:50%;width:1rem;height:1rem;transform:translateY(-50%);background:var(--g-text-subtle);-webkit-mask:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%23000%22%20stroke-width%3D%221.8%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Ccircle%20cx%3D%2210.5%22%20cy%3D%2210.5%22%20r%3D%226.5%22%2F%3E%3Cpath%20d%3D%22m15.5%2015.5%204.5%204.5%22%2F%3E%3C%2Fsvg%3E") center/contain no-repeat;mask:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%23000%22%20stroke-width%3D%221.8%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Ccircle%20cx%3D%2210.5%22%20cy%3D%2210.5%22%20r%3D%226.5%22%2F%3E%3Cpath%20d%3D%22m15.5%2015.5%204.5%204.5%22%2F%3E%3C%2Fsvg%3E") center/contain no-repeat;pointer-events:none}
+html body .gq-search input[type=search]{width:100%;min-height:40px;margin:0;padding:0 .875rem 0 2.25rem;border:1px solid var(--g-hairline);border-radius:8px;background:var(--g-surface-sunken);color:var(--g-text);font:400 .875rem "DM Sans",sans-serif;box-shadow:none}
+html body .gq-search input[type=search]::placeholder{color:var(--g-text-subtle)}
+html body .gq-search input[type=search]:hover{border-color:var(--g-border)}
+html body .gq-sort{display:inline-flex;flex:none;gap:2px;margin:0;padding:3px;border:1px solid var(--g-hairline);border-radius:8px;background:var(--g-surface-sunken)}
+html body .gq-sort__option{display:inline-flex;align-items:center;min-height:32px;padding:0 .875rem;border-radius:5px;font:500 .8125rem/1 "DM Sans",sans-serif;color:var(--g-text-subtle);text-decoration:none;transition:background-color .2s ease,color .2s ease}
+html body .gq-sort__option:hover{color:var(--g-text)}
+html body .gq-sort__option.is-active{background:var(--g-surface-raised);color:var(--g-text);box-shadow:0 1px 2px var(--gq-shadow-soft)}
+html body .gq-sort__option:focus-visible{outline:2px solid var(--g-accent);outline-offset:1px}
+/* Phones: the rooms are one line that scrolls sideways (bleeding to the
+   screen's edges), then sort and search share the next line. The row must
+   not wrap: a wrapping column is as wide as its widest line, which made the
+   chips as wide as all of them together and the page scroll sideways. */
+@media (max-width:640px){
+  html body .gq-filters{flex-direction:column;flex-wrap:nowrap;align-items:stretch;gap:.75rem}
+  html body .gq-chips{flex-wrap:nowrap;overflow-x:auto;margin:0 -20px;padding:2px 20px;scrollbar-width:none;scroll-padding-inline:20px}
+  html body .gq-chips::-webkit-scrollbar{display:none}
+  html body :is(.gq-filters,.gq-tools){min-width:0;max-width:100%}
+  html body .gq-search{flex:1 1 0;width:auto;min-width:0}
+}
+
+/* A room's band: its name and line, and its two actions side by side. */
+html body .gq-room{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:1rem 2rem;margin:0 0 1.25rem}
+html body #main-outlet .gq-room__title{margin:0 0 .375rem;font:600 1.375rem/1.25 "DM Sans",sans-serif;letter-spacing:-.01em;color:var(--g-text)}
+html body .gq-room__lead{max-width:40rem;margin:0;font-size:.9375rem;line-height:1.5;color:var(--g-text-muted)}
+html body .gq-room__actions{display:flex;flex-wrap:wrap;gap:.625rem}
+@media (max-width:640px){html body .gq-room{flex-direction:column;align-items:stretch}html body .gq-room__actions .btn{flex:1;justify-content:center}}
+
+/* Top always means all time (the link carries ?period=all): with a young forum
+   and a few threads, Discourse's period menu (Year, Quarter, Month, Week,
+   Today, each with a date range) was a big control for no difference. */
+html body #main-outlet .top-lists{display:none!important}
+
+/* House Rules, under every thread list: four short lines side by side, each
+   under its own hairline. Not numbered: they are not steps. */
+html body .gq-rules{margin:3.5rem 0 1rem}
+html body #main-outlet .gq-rules__title{margin:0 0 1rem;font:400 .8125rem/1.4 "DM Mono",monospace;letter-spacing:.04em;color:var(--g-accent)}
+html body .gq-rules__list{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1.5rem;margin:0;padding:0;list-style:none}
+html body .gq-rules__list li{margin:0;padding-top:.875rem;border-top:1px solid var(--g-hairline);font-size:.9375rem;line-height:1.5;color:var(--g-text-muted)}
 @media (max-width:900px){html body .gq-rules__list{grid-template-columns:repeat(2,minmax(0,1fr))}}
-@media (max-width:480px){html body .gq-rules__list{grid-template-columns:minmax(0,1fr);gap:1rem}}
-@media (prefers-reduced-motion:reduce){html body :is(.gq-tab,.gq-tab::after,.gq-week__link span){transition:none}}
-/* A room's two actions sit together in its head; Discourse's own New Topic
-   button under the head would be the same action twice. */
-html body .gq-room-actions{display:flex;flex-wrap:wrap;gap:.75rem}
-html body.navigation-category #main-outlet #create-topic{display:none!important}
+@media (max-width:480px){html body .gq-rules__list{grid-template-columns:minmax(0,1fr);gap:.875rem}}
+@media (prefers-reduced-motion:reduce){html body :is(.gq-chip,.gq-sort__option,.gq-week__link span){transition:none}}
+
+/* Discourse's own New Topic (and the drafts menu that is its second half, a
+   round chevron listing unfinished posts) would repeat New thread. */
+html body.navigation-category #main-outlet :is(#create-topic,.topic-create-button__combo,.topic-drafts-menu-trigger){display:none!important}
 
 /* ---- The composer as a plain box (2026-11-18) --------------------------------
    Discourse posts only through its composer, so it stays, but as a box to
@@ -2276,3 +2319,117 @@ html body.navigation-category #main-outlet #create-topic{display:none!important}
    in by pasting or dragging), and a short placeholder, "Write here…" (graviquest.js WORDS). */
 html body #reply-control .d-editor-button-bar{display:none!important}
 html body #reply-control .d-editor-input{padding:1rem!important;font:400 1rem/1.6 "DM Sans",sans-serif!important}
+
+/* ---- A thread, redesigned (2026-11-19) -----------------------------------------
+   The thread is one reading column. Its head reads like the list's: the way
+   back in mono, then the title at the size of a page heading (it was 28px,
+   smaller than a room's name on the list). The breadcrumb's first link sat
+   8px right of the title's edge (a link's own padding); they share one edge
+   now. A post closes on its actions without the 80px of air it had, and the
+   official account is named GraviQuest (ops/discourse/rooms.rb names it). */
+html body.archetype-regular .gq-thread-crumb{margin:3rem auto .875rem!important;gap:.5rem;font:400 .8125rem/1.5 "DM Mono",monospace;letter-spacing:.02em;color:var(--g-text-subtle)}
+html body.archetype-regular .gq-thread-crumb a{padding:0!important;color:var(--g-accent)!important;text-decoration:none}
+html body.archetype-regular .gq-thread-crumb a:first-child::before{content:"\2190\00a0"}
+html body.archetype-regular .gq-thread-crumb a:hover{color:var(--g-text)!important}
+html body.archetype-regular #topic-title{margin-bottom:2rem}
+html body.archetype-regular #topic-title :is(h1,.fancy-title){font:600 clamp(1.875rem,1.45rem + 1.7vw,2.75rem)/1.15 "DM Sans",sans-serif!important;letter-spacing:-.02em;color:var(--g-text);text-wrap:balance}
+html body.archetype-regular .topic-post .post__menu-area,html body.archetype-regular .topic-post .post-menu-area{margin:.75rem 0 .5rem!important}
+html body.archetype-regular .topic-post .cooked{padding-bottom:0!important}
+html body.archetype-regular .topic-post .cooked > :is(:last-child,:has(+ .cooked-selection-barrier:last-child)){margin-bottom:0!important}
+/* The pencil says a post was edited; its count was an amber number that
+   read like a score. */
+html body.archetype-regular .topic-post .post-info.edits .btn,html body.archetype-regular .topic-post .post-info.edits .btn :is(.d-button-label,.d-icon){color:var(--g-text-subtle)!important}
+html body.archetype-regular .gq-thread-crumb.container{padding-inline:0!important}
+@media (max-width:640px){html body.archetype-regular .gq-thread-crumb{margin-top:1.75rem!important}}
+
+/* Short pages (a search with no results, a one-post thread): the footer rose
+   to the middle of the window and left an empty band under it. The app's
+   root is a column at least the window's height; the page area takes what
+   the header and footer leave, so the footer always sits at the bottom. */
+html body .discourse-root{display:flex;flex-direction:column;min-height:100vh;min-height:100dvh}
+html body .discourse-root > #main-outlet-wrapper{flex:1 0 auto;width:100%;box-sizing:border-box}
+
+/* ---- Search, redesigned (2026-11-19) -------------------------------------------
+   The search page had three different edges (its heading, its results and its
+   sort row each sat on their own), a capsule Search button, and an Advanced
+   filters toggle drawn as a 124px square that pushed the results a screen
+   down. It is now the thread's reading column: the heading at page size, the
+   same plain field as the list (icon inside, Enter searches), the filters as
+   a quiet link, then the results as rows: title, room in mono, one passage.
+   Every result's picture was the same account mark, so results carry none. */
+html body .search-container{max-width:48rem;margin:0 auto;padding:3rem 0 2rem}
+html body .search-container :is(.search-header,.search-advanced,.search-info,.search-results,.search-results > div,.fps-result-entries){width:auto!important;max-width:none!important;margin-inline:0!important;padding-inline:0!important;background:none!important;border:0!important}
+html body #main-outlet .search-container .search-page-heading{margin:0 0 1.25rem;font:600 clamp(1.875rem,1.45rem + 1.7vw,2.5rem)/1.15 "DM Sans",sans-serif;letter-spacing:-.02em;color:var(--g-text)}
+html body .search-container .search-page-heading .term{color:var(--g-accent)}
+html body .search-container .search-bar{position:relative;display:block;margin:0}
+html body .search-container .search-bar::before{content:"";position:absolute;left:1rem;top:50%;z-index:1;width:1.125rem;height:1.125rem;transform:translateY(-50%);background:var(--g-text-subtle);-webkit-mask:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%23000%22%20stroke-width%3D%221.8%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Ccircle%20cx%3D%2210.5%22%20cy%3D%2210.5%22%20r%3D%226.5%22%2F%3E%3Cpath%20d%3D%22m15.5%2015.5%204.5%204.5%22%2F%3E%3C%2Fsvg%3E") center/contain no-repeat;mask:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%23000%22%20stroke-width%3D%221.8%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Ccircle%20cx%3D%2210.5%22%20cy%3D%2210.5%22%20r%3D%226.5%22%2F%3E%3Cpath%20d%3D%22m15.5%2015.5%204.5%204.5%22%2F%3E%3C%2Fsvg%3E") center/contain no-repeat;pointer-events:none}
+html body .search-container .search-bar input.full-page-search{width:100%!important;min-height:52px;margin:0!important;padding:0 1rem 0 2.75rem!important;border:1px solid var(--g-hairline)!important;border-radius:8px!important;background:var(--g-surface-sunken)!important;color:var(--g-text);font:400 1rem "DM Sans",sans-serif;box-shadow:none}
+html body .search-container .search-bar input.full-page-search:hover{border-color:var(--g-border)!important}
+html body .search-container .search-bar > .btn{display:none!important}
+html body .search-container .search-filters{margin:.75rem 0 0!important;padding:0!important}
+html body .search-container .advanced-filters{margin:0!important;padding:0!important;border:0!important;background:none!important}
+html body .search-container .advanced-filters__toggle{width:auto!important;height:auto!important;min-height:0!important;min-width:0!important;aspect-ratio:auto!important;padding:.25rem 0!important;border:0!important;border-radius:0!important;background:none!important;box-shadow:none!important;font:500 .875rem "DM Sans",sans-serif!important;color:var(--g-text-muted)!important;gap:.375rem}
+html body .search-container .advanced-filters__toggle:hover{color:var(--g-text)!important}
+html body .search-container .search-info{display:flex!important;justify-content:flex-end;align-items:center;margin:1.25rem 0 .75rem!important;padding:0!important}
+html body .search-container .search-info .sort-by{margin:0!important}
+html body .search-container .search-results{padding-top:0!important}
+html body .search-container .sort-by label{font:400 .8125rem "DM Mono",monospace;color:var(--g-text-subtle)}
+html body .search-container .fps-result{display:block!important;margin:0!important;padding:1.25rem 0!important;border-bottom:1px solid var(--g-hairline)!important}
+html body .search-container .fps-result:first-child{border-top:1px solid var(--g-hairline)!important}
+html body .search-container .fps-result .author{display:none!important}
+html body .search-container .fps-topic{margin:0!important;padding:0!important}
+html body .search-container .fps-result .search-link{display:block;color:var(--g-text)!important;text-decoration:none}
+html body .search-container .fps-result .topic-title{font:600 1.0625rem/1.35 "DM Sans",sans-serif!important;color:var(--g-text)!important}
+html body .search-container .fps-result .search-link:hover .topic-title{color:var(--g-accent)!important}
+html body .search-container .search-highlight{color:inherit;font-weight:inherit;background:var(--gq-accent-wash);border-radius:2px;box-shadow:0 0 0 2px var(--gq-accent-wash)}
+html body .search-container .fps-result .search-category{margin:.25rem 0 0}
+html body .search-container .fps-result .badge-category::before{display:none!important}
+html body .search-container .fps-result .badge-category__name{font:400 .75rem/1.3 "DM Mono",monospace!important;letter-spacing:.02em;color:var(--g-accent)!important}
+html body .search-container .fps-result .blurb{margin:.5rem 0 0!important;padding:0!important;font:400 .9375rem/1.55 "DM Sans",sans-serif!important;color:var(--g-text-muted)!important;overflow-wrap:anywhere}
+html body .search-container .fps-result .blurb .date{font:400 .75rem "DM Mono",monospace;color:var(--g-text-subtle)}
+html body .search-container .fps-result .blurb .separator{display:none}
+html body .search-container .fps-result .blurb .date::after{content:"\00b7";margin:0 .5rem}
+html body .search-container .search-footer{margin:1.5rem 0 0!important;font:400 .8125rem "DM Mono",monospace!important;color:var(--g-text-subtle)!important}
+@media (max-width:640px){html body .search-container{padding-top:1.75rem}}
+/* A post's like count sits beside the heart in the actions' grey, not amber. */
+html body.archetype-regular .topic-post :is(.post-controls,.post__menu-area) .button-count{color:var(--g-text-subtle)!important}
+
+/* ---- Not found, redesigned (2026-11-19) ------------------------------------------
+   The server draws this page itself, without the app: Discourse's own header
+   (whose Log In sat on top of its icon), its sad-magnifier drawing, a capsule
+   Search button, and Popular and Recent topics lists that showed threads from
+   rooms the Forum no longer lists. It is now the thread's column: the heading
+   at page size, the way home, and a search field like the list's. */
+html body.no-ember .d-header{display:block!important}
+html body.no-ember .d-header .wrap{width:100%!important;max-width:1200px!important;margin:0 auto!important;padding-inline:clamp(1.25rem,3vw,2.5rem)!important;box-sizing:border-box}
+html body.no-ember .d-header .contents{display:flex!important;align-items:center;justify-content:space-between;width:100%!important;height:72px;margin:0!important}
+html body.no-ember .d-header .panel{margin-left:auto}
+html body.no-ember .d-header .login-button{display:inline-flex;align-items:center;width:auto!important;min-width:0!important;aspect-ratio:auto!important;padding:0 1.125rem!important;border-radius:999px;font:600 .8125rem/1 "DM Sans",sans-serif;gap:0}
+html body.no-ember .d-header .login-button::before,html body.no-ember .d-header .login-button svg{display:none!important}
+html body.no-ember .not-found-container{max-width:48rem!important;margin:0 auto!important;padding:4.5rem clamp(1.25rem,3vw,0rem) 5rem!important}
+html body.no-ember .page-not-found .heading{display:block!important;margin:0 0 3rem;text-align:left}
+html body.no-ember .page-not-found .illustration-not-found{display:none!important}
+html body.no-ember .page-not-found .title_wrapper{display:block;text-align:left}
+html body.no-ember .page-not-found h1.title{margin:0 0 1.5rem;text-align:left!important;font:600 clamp(1.875rem,1.45rem + 1.7vw,2.75rem)/1.15 "DM Sans",sans-serif;letter-spacing:-.02em;color:var(--g-text);text-wrap:balance}
+html body.no-ember .page-not-found .--home svg{display:none!important}
+html body.no-ember .page-not-found-search{max-width:none;margin:0;padding:0;background:none!important;border:0;border-radius:0}
+html body.no-ember .page-not-found-search label{display:block;margin:0 0 .75rem;font:400 .8125rem/1.4 "DM Mono",monospace;letter-spacing:.04em;color:var(--g-accent)}
+html body.no-ember .page-not-found-search .search-input__wrapper{position:relative;width:100%;max-width:none}
+html body.no-ember .page-not-found-search .search-input{width:100%;min-height:52px;margin:0;padding:0 1rem 0 2.75rem;border:1px solid var(--g-hairline);border-radius:8px;background:var(--g-surface-sunken);color:var(--g-text);font:400 1rem "DM Sans",sans-serif;box-sizing:border-box}
+html body.no-ember .page-not-found-search .search-input__icon{position:absolute;left:1rem;right:auto;top:50%;width:1.125rem;height:1.125rem;transform:translateY(-50%);background:var(--g-text-subtle);-webkit-mask:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%23000%22%20stroke-width%3D%221.8%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Ccircle%20cx%3D%2210.5%22%20cy%3D%2210.5%22%20r%3D%226.5%22%2F%3E%3Cpath%20d%3D%22m15.5%2015.5%204.5%204.5%22%2F%3E%3C%2Fsvg%3E") center/contain no-repeat;mask:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%23000%22%20stroke-width%3D%221.8%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Ccircle%20cx%3D%2210.5%22%20cy%3D%2210.5%22%20r%3D%226.5%22%2F%3E%3Cpath%20d%3D%22m15.5%2015.5%204.5%204.5%22%2F%3E%3C%2Fsvg%3E") center/contain no-repeat}
+html body.no-ember .page-not-found-search .search-input__icon svg{display:none}
+html body.no-ember .page-not-found-search form > .btn{display:none}
+html body.no-ember .page-not-found-topics{display:none!important}
+html body.no-ember .not-found-container .row{display:block;width:auto!important;max-width:none!important;margin:0!important;padding:0!important}
+html body.no-ember .page-not-found-search form{display:block;width:auto!important;max-width:none!important;margin:0!important}
+
+/* The page jumped sideways whenever it grew past the window's height (opening
+   the search page's Advanced filters, switching to a room with more threads):
+   the browser added its scrollbar and every column moved left by its width.
+   The scrollbar's place is kept on every page instead. */
+html{scrollbar-gutter:stable}
+
+/* No results: the line says so and nothing else. Discourse offered the same
+   search again on Google, in a second field with its own button. */
+html body .search-container :is(.no-results-suggestion,.google-search-form){display:none!important}
+html body .search-container .no-results-container h3{margin:1.5rem 0 0;font:400 .9375rem/1.5 "DM Sans",sans-serif;color:var(--g-text-muted)}

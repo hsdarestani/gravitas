@@ -18,21 +18,21 @@ for (const { engine, name, options } of browsers) {
     const page = await browser.newPage(options);
     const errors = [];
     page.on("pageerror", error => errors.push(error.message));
-    // The front page (forum-home.gjs): a tab per room, in the
+    // The front page (forum-home.gjs): a chip per room, in the
     // order of backend/core/forum_rooms.json, and every thread in one table.
     await page.goto(site + "/latest", { waitUntil: "domcontentloaded" });
     await page.locator(".gq-forum-home h1").waitFor({ timeout: 45000 });
     const rooms = JSON.parse(await fs.readFile(new URL("../../backend/core/forum_rooms.json", import.meta.url), "utf8"));
     const listed = rooms.rooms.map(room => room.slug);
-    const shown = await page.locator(".gq-tabs a.gq-tab[data-room]").evaluateAll(links =>
+    const shown = await page.locator(".gq-chips a.gq-chip[data-room]").evaluateAll(links =>
       links.map(link => link.dataset.room));
     assert.deepEqual(shown, listed);
     await page.locator(".topic-list a.title").filter({ visible: true }).first().waitFor({ timeout: 45000 });
     assert(await page.locator(".gq-search input[name=q]").isVisible());
     assert(await page.locator(".gq-week a.gq-week__link").isVisible());
     assert(await page.locator(".gq-rules li").count() === 4);
-    await page.locator('.gq-tabs a.gq-tab[data-room="ai-in-research"]').click();
-    await page.locator(".gq-room-head h1").waitFor({ timeout: 45000 });
+    await page.locator('.gq-chips a.gq-chip[data-room="ai-in-research"]').click();
+    await page.locator(".gq-room__title").waitFor({ timeout: 45000 });
     // The room's "About the … category" row is first in the list but hidden
     // by common.scss; open the first thread a reader can actually see.
     await page.locator(".topic-list a.title").filter({ visible: true }).first().click();

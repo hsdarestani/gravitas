@@ -28,12 +28,18 @@
 #   its title and text in step (never a member's post);
 # - for a thread marked existing, keeps it in its room and its title in step,
 #   and leaves its text alone;
-# - makes the rooms the default menu for visitors.
+# - makes the rooms the default menu for visitors;
+# - names the system account GraviQuest.
 require "json"
 
 release = Pathname.new(ENV.fetch("GQ_THEME_RELEASE"))
 spec = JSON.parse(release.join("forum_rooms.json").read)
 system_user = Discourse.system_user
+
+# The team's threads are posted by the system account, and every post, card
+# and profile showed it as "system" (2026-11-19). Its display name is the
+# community's; the username stays "system", which Discourse relies on.
+system_user.update!(name: "GraviQuest") if system_user.name != "GraviQuest"
 
 def describe(category, text, user)
   post = category.topic&.first_post

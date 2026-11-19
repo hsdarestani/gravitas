@@ -49,6 +49,16 @@ class ForumRoomsFileTests(TestCase):
         block = source[source.index('const ROOMS'):source.index('];', source.index('const ROOMS'))]
         self.assertEqual(re.findall(r'"([a-z0-9-]+)"', block), [room['slug'] for room in ROOMS])
 
+    def test_the_weeks_question_opens_a_thread_in_a_listed_room(self):
+        # The week's question is the current Topic's question; its card opens
+        # that Topic's thread through /api/forum/open/<key>/, so the key must
+        # be one of this file's threads, in a room the Forum lists.
+        source = (THEME / 'javascripts/discourse/components/graviquest/forum-home.gjs').read_text(encoding='utf-8')
+        block = source[source.index('const WEEK'):source.index('};', source.index('const WEEK'))]
+        key = re.search(r'/api/forum/open/([a-z0-9-]+)/', block).group(1)
+        keys = {k for room in ROOMS for t in room['threads'] for k in [t['key'], *t.get('also_keys', [])]}
+        self.assertIn(key, keys)
+
     def test_the_menu_and_the_new_thread_picker_follow_the_list(self):
         css = (THEME / 'common/common.scss').read_text(encoding='utf-8')
         for room in ROOMS:
