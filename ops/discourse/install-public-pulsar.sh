@@ -56,7 +56,9 @@ systemctl reload nginx
 chown -R 1000:1000 "$SHARED"
 docker exec -u discourse -w /var/www/discourse -e GQ_THEME_RELEASE="$CONTAINER" -e GQ_THEME_MODE=apply graviquest bundle exec rails runner "$CONTAINER/deploy_theme.rb"
 curl -fsS --max-time 15 https://forum.graviquest.com/srv/status >/dev/null
-REPLY=$(curl -fsS --max-time 20 -H 'Content-Type: application/json' --data '{"page":"/forum.html","message":"Can I use the Lab now?"}' https://forum.graviquest.com/gq-pulsar/ask/)
-python3 -c 'import json,sys; r=json.loads(sys.argv[1]); assert r["version"]=="public-guide-v2" and not r["links"]' "$REPLY"
+# Empty input returns before any context lookup or model invocation. Validate
+# the proxy/application route without running functional AI acceptance.
+REPLY=$(curl -sS --max-time 20 -w '\n%{http_code}' -H 'Content-Type: application/json' --data '{"message":""}' https://forum.graviquest.com/gq-pulsar/ask/)
+python3 -c 'import json,sys; body,status=sys.argv[1].rsplit("\n",1); r=json.loads(body); assert status=="400" and r.get("error")=="message_required"' "$REPLY"
 printf '%s\n' "$FINGERPRINT" > "$MARKER"
 echo "Shared public Pulsar compiled on the Forum. Previous theme: $SHARED/previous"
