@@ -36,8 +36,10 @@ for (const { engine, name, options } of browsers) {
     // The room's "About the … category" row is first in the list but hidden
     // by common.scss; open the first thread a reader can actually see.
     await page.locator(".topic-list a.title").filter({ visible: true }).first().click();
-    await page.locator(".topic-post .cooked").first().waitFor({ timeout: 45000 });
-    await page.locator("#topic-footer-buttons button.btn-primary").waitFor();
+    // Nested replies (on since 2026-11-19) draw the thread with their own
+    // components and float Reply; the flat thread keeps it in the footer box.
+    await page.locator(":is(.topic-post, .nested-view__op-article, .nested-post__article) .cooked").first().waitFor({ timeout: 45000 });
+    await page.locator("#topic-footer-buttons button.btn-primary, .nested-view__floating-reply").filter({ visible: true }).first().waitFor();
     assert.equal(new URL(page.url()).origin, site);
     assert.match(new URL(page.url()).pathname, /^\/t\//);
     // One column: the breadcrumb, the posts and the reply box; no rail beside
@@ -47,15 +49,15 @@ for (const { engine, name, options } of browsers) {
     assert.equal(await page.locator(".gq-thread-byline").count(), 0);
     await page.evaluate(() => document.fonts.ready);
     const layout = await page.evaluate(() => {
-      const post = document.querySelector(".topic-post .cooked").getBoundingClientRect();
-      const stream = document.querySelector(".container.posts").getBoundingClientRect();
+      const post = document.querySelector(":is(.topic-post, .nested-view__op-article, .nested-post__article) .cooked").getBoundingClientRect();
+      const stream = document.querySelector(".nested-view, .container.posts").getBoundingClientRect();
       return {
         width: document.documentElement.scrollWidth,
         viewport: innerWidth,
         postLeft: post.left,
         postRight: post.right,
         streamLeft: stream.left,
-        font: getComputedStyle(document.querySelector(".topic-post .cooked")).fontFamily,
+        font: getComputedStyle(document.querySelector(":is(.topic-post, .nested-view__op-article, .nested-post__article) .cooked")).fontFamily,
       };
     });
     assert(layout.width <= layout.viewport + 1, JSON.stringify(layout));
