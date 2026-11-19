@@ -16,6 +16,7 @@ on:
       - 'backend/core/migrations/0106_prelaunch_feedback.py'
       - 'backend/core/test_prelaunch_feedback.py'
       - 'privacy.html'
+      - 'scripts/test-prelaunch-feedback-browser.cjs'
       - '.github/workflows/prelaunch-feedback-validation.yml'
   workflow_dispatch:
 
@@ -48,6 +49,10 @@ jobs:
           node --input-type=module --check < assets/ws/ws-prelaunch-feedback.js
           node --input-type=module --check < assets/ws/ws-five-layer.js
           node --input-type=module --check < assets/ws/ws-admin.js
+      - name: Browser QA at 340, 390, 768 and 1363 pixels
+        run: |
+          npm install --prefix "$RUNNER_TEMP/gq-prelaunch-browser" --no-save --ignore-scripts --no-audit --no-fund playwright-core@1.56.1
+          NODE_PATH="$RUNNER_TEMP/gq-prelaunch-browser/node_modules" node scripts/test-prelaunch-feedback-browser.cjs
       - name: Check public form questions and optionality
         run: |
           python3 - <<'PY'
