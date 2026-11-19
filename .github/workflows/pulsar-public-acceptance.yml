@@ -1,0 +1,58 @@
+name: Public Pulsar pre-launch acceptance
+on:
+  push:
+    branches: ['feat/pulsar-public-guide']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  published-conversations:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+      - name: Evaluate candidate against published content without installing it
+        env:
+          SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          SSH_HOST: ${{ secrets.DEPLOY_HOST }}
+          SSH_USER: ${{ secrets.DEPLOY_USER }}
+          SSH_PORT: ${{ secrets.DEPLOY_PORT }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$SSH_KEY" && test -n "$SSH_HOST"
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/pulsar-qa
+          chmod 600 ~/.ssh/pulsar-qa
+          PORT="${SSH_PORT:-22}"
+          LOGIN="${SSH_USER:-deploy}"
+          ssh-keyscan -p "$PORT" -H "$SSH_HOST" >> ~/.ssh/known_hosts
+          OPTS=(-i ~/.ssh/pulsar-qa -p "$PORT" -o BatchMode=yes -o ConnectTimeout=10)
+          if ! ssh "${OPTS[@]}" "$LOGIN@$SSH_HOST" true; then LOGIN=root; fi
+          TARGET="$LOGIN@$SSH_HOST"
+          REMOTE="/tmp/graviquest-pulsar-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          tar -czf "$RUNNER_TEMP/pulsar-candidate.tgz" backend/core/pulsar_api.py backend/core/pulsar_public_context.py backend/core/pulsar_public_guide.py backend/core/topic_01.py scripts/qa-pulsar-public.py
+          ssh "${OPTS[@]}" "$TARGET" "umask 022; mkdir '$REMOTE'"
+          scp -i ~/.ssh/pulsar-qa -P "$PORT" "$RUNNER_TEMP/pulsar-candidate.tgz" "$TARGET:$REMOTE/source.tgz"
+          ssh "${OPTS[@]}" "$TARGET" "tar -xzf '$REMOTE/source.tgz' -C '$REMOTE'; sudo install -o gravitas -g gravitas -m 644 /dev/null '$REMOTE/conversations.json'"
+          # Service credentials stay on the host. The evaluator uses read-only
+          # transactions and never writes snapshots, publications or chat memory.
+          STATUS=0
+          ssh "${OPTS[@]}" "$TARGET" "sudo -u gravitas bash -s -- '$REMOTE'" <<'REMOTE' || STATUS=$?
+          set -euo pipefail
+          set -a
+          . /etc/gravitas/backend.env
+          set +a
+          export PYTHONPATH=/opt/gravitas-backend DJANGO_SETTINGS_MODULE=gravitas_backend.settings
+          /opt/gravitas-backend/.venv/bin/python "$1/scripts/qa-pulsar-public.py" --candidate "$1" --output "$1/conversations.json"
+          REMOTE
+          mkdir -p qa-artifacts
+          scp -i ~/.ssh/pulsar-qa -P "$PORT" "$TARGET:$REMOTE/conversations.json" qa-artifacts/pulsar-conversations.json
+          ssh "${OPTS[@]}" "$TARGET" "rm -rf '$REMOTE'"
+          exit "$STATUS"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: pulsar-published-conversations
+          path: qa-artifacts/pulsar-conversations.json
+          retention-days: 30

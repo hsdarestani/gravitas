@@ -31,9 +31,9 @@ def _rows(data, key):
     return value if isinstance(value, list) else []
 
 
-def snapshot():
+def snapshot(slug=SLUG):
     """Return the page-snapshot fields for the published record, or None."""
-    item = ContentItem.objects.filter(slug=SLUG, kind='topic', status='published').first()
+    item = ContentItem.objects.filter(slug=slug, kind='topic', status='published').first()
     if item is None or not isinstance(item.topic_data, dict):
         return None
     data = item.topic_data
@@ -67,6 +67,15 @@ def snapshot():
         ])),
         ('related', 'Where This Goes Next', _join(_rows(data, 'next'), 'kicker', 'title', 'text')),
     ]
+    # Generic published Topics use the same public API but an earlier schema.
+    # Only editorial fields are read; embedded simulation code is never context.
+    if slug != SLUG:
+        from django.utils.html import strip_tags
+        essay = data.get('essay') if isinstance(data.get('essay'), dict) else {}
+        sections.extend([
+            ('essay', 'Essay', strip_tags(str(essay.get('overview_html', '')) + ' ' + str(essay.get('indepth_html', '')))),
+            ('views', 'Viewpoints', _join([views], 'left_label', 'left_text', 'right_label', 'right_text')),
+        ])
     return {
         'title': item.title,
         'sections': [

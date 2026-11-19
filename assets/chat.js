@@ -2,21 +2,10 @@
    GRAVIQUEST, ASK GRAVITAS
    A floating assistant available on every page.
 
-   On the honesty of it: there is no backend here, and a widget that invents
-   answers about a site is worse than no widget. So this ships as a *router*,
-   not an oracle. It matches a question against a hand-written index of what
-   is actually on this site and answers with real destinations. It says what
-   it is at the bottom of the panel, and when it doesn't know, it says that
-   instead of guessing.
-
-   To make it a real assistant, set before this script loads:
-
-     window.GRAVITAS_CHAT = { endpoint: 'https://your-api.example/chat' };
-
-   The endpoint receives { message, history, page } as JSON and should reply
-   with { reply: "..." } (optionally { links: [{label, href}] }). Everything
-   below then defers to it, and the local index becomes the fallback for when
-   that call fails, which is the behaviour you want at 3am anyway.
+   Public replies use the existing Pulsar API, deployed page snapshots and
+   explicitly published content. Page/section and bounded conversation history
+   travel with each question; no page DOM, credentials or private context do.
+   Network failures are shown honestly and leave the conversation available.
 
    The same widget is Pulsar in the workspace. It used to be a tab in the
    workspace dock, opened from the foot of the left rail, so the assistant
@@ -32,119 +21,9 @@
   var CFG = window.GRAVITAS_CHAT || {};
   if (!CFG.endpoint) CFG.endpoint = '/api/pulsar/ask/';
 
-  /* ---- What this site actually contains ---------------------------------
-     Keys are matched loosely against the question. Keeping this as data
-     rather than as branching logic means adding a page is one entry, and the
-     answers stay in one place where an editor can read them. */
-  var INDEX = [
-    {
-      k: 'topic topics dossier long form deep dive series video essay layers what is a topic',
-      a: 'A Topic is one question worked all the way through: the video that opens it, the essay that discusses it, the sources at three levels of difficulty, a timeline, something interactive to break, and the strongest case against our own conclusion.',
-      l: [['Browse Topics', 'topics.html'], ['See a finished one', 'topic-answer-that-looked-right.html']]
-    },
-    {
-      k: 'first video answer looked right hulse taylor pulsar protein trust ai assistant check verify 9.8 molecular weight hallucination',
-      a: 'Topic 01 opens with our first video, The Answer That Looked Right: Professor Hulse, his student Taylor and an assistant called Pulsar test whether a correct answer proves anything. The Topic has the transcript, an essay at two depths, graded sources, a timeline from 1973 to 2024, and an exercise in deciding which answers to check.',
-      l: [['Open Topic 01', 'topic-answer-that-looked-right.html'], ['Try the exercise', 'topic-answer-that-looked-right.html#test']]
-    },
-    {
-      k: 'workspace notes library research knowledge projects my work save where do i keep',
-      a: 'An account opens a workspace: a Library of what you save from the site, research projects with private notes and per-project access, a Knowledge space for the sources you are learning from, and Pulsar beside you, answering with the pages it read.',
-      l: [['Join Us', 'community.html#join'], ['Sign in', 'account.html#in']]
-    },
-    {
-      k: 'lab game simulation interactive play experiment tool sandbox try',
-      a: 'The GraviQuest Lab holds models you can nudge and question, each one anchored to the scientific sources behind it. It is open to every Topic rather than part of one, and its format is still being defined. The public page explains what a Lab is and lists only the models that have been published.',
-      l: [['Lab', 'lab.html']]
-    },
-    {
-      k: 'learn learning path course curriculum study order beginner start where do i start new here',
-      a: 'Learning Paths are the ordered version of the archive, a route that assumes you are starting somewhere specific. "AI in Research" is the one that is live; the others are being built.',
-      l: [['Learning Paths', 'learn.html'], ['AI in Research', 'path-ai-in-research.html']]
-    },
-    {
-      k: 'community join member role contribute volunteer help translate review discuss forum people group',
-      a: 'The community is the point, not the afterthought. There are six roles (Reader, Researcher, Translator, Critic, Builder and Host) and you can hold more than one. Members propose the next Topic, vote on it, and discuss the conclusions in public.',
-      l: [['Join Us', 'community.html#join'], ['See the roles', 'community.html']]
-    },
-    {
-      k: 'newsletter email subscribe weekly mailing list',
-      a: 'One letter a week, picked by hand: what carried real weight in science, why it mattered, and where to stay sceptical.',
-      l: [['Newsletter', 'newsletter.html']]
-    },
-    {
-      k: 'account sign in log in register password profile free cost price pay subscription paywall',
-      a: 'Reading needs no account. An account follows Topics, keeps your place in a path, and lets you join a discussion under your own name.',
-      l: [['Create an account', '/signup'], ['Sign in', 'account.html#in']]
-    },
-    {
-      k: 'about who what is gravitas team behind contact mission why',
-      a: 'GraviQuest is a community drawn together by the weighty questions in science and AI, with a forum to talk them through: one question at a time, with graded sources and the strongest case against our own reading. The About page has the editorial rules, which are the interesting part.',
-      l: [['About', 'about.html']]
-    },
-    {
-      k: 'field fields discipline biology chemistry medicine climate psychology economics social science neuroscience ecology engineering statistics physics maths relevant for me my subject',
-      a: 'Every field, deliberately. The questions here are the ones every discipline shares: what counts as evidence, how a hypothesis earns its keep, who funds the work, what peer review really catches. Examples get drawn from biology, medicine, climate, psychology and economics as readily as from physics.',
-      l: [['Browse Topics', 'topics.html'], ['Community', 'community.html']]
-    },
-    {
-      k: 'ai artificial intelligence machine learning ml model llm research tools',
-      a: 'AI runs through most of what we make: whether a model can form a hypothesis or only a sentence that resembles one, and how to use one on your own data without fooling yourself.',
-      l: [['Can a machine form a hypothesis?', 'topic-machine-hypothesis.html'], ['AI in Research path', 'path-ai-in-research.html']]
-    },
-    {
-      k: 'dark light mode theme colour color night bright toggle switch',
-      a: 'Both. The control is the sun/moon button in the header. Dark is the default until you pick otherwise, and your choice is remembered after that.',
-      l: []
-    },
-    {
-      k: 'video youtube channel watch episode programme show series',
-      a: 'Each Topic comes with a video next to the essay, and every video is also on the GraviQuest YouTube channel.',
-      l: [['Topics', 'topics.html']]
-    },
-    {
-      k: 'suggest propose idea topic request vote next what should you cover',
-      a: 'Members propose subjects and vote on what gets made next. That vote is the main reason to have an account.',
-      l: [['Propose a Topic', 'community.html#join']]
-    }
-  ];
-
-  var OPENERS = [
-    'Where should I start?',
-    'Is this only for physicists?',
-    'How do I join?'
-  ];
-
-  var FALLBACK = 'I could not match that to anything on the site, and I would rather say so than invent an answer. The Topics index and the Community page are the two best places to look, or ask me about the Lab, the learning paths, accounts or the newsletter.';
-
-  /* ---- Matching ----------------------------------------------------------
-     Word overlap, with a length guard so that "a" and "is" don't decide the
-     answer. Crude, but it is honest about being crude, and for a dozen
-     destinations it beats anything more elaborate. */
-  var STOP = ' a an and are as at be by can do does for from how i in is it me my of on or the to what when where which who why you your this that with '.split(' ');
-
-  function tokens(s) {
-    return (s || '').toLowerCase().replace(/[^a-z0-9\s]/g, ' ').split(/\s+/)
-      .filter(function (w) { return w.length > 2 && STOP.indexOf(w) === -1; });
-  }
-
-  function match(q) {
-    var qt = tokens(q);
-    if (!qt.length) return null;
-    var best = null, bestScore = 0;
-    INDEX.forEach(function (row) {
-      var keys = row.k.split(' ');
-      var score = 0;
-      qt.forEach(function (w) {
-        keys.forEach(function (k) {
-          if (k === w) score += 2;
-          else if (k.length > 3 && (k.indexOf(w) === 0 || w.indexOf(k) === 0)) score += 1;
-        });
-      });
-      if (score > bestScore) { bestScore = score; best = row; }
-    });
-    return bestScore >= 2 ? best : null;
-  }
+  // Public answers come from the existing backend and its published content.
+  // A failed request must not turn a stale keyword index into an authority.
+  var OPENERS = ['Where should I start?', 'What is this page about?', 'How can I participate?'];
 
   /* ---- What a page may override ------------------------------------------
      The public site uses the defaults. The workspace calls configure() with
@@ -154,7 +33,7 @@
      public site and the other way round. */
   var DEFAULTS = {
     title: 'Ask Pulsar',
-    greeting: 'Hello. I know what is on this site and where to find it: Topics, the Lab, learning paths, the community, accounts. What are you after?',
+    greeting: 'Ask me about this page, the ideas behind it, or where to go next.',
     openers: OPENERS,
     placeholder: 'Ask about anything on the site…',
     foot: '',
@@ -278,7 +157,7 @@
             id: t.id,
             title: t.title,
             msgs: t.msgs.slice(-MAX_MSGS).map(function (m) {
-              return { who: m.who, text: m.text, links: m.links || [] };
+              return { who: m.who, text: m.text, links: m.links || [], page: m.page || '' };
             })
           };
         })
@@ -458,7 +337,12 @@
     log.scrollTop = log.scrollHeight;
   }
 
-  function render() { renderTabs(); renderLog(); }
+  function render() {
+    renderTabs(); renderLog();
+    var pending = !!current().pending;
+    root.querySelector('.gchat__send').disabled = pending;
+    form.setAttribute('aria-busy', String(pending));
+  }
 
   function bubble(m) {
     var el = document.createElement('div');
@@ -474,6 +358,7 @@
       var row = document.createElement('div');
       row.className = 'gchat__links';
       links.forEach(function (l) {
+        if (!safeLink(l.href)) return;
         var a = document.createElement('a');
         a.className = 'gchat__link';
         a.href = l.href;
@@ -527,16 +412,24 @@
   }
 
   /* ---- Answering --------------------------------------------------------- */
+  function safeLink(href) {
+    if (typeof href !== 'string' || !href.trim()) return false;
+    try {
+      var url = new URL(href, location.href);
+      // Private configured integrations may cite external sources; never allow
+      // script/data URLs, including links replayed from local storage.
+      return url.protocol === 'https:' || (url.protocol === 'http:' && url.origin === location.origin);
+    } catch (err) { return false; }
+  }
+
   function pairs(list) {
     return (list || []).map(function (l) {
       return Array.isArray(l) ? { label: l[0], href: l[1] } : { label: l.label, href: l.href };
     });
   }
 
-  function localAnswer(q) {
-    var hit = match(q);
-    if (hit) return { reply: hit.a, links: pairs(hit.l) };
-    return { reply: FALLBACK, links: pairs([['Topics', 'topics.html'], ['Community', 'community.html']]) };
+  function localAnswer() {
+    return { reply: 'Pulsar could not answer just now. Please try your question again in a moment.', links: [] };
   }
 
   /* Pulsar needs to know the headings and Topic cards a visitor actually
@@ -565,7 +458,7 @@
     if (location.pathname.endsWith('/topics.html')) {
       return Promise.resolve(readPublicTopicCards(document));
     }
-    publicTopicsPromise = fetch('/topics.html', { cache: 'no-store' })
+    publicTopicsPromise = timedFetch('/topics.html', { cache: 'default', credentials: 'omit' }, 4000)
       .then(function (response) {
         if (!response.ok) throw new Error('topics-unavailable');
         return response.text();
@@ -580,7 +473,7 @@
   function publicPageContext() {
     // The public endpoint must not receive workspace or account DOM content.
     var path = location.pathname;
-    var publicPath = path === '/' || (path.lastIndexOf('/') === 0 && path.endsWith('.html'));
+    var publicPath = (path === '/' || path === '/community' || (path.lastIndexOf('/') === 0 && path.endsWith('.html'))) && !/^\/(workspace|account)([/.]|$)/.test(path);
     if (!publicPath) return { heading: '', featured_topic: '', featured_href: '', actions: [] };
 
     var main = document.querySelector('main');
@@ -589,6 +482,7 @@
     var featured = home && main && main.querySelector('.lp-topic__q');
     var featuredLink = home && main && main.querySelector('.lp-topic__intro a[href^="topic-"]');
     var actions = main ? Array.prototype.slice.call(main.querySelectorAll('a[href], button'), 0, 45)
+      .filter(function (node) { return !node.disabled && node.getAttribute('aria-disabled') !== 'true' && !node.closest('[hidden], [data-public-context-skip]'); })
       .map(function (node) {
         var label = (node.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 100);
         return { label: label, href: node.getAttribute('href') || '' };
@@ -603,17 +497,42 @@
     };
   }
 
+  function timedFetch(url, options, ms) {
+    var controller = new AbortController();
+    var timer = setTimeout(function () { controller.abort(); }, ms);
+    return fetch(url, Object.assign({}, options, {signal: controller.signal}))
+      .finally(function () { clearTimeout(timer); });
+  }
+
+  function readingContext() {
+    var main = document.querySelector('main');
+    if (!main || /\/(workspace|account)([/.]|$)/.test(location.pathname)) return {};
+    var essay = main.querySelector('[data-essay-main] .tq-essay__head');
+    var level = main.querySelector('[data-level][aria-pressed="true"]');
+    var mode = main.querySelector('[data-mode][aria-pressed="true"]');
+    return {essay: essay ? essay.id.replace('essay-', '') : '',
+      level: level ? level.getAttribute('data-level') : '',
+      mode: mode ? mode.getAttribute('data-mode') : ''};
+  }
+
+  function currentSection() {
+    var main = document.querySelector('main');
+    var active = main && main.querySelector('.tq-sec:not([hidden])');
+    return active ? active.id : location.hash.slice(1);
+  }
+
   function remoteAnswer(q, history) {
     return publicTopicCards().then(function (catalog) {
-      return fetch(CFG.endpoint, {
+      return timedFetch(CFG.endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           message: q, history: history, page: location.pathname,
-          section: location.hash.slice(1),
+          section: currentSection(), reading: readingContext(), locale: document.documentElement.lang || 'en',
+          topic_slug: location.pathname === '/topic.html' ? new URLSearchParams(location.search).get('slug') : '',
           page_context: publicPageContext(), topic_catalog: catalog
         })
-      });
+      }, 25000);
     }).then(function (r) {
       if (!r.ok) throw new Error(r.status);
       return r.json();
@@ -647,10 +566,10 @@
     if (!q || t.pending) return;
 
     var history = t.msgs.slice(-8).map(function (m) {
-      return { role: m.who === 'me' ? 'user' : 'assistant', content: m.text };
+      return { role: m.who === 'me' ? 'user' : 'assistant', content: m.text.slice(0, 600), page: m.page || '', links: (m.links || []).slice(0, 2) };
     });
     if (!t.title) t.title = topic(q);
-    t.msgs.push({ who: 'me', text: q });
+    t.msgs.push({ who: 'me', text: q, page: location.pathname });
     t.pending = true;
     input.value = '';
     input.style.height = 'auto';
@@ -659,7 +578,7 @@
 
     answer(q, history).then(function (out) {
       t.pending = false;
-      t.msgs.push({ who: 'bot', text: out.reply, links: out.links, actions: out.actions });
+      t.msgs.push({ who: 'bot', text: out.reply, links: out.links, actions: out.actions, page: location.pathname });
       // The tab may have been closed while the answer was on its way.
       if (!find(t.id)) return;
       t.unread = t.id !== activeId;
@@ -708,7 +627,7 @@
 
   form.addEventListener('submit', function (e) { e.preventDefault(); send(input.value); });
   input.addEventListener('keydown', function (e) {
-    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(input.value); }
+    if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); send(input.value); }
   });
   input.addEventListener('input', function () {
     input.style.height = 'auto';
@@ -728,6 +647,19 @@
     }
     setOpen(false);
   });
+
+  function fitViewport() {
+    var viewport = window.visualViewport;
+    if (!viewport) return;
+    var lift = Math.max(0, window.innerHeight - viewport.height - viewport.offsetTop);
+    root.style.setProperty('--gchat-keyboard', lift + 'px');
+    root.style.setProperty('--gchat-viewport', viewport.height + 'px');
+  }
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener('resize', fitViewport);
+    window.visualViewport.addEventListener('scroll', fitViewport);
+    fitViewport();
+  }
 
   function applyConfig() {
     title.textContent = opt('title');
