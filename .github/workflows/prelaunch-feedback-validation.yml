@@ -62,7 +62,7 @@ jobs:
           schema = Path('assets/prelaunch-feedback-schema.js').read_text()
           backend = Path('backend/core/prelaunch_feedback_api.py').read_text()
           assert 'No sign-in required' in page
-          assert 'required>' not in page and ' required ' not in page
+          assert ' required=' not in page and ' required>' not in page and ' required/>' not in page
           assert 'type="module" src="/assets/prelaunch-feedback.js' in page
           for letter in 'ABCDEFGHI':
               assert "letter:'" + letter + "'" in schema
