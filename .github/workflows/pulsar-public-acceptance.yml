@@ -2,6 +2,17 @@ name: Public Pulsar pre-launch acceptance
 on:
   push:
     branches: ['feat/pulsar-public-guide']
+    paths:
+      - 'backend/core/pulsar_api.py'
+      - 'backend/core/pulsar_public_*.py'
+      - 'backend/core/topic_01.py'
+      - 'assets/chat.*'
+      - 'discourse/theme/**'
+      - 'ops/discourse/*pulsar*'
+      - 'ops/discourse/assemble_theme.py'
+      - 'scripts/qa-pulsar-public.py'
+      - 'scripts/test-pulsar-public-browser.cjs'
+      - '.github/workflows/pulsar-public-acceptance.yml'
   workflow_dispatch:
   workflow_run:
     workflows: ['Deploy Gravitas to Strato']
@@ -11,6 +22,9 @@ permissions:
 jobs:
   published-conversations:
     if: github.event_name != 'workflow_run'
+    concurrency:
+      group: pulsar-public-model-qa
+      cancel-in-progress: true
     runs-on: ubuntu-24.04
     timeout-minutes: 18
     steps:

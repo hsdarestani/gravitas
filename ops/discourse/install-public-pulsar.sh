@@ -16,8 +16,13 @@ fi
 RELEASE="pulsar-$(date +%Y%m%d%H%M%S)"
 SHARED="/var/discourse/shared/graviquest/graviquest-integration/$RELEASE"
 CONTAINER="/shared/graviquest-integration/$RELEASE"
+BACKUP="/var/backups/graviquest-forum-pulsar/$RELEASE"
+install -d -m 700 "$BACKUP"
 install -d -m 700 "$SHARED"
-cp "$VHOST" "$SHARED/nginx.previous"
+cp "$VHOST" "$BACKUP/nginx.previous"
+if [ -f /etc/nginx/snippets/graviquest-public-pulsar.conf ]; then
+  cp /etc/nginx/snippets/graviquest-public-pulsar.conf "$BACKUP/pulsar.previous"
+fi
 python3 "$SOURCE/ops/discourse/assemble_theme.py" "$SOURCE" "$SHARED/candidate"
 cp "$SOURCE/ops/discourse/deploy_theme.rb" "$SHARED/"
 rollback() {
@@ -25,7 +30,12 @@ rollback() {
   if [ "$STATUS" -ne 0 ]; then
     echo 'Public Pulsar installation failed; restoring the previous Forum theme and route.'
     docker exec -u discourse -w /var/www/discourse -e GQ_THEME_RELEASE="$CONTAINER" -e GQ_THEME_MODE=rollback graviquest bundle exec rails runner "$CONTAINER/deploy_theme.rb" || true
-    cp "$SHARED/nginx.previous" "$VHOST"
+    cp "$BACKUP/nginx.previous" "$VHOST"
+    if [ -f "$BACKUP/pulsar.previous" ]; then
+      cp "$BACKUP/pulsar.previous" /etc/nginx/snippets/graviquest-public-pulsar.conf
+    else
+      install -m 644 /dev/null /etc/nginx/snippets/graviquest-public-pulsar.conf
+    fi
     nginx -t && systemctl reload nginx
   fi
 }

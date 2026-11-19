@@ -28,6 +28,42 @@ from core.models import PublicPageSnapshot
 import core
 from core import pulsar_api
 
+
+def provider_preflight():
+    """One tiny existing-provider request; stop before the matrix on a quota error."""
+    from django.conf import settings
+    from core.pulsar_runtime.providers import _cloudflare_model
+    import requests
+    account = getattr(settings, 'CLOUDFLARE_AI_ACCOUNT_ID', '')
+    token = getattr(settings, 'CLOUDFLARE_AI_API_TOKEN', '')
+    if not account or not token:
+        return None  # Non-Cloudflare installations keep the normal runtime test.
+    try:
+        response = requests.post(
+            f'https://api.cloudflare.com/client/v4/accounts/{account}/ai/run/{_cloudflare_model("general")}',
+            headers={'Authorization': f'Bearer {token}'},
+            json={'messages': [{'role': 'user', 'content': 'Say OK.'}], 'max_tokens': 8}, timeout=(5, 15),
+        )
+        if response.status_code == 200 and response.json().get('success') is not False:
+            return None
+        payload = response.json()
+        return {'provider': 'cloudflare-workers-ai', 'http_status': response.status_code,
+                'retry_after': response.headers.get('Retry-After'),
+                'errors': [{'code': row.get('code'), 'message': str(row.get('message', ''))[:500]}
+                           for row in payload.get('errors', [])[:3] if isinstance(row, dict)]}
+    except (requests.RequestException, ValueError) as exc:
+        return {'provider': 'cloudflare-workers-ai', 'error_type': type(exc).__name__}
+
+
+blocker = provider_preflight()
+if blocker:
+    report = {'mode': 'provider-preflight', 'blocker': blocker, 'conversations': [],
+              'failures': [{'issues': ['provider_unavailable_before_matrix']}],
+              'note': 'Stopped without retrying the conversation matrix or changing provider/budget.'}
+    args.output.write_text(json.dumps(report, indent=2))
+    print(json.dumps(report, indent=2))
+    sys.exit(1)
+
 if connection.vendor == 'postgresql':
     with connection.cursor() as cursor:
         cursor.execute('SET default_transaction_read_only = on')
