@@ -42,6 +42,7 @@ jobs:
           set -euo pipefail
           set -a
           . /etc/gravitas/backend.env
+          if [ -r /etc/gravitas/forum.env ]; then . /etc/gravitas/forum.env; fi
           set +a
           export PYTHONPATH=/opt/gravitas-backend DJANGO_SETTINGS_MODULE=gravitas_backend.settings
           /opt/gravitas-backend/.venv/bin/python "$1/scripts/qa-pulsar-public.py" --candidate "$1" --output "$1/conversations.json"

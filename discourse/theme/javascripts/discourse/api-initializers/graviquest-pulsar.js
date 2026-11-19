@@ -12,8 +12,10 @@ export default apiInitializer((api) => {
     storageKey: "gchat.public.forum.v1",
   };
   mountPulsar();
-  api.onPageChange(() => {
+  const update = () => {
     const match = location.pathname.match(/^\/t\/(?:[^/]+\/)?(\d+)(?:\/|$)/);
     window.GravitasChat.updateContext({ page: "/forum.html", forumTopic: match ? Number(match[1]) : null });
-  });
+  };
+  api.onPageChange(update);
+  update();
 });

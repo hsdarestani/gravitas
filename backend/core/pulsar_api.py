@@ -36,6 +36,16 @@ def _synced_page_context(snapshot, message, anchor):
     if not snapshot:
         return ''
     sections = snapshot.get('sections', [])
+    page_summary = bool(re.search(r'\b(summarize|summary of) (this |the )?page\b', message, re.I))
+    if anchor and not page_summary:
+        # A neighbouring section or Related card is not the current argument.
+        # Keep the overview and actual section; add evidence only if requested.
+        relevant_ids = {'', anchor}
+        if re.search(r'\b(evidence|sources?|citations?)\b', message, re.I):
+            relevant_ids.add('sources')
+        scoped = [part for part in sections if part['id'] in relevant_ids]
+        if any(part['id'] == anchor for part in scoped):
+            sections = scoped
     terms = set(re.findall(r'\w{4,}', message.casefold()))
 
     def rank(section):
@@ -174,7 +184,8 @@ def public_pulsar_ask(request):
         'Synchronized public page copy': synced_context or '(Unavailable: do not invent the current page.)',
         'Related published Topic': related,
         'Topic 01 essay as shown to readers': essay_context,
-        'Current public Forum thread': public_thread_context(data.get('forum_topic')) if key == '/forum.html' else '',
+        'Current public Forum thread': ((public_thread_context(data.get('forum_topic')) or '(This thread is not available as an anonymous public read.)')
+                                       if key == '/forum.html' and data.get('forum_topic') else ''),
         'Recent conversation': history,
         'Available destinations': offered,
         'Visitor question': message,
@@ -192,6 +203,20 @@ def public_pulsar_ask(request):
             reply, links = present_answer(result.text, offered, key)
             if not reply:
                 raise PulsarError('public_answer_empty')
+            # A model must not turn legacy product copy into a launch claim.
+            # The boundary is enforced for summaries as well as direct FAQs.
+            preview = next((note for prefix, note in (
+                ('/lab', 'The Lab is under construction and is not publicly available yet.'),
+                ('/education', 'This is a pre-launch preview; the learning product is not publicly available yet.'),
+                ('/learn', 'Learning courses are under construction and are not open for enrollment.'),
+                ('/path-', 'This course is planned and is not open for enrollment.'),
+                ('/game-', 'This interactive experience is a pre-launch preview, not a publicly launched product.'),
+                ('/newsletter', 'The newsletter is marked Soon; this page describes its planned format.'),
+            ) if key.startswith(prefix)), '')
+            if preview and re.search(r'\b(summari[sz]e|summary|this page|this about|what next|open|use|enroll)\b', message, re.I) and not re.search(
+                r'\b(under construction|pre-launch|not (?:yet |publicly )?(?:available|operational|open)|planned|marked Soon)\b', reply, re.I,
+            ):
+                reply = preview + ' ' + reply
             if essay_context and not links and key == TOPIC_01_PAGE and key + '#essay' in offered:
                 links = [{'label': 'Read the essays', 'href': key + '#essay'}]
             return JsonResponse({'ok': True, 'reply': reply, 'links': links,

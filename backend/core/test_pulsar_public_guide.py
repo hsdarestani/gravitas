@@ -5,7 +5,7 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 from django.core.management import call_command
-from django.test import TestCase
+from django.test import TestCase, override_settings
 
 from .models import ContentItem, PublicPageSnapshot
 from .pulsar import PulsarError
@@ -106,7 +106,21 @@ class PublicGuideTests(TestCase):
                             {'role': 'assistant', 'content': reply['reply'], 'links': reply['links']}])
         self.assertTrue(destinations_seen)
 
-    @patch('core.forum._public_categories', return_value=[{'id': 1, 'slug': 'public'}])
+    def test_participation_explains_public_reading_signin_and_moderation(self):
+        payload = self.ask('How can I participate in the discussion?', page='/forum.html').json()
+        self.assertIn('without an account', payload['reply'])
+        self.assertIn('Sign in', payload['reply'])
+        self.assertIn('reviewed before', payload['reply'])
+
+    @patch('core.pulsar_api.configured', return_value=True)
+    @patch('core.pulsar_api.run_text')
+    def test_legacy_simulator_copy_cannot_be_reported_as_a_launch(self, model, configured):
+        model.return_value = SimpleNamespace(text='This page describes a temperature model.', provider='test', run_id='one')
+        payload = self.ask('Summarize this page.', page='/lab-protein-stability.html').json()
+        self.assertIn('not publicly available', payload['reply'])
+
+    @override_settings(GRAVITAS_FORUM_URL='https://forum.graviquest.com')
+    @patch('core.forum._public_categories', return_value=[{'id': 1, 'slug': 'public', 'name': 'Public'}])
     @patch('core.forum._get')
     def test_thread_reader_excludes_restricted_deleted_and_hidden_posts(self, get, categories):
         get.return_value = {'id': 108, 'category_id': 2, 'title': 'Private', 'post_stream': {'posts': []}}

@@ -35,9 +35,9 @@ if connection.vendor == 'postgresql':
 factory = RequestFactory()
 
 
-def ask(page, question, history=None, section='', reading=None):
+def ask(page, question, history=None, section='', reading=None, forum_topic=None):
     data = {'page': page, 'message': question, 'history': history or [],
-            'section': section, 'reading': reading or {}}
+            'section': section, 'reading': reading or {}, 'forum_topic': forum_topic}
     started = time.monotonic()
     response = pulsar_api.public_pulsar_ask(factory.post('/api/pulsar/ask/', data, content_type='application/json'))
     payload = json.loads(response.content)
@@ -81,6 +81,7 @@ rows += conversation('/topic-answer-that-looked-right.html', ['Summarize this.']
 rows += conversation('/topic-answer-that-looked-right.html', ['What evidence supports this?', 'Where can I read more?'], 'sources')
 rows += conversation('/topic-answer-that-looked-right.html', ['What is the difference between these viewpoints?'], 'views')
 rows += conversation('/forum.html', ['How can I participate in the discussion?', 'Can I post without signing in?'])
+rows += [ask('/forum.html', 'Summarize this discussion.', forum_topic=108)]
 rows += conversation('/', ['Where should I start?', 'What is the main idea here?'], 'video', move=True)
 rows += [ask('/', 'Can I use the Lab now?'), ask('/lab.html', 'Where can I open the simulation?'),
          ask('/learn.html', 'Can I enroll in a course now?'),

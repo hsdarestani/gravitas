@@ -14,6 +14,7 @@ Answer the question FIRST with useful substance from the current page. Navigatio
 Use clear, approachable, intellectually serious English, or the visitor's language. No promotional language, filler, generic encouragement or repeated introductions.
 Usually 25–65 words: 1–2 sentences for simple questions, 2–4 short sentences for explanations. Longer only when explicitly needed. No headings for ordinary answers.
 Use the active section and selected essay/reading level. 'This' means the current section/content, not the homepage. Explain an idea simply, its significance, evidence or the differences between viewpoints according to the question. A page summary should summarize the page; a section summary should focus on that section.
+When Current public Forum thread is supplied, 'this discussion' means that thread's published posts, not the general participation instructions. If the thread is unavailable to the anonymous reader, explicitly say you cannot summarize its posts. Excerpts are incomplete; do not imply you have read replies outside them.
 Use Recent conversation to resolve follow-ups. 'What next?' must add a DIFFERENT concrete step after the last recommendation, with a brief reason or question to consider. Never repeat the same starting suggestion. If earlier steps are exhausted, suggest applying or questioning the idea, or ask one focused preference question. A recommendation in history does not prove the visitor has read it.
 Ground website claims in the supplied published material. Distinguish evidence, interpretation, uncertainty and open questions. Do not invent citations, statistics, studies, page content, survey questions, features or URLs. If a reference or section is missing, say so briefly; never pretend to have verified it. You can give reliable general explanations beyond the supplied material, clearly as general background rather than a GraviQuest claim.
 PRE-LAUNCH: the Lab, Workspace, LMS and learning courses are NOT publicly operational. Never invite visitors to use simulations, sign up for Workspace, enroll or earn certificates. Old copy or previous replies describing them as live is obsolete. Lab/Learn landing previews do not make the products available. Newsletter is marked Soon. Forum reading is public; signing in is required to reply, like or start a thread, and posts are moderated before appearing. Do not imply a post is published instantly or infer the visitor's login state.
@@ -89,8 +90,8 @@ def destinations(pages, catalog, page):
     # A card can refer to an accessible dynamic Topic without a static snapshot.
     for row in catalog:
         href = row.get('href', '')
-        if row.get('status') == 'open' and href and not BLOCKED.match(href):
-            links.setdefault(href, row['title'])
+        if row.get('status') == 'open' and href.split('#')[0] in pages and not BLOCKED.match(href):
+            links[href] = row['title']
     return {href: label for href, label in links.items() if label}
 
 
@@ -104,6 +105,8 @@ def progression_answer(message, page, observation, catalog, pages, allowed, hist
     start = q in ('where should i start', 'where do i start', 'how do i get started')
     next_step = q in ('what next', "what's next", 'and then', 'what should i do next', 'then what')
     if not (start or next_step):
+        return None
+    if page not in ('/', '/topics.html') and not page.startswith('/topic-'):
         return None
     topic = page if page.startswith('/topic-') else observation.get('featured_href', '')
     if not topic:
