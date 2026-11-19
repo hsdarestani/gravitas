@@ -59,12 +59,13 @@
     <form id="prelaunch-form" class="fb-form" novalidate>
       <section class="fb-panel" aria-labelledby="fb-q1">
         <div class="fb-panel__head"><span class="fb-number">01</span><div><p class="fb-kicker">ABOUT YOU</p><h2 id="fb-q1">Which best describes you?</h2><p>Pick the perspective closest to yours, or skip this question.</p></div></div>
-        <div class="fb-personas">
+        <div class="fb-personas" role="radiogroup" aria-labelledby="fb-q1">
           <label class="fb-persona"><input type="radio" name="persona" value="a1"><span class="fb-persona__content"><strong>Curious Explorer</strong><small>I enjoy discovering science, without needing technical detail.</small></span></label>
           <label class="fb-persona"><input type="radio" name="persona" value="a2"><span class="fb-persona__content"><strong>Early-Career Researcher</strong><small>I am studying or starting out in scientific research.</small></span></label>
           <label class="fb-persona"><input type="radio" name="persona" value="a3"><span class="fb-persona__content"><strong>Working Scientist</strong><small>Research is part of my professional work.</small></span></label>
           <label class="fb-persona"><input type="radio" name="persona" value="other"><span class="fb-persona__content"><strong>Other / None of these</strong><small>I see myself differently.</small></span></label>
         </div>
+        <button class="fb-clear" type="button" data-clear-radio="persona">Clear selection</button>
         <label class="fb-field" id="fb-other-wrap" hidden><span>If other, how would you describe yourself? <small>Optional</small></span><input class="g-input fb-input" name="persona_other" maxlength="160" placeholder="A few words are enough"></label>
       </section>
       <section class="fb-panel" aria-labelledby="fb-q2">
@@ -79,7 +80,7 @@
 <label class="fb-choice"><input type="radio" name="overall_rating" value="7"><span>7</span></label>
 <label class="fb-choice"><input type="radio" name="overall_rating" value="8"><span>8</span></label>
 <label class="fb-choice"><input type="radio" name="overall_rating" value="9"><span>9</span></label>
-<label class="fb-choice"><input type="radio" name="overall_rating" value="10"><span>10</span></label></div><p class="fb-scale-ends"><span>1 · Poor</span><span>10 · Excellent</span></p></fieldset>
+<label class="fb-choice"><input type="radio" name="overall_rating" value="10"><span>10</span></label></div><p class="fb-scale-ends"><span>1 · Poor</span><span>10 · Excellent</span></p><button class="fb-clear" type="button" data-clear-radio="overall_rating">Clear rating</button></fieldset>
       </section>
       <section class="fb-panel" aria-labelledby="fb-q3">
         <div class="fb-panel__head"><span class="fb-number">03</span><div><p class="fb-kicker">DESIGN &amp; CONTENT</p><h2 id="fb-q3">How did the site feel?</h2><p>We would love your impressions of both the visuals and the science.</p></div></div>
