@@ -10,8 +10,8 @@ on:
       - 'discourse/theme/**'
       - 'ops/discourse/*pulsar*'
       - 'ops/discourse/assemble_theme.py'
-      - 'scripts/qa-pulsar-public.py'
-      - 'scripts/test-pulsar-public-browser.cjs'
+      - 'scripts/*pulsar*'
+      - 'qa/pulsar/**'
       - '.github/workflows/pulsar-public-acceptance.yml'
   workflow_dispatch:
   workflow_run:
@@ -19,17 +19,34 @@ on:
     types: [completed]
 permissions:
   contents: read
+# Serialize candidate, retries and production QA together. Never cancel a run
+# after it has spent capacity and silently start the matrix again.
+concurrency:
+  group: pulsar-public-model-qa
+  cancel-in-progress: false
 jobs:
   published-conversations:
     if: github.event_name != 'workflow_run'
-    concurrency:
-      group: pulsar-public-model-qa
-      cancel-in-progress: true
     runs-on: ubuntu-24.04
-    timeout-minutes: 18
+    timeout-minutes: 3
     steps:
       - uses: actions/checkout@v4
-      - name: Evaluate candidate against published content without installing it
+      - name: Validate unchanged application and reuse successful real conversations
+        run: python3 scripts/verify-pulsar-evidence.py --output qa-artifacts/pulsar-conversations.json
+      - name: Verify persistent request budgets, concurrent admission and quota stops
+        run: python3 scripts/test-pulsar-qa-budget.py -v
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pulsar-published-conversations
+          path: qa-artifacts/pulsar-conversations.json
+          retention-days: 30
+  release-preflight:
+    needs: published-conversations
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Inspect free capacity and run at most one tiny real-model preflight
         env:
           SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
           SSH_HOST: ${{ secrets.DEPLOY_HOST }}
@@ -48,32 +65,32 @@ jobs:
           OPTS=(-i ~/.ssh/pulsar-qa -p "$PORT" -o BatchMode=yes -o ConnectTimeout=10)
           if ! ssh "${OPTS[@]}" "$LOGIN@$SSH_HOST" true; then LOGIN=root; fi
           TARGET="$LOGIN@$SSH_HOST"
+          FINGERPRINT="$(python3 scripts/verify-pulsar-evidence.py --fingerprint-only)"
           REMOTE="/tmp/graviquest-pulsar-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
-          tar -czf "$RUNNER_TEMP/pulsar-candidate.tgz" backend/core/pulsar_api.py backend/core/pulsar_public_context.py backend/core/pulsar_public_guide.py backend/core/topic_01.py scripts/qa-pulsar-public.py
-          ssh "${OPTS[@]}" "$TARGET" "umask 022; mkdir '$REMOTE'"
+          tar -czf "$RUNNER_TEMP/pulsar-candidate.tgz" scripts/qa-pulsar-public.py scripts/pulsar_qa_budget.py
+          ssh "${OPTS[@]}" "$TARGET" "umask 022; mkdir '$REMOTE'; sudo install -d -o gravitas -g gravitas -m 700 /var/lib/gravitas-pulsar-qa"
           scp -i ~/.ssh/pulsar-qa -P "$PORT" "$RUNNER_TEMP/pulsar-candidate.tgz" "$TARGET:$REMOTE/source.tgz"
-          ssh "${OPTS[@]}" "$TARGET" "tar -xzf '$REMOTE/source.tgz' -C '$REMOTE'; sudo install -o gravitas -g gravitas -m 644 /dev/null '$REMOTE/conversations.json'"
-          # Service credentials stay on the host. The evaluator uses read-only
-          # transactions and never writes snapshots, publications or chat memory.
+          ssh "${OPTS[@]}" "$TARGET" "tar -xzf '$REMOTE/source.tgz' -C '$REMOTE'; sudo install -o gravitas -g gravitas -m 644 /dev/null '$REMOTE/preflight.json'"
+          # Credentials never leave the host. Management analytics are read-only;
+          # known 4006 blocks all inference until the documented UTC reset.
           STATUS=0
-          ssh "${OPTS[@]}" "$TARGET" "sudo -u gravitas bash -s -- '$REMOTE'" <<'REMOTE' || STATUS=$?
+          ssh "${OPTS[@]}" "$TARGET" "sudo -u gravitas bash -s -- '$REMOTE' '$FINGERPRINT'" <<'REMOTE' || STATUS=$?
           set -euo pipefail
           set -a
           . /etc/gravitas/backend.env
-          if [ -r /etc/gravitas/forum.env ]; then . /etc/gravitas/forum.env; fi
           set +a
           export PYTHONPATH=/opt/gravitas-backend DJANGO_SETTINGS_MODULE=gravitas_backend.settings
-          /opt/gravitas-backend/.venv/bin/python "$1/scripts/qa-pulsar-public.py" --candidate "$1" --output "$1/conversations.json"
+          /opt/gravitas-backend/.venv/bin/python "$1/scripts/qa-pulsar-public.py" --preflight-only --ledger /var/lib/gravitas-pulsar-qa --fingerprint "$2" --output "$1/preflight.json"
           REMOTE
           mkdir -p qa-artifacts
-          scp -i ~/.ssh/pulsar-qa -P "$PORT" "$TARGET:$REMOTE/conversations.json" qa-artifacts/pulsar-conversations.json
+          scp -i ~/.ssh/pulsar-qa -P "$PORT" "$TARGET:$REMOTE/preflight.json" qa-artifacts/pulsar-preflight.json
           ssh "${OPTS[@]}" "$TARGET" "rm -rf '$REMOTE'"
           exit "$STATUS"
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: pulsar-published-conversations
-          path: qa-artifacts/pulsar-conversations.json
+          name: pulsar-minimal-preflight
+          path: qa-artifacts/pulsar-preflight.json
           retention-days: 30
   production-public-guide:
     if: github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main'
@@ -83,16 +100,52 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.event.workflow_run.head_sha }}
+      - name: Reserve the two production model calls in the same host-shared budget
+        env:
+          SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          SSH_HOST: ${{ secrets.DEPLOY_HOST }}
+          SSH_USER: ${{ secrets.DEPLOY_USER }}
+          SSH_PORT: ${{ secrets.DEPLOY_PORT }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/pulsar-qa
+          chmod 600 ~/.ssh/pulsar-qa
+          PORT="${SSH_PORT:-22}"
+          LOGIN="${SSH_USER:-deploy}"
+          ssh-keyscan -p "$PORT" -H "$SSH_HOST" >> ~/.ssh/known_hosts
+          OPTS=(-i ~/.ssh/pulsar-qa -p "$PORT" -o BatchMode=yes -o ConnectTimeout=10)
+          if ! ssh "${OPTS[@]}" "$LOGIN@$SSH_HOST" true; then LOGIN=root; fi
+          TARGET="$LOGIN@$SSH_HOST"
+          FINGERPRINT="$(python3 scripts/verify-pulsar-evidence.py --fingerprint-only)"
+          REMOTE="/tmp/pulsar-production-budget-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}.py"
+          scp -i ~/.ssh/pulsar-qa -P "$PORT" scripts/pulsar_qa_budget.py "$TARGET:$REMOTE"
+          ssh "${OPTS[@]}" "$TARGET" "sudo -u gravitas /opt/gravitas-backend/.venv/bin/python '$REMOTE' --ledger /var/lib/gravitas-pulsar-qa --fingerprint '$FINGERPRINT' --reserve-production"
+          echo 'PULSAR_QA_RESERVED_MODEL_CALLS=2' >> "$GITHUB_ENV"
+          echo "PULSAR_QA_TARGET=$TARGET" >> "$GITHUB_ENV"
+          echo "PULSAR_QA_PORT=$PORT" >> "$GITHUB_ENV"
+          echo "PULSAR_QA_REMOTE=$REMOTE" >> "$GITHUB_ENV"
+          echo "PULSAR_QA_FINGERPRINT=$FINGERPRINT" >> "$GITHUB_ENV"
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
       - run: npm install --prefix "$RUNNER_TEMP/pulsar-browser" --no-save --ignore-scripts --no-audit --no-fund playwright-core@1.56.1
-      - name: Verify actual public answers and responsive behavior after deployment
+      - name: Verify real public and Discourse answers once; replay at all four widths
         env:
           NODE_PATH: ${{ runner.temp }}/pulsar-browser/node_modules
           CHROME_PATH: /usr/bin/google-chrome
           PULSAR_LIVE: '1'
         run: node scripts/test-pulsar-public-browser.cjs
+      - name: Stop further QA after any live-provider failure
+        if: always() && env.PULSAR_QA_RESERVED_MODEL_CALLS == '2'
+        shell: bash
+        run: |
+          set -euo pipefail
+          if test -f qa-artifacts/pulsar-responsive.json && jq -e '.quota_exhausted' qa-artifacts/pulsar-responsive.json >/dev/null; then
+            ssh -i ~/.ssh/pulsar-qa -p "$PULSAR_QA_PORT" -o BatchMode=yes "$PULSAR_QA_TARGET" "sudo -u gravitas /opt/gravitas-backend/.venv/bin/python '$PULSAR_QA_REMOTE' --ledger /var/lib/gravitas-pulsar-qa --fingerprint '$PULSAR_QA_FINGERPRINT' --block"
+          fi
+          ssh -i ~/.ssh/pulsar-qa -p "$PULSAR_QA_PORT" -o BatchMode=yes "$PULSAR_QA_TARGET" "rm -f '$PULSAR_QA_REMOTE'"
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -116,7 +169,7 @@ jobs:
           node-version: '22'
       - name: Install the existing browser test driver
         run: npm install --prefix "$RUNNER_TEMP/pulsar-browser" --no-save --ignore-scripts --no-audit --no-fund playwright-core@1.56.1
-      - name: Check responsive widget, context, links and failures
+      - name: Check responsive widget, context, links and failures without inference
         env:
           NODE_PATH: ${{ runner.temp }}/pulsar-browser/node_modules
           CHROME_PATH: /usr/bin/google-chrome

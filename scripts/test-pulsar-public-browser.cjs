@@ -15,6 +15,47 @@ fs.mkdirSync(out, {recursive:true});
 const replay = live ? null : JSON.parse(fs.readFileSync(path.join(out,'pulsar-conversations.json')));
 const server = live ? null : spawn(process.execPath, ['scripts/preview-server.mjs'], {stdio:'ignore'});
 const results = [];
+const liveCache = new Map();
+const actualReplies = [];
+let liveRequests = 0, liveModelCalls = 0, liveFailure = null;
+let estimatedNeurons = 0;
+const MAX_HTTP_REQUESTS = 6, MAX_MODEL_CALLS = 2;
+// The SSH step must reserve these two calls in the persistent host ledger first.
+if (live && process.env.PULSAR_QA_RESERVED_MODEL_CALLS !== '2') {
+  throw Error('Missing host-shared production QA reservation');
+}
+function report() {
+  fs.writeFileSync(path.join(out,'pulsar-responsive.json'),JSON.stringify({live,results,
+    liveRequests,liveModelCalls,estimatedNeurons,actualReplies,liveFailure,
+    reusedAnswers: liveCache.size,quota_exhausted:!!liveFailure},null,2));
+}
+function semanticKey(data) {
+  return JSON.stringify([data.page,data.forum_topic,data.message,data.section,data.reading,
+    data.locale,data.topic_slug,data.history,data.suggested]);
+}
+function validateAnswer(payload,data) {
+  assert.equal(payload.version,'public-guide-v2');
+  assert.equal(payload.ok,true);
+  assert(payload.reply && payload.reply.split(/\s+/).length<=100,'missing or verbose answer');
+  assert(!/https?:\/\/|\/[a-z-]+\.html/.test(payload.reply),'raw conversational URL');
+  assert.notEqual(payload.provider,'fallback','Live inference unavailable: stop without retry');
+  for(const link of payload.links||[]) {
+    assert(link.label && link.href.startsWith('/') && !link.href.startsWith('//'));
+    assert(!/^\/(workspace|lab|learn|path-|education|admin|api)/.test(link.href),'Unreleased destination');
+  }
+  const expectedModel = ['Why does this matter?','Summarize this discussion.'].includes(data.message);
+  if(expectedModel) {
+    assert.equal(payload.provider,'cloudflare-workers-ai','Expected real existing-provider answer');
+    assert(++liveModelCalls<=MAX_MODEL_CALLS,'Model budget exceeded');
+    const usage=payload.metrics||{};
+    assert(usage.input_tokens>0 && usage.output_tokens>0,'Missing live usage measurement');
+    // Published Cloudflare rates for the existing, pinned Llama 3.3 70B model.
+    estimatedNeurons += (usage.input_tokens*26668+usage.output_tokens*204805)/1e6;
+    assert(estimatedNeurons<=1500,'Production QA exceeded 15% of the daily free neuron allocation');
+  } else {
+    assert(['public_progression','public_navigation'].includes(payload.provider),'Unexpected inference on deterministic question');
+  }
+}
 
 async function ready() {
   for(let i=0;i<40;i++) {
@@ -33,6 +74,7 @@ async function ask(page, q) {
   await page.getByLabel('Your question', {exact:true}).fill(q);
   await page.getByRole('button',{name:'Send',exact:true}).click();
   await waitReply(page,count);
+  if(liveFailure) throw Error(liveFailure);
 }
 
 async function fits(page, width) {
@@ -61,9 +103,29 @@ async function fits(page, width) {
       const page=await context.newPage();
       const requests=[];
       let failure=false;
-      if(!live) await page.route('**/api/pulsar/ask/', async route=>{
+      await page.route(/\/(?:api\/pulsar|gq-pulsar)\/ask\/$/, async route=>{
         const data=route.request().postDataJSON(); requests.push(data);
         if(failure) return route.fulfill({status:503,body:'unavailable'});
+        if(live) {
+          const key=semanticKey(data);
+          if(liveCache.has(key)) return route.fulfill({contentType:'application/json',body:JSON.stringify(liveCache.get(key))});
+          try {
+            assert(++liveRequests<=MAX_HTTP_REQUESTS,'HTTP QA budget exhausted: no request sent');
+            assert(!liveFailure,'Earlier live failure: no request sent');
+            const started=Date.now();
+            const response=await route.fetch({maxRetries:0,maxRedirects:0,timeout:25000});
+            assert.equal(response.status(),200,'Live API failure: stop without retry');
+            const payload=await response.json();
+            validateAnswer(payload,data);
+            actualReplies.push({page:data.page,question:data.message,reply:payload.reply,
+              links:payload.links,provider:payload.provider,metrics:payload.metrics,elapsed_ms:Date.now()-started});
+            liveCache.set(key,payload);
+            return route.fulfill({contentType:'application/json',body:JSON.stringify(payload)});
+          } catch(error) {
+            liveFailure=error.message;
+            return route.fulfill({status:503,body:'Stopped: live acceptance failed'});
+          }
+        }
         const match=replay.conversations.find(row=>row.page===data.page && row.question===data.message &&
           (data.message!=='What next?' || JSON.stringify(row.previous_destinations)===JSON.stringify(data.history.flatMap(t=>(t.links||[]).map(l=>l.href))))) ||
           replay.conversations.find(row=>row.question===data.message) || replay.conversations[5];
@@ -85,7 +147,7 @@ async function fits(page, width) {
       assert((await page.locator('.gchat__msg--me').count())>=2,'conversation lost on navigation');
       await ask(page,'Why does this matter?');
       await fits(page,width);
-      if(!live) {
+      {
         const latest=requests.at(-1);
         assert.equal(latest.page,'/topic-answer-that-looked-right.html');
         assert.equal(latest.section,'essay');
@@ -106,6 +168,10 @@ async function fits(page, width) {
         await page.goto(base+route,{waitUntil:'domcontentloaded'});
         await page.getByRole('button',{name:'Ask Pulsar',exact:true}).click();
         await fits(page,width);
+        if(live && route==='/lab.html') {
+          await ask(page,'Can I use the Lab now?');
+          assert.match(await page.locator('.gchat__msg--bot').last().innerText(),/not|under construction|pre-launch/i);
+        }
       }
       let forumReply='';
       if(live) {
@@ -118,13 +184,24 @@ async function fits(page, width) {
         assert.equal(response.request().postDataJSON().forum_topic,108);
         assert.notEqual(payload.provider,'fallback');
         forumReply=payload.reply;
+        await ask(page,'How can I participate in the discussion?');
+        assert.match(await page.locator('.gchat__msg--bot').last().innerText(),/sign in|log in/i);
+        assert.match(await page.locator('.gchat__msg--bot').last().innerText(),/moderat/i);
         await fits(page,width);
         await page.screenshot({path:path.join(out,`pulsar-forum-${width}.png`)});
       }
-      results.push({width,homeBounds,shortBounds,persisted:true,failureRecovery:!live,forumReply});
+      results.push({width,homeBounds,shortBounds,persisted:true,failureRecovery:true,forumReply});
       await context.close();
     }
   } finally { await browser.close(); }
-  fs.writeFileSync(path.join(out,'pulsar-responsive.json'),JSON.stringify({live,results},null,2));
+  if(live) {assert.equal(liveModelCalls,2);assert.equal(liveRequests,6);}
+  if(live) {
+    const links=[...new Set(actualReplies.flatMap(row=>(row.links||[]).map(link=>link.href)))];
+    for(const href of links) {
+      const response=await fetch(new URL(href,'https://graviquest.com'));
+      assert(response.ok,'Broken production link: '+href);
+    }
+  }
+  report();
   console.log(JSON.stringify({live,results},null,2));
-})().catch(error=>{console.error(error);process.exitCode=1;}).finally(()=>server?.kill());
+})().catch(error=>{report();console.error(error);process.exitCode=1;}).finally(()=>server?.kill());
