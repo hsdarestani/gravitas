@@ -46,7 +46,7 @@ const server=http.createServer((req,res)=>{
 async function assertSequentialVisibleNumbers(page,scenario){
   const numbers=await page.evaluate(()=>Array.from(
     document.querySelectorAll('#fb-question-groups .fb-question')
-  ).filter(question=>question.getClientRects().length>0)
+  ).filter(question=>!question.hidden && (!question.closest('details') || question.closest('details').open))
     .map(question=>question.querySelector('.fb-question__id')?.textContent));
   assert.ok(numbers.length>0,'Found visible survey questions: '+scenario);
   assert.deepEqual(numbers,numbers.map((_,index)=>String(index+1).padStart(2,'0')),
