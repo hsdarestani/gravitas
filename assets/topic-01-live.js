@@ -290,7 +290,7 @@
           var on = progress.active ? kid.href === progress.active : k === 0;
           return '<li><a href="' + esc(kid.href) + '"' + (on ? ' aria-current="location"' : '') + '>' + esc(kid.label) + '</a></li>';
         }).join('') + '</ol>' +
-          (sub.progress ? '<div class="tq-toc__prog"><span class="tq-toc__bar" role="progressbar" aria-label="Reading progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="' + progress.pct + '"><i style="width:' + progress.pct + '%"></i></span></div>' : '')
+          (sub.progress ? '<div class="tq-toc__prog"><span class="tq-toc__bar" role="progressbar" aria-label="Reading progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="' + progress.pct + '"><i style="width:' + progress.pct + '%"></i></span><span class="g-nums" data-toc-pct>' + progress.pct + '%</span></div>' : '')
         : '';
       return '<li' + (sub.current ? ' class="is-current"' : '') + '><a href="' + esc(sub.href) + '"' + (sub.current ? ' aria-current="true"' : '') + '>' +
         '<span>' + esc(sub.label) + '</span></a>' + children + '</li>';
@@ -321,6 +321,8 @@
     if (!item || !p) return;
     var bar = item.querySelector('.tq-toc__bar');
     if (bar) { bar.setAttribute('aria-valuenow', p.pct); bar.querySelector('i').style.width = p.pct + '%'; }
+    var pct = item.querySelector('[data-toc-pct]');
+    if (pct) pct.textContent = p.pct + '%';
     var kids = item.querySelectorAll('.tq-toc__kids a');
     kids.forEach(function (a, k) {
       var on = p.active ? a.getAttribute('href') === p.active : k === 0;
@@ -686,49 +688,41 @@
      below it, so the whole span stays readable at a glance. The line is a tab
      list: arrow keys move along it, Home and End jump to its ends.
 
-     From the review of 2026-11-19: the stage carries the milestone's picture
-     when the record has one and the well when it does not (the body moves
-     along the line as the story does), the year rolls to its new digits
-     instead of being swapped, the line fills up to where the reader is, and
-     Play the story walks the milestones on its own, stopping for any touch.
+     From the reviews of 2026-11-19 and 2026-11-20: the stage is a plain
+     panel with nothing painted behind it (no picture, no grid, and no figure
+     under the line); the year rolls to its new digits instead of being
+     swapped, the line fills from the first dot to the current one, and Play
+     the story walks the milestones on its own, stopping for any touch.
      A reader who asked for less motion gets the same stage without the roll
      and without Play. The choice is the address (#milestone-3). */
   function renderTimeline(data) {
     var list = rows(data.timeline);
-    var figure = data.timeline_figure || {};
     if (!list.length) { fill('timeline', ''); return 0; }
     var n = list.length;
-    var anyImage = list.some(function (row) { return safeUrl(row.image_url); });
-    var fallbackPic = anyImage ? '' : safeUrl(figure.image_url);
     var digits = function (date) { return /^\d{3,4}$/.test(String(date || '').trim()) ? String(date).trim() : ''; };
     var width = Math.max.apply(null, list.map(function (row) { return digits(row.date).length; }));
     var host = fill('timeline',
-      '<div class="tq-tl2">' +
+      '<div class="tq-tl2" style="--tl-n:' + n + '">' +
         '<div class="tq-tl2__stage" data-tl-stage>' +
-          list.map(function (row, index) {
-            var pic = safeUrl(row.image_url);
-            return '<div class="tq-tl2__bg' + (pic ? '' : ' is-art') + '" data-tl-bg="' + index + '" aria-hidden="true">' +
-              (pic ? '<img src="' + esc(pic) + '" alt="" loading="lazy" decoding="async">'
-                : well(7 + index * 5, { w: 640, h: 360, n: 22, cx: 0.18 + 0.64 * (index / Math.max(1, n - 1)), cy: 0.42 + 0.12 * Math.sin(index) })) + '</div>';
-          }).join('') +
-          '<span class="tq-tl2__shade" aria-hidden="true"></span>' +
-          (width ? '<p class="tq-tl2__year" aria-hidden="true">' + Array.from({ length: width }, function (_, k) {
-            return '<span class="tq-tl2__dg"><span class="tq-tl2__dgs" data-dg="' + k + '">' + '0123456789'.split('').map(function (d) { return '<i>' + d + '</i>'; }).join('') + '</span></span>';
-          }).join('') + '</p>' : '') +
-          '<div class="tq-tl2__card" data-tl-card role="tabpanel" aria-live="polite" id="tl-stage"></div>' +
-          '<div class="tq-tl2__ctl">' +
-            '<button class="tq-icon-btn" type="button" data-tl-step="-1" aria-label="Previous milestone">' + BACK.replace('g-btn__icon', '') + '</button>' +
-            '<button class="g-btn g-btn--secondary g-btn--sm" type="button" data-tl-play aria-pressed="false"' + (reduceMotion.matches ? ' hidden' : '') + '>' + PLAYI + '<span>Play the story</span></button>' +
-            '<button class="tq-icon-btn" type="button" data-tl-step="1" aria-label="Next milestone">' + ARROW.replace('g-btn__icon', '') + '</button>' +
+          '<div class="tq-tl2__side">' +
+            '<p class="tq-tl2__k" data-tl-kicker></p>' +
+            (width ? '<p class="tq-tl2__year" aria-hidden="true">' + Array.from({ length: width }, function (_, k) {
+              return '<span class="tq-tl2__dg"><span class="tq-tl2__dgs" data-dg="' + k + '">' + '0123456789'.split('').map(function (d) { return '<i>' + d + '</i>'; }).join('') + '</span></span>';
+            }).join('') + '</p>' : '') +
+            '<div class="tq-tl2__ctl">' +
+              '<button class="tq-icon-btn" type="button" data-tl-step="-1" aria-label="Previous milestone">' + BACK.replace('g-btn__icon', '') + '</button>' +
+              '<button class="tq-icon-btn" type="button" data-tl-step="1" aria-label="Next milestone">' + ARROW.replace('g-btn__icon', '') + '</button>' +
+              '<button class="tq-tl2__play" type="button" data-tl-play aria-pressed="false"' + (reduceMotion.matches ? ' hidden' : '') + '>' + PLAYI + '<span>Play the story</span></button>' +
+            '</div>' +
           '</div>' +
+          '<div class="tq-tl2__card" data-tl-card role="tabpanel" aria-live="polite" id="tl-stage"></div>' +
         '</div>' +
-        '<div class="tq-tl2__track"><span class="tq-tl2__line" aria-hidden="true"><i data-tl-fill></i></span>' +
+        '<div class="tq-tl2__track">' +
           '<ol class="tq-tl2__marks" role="tablist" aria-label="Milestones. Use the arrow keys to move along the line.">' + list.map(function (row, index) {
             return '<li role="presentation"><button type="button" role="tab" id="tl-tab-' + index + '" aria-controls="tl-stage" data-tl="' + index + '" aria-selected="false" tabindex="-1"' + (row.key ? ' class="is-key"' : '') + '>' +
-              '<span class="tq-tl2__dot" aria-hidden="true"><i></i></span><span class="tq-tl2__yr g-nums">' + esc(row.date) + '</span><span class="tq-tl2__name">' + esc(row.short || row.title) + '</span></button></li>';
+              '<span class="tq-tl2__dot" aria-hidden="true"></span><span class="tq-tl2__yr g-nums">' + esc(row.date) + '</span><span class="tq-tl2__name">' + esc(row.short || row.title) + '</span></button></li>';
           }).join('') + '</ol></div>' +
-      '</div>' +
-      (fallbackPic ? '<figure class="tq-tl__figure">' + image(figure.image_url, figure.image_alt, [1280, 720]) + (figure.caption ? '<figcaption>' + esc(figure.caption) + '</figcaption>' : '') + '</figure>' : ''));
+      '</div>');
     var card = host.querySelector('[data-tl-card]');
     var tabs = Array.prototype.slice.call(host.querySelectorAll('[data-tl]'));
     var playButton = host.querySelector('[data-tl-play]');
@@ -739,7 +733,6 @@
       var first = at < 0;
       at = index;
       var row = list[index];
-      host.querySelectorAll('[data-tl-bg]').forEach(function (bg) { bg.classList.toggle('is-on', Number(bg.getAttribute('data-tl-bg')) === index); });
       var year = digits(row.date);
       host.querySelectorAll('[data-dg]').forEach(function (strip) {
         var k = Number(strip.getAttribute('data-dg'));
@@ -748,12 +741,13 @@
         strip.style.transform = 'translateY(' + (-(d === ' ' ? 0 : Number(d))) + 'em)';
       });
       card.setAttribute('aria-labelledby', 'tl-tab-' + index);
-      card.innerHTML = '<p class="tq-tl2__k">Milestone ' + (index + 1) + ' of ' + n + (year ? '' : ' &middot; ' + esc(row.date)) + '</p>' +
-        '<h3>' + esc(row.title) + '</h3><p class="tq-tl2__d">' + inline(row.description) + '</p>' +
+      host.querySelector('[data-tl-kicker]').innerHTML = 'Milestone ' + (index + 1) + ' of ' + n + (year ? '' : ' &middot; ' + esc(row.date));
+      card.innerHTML = '<h3>' + esc(row.title) + '</h3><p class="tq-tl2__d">' + inline(row.description) + '</p>' +
         (row.why ? '<div class="tq-tl2__why"><p class="tq-tl2__why-k">Why it matters here</p><p>' + inline(row.why) + '</p></div>' : '') +
-        '<div class="tq-tl2__act"><a class="g-btn g-btn--ghost g-btn--sm" href="#talk" data-room-jump="timeline">' + TALK + '<span>Discuss</span></a></div>';
+        '<a class="tq-tl2__talk" href="#talk" data-room-jump="timeline">' + TALK + '<span>Discuss this milestone</span></a>';
       if (!first) { card.classList.remove('is-swap'); void card.offsetWidth; card.classList.add('is-swap'); }
-      host.querySelector('[data-tl-fill]').style.width = (n > 1 ? index / (n - 1) * 100 : 100) + '%';
+      host.querySelector('.tq-tl2__marks').style.setProperty('--tl-p', n > 1 ? index / (n - 1) : 1);
+      centre();
       tabs.forEach(function (tab, k) {
         tab.setAttribute('aria-selected', String(k === index));
         tab.tabIndex = k === index ? 0 : -1;
@@ -767,6 +761,13 @@
       if (window.GQTopicToc) window.GQTopicToc.set('timeline', n, list.map(function (r, k) {
         return { label: r.short || r.title, href: '#milestone-' + (k + 1), current: k === index, mark: r.date };
       }));
+    }
+    /* On a narrow screen the line scrolls; keep the current year in view
+       without moving the page. Run again when the section comes into view,
+       since a section not laid out yet has no width to scroll. */
+    function centre() {
+      var track = host.querySelector('.tq-tl2__track'), li = tabs[at] && tabs[at].parentNode;
+      if (li && track.scrollWidth > track.clientWidth) track.scrollLeft = li.offsetLeft - (track.clientWidth - li.offsetWidth) / 2;
     }
     function play(on) {
       clearInterval(timer);
@@ -793,7 +794,7 @@
       show(next, true);
     });
     /* Leaving the section stops the story; it does not run unseen. */
-    document.addEventListener('gq:topic-section', function (event) { if (event.detail.id !== 'timeline') play(false); });
+    document.addEventListener('gq:topic-section', function (event) { if (event.detail.id !== 'timeline') play(false); else centre(); });
     function follow() {
       var asked = /^#milestone-(\d+)$/.exec(location.hash);
       if (asked) { play(false); show(Number(asked[1]) - 1); }
@@ -801,6 +802,8 @@
     window.addEventListener('hashchange', follow);
     var linked = /^#milestone-(\d+)$/.exec(location.hash);
     show(linked ? Number(linked[1]) - 1 : 0);
+    requestAnimationFrame(centre);
+    window.addEventListener('load', centre);
     return n;
   }
 

@@ -530,9 +530,6 @@ body:has([data-topic-01-shell]) { --g-chrome-h: calc(var(--g-header-h) + 1px); }
 .tq-tl__line button[aria-selected="true"] .tq-tl__dot { background: var(--g-accent); border-color: var(--g-accent); box-shadow: 0 0 0 4px color-mix(in srgb, var(--g-accent) 25%, transparent); }
 .tq-tl__yr { font-family: var(--g-font-mono); font-size: var(--g-fs-small); }
 .tq-tl__name { font-size: var(--g-fs-caption); line-height: var(--g-lh-snug); }
-.tq-tl__figure { margin: var(--g-space-lg) 0 0; max-width: 36rem; }
-.tq-tl__figure img { width: 100%; height: auto; border-radius: var(--g-radius); border: 1px solid var(--g-hairline); }
-.tq-tl__figure figcaption { padding-top: var(--g-space-2xs); font-size: var(--g-fs-caption); color: var(--g-text-subtle); }
 @media (max-width: 760px) { .tq-tl__stage.has-pic { grid-template-columns: minmax(0, 1fr); } .tq-tl__pic img { min-height: 0; aspect-ratio: 16 / 9; } }
 
 /* ---- 04 Viewpoints -------------------------------------------------------------------- */
