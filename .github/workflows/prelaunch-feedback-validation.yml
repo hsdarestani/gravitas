@@ -64,7 +64,7 @@ jobs:
           assert 'No sign-in required' in page
           assert ' required=' not in page and ' required>' not in page and ' required/>' not in page
           assert 'type="module" src="/assets/prelaunch-feedback.js' in page
-          for letter in 'ABCDEFGHI':
+          for letter in 'ABCDEFGHIJ':
               assert "letter:'" + letter + "'" in schema
           for key in ('site_works', 'goals_clear', 'findability',
                       'visual_attractiveness', 'video_watched',
@@ -72,5 +72,5 @@ jobs:
                       'recommend_likelihood', 'one_change', 'contact_email'):
               assert "key:'" + key + "'" in schema
               assert "'" + key + "'" in backend
-          print('A–I survey and optional anonymous submission contract verified.')
+          print('A–J survey and optional anonymous submission contract verified.')
           PY
