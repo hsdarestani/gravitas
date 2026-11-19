@@ -1,7 +1,7 @@
 /* Expanded prelaunch survey analytics, preserving historical answers. */
 import * as P from './ws-platform.js?v=20261016-task1&patch=20261027reliability1';
 import * as K from './ws-admin-kit.js?v=20261016-task1';
-import { GROUPS, FIELDS, LEGACY_LABELS } from '../prelaunch-feedback-schema.js?v=20261119-v2';
+import { GROUPS, FIELDS, LEGACY_LABELS } from '../prelaunch-feedback-schema.js?v=20261119-sequential1';
 
 const el=K.el;
 const endpoint='/platform/admin/prelaunch-feedback/';
@@ -50,7 +50,7 @@ function responseCard(item){
     body.append(el('h3','gq-feedback__group-name',group.letter+' · '+group.title));
     answered.forEach(field=>{
       const value=field.key==='name'?item.name:answers[field.key];
-      body.append(row((field.number?'Q'+field.number+' · ':'')+field.label,displayAnswer(field,value)));
+      body.append(row(field.label,displayAnswer(field,value)));
       numberOfAnswers+=1;
     });
   }
@@ -127,7 +127,7 @@ export async function renderAdminPrelaunchFeedback(host){
       const scoreGrid=el('div','gq-feedback__sections');
       for(const field of FIELDS.filter(f=>f.star&&(f.type==='score5'||f.type==='score10'))){
         const card=el('div','gq-feedback__section');
-        const label=el('span',null,'Q'+field.number+' · '+field.label);
+        const label=el('span',null,field.label);
         const values=el('strong',null,mean(avg[field.key])+' / '+(field.type==='score10'?'10':'5')+'  ('+(n[field.key]||0)+')');
         card.append(label,values);scoreGrid.append(card);
       }
