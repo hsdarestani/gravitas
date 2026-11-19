@@ -2533,3 +2533,12 @@ html body #reply-control .composer-controls .btn{width:32px!important;height:32p
 html body #reply-control .composer-controls .btn:hover{background:var(--gq-wash)!important;color:var(--g-text)!important}
 html body #reply-control .composer-controls .btn .d-icon{width:.875rem;height:.875rem}
 html body #reply-control .submit-panel{margin-top:.875rem!important}
+
+/* A profile's collapsed head: the picture was 45px and pinned to the row's
+   top while the name sat in its middle, so they did not line up. The picture
+   is 64px, on the name block's centre line, as the open head's is. */
+html body .user-main .about.collapsed-info .primary{align-items:center!important;gap:1.25rem}
+html body .user-main .about.collapsed-info .user-profile-avatar{align-self:center!important;flex:none;margin:0!important;line-height:0}
+html body .user-main .about.collapsed-info .user-profile-avatar img.avatar{width:64px!important;height:64px!important}
+html body .user-main .about.collapsed-info .primary-textual{align-self:center;padding:0!important}
+html body .user-main .about.collapsed-info .controls{align-self:center}
