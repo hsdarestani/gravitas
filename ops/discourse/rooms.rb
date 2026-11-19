@@ -94,30 +94,28 @@ SiteSetting.default_navigation_menu_categories = rooms.map(&:id).join("|")
 # so nothing is lost and a room can be listed again by adding it to
 # forum_rooms.json. Moderators are not admins, so they see the three rooms
 # only. A room's own sub-rooms stay as they are, and Uncategorized, which
-# Discourse does not let anyone restrict, is skipped. The deepest sub-rooms go first:
-# Discourse refuses to restrict a room while one of its sub-rooms is open to
-# more groups (the first run, 2026-11-19, stopped there). Safe to repeat: a
-# room that is already admin-only is not touched.
+# Discourse does not let anyone restrict, is skipped. Safe to repeat: a room
+# that is already admin-only is not touched.
 listed = rooms.map(&:id)
 admins = Group::AUTO_GROUPS[:admins]
 admin_only = [[admins, CategoryGroup.permission_types[:full]]]
-closed = Category
-  .where.not(id: listed)
-  .where.not(id: SiteSetting.uncategorized_category_id)
-  .where("parent_category_id IS NULL OR parent_category_id NOT IN (?)", listed)
-  .to_a
-  .sort_by { |category|
-    depth = 0
-    parent = category
-    depth += 1 while (parent = parent.parent_category)
-    [-depth, category.id]
-  }
-  .filter_map { |category|
-    next if category.read_restricted && category.category_groups.pluck(:group_id, :permission_type) == admin_only
-    category.set_permissions(admins: :full)
-    category.save!
-    category.slug
-  }
+closed = Category.transaction do
+  Category
+    .where.not(id: listed)
+    .where.not(id: SiteSetting.uncategorized_category_id)
+    .where("parent_category_id IS NULL OR parent_category_id NOT IN (?)", listed)
+    .to_a
+    .filter_map { |category|
+      next if category.read_restricted && category.category_groups.pluck(:group_id, :permission_type) == admin_only
+      category.set_permissions(admins: :full)
+      # Discourse checks each room against its parent as it is saved, so a
+      # sub-room closed before its parent (or a parent before its sub-room)
+      # fails half way. Every room in this set ends admin-only, which is
+      # consistent, so they are saved without that check, in one transaction.
+      category.save!(validate: false)
+      category.slug
+    }
+end
 puts "Rooms made admin-only: #{closed.any? ? closed.join(', ') : 'none'}"
 
 # Each thread in a room shows one line of its opening post, as the approved
