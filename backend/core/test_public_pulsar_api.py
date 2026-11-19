@@ -12,7 +12,7 @@ from .pulsar_public_context import (
 
 
 CATALOG = [
-    {'title': 'Is AI reliable in research and learning?', 'status': 'open',
+    {'title': 'Is AI reliable in research?', 'status': 'open',
      'href': 'topic-answer-that-looked-right.html'},
     {'title': 'Can a machine form a hypothesis?', 'status': 'open',
      'href': 'topic-machine-hypothesis.html'},
@@ -128,7 +128,7 @@ class PublicPulsarApiTests(TestCase):
             'What is the topic?',
             page_context={
                 'heading': 'Hard questions, worked through together.',
-                'featured_topic': 'Is AI reliable in research and learning?',
+                'featured_topic': 'Is AI reliable in research?',
                 'featured_href': 'topic-answer-that-looked-right.html',
             },
         )
@@ -145,7 +145,7 @@ class PublicPulsarApiTests(TestCase):
         response = self.ask(
             "Don't you have access to the 1st page?",
             page_context={
-                'featured_topic': 'Is AI reliable in research and learning?',
+                'featured_topic': 'Is AI reliable in research?',
                 'featured_href': 'topic-answer-that-looked-right.html',
             },
         )
@@ -161,7 +161,7 @@ class PublicPulsarApiTests(TestCase):
         response = self.ask(
             'How does this simulation work?',
             page_context={'heading': 'Hard questions',
-                          'featured_topic': 'Is AI reliable in research and learning?',
+                          'featured_topic': 'Is AI reliable in research?',
                           'featured_href': 'topic-answer-that-looked-right.html',
                           'actions': [{'label': 'Open the Topic',
                                        'href': 'topic-answer-that-looked-right.html'}]},
