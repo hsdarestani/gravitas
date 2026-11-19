@@ -28,7 +28,7 @@ import {
   renderAdminUsers,
 } from './ws-admin.js?v=20261016-task1&patch=20261102labusage1';
 import { renderAdminContent, renderAdminContentEditor } from './ws-topic-admin.js?v=20261016-task1';
-import { renderAdminPrelaunchFeedback } from './ws-prelaunch-feedback.js?v=20261119-v1';
+import { renderAdminPrelaunchFeedback } from './ws-prelaunch-feedback.js?v=20261016-task1';
 import { renderCoreLinks } from './ws-core-links.js?v=20261016-task1';
 import { renderResearchProject } from './ws-project.js?v=20261016-task1&patch=20261110qa1';
 
