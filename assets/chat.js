@@ -361,7 +361,7 @@
         if (!safeLink(l.href)) return;
         var a = document.createElement('a');
         a.className = 'gchat__link';
-        a.href = l.href;
+        a.href = CFG.linkBase ? new URL(l.href, CFG.linkBase).href : l.href;
         a.textContent = l.label;
         // The pill cuts a long title to one line (chat.css); the whole of
         // it stays one hover away.
@@ -455,6 +455,7 @@
 
   function publicTopicCards() {
     if (publicTopicsPromise) return publicTopicsPromise;
+    if (CFG.publicPage === '/forum.html') return Promise.resolve([]);
     if (location.pathname.endsWith('/topics.html')) {
       return Promise.resolve(readPublicTopicCards(document));
     }
@@ -518,7 +519,14 @@
   function currentSection() {
     var main = document.querySelector('main');
     var active = main && main.querySelector('.tq-sec:not([hidden])');
-    return active ? active.id : location.hash.slice(1);
+    if (active) return active.id;
+    if (location.hash) return location.hash.slice(1);
+    var sections = main ? Array.prototype.slice.call(main.querySelectorAll('section[id]')) : [];
+    var near = sections.find(function (node) {
+      var box = node.getBoundingClientRect();
+      return !node.hidden && box.top < 180 && box.bottom > 180;
+    });
+    return near ? near.id : '';
   }
 
   function remoteAnswer(q, history) {
@@ -527,7 +535,8 @@
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          message: q, history: history, page: location.pathname,
+          message: q, history: history, page: CFG.publicPage || location.pathname, forum_topic: CFG.forumTopic || null,
+          suggested: (current() ? current().msgs : []).filter(function (m) { return m.who === 'bot'; }).reduce(function (all, m) { return all.concat(m.links || []); }, []).slice(-10),
           section: currentSection(), reading: readingContext(), locale: document.documentElement.lang || 'en',
           topic_slug: location.pathname === '/topic.html' ? new URLSearchParams(location.search).get('slug') : '',
           page_context: publicPageContext(), topic_catalog: catalog
@@ -679,6 +688,10 @@
     configure: function (cfg) {
       for (var k in cfg) if (Object.prototype.hasOwnProperty.call(cfg, k)) CFG[k] = cfg[k];
       applyConfig();
+    },
+    updateContext: function (context) {
+      CFG.publicPage = context.page || '';
+      CFG.forumTopic = context.forumTopic || null;
     },
     open: function () { setOpen(true, 'api'); },
     // Starts a fresh conversation for the question: a prompt handed over by a

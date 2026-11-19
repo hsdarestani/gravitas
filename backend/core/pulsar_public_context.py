@@ -40,6 +40,8 @@ def public_page(value):
     if parsed.scheme or parsed.netloc:
         return ''
     path = parsed.path
+    if re.match(r'^/(workspace|account|admin|login|signup)(?:[/.]|$)', path):
+        return ''
     if path in ('', '/'):
         return '/'
     if re.fullmatch(r'/[a-z0-9-]+\.html', path):
@@ -47,6 +49,8 @@ def public_page(value):
     # Unknown/private routes must never silently become the homepage.
     if path == '/community':
         return '/community.html'
+    if re.fullmatch(r'/[a-z0-9-]+', path):
+        return path + '.html'
     return ''
 
 

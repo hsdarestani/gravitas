@@ -10,7 +10,7 @@ from . import topic_01
 from .models import ContentItem, PublicPageSnapshot
 from .topic_essay_api import TOPIC_01_PAGE, public_essay_context, public_essay_label, published_essays
 from .pulsar import PulsarError, configured, run_text
-from .pulsar_public_guide import PUBLIC_SYSTEM, destinations, present_answer, recent_history
+from .pulsar_public_guide import PUBLIC_SYSTEM, destinations, present_answer, recent_history, progression_answer, public_thread_context
 from .pulsar_public_context import (
     clean_text,
     page_observation,
@@ -129,6 +129,13 @@ def public_pulsar_ask(request):
     if not catalog:
         db_topics = topic_rows_from_db(ContentItem.objects.filter(kind='topic', status='published')[:20])
     allowed = destinations(pages, catalog, key)
+    anchor = clean_text(data.get('section'), 90)
+    suggested = data.get('suggested') if isinstance(data.get('suggested'), list) else []
+    progression = progression_answer(message, key, observation, catalog, pages, allowed, history, anchor, suggested[:10])
+    if progression:
+        reply, links = progression
+        return JsonResponse({'ok': True, 'reply': reply, 'links': links,
+            'provider': 'public_progression', 'version': 'public-guide-v2'})
     answer = short_public_answer(message, page=page, observation=observation,
                                  catalog=catalog, db_topics=db_topics, history=history)
     if answer is not None:
@@ -137,7 +144,6 @@ def public_pulsar_ask(request):
             'links': [link for link in links if link['href'] in allowed],
             'provider': 'public_navigation', 'version': 'public-guide-v2'})
 
-    anchor = clean_text(data.get('section'), 90)
     reading = data.get('reading') if isinstance(data.get('reading'), dict) else {}
     # The essay picker is independent of the section URL.
     if anchor.startswith('essay') and str(reading.get('essay')) in ('1', '2'):
@@ -168,6 +174,7 @@ def public_pulsar_ask(request):
         'Synchronized public page copy': synced_context or '(Unavailable: do not invent the current page.)',
         'Related published Topic': related,
         'Topic 01 essay as shown to readers': essay_context,
+        'Current public Forum thread': public_thread_context(data.get('forum_topic')) if key == '/forum.html' else '',
         'Recent conversation': history,
         'Available destinations': offered,
         'Visitor question': message,
@@ -177,11 +184,14 @@ def public_pulsar_ask(request):
             result = run_text(system=PUBLIC_SYSTEM, user=prompt,
                 max_tokens=550 if re.search(r'\b(detailed|in depth|step by step)\b', message, re.I) else 240,
                 surface='public', skill='public', operation='answer',
+                thread_id=clean_text(data.get('thread_id'), 160) or None,
                 # Public continuity is the visitor's bounded local thread.
                 # Never resolve an anonymous client-supplied thread to DB memory.
                 locale=clean_text(data.get('locale'), 40) or None,
                 metadata={'page': key, 'continuity': False})
             reply, links = present_answer(result.text, offered, key)
+            if not reply:
+                raise PulsarError('public_answer_empty')
             if essay_context and not links and key == TOPIC_01_PAGE and key + '#essay' in offered:
                 links = [{'label': 'Read the essays', 'href': key + '#essay'}]
             return JsonResponse({'ok': True, 'reply': reply, 'links': links,

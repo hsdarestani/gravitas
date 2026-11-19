@@ -894,6 +894,14 @@ jobs:
           "$1/.venv/bin/django-admin" sync_public_pages --source "$2"
           REMOTE
 
+      - name: Install the shared public Pulsar on the existing Forum
+        shell: bash
+        run: |
+          set -euo pipefail
+          HOST="${{ secrets.DEPLOY_HOST }}"
+          ssh -i ~/.ssh/gravitas_deploy -p "$DEPLOY_PORT" "$DEPLOY_USER@$HOST" \
+            sudo bash "$DEPLOY_PATH/ops/discourse/install-public-pulsar.sh" "$DEPLOY_PATH"
+
       - name: Publish the selected Topic 01 essay sources
         if: env.INITIAL_TOPIC_01_ESSAY_IMPORT == 'true'
         shell: bash

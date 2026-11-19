@@ -41,7 +41,9 @@ def ask(page, question, history=None, section='', reading=None):
     started = time.monotonic()
     response = pulsar_api.public_pulsar_ask(factory.post('/api/pulsar/ask/', data, content_type='application/json'))
     payload = json.loads(response.content)
-    return {'page': page, 'section': section, 'question': question, 'status': response.status_code,
+    return {'page': page, 'section': section, 'question': question,
+            'previous_destinations': [link['href'] for turn in (history or []) for link in turn.get('links', [])],
+            'status': response.status_code,
             'elapsed_ms': int((time.monotonic() - started) * 1000), **payload}
 
 
@@ -109,6 +111,8 @@ for index, row in enumerate(rows):
         issues.append('frontend_timeout_risk')
     if index and reply == rows[index - 1].get('reply') and row['question'] == 'What next?':
         issues.append('repeated_followup')
+    if row['question'] == 'What next?' and any(link['href'] in row['previous_destinations'] for link in row.get('links', [])):
+        issues.append('repeated_destination')
     row['word_count'] = len(reply.split())
     row['automated_issues'] = issues
     if issues:

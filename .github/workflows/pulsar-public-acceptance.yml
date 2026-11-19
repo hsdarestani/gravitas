@@ -56,3 +56,31 @@ jobs:
           name: pulsar-published-conversations
           path: qa-artifacts/pulsar-conversations.json
           retention-days: 30
+  responsive-widget:
+    needs: published-conversations
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: pulsar-published-conversations
+          path: qa-artifacts
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install the existing browser test driver
+        run: npm install --prefix "$RUNNER_TEMP/pulsar-browser" --no-save --ignore-scripts --no-audit --no-fund playwright-core@1.56.1
+      - name: Check responsive widget, context, links and failures
+        env:
+          NODE_PATH: ${{ runner.temp }}/pulsar-browser/node_modules
+          CHROME_PATH: /usr/bin/google-chrome
+        run: node scripts/test-pulsar-public-browser.cjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: pulsar-responsive-widget
+          path: |
+            qa-artifacts/pulsar-*.png
+            qa-artifacts/pulsar-responsive.json
+          retention-days: 30

@@ -9,7 +9,7 @@ from django.test import TestCase
 
 from .models import ContentItem, PublicPageSnapshot
 from .pulsar import PulsarError
-from .pulsar_public_guide import destinations, present_answer, recent_history
+from .pulsar_public_guide import destinations, present_answer, recent_history, public_thread_context
 
 
 class PublicGuideTests(TestCase):
@@ -40,7 +40,7 @@ class PublicGuideTests(TestCase):
         history = [{'role': 'user', 'content': 'Where should I start?'},
                    {'role': 'assistant', 'content': 'Read the opening essay.', 'page': '/',
                     'links': [{'label': 'Essays', 'href': '/topic-answer-that-looked-right.html#essay'}]}]
-        payload = self.ask('What next?', page='/topic-answer-that-looked-right.html', section='sources', history=history).json()
+        payload = self.ask('Explain the evidence.', page='/topic-answer-that-looked-right.html', section='sources', history=history).json()
         self.assertEqual(payload['provider'], 'test')
         args = model.call_args.kwargs
         prompt = json.loads(args['user'])
@@ -50,7 +50,7 @@ class PublicGuideTests(TestCase):
         self.assertNotIn('Dashboard: a member', args['system'])
         self.assertIn('DIFFERENT concrete step', args['system'])
         self.assertFalse(args['metadata']['continuity'])
-        self.assertNotIn('thread_id', args)
+        self.assertIsNone(args['thread_id'])
 
     @patch('core.pulsar_api.configured', return_value=True)
     @patch('core.pulsar_api.run_text')
@@ -93,6 +93,31 @@ class PublicGuideTests(TestCase):
         self.assertEqual(len(history), 1)
         self.assertEqual(len(history[0]['content']), 600)
         self.assertEqual(self.ask('x' * 25000).status_code, 413)
+
+    def test_repeated_next_steps_advance_through_real_sections(self):
+        history, destinations_seen = [], []
+        for question in ['Where should I start?'] + ['What next?'] * 5:
+            reply = self.ask(question, history=history).json()
+            self.assertEqual(reply['provider'], 'public_progression')
+            for link in reply['links']:
+                self.assertNotIn(link['href'], destinations_seen)
+                destinations_seen.append(link['href'])
+            history.extend([{'role': 'user', 'content': question},
+                            {'role': 'assistant', 'content': reply['reply'], 'links': reply['links']}])
+        self.assertTrue(destinations_seen)
+
+    @patch('core.forum._public_categories', return_value=[{'id': 1, 'slug': 'public'}])
+    @patch('core.forum._get')
+    def test_thread_reader_excludes_restricted_deleted_and_hidden_posts(self, get, categories):
+        get.return_value = {'id': 108, 'category_id': 2, 'title': 'Private', 'post_stream': {'posts': []}}
+        self.assertEqual(public_thread_context(108), '')
+        get.return_value = {'id': 108, 'category_id': 1, 'visible': True, 'title': 'Public question',
+                            'post_stream': {'posts': [{'cooked': '<p>Published reply</p>'},
+                            {'cooked': 'Hidden secret', 'hidden': True}, {'cooked': 'Deleted', 'deleted_at': 'today'}]}}
+        result = public_thread_context(108)
+        self.assertIn('Published reply', result)
+        self.assertNotIn('Hidden secret', result)
+        self.assertNotIn('Deleted', result)
 
     @patch('core.pulsar_api.configured', return_value=True)
     @patch('core.pulsar_api.run_text')

@@ -2542,3 +2542,17 @@ html body .user-main .about.collapsed-info .user-profile-avatar{align-self:cente
 html body .user-main .about.collapsed-info .user-profile-avatar img.avatar{width:64px!important;height:64px!important}
 html body .user-main .about.collapsed-info .primary-textual{align-self:center;padding:0!important}
 html body .user-main .about.collapsed-info .controls{align-self:center}
+
+/* The reply box folded down (2026-11-19). Discourse draws the folded bar's
+   title in its own dark text colour, which on the brand's dark surface read
+   as black on near-black; the owner saw a title they could not read. It is
+   the interface type in the brand's text colour, the icon quieter beside it. */
+html body #reply-control.draft .draft-text{color:var(--g-text)!important;font:500 .9375rem/1.3 "DM Sans",sans-serif!important}
+html body #reply-control.draft .draft-text .d-icon{color:var(--g-text-subtle)!important}
+
+/* Discourse's banner over a member's first post ("This is the first time …
+   has posted — let's welcome them") and its "welcome back" twin. The owner
+   asked for it gone (2026-11-19): it is the software greeting people, not the
+   community, and it shouted over the post. Notices staff write by hand
+   (.post-notice.custom) still show. */
+html body .post-notice:is(.new-user,.returning-user){display:none!important}
