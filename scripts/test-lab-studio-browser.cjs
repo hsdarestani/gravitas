@@ -93,6 +93,14 @@ const server=http.createServer((req,res)=>{
     res.writeHead(404);res.end('Not found');return;
   }
   res.setHeader('Content-Type',types[path.extname(file)]||'application/octet-stream');
+  if(file===path.join(root,'lab.html')){
+    // The fixture exercises enabled Lab interactions, while production
+    // correctly keeps the public prelaunch catalog behind its release gate.
+    res.end(fs.readFileSync(file,'utf8').replace(/<section class="g-section lab-soon"[\s\S]*?<\/section>/,''));return;
+  }
+  if(file===path.join(root,'assets/lab-studio.js')){
+    res.end(fs.readFileSync(file,'utf8').replace('var CATALOG_PUBLIC=false;','var CATALOG_PUBLIC=true;'));return;
+  }
   res.end(fs.readFileSync(file));
 });
 (async()=>{
