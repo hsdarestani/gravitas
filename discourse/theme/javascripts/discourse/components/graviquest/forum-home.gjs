@@ -173,7 +173,7 @@ export default class GraviQuestForumHome extends Component {
       <div>
         <span class="gq-eyebrow">Community · Forum</span>
         <h1>Forum</h1>
-        <p class="gq-lead">A few rooms, set up by the team. Read any thread without an account; sign in when you want to reply.</p>
+        <p class="gq-lead">Discuss each Topic’s question, share what you found, and ask about GraviQuest itself. Every thread is open to read.</p>
       </div>
       {{! In a room, New thread in the room's band is this action; the head
           keeps the button's place so nothing above the rooms moves. }}

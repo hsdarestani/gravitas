@@ -5,6 +5,7 @@ import ForumHome from "../components/graviquest/forum-home";
 import ThemeToggle from "../components/graviquest/theme-toggle";
 import Footer from "../components/graviquest/footer";
 import HouseRules from "../components/graviquest/house-rules";
+import BookmarkToggle from "../components/graviquest/bookmark-toggle";
 
 import { ThreadBreadcrumb } from "../components/graviquest/thread-details";
 
@@ -70,6 +71,19 @@ export default apiInitializer((api) => {
   // approved prototype; Discourse draws that line for pinned threads only.
   // rooms.rb turns on the setting that sends the excerpt for every thread.
   api.registerValueTransformer("topic-list-item-expand-pinned", () => true);
+  // A post's bookmark is a plain toggle beside the like, never folded behind
+  // "…" and without Discourse's reminder menu (see bookmark-toggle.gjs).
+  // Guarded per call so a Discourse that renames a key keeps its own menu.
+  api.registerValueTransformer("post-menu-buttons", ({ value: dag, context }) => {
+    const keys = context?.buttonKeys;
+    if (!keys?.BOOKMARK || !dag?.has?.(keys.BOOKMARK)) return dag;
+    dag.replace(keys.BOOKMARK, BookmarkToggle);
+    if (keys.LIKE && dag.has(keys.LIKE)) {
+      dag.reposition(keys.BOOKMARK, { after: keys.LIKE });
+    }
+    context.collapsedButtons?.show?.(keys.BOOKMARK);
+    return dag;
+  });
   api.registerValueTransformer("topic-reply-count", ({ value }) =>
     Number.isInteger(value) ? Math.max(0, value) : 0
   );

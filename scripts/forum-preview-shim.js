@@ -64,7 +64,7 @@
     const topicPage = category && TOPIC_PAGES[category.slug];
     const html =
       '<header class="gq-page-top gq-forum-home"><div><span class="gq-eyebrow">Community · Forum</span><h1>Forum</h1>' +
-      '<p class="gq-lead">A few rooms, set up by the team. Read any thread without an account; sign in when you want to reply.</p></div>' +
+      '<p class="gq-lead">Discuss each Topic’s question, share what you found, and ask about GraviQuest itself. Every thread is open to read.</p></div>' +
       `<a class="btn btn-primary gq-page-top__action${category ? ' gq-is-held' : ''}" href="/new-topic">Start a Thread</a></header>` +
       '<section class="gq-week"><div class="gq-week__text">' +
       `<h2 class="gq-week__label">This Week’s Question · ${esc(WEEK.topic)}</h2>` +

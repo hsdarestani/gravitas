@@ -2556,3 +2556,93 @@ html body #reply-control.draft .draft-text .d-icon{color:var(--g-text-subtle)!im
    community, and it shouted over the post. Notices staff write by hand
    (.post-notice.custom) still show. */
 html body .post-notice:is(.new-user,.returning-user){display:none!important}
+
+/* ---- Nested replies (2026-11-19) -------------------------------------------------
+   The owner turned on Discourse's nested replies, which draws a thread with its
+   own components (.nested-view, .nested-post) instead of the post stream, so
+   none of the thread rules above reached it: the like count stood apart from
+   its heart, a new member's name was grey and a regular's beige, a red emoji
+   heart sat on one's own posts, the views/replies figures sat over their captions at two sizes,
+   and the footer box said "Add your view" with no button in it (Discourse
+   moves Reply to a floating bar in this view). The column, the head and the
+   actions now read as the flat thread does, in the brand's tokens. */
+html body .nested-view{display:flex;flex-direction:column;max-width:48rem;margin-inline:auto}
+html body .nested-view > .gq-thread-crumb{order:-1;max-width:none;width:100%}
+html body .nested-view__header{margin:0 0 2rem;padding:0}
+html body .nested-view__title{margin:0}
+html body .nested-view__title :is(.fancy-title,a){font:600 clamp(1.875rem,1.45rem + 1.7vw,2.75rem)/1.15 "DM Sans",sans-serif!important;letter-spacing:-.02em;color:var(--g-text)!important;text-wrap:balance}
+/* The breadcrumb names the room; a bookmark mark before the title read as a letter. */
+html body .nested-view__header .topic-category .badge-category__wrapper{display:none}
+html body .nested-view__header .topic-category:not(:has(.discourse-tags)){display:none}
+html body .nested-view__title .topic-statuses .topic-status:has(:is(.d-icon-bookmark,.d-icon-thumbtack)){display:none!important}
+
+/* Names: one colour and weight for everyone, whatever their trust level. */
+html body .nested-view :is(.nested-post__header,.nested-view__op-body) .names .first a{color:var(--g-text)!important;font:600 .9375rem/1.3 "DM Sans",sans-serif!important}
+html body .nested-view :is(.nested-post__header,.nested-view__op-body) .post-infos .relative-date{font:400 .75rem/1 "DM Mono",monospace;color:var(--g-text-subtle)}
+html body .nested-view .cooked{color:var(--g-text);font-size:1.0625rem}
+
+/* The opening post and its views/replies band are one card: figure and
+   caption on one line, in mono, set off by a hairline instead of a second
+   box inside the first. */
+html body .nested-view__op{border:1px solid var(--g-hairline);border-radius:12px;background:var(--g-surface);overflow:hidden}
+html body .nested-view__op-row{align-items:flex-start!important}
+html body .nested-view__op-article.boxed{border:0!important;border-radius:0!important;background:transparent!important;box-shadow:none!important}
+html body .nested-view__topic-map.topic-map{margin:0!important;padding:.875rem 1.25rem!important;border:0!important;border-top:1px solid var(--g-hairline)!important;border-radius:0!important;background:transparent!important}
+html body .nested-view__topic-map .topic-map__contents{padding:0!important;border:0!important;background:transparent!important}
+html body .nested-view__topic-map .topic-map__stats{display:flex;align-items:center;gap:1.25rem;flex-wrap:wrap;padding:0!important;border:0!important;background:transparent!important}
+html body .nested-view__topic-map :is(.topic-map__views-trigger,.topic-map__stat){display:inline-flex!important;flex-direction:row!important;align-items:baseline;gap:.375rem;min-height:0!important;padding:0!important;margin:0!important;border:0!important;background:transparent!important;box-shadow:none!important}
+html body .nested-view__topic-map .topic-map__stats .number{font:500 .875rem/1 "DM Mono",monospace!important;color:var(--g-text)!important}
+html body .nested-view__topic-map .topic-map__stat-label{font:400 .8125rem/1 "DM Sans",sans-serif!important;color:var(--g-text-subtle)!important;text-transform:none!important}
+html body .nested-view__topic-map .topic-map__views-trigger:hover .topic-map__stat-label{color:var(--g-text)!important}
+html body .nested-view__topic-map .topic-map__users-list{margin-left:auto!important;gap:.25rem}
+html body .nested-view__topic-map .topic-map__users-list img.avatar{width:24px!important;height:24px!important}
+
+/* Sort row; for members, the moderation line the footer box used to carry
+   (that box is hidden here: its only button, Reply, floats in this view). */
+html body .nested-view__controls{display:flex;align-items:center;justify-content:space-between;gap:1rem;margin:1.75rem 0 .25rem;padding:0 0 .75rem;border-bottom:1px solid var(--g-hairline)}
+html body .nested-sort-selector__label{font:400 .8125rem/1 "DM Mono",monospace;color:var(--g-text-subtle)}
+html body .nested-sort-selector__trigger{font:600 .875rem/1 "DM Sans",sans-serif!important;color:var(--g-text)!important}
+html:not(.anon) body .nested-view__controls-right::before{content:"A moderator reads every post before it appears.";font:400 .8125rem/1.4 "DM Sans",sans-serif;color:var(--g-text-subtle);text-align:right}
+html body .nested-view > #topic-footer-buttons{display:none!important}
+
+/* The tree. The line down from an avatar is a hairline; its minus circle at
+   the foot of the line folds the branch (plus opens it again). Both are the
+   subtle ink, and take the accent when hovered. */
+html body .nested-post{margin-top:1.25rem}
+html body .nested-post__depth-line{color:var(--g-hairline)}
+html body .nested-post__depth-line-icon{color:var(--g-text-subtle);background:var(--g-bg);border-radius:50%}
+html body .nested-post__depth-line:is(:hover,:focus-visible),html body .nested-post__depth-line:is(:hover,:focus-visible) .nested-post__depth-line-icon{color:var(--g-accent)}
+html body .nested-post__placeholder-label{font:italic 400 .875rem/1.4 "DM Sans",sans-serif;color:var(--g-text-subtle)}
+html body .nested-post__collapsed-bar{font:400 .8125rem/1.4 "DM Sans",sans-serif;color:var(--g-text-subtle)}
+
+/* Actions under the post, on the left, Reply last; the count against its heart. */
+html body .nested-view nav.post-controls{justify-content:flex-start!important;align-items:center;margin:.5rem 0 0 -.5rem!important}
+html body .nested-view nav.post-controls .actions{justify-content:flex-start!important;margin:0!important;gap:.125rem}
+html body .nested-view nav.post-controls .btn{color:var(--g-text-muted)!important}
+html body .nested-view nav.post-controls .btn:hover{color:var(--g-text)!important;background:var(--g-surface)!important}
+html body .nested-view nav.post-controls .double-button .like-count{display:inline-flex!important;align-items:center;width:auto!important;min-width:0!important;padding:0 .125rem 0 .5rem!important;font:400 .875rem/1 "DM Mono",monospace!important;color:var(--g-text-subtle)!important}
+html body .nested-view nav.post-controls .double-button .like-count + .toggle-like{width:auto!important;min-width:0!important;padding-left:.25rem!important}
+html body .nested-view nav.post-controls .like-count:has(.d-icon){flex-direction:row-reverse!important;gap:.375rem}
+html body .nested-view nav.post-controls .like-count .d-icon{color:var(--g-text-subtle)!important;margin:0!important}
+html body .nested-view nav.post-controls .bookmark.bookmarked .d-icon{color:var(--g-accent)!important}
+html body .nested-view .discourse-reactions-counter .discourse-reactions-list{display:none}
+
+/* Discourse floats Reply, the bell and the staff wrench at the window's foot.
+   They sat on the posts as loose buttons; they hold the column's right edge
+   now, raised off the text, and only the buttons take clicks. */
+html body .nested-view__floating-actions{justify-content:flex-end!important;gap:.375rem!important;padding:.75rem 0!important;background:transparent!important;border:0!important;box-shadow:none!important;pointer-events:none}
+html body .nested-view__floating-actions > *{pointer-events:auto}
+html body .nested-view__floating-actions .btn-default{border:1px solid var(--g-hairline)!important;background:var(--g-surface-raised)!important;box-shadow:0 10px 24px -14px var(--gq-shadow-ink)}
+html body .nested-view__floating-actions .nested-view__floating-reply{box-shadow:0 10px 24px -14px var(--gq-shadow-ink)}
+
+/* The tracking menu, wherever it opens. Its choices are buttons whose texts
+   sit in divs, so the theme's icon-button rule (a no-text button without a
+   visible span is a 40px square) took each row for an icon: 40px tall, with
+   its name and sentence running over the next row. They are full-width rows
+   of their own height again, in a menu wide enough for the sentence. */
+html body .fk-d-menu.notifications-tracking-content{width:min(22rem,calc(100vw - 2rem));max-width:none!important}
+html body .fk-d-menu.notifications-tracking-content :is(.fk-d-menu__inner-content,.dropdown-menu,.dropdown-menu__item){width:100%!important;box-sizing:border-box}
+html body .fk-d-menu .dropdown-menu > li{flex-shrink:0}
+html body .fk-d-menu .dropdown-menu .btn.no-text:not(#gq-x):not(#gq-y){width:100%!important;height:auto!important;min-height:0!important;aspect-ratio:auto!important}
+html body .fk-d-menu .notifications-tracking-btn__icons{margin-right:.25rem}
+html body .fk-d-menu .dropdown-menu .btn.-selected{background:var(--g-surface)!important;box-shadow:inset 0 0 0 1px var(--g-border)}
