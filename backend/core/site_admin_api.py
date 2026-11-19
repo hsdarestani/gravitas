@@ -294,6 +294,9 @@ def _comment_json(comment):
         'content_key': comment.content_key,
         'parent_id': comment.parent_id,
         'body': comment.body,
+        # The passage, section, video moment or answer the comment is about,
+        # so a moderator reads a note in the context it was written in.
+        'anchor': comment.anchor if isinstance(comment.anchor, dict) else {},
         'status': comment.status,
         'author': {
             'id': author.pk,

@@ -175,7 +175,34 @@ def _voter_key(request):
     return hashlib.sha256(raw).hexdigest()
 
 
-def _poll_json(request, topic, poll_id=''):
+SEEN_KEY = 'gravitas_polls_seen'
+
+
+def _seen_mark(topic, poll_id):
+    return f'{topic.pk}:{poll_id}'
+
+
+def _has_seen(request, topic, poll_id):
+    return _seen_mark(topic, poll_id) in (request.session.get(SEEN_KEY) or [])
+
+
+def _mark_seen(request, topic, poll_id):
+    """The reader chose to see a question's results before answering it. On
+    a page that seals results (the Topic's Viewpoints) that closes the vote
+    for this session: answers given after seeing everyone else's are not the
+    independent answers the counts claim to be. A reader who had already
+    answered loses nothing, since they saw the results by answering."""
+    seen = list(request.session.get(SEEN_KEY) or [])
+    mark = _seen_mark(topic, poll_id)
+    if mark not in seen:
+        seen.append(mark)
+        request.session[SEEN_KEY] = seen[-200:]
+
+
+def _poll_json(request, topic, poll_id='', sealed=False):
+    """A poll and its counts. With `sealed`, the per-answer counts are
+    withheld until the reader has answered or has asked to see them, so the
+    page cannot show them early by accident; the total is always given."""
     poll = _poll_definition(topic, poll_id)
     if poll is None:
         return None
@@ -189,21 +216,31 @@ def _poll_json(request, topic, poll_id=''):
         voter_key=_voter_key(request),
         poll_id=poll['id'],
     ).values_list('option_id', flat=True).first()
+    selected = selected if selected in valid else None
+    seen = _has_seen(request, topic, poll['id'])
+    open_counts = not sealed or bool(selected) or seen
     return {
         'id': poll['id'],
         'question': poll['question'],
         'note': poll['note'],
         'kind': poll['kind'],
-        'options': [{'id': item['id'], 'label': item['label'], 'votes': counts[item['id']]} for item in options],
+        'options': [{'id': item['id'], 'label': item['label'], 'votes': counts[item['id']] if open_counts else None} for item in options],
         'total_votes': sum(counts.values()),
-        'selected': selected if selected in valid else None,
+        'selected': selected,
+        'seen_first': bool(seen and not selected),
+        'sealed': not open_counts,
     }
 
 
 def topic_poll(request, slug):
     topic = get_object_or_404(ContentItem, slug=slug, kind=ContentItem.Kind.TOPIC, status=ContentItem.Status.PUBLISHED)
     if request.method == 'GET':
-        poll = _poll_json(request, topic, request.GET.get('poll_id', ''))
+        poll_id = request.GET.get('poll_id', '')
+        definition = _poll_definition(topic, poll_id)
+        if definition is not None and request.GET.get('reveal') == '1':
+            _voter_key(request)
+            _mark_seen(request, topic, definition['id'])
+        poll = _poll_json(request, topic, poll_id, sealed=request.GET.get('sealed') == '1')
         if poll is None:
             return JsonResponse({'ok': False, 'error': 'poll_not_found'}, status=404)
         return JsonResponse({'ok': True, 'poll': poll})
@@ -219,6 +256,10 @@ def topic_poll(request, slug):
     option_id = str(payload.get('option_id') or '').strip()
     if option_id not in {item['id'] for item in poll['options']}:
         return JsonResponse({'ok': False, 'error': 'invalid_option'}, status=400)
+    voter = _voter_key(request)
+    if _has_seen(request, topic, poll['id']) and not topic.poll_votes.filter(voter_key=voter, poll_id=poll['id']).exists():
+        return JsonResponse({'ok': False, 'error': 'results_seen_first',
+                             'poll': _poll_json(request, topic, poll['id'])}, status=409)
     TopicPollVote.objects.update_or_create(
         topic=topic,
         voter_key=_voter_key(request),

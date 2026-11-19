@@ -14,6 +14,7 @@ from django.core.exceptions import ValidationError
 from django.core.mail import EmailMultiAlternatives
 from django.core.validators import validate_email
 from django.db import connection, transaction
+from django.db.models import Count, Q
 from django.db.models.deletion import Collector, ProtectedError, RestrictedError
 from django.db.utils import IntegrityError
 from django.http import HttpResponseRedirect, JsonResponse
@@ -37,9 +38,10 @@ NEWSLETTER_CONFIRM_MAX_AGE = 60 * 60 * 48
 
 def _payload(request):
     try:
-        return json.loads(request.body or '{}')
-    except json.JSONDecodeError:
+        data = json.loads(request.body or '{}')
+    except (json.JSONDecodeError, UnicodeDecodeError):
         return {}
+    return data if isinstance(data, dict) else {}
 
 
 def _user_json(user):
@@ -54,18 +56,82 @@ def _user_json(user):
     }
 
 
-def _comment_json(comment, user=None):
-    liked = bool(user and getattr(user, 'is_authenticated', False) and CommentLike.objects.filter(comment=comment, user=user).exists())
+def _comment_json(comment, user=None, reactions=None):
+    """A comment as the public pages draw it.
+
+    `reactions` is the viewer's {comment_id: value} for a whole list, read in
+    one query by the caller; without it the viewer's reaction is looked up
+    here. The counts come from annotations when the queryset carries them
+    (`n_like`, `n_dislike`) and from a count otherwise. `mine` and `status`
+    let a member see their own comment while it waits for a moderator: the
+    list returns those to their author and to nobody else."""
+    signed_in = bool(user and getattr(user, 'is_authenticated', False))
+    if reactions is not None:
+        reaction = reactions.get(comment.pk, '')
+    elif signed_in:
+        reaction = CommentLike.objects.filter(comment=comment, user=user).values_list('value', flat=True).first() or ''
+    else:
+        reaction = ''
+    likes = getattr(comment, 'n_like', None)
+    dislikes = getattr(comment, 'n_dislike', None)
+    if likes is None:
+        likes = comment.likes.filter(value=CommentLike.Value.LIKE).count()
+    if dislikes is None:
+        dislikes = comment.likes.filter(value=CommentLike.Value.DISLIKE).count()
     return {
         'id': comment.pk,
         'content_key': comment.content_key,
         'parent_id': comment.parent_id,
         'body': comment.body,
+        'anchor': comment.anchor if isinstance(comment.anchor, dict) else {},
         'author': comment.author.first_name or comment.author.get_username() or 'Member',
         'created_at': comment.created_at.isoformat(),
-        'like_count': comment.likes.count(),
-        'viewer_liked': liked,
+        'edited': bool(comment.updated_at and (comment.updated_at - comment.created_at).total_seconds() > 5),
+        'status': comment.status,
+        'mine': bool(signed_in and comment.author_id == user.pk),
+        'like_count': likes,
+        'dislike_count': dislikes,
+        'viewer_liked': reaction == CommentLike.Value.LIKE,
+        'viewer_reaction': reaction,
     }
+
+
+# What a comment may say about where it points. Anything else in the anchor
+# is dropped, and every string is cut to its length: the client draws these
+# back as text, never as markup, but a stored field is still not a place for
+# a payload. `t` is a video moment in seconds.
+ANCHOR_TEXT = {'kind': 24, 'level': 24, 'quote': 600, 'prefix': 80, 'suffix': 80, 'heading': 240, 'option': 80, 'side': 80}
+ANCHOR_KINDS = {'passage', 'heading', 'moment', 'reason'}
+
+
+def clean_anchor(raw):
+    if not isinstance(raw, dict):
+        return {}
+    anchor = {}
+    for key, limit in ANCHOR_TEXT.items():
+        value = raw.get(key)
+        if isinstance(value, str) and value.strip():
+            anchor[key] = value.strip()[:limit] if key not in {'prefix', 'suffix'} else value[:limit]
+    if anchor.get('kind') not in ANCHOR_KINDS:
+        anchor.pop('kind', None)
+    seconds = raw.get('t')
+    if isinstance(seconds, (int, float)) and not isinstance(seconds, bool) and 0 <= seconds <= 86400:
+        anchor['t'] = int(seconds)
+    return anchor
+
+
+def _counted(queryset):
+    return queryset.annotate(
+        n_like=Count('likes', filter=Q(likes__value=CommentLike.Value.LIKE)),
+        n_dislike=Count('likes', filter=Q(likes__value=CommentLike.Value.DISLIKE)),
+    )
+
+
+def _viewer_reactions(user, comments):
+    if not (user and getattr(user, 'is_authenticated', False)):
+        return {}
+    ids = [item.pk for item in comments]
+    return dict(CommentLike.objects.filter(user=user, comment_id__in=ids).values_list('comment_id', 'value'))
 
 
 def _lab_progress_json(progress):
@@ -590,15 +656,27 @@ def password_reset_confirm(request):
     return JsonResponse({'ok': True})
 
 
+COMMENT_LIST_LIMIT = 400
+
+
 def comments(request, content_key):
+    """A content key's published comments, and posting a new one.
+
+    A signed-in member also gets back their own comments that are still
+    waiting for a moderator, marked `status: pending`, so what they wrote
+    does not seem to vanish between posting it and its review. Nobody else
+    sees a pending comment."""
     if request.method == 'GET':
-        queryset = (
+        visible = Q(status=Comment.Status.PUBLISHED)
+        if request.user.is_authenticated:
+            visible |= Q(status=Comment.Status.PENDING, author=request.user)
+        queryset = list(_counted(
             Comment.objects
-            .filter(content_key=content_key, status=Comment.Status.PUBLISHED)
+            .filter(visible, content_key=content_key)
             .select_related('author')
-            .order_by('created_at')[:200]
-        )
-        return JsonResponse({'ok': True, 'comments': [_comment_json(item, request.user) for item in queryset]})
+        ).order_by('created_at')[:COMMENT_LIST_LIMIT])
+        reactions = _viewer_reactions(request.user, queryset)
+        return JsonResponse({'ok': True, 'comments': [_comment_json(item, request.user, reactions) for item in queryset]})
 
     if request.method != 'POST':
         return JsonResponse({'ok': False, 'error': 'method_not_allowed'}, status=405)
@@ -626,6 +704,7 @@ def comments(request, content_key):
         content_key=content_key,
         parent=parent,
         body=body,
+        anchor=clean_anchor(payload.get('anchor')),
         status=Comment.Status.PENDING,
     )
     mark_topic_progress_by_slug(request.user, content_key, 'comment')
@@ -633,28 +712,97 @@ def comments(request, content_key):
         {
             'ok': True,
             'moderation': 'pending',
-            'comment': _comment_json(comment),
+            'comment': _comment_json(comment, request.user, {}),
         },
         status=201,
     )
 
 
+def comment_detail(request, content_key, comment_id):
+    """A member editing or deleting a comment of their own.
+
+    An edit goes back to the moderator: what a moderator read and published
+    is not what an edit says, so an edited comment is pending again until it
+    is read again. Deleting takes its replies with it, as the foreign key
+    already does in the admin."""
+    if request.method not in {'PATCH', 'DELETE'}:
+        return JsonResponse({'ok': False, 'error': 'method_not_allowed'}, status=405)
+    if not request.user.is_authenticated:
+        return JsonResponse({'ok': False, 'error': 'authentication_required'}, status=401)
+    comment = Comment.objects.filter(
+        pk=comment_id, content_key=content_key, author=request.user,
+    ).exclude(status=Comment.Status.HIDDEN).first()
+    if comment is None:
+        return JsonResponse({'ok': False, 'error': 'comment_not_found'}, status=404)
+    if request.method == 'DELETE':
+        comment.delete()
+        return JsonResponse({'ok': True, 'deleted': True})
+    payload = _payload(request)
+    body = str(payload.get('body', '')).strip()
+    if not body or len(body) > 5000:
+        return JsonResponse({'ok': False, 'error': 'invalid_body'}, status=400)
+    if body != comment.body:
+        comment.body = body
+        comment.status = Comment.Status.PENDING
+        comment.save(update_fields=['body', 'status', 'updated_at'])
+    return JsonResponse({'ok': True, 'moderation': comment.status, 'comment': _comment_json(comment, request.user)})
+
+
+def _react(request, comment, value):
+    """Sets the member's reaction to `value` ('like', 'dislike' or '' for
+    none) and says what it is now. A like that is new notifies the author,
+    as a like always has."""
+    current = CommentLike.objects.filter(comment=comment, user=request.user).first()
+    if not value:
+        if current:
+            current.delete()
+    elif current is None:
+        CommentLike.objects.create(comment=comment, user=request.user, value=value)
+        if value == CommentLike.Value.LIKE:
+            notify_site_comment_liked(comment, request.user)
+    elif current.value != value:
+        current.value = value
+        current.save(update_fields=['value'])
+        if value == CommentLike.Value.LIKE:
+            notify_site_comment_liked(comment, request.user)
+    counts = comment.likes.aggregate(
+        likes=Count('pk', filter=Q(value=CommentLike.Value.LIKE)),
+        dislikes=Count('pk', filter=Q(value=CommentLike.Value.DISLIKE)),
+    )
+    return {'ok': True, 'reaction': value, 'liked': value == CommentLike.Value.LIKE,
+            'like_count': counts['likes'], 'dislike_count': counts['dislikes']}
+
+
+def _published_comment(content_key, comment_id):
+    return Comment.objects.filter(pk=comment_id, content_key=content_key, status=Comment.Status.PUBLISHED).first()
+
+
 def comment_like(request, content_key, comment_id):
+    """The older toggle: a like on, or off. A dislike becomes a like."""
     if request.method != 'POST':
         return JsonResponse({'ok': False, 'error': 'method_not_allowed'}, status=405)
     if not request.user.is_authenticated:
         return JsonResponse({'ok': False, 'error': 'authentication_required'}, status=401)
-    comment = Comment.objects.filter(pk=comment_id, content_key=content_key, status=Comment.Status.PUBLISHED).first()
+    comment = _published_comment(content_key, comment_id)
     if comment is None:
         return JsonResponse({'ok': False, 'error': 'comment_not_found'}, status=404)
-    like, created = CommentLike.objects.get_or_create(comment=comment, user=request.user)
-    if created:
-        liked = True
-        notify_site_comment_liked(comment, request.user)
-    else:
-        like.delete()
-        liked = False
-    return JsonResponse({'ok': True, 'liked': liked, 'like_count': comment.likes.count()})
+    current = CommentLike.objects.filter(comment=comment, user=request.user).values_list('value', flat=True).first()
+    return JsonResponse(_react(request, comment, '' if current == CommentLike.Value.LIKE else CommentLike.Value.LIKE))
+
+
+def comment_reaction(request, content_key, comment_id):
+    """Like, dislike, or neither: {"value": "like" | "dislike" | ""}."""
+    if request.method != 'POST':
+        return JsonResponse({'ok': False, 'error': 'method_not_allowed'}, status=405)
+    if not request.user.is_authenticated:
+        return JsonResponse({'ok': False, 'error': 'authentication_required'}, status=401)
+    comment = _published_comment(content_key, comment_id)
+    if comment is None:
+        return JsonResponse({'ok': False, 'error': 'comment_not_found'}, status=404)
+    value = str(_payload(request).get('value') or '').strip()
+    if value not in {'', CommentLike.Value.LIKE, CommentLike.Value.DISLIKE}:
+        return JsonResponse({'ok': False, 'error': 'invalid_value'}, status=400)
+    return JsonResponse(_react(request, comment, value))
 
 
 def lab_progress(request, lab_key):

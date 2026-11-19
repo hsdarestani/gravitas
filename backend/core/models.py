@@ -118,6 +118,12 @@ class Comment(models.Model):
         null=True,
     )
     body = models.TextField(max_length=5000)
+    # Where in the thing the comment points, when it points somewhere: a
+    # passage of an essay (its quote and the words either side), a section
+    # heading, a moment of a video, or the answer a poll reason argues for.
+    # Empty for a comment on the whole of its content key. The client decides
+    # where to draw it; views.clean_anchor decides what may be stored.
+    anchor = models.JSONField(default=dict, blank=True)
     status = models.CharField(
         max_length=16,
         choices=Status.choices,
@@ -141,8 +147,16 @@ class Comment(models.Model):
 
 
 class CommentLike(models.Model):
+    """One member's reaction to a comment. The name is older than dislikes:
+    a row is a like unless `value` says otherwise, so every row written
+    before dislikes existed still counts as the like it was."""
+    class Value(models.TextChoices):
+        LIKE = 'like', 'Like'
+        DISLIKE = 'dislike', 'Dislike'
+
     comment = models.ForeignKey(Comment, on_delete=models.CASCADE, related_name='likes')
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='gravitas_comment_likes')
+    value = models.CharField(max_length=8, choices=Value.choices, default=Value.LIKE)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
