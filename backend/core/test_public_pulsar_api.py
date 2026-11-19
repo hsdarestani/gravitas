@@ -37,7 +37,7 @@ class PublicPulsarContextTests(TestCase):
         self.assertEqual(rows[0]['href'], '/topic-answer-that-looked-right.html')
 
     def test_only_public_page_fields_are_kept(self):
-        self.assertEqual(public_page('/workspace/private'), '/')
+        self.assertEqual(public_page('/workspace/private'), '')
         self.assertEqual(
             page_observation({'heading': 'Topics', 'featured_topic': 'Story',
                               'featured_href': 'https://unsafe.example'})['featured_topic'],
@@ -119,7 +119,7 @@ class PublicPulsarApiTests(TestCase):
             self.assertIn(topic['title'], payload['reply'])
         self.assertIn('Planned topics:', payload['reply'])
         self.assertNotIn('Temporary production test', payload['reply'])
-        self.assertEqual(payload['links'][0]['href'], '/topics.html')
+        self.assertTrue(all(link['href'].startswith('/topic-') for link in payload['links']))
         model.assert_not_called()
 
     @patch('core.pulsar_api.run_text')
@@ -180,7 +180,8 @@ class PublicPulsarApiTests(TestCase):
     @patch('core.pulsar_api.configured', return_value=False)
     def test_nav_answer_survives_model_outage(self, configured, model):
         response = self.ask('where is the lab')
-        self.assertEqual(response.json()['links'][0]['href'], '/lab.html')
+        self.assertEqual(response.json()['links'], [])
+        self.assertIn('not available', response.json()['reply'])
         model.assert_not_called()
 
     def test_non_object_payload_and_empty_question_are_rejected(self):

@@ -93,6 +93,16 @@ const server=http.createServer((req,res)=>{
     res.writeHead(404);res.end('Not found');return;
   }
   res.setHeader('Content-Type',types[path.extname(file)]||'application/octet-stream');
+  if(file===path.join(root,'lab.html')){
+    // This server exercises the internal enabled product, while the separate
+    // public-page smoke test keeps and verifies its disabled preview card.
+    res.end(fs.readFileSync(file,'utf8').replace(/<section class="g-section lab-soon"[\s\S]*?<\/section>/,''));return;
+  }
+  if(file===path.join(root,'assets/lab-studio.js')){
+    // Exercise the historical catalog in this isolated fixture only. The
+    // deployed pre-launch flag is verified false by test-lab-studio.cjs.
+    res.end(fs.readFileSync(file,'utf8').replace('var CATALOG_PUBLIC=false;','var CATALOG_PUBLIC=true;'));return;
+  }
   res.end(fs.readFileSync(file));
 });
 (async()=>{

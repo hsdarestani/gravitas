@@ -13,7 +13,7 @@
   /* A page with its own bottom chrome (the workspace's status bar, or its
      rail on a phone) sets --gchat-bottom to clear it; the panel's ceiling
      below is computed from the same figure, so the two cannot disagree. */
-  position: fixed; right: var(--gchat-edge); bottom: var(--gchat-bottom, var(--gchat-edge));
+  position: fixed; right: var(--gchat-edge); bottom: calc(var(--gchat-bottom, var(--gchat-edge)) + var(--gchat-keyboard, 0px));
   z-index: var(--g-z-overlay);
   font-family: var(--g-font); line-height: 0;
 }
@@ -101,6 +101,7 @@
   --gchat-ceiling: calc(var(--g-header-h, 4.5rem) + var(--gchat-bottom, var(--gchat-edge)) + 0.75rem);
   height: min(34rem, calc(100vh - var(--gchat-ceiling)));
   height: min(34rem, calc(100dvh - var(--gchat-ceiling)));
+  height: min(34rem, calc(var(--gchat-viewport, 100dvh) - var(--gchat-ceiling)));
   background: var(--g-surface-raised);
   border: 1px solid var(--g-border);
   border-radius: var(--g-radius-lg);
@@ -259,13 +260,14 @@
 .gchat__new svg { width: 1rem; height: 1rem; display: block; }
 
 .gchat__log {
-  flex: 1; overflow-y: auto; overscroll-behavior: contain;
+  flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain;
   padding: var(--g-space-md);
   display: flex; flex-direction: column; gap: var(--g-space-sm);
   scrollbar-width: thin;
 }
 
-.gchat__msg { max-width: 92%; font-size: var(--g-fs-small); line-height: 1.55; }
+.gchat__msg { flex: none; min-width: 0; max-width: 92%; overflow-wrap: anywhere; font-size: var(--g-fs-small); line-height: 1.55; }
+.gchat__msg p { white-space: pre-line; }
 .gchat__msg p { margin: 0 0 .5rem; }
 .gchat__msg p:last-child { margin-bottom: 0; }
 .gchat__msg--bot {
@@ -340,7 +342,7 @@
   background: var(--g-surface);
 }
 .gchat__input {
-  flex: 1; font: inherit; font-size: var(--g-fs-small);
+  flex: 1; min-width: 0; font: inherit; font-size: max(1rem, var(--g-fs-small));
   color: var(--g-text); background: var(--g-surface-sunken);
   border: 1px solid var(--g-border); border-radius: var(--g-radius);
   padding: .55rem .7rem; resize: none; max-height: 6rem; line-height: 1.45;
