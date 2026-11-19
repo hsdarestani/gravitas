@@ -1,0 +1,23 @@
+/* Scannable admin feedback built on the shared Platform Admin cards and fields. */
+.gq-feedback__stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1rem;margin:0 0 1.1rem}
+.gq-feedback__stats .wc-stat-tile{height:100%}
+.gq-feedback__chips,.gq-feedback__sections{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.7rem}
+.gq-feedback__chip{padding:.8rem 1rem;border-radius:10px;border:1px solid var(--g-border);color:var(--g-text-muted);font-size:.88rem}
+.gq-feedback__section{display:flex;gap:.8rem;justify-content:space-between;padding:.8rem 1rem;border:1px solid var(--g-border);border-radius:10px;align-items:center;font-size:.88rem}
+.gq-feedback__section strong{white-space:nowrap;font-family:var(--g-font-mono)}
+.gq-feedback__toolbar,.gq-feedback__pager{display:flex;gap:.8rem;justify-content:space-between;align-items:center;flex-wrap:wrap;margin:1rem 0}
+.gq-feedback__toolbar select{max-width:270px}
+.gq-feedback__response-list{display:grid;gap:.65rem}
+.gq-feedback__response{border:1px solid var(--g-border);border-radius:12px;overflow:hidden}
+.gq-feedback__response>summary{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:.5rem 1rem;cursor:pointer;padding:1rem 1.2rem;list-style-position:inside}
+.gq-feedback__response[open]>summary{border-bottom:1px solid var(--g-hairline)}
+.gq-feedback__response-name{font-weight:650;color:var(--g-text)}
+.gq-feedback__response-facts{font-size:.8rem;color:var(--g-text-muted)}
+.gq-feedback__response-body{display:grid;gap:0;padding:.4rem 1.2rem}
+.gq-feedback__detail-row{display:grid;grid-template-columns:minmax(0,10rem) minmax(0,1fr);gap:1rem;border-bottom:1px solid var(--g-hairline);padding:.8rem 0}
+.gq-feedback__detail-row:last-child{border-bottom:none}
+.gq-feedback__detail-label{font-size:.82rem;font-weight:650;color:var(--g-text-muted)}
+.gq-feedback__detail-value{margin:0;white-space:pre-wrap;overflow-wrap:anywhere;font-size:.9rem}
+.gq-feedback__count{font-size:.8rem;color:var(--g-text-muted)}
+@media(max-width:900px){.gq-feedback__stats{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:520px){.gq-feedback__stats,.gq-feedback__chips,.gq-feedback__sections{grid-template-columns:minmax(0,1fr)}.gq-feedback__detail-row{grid-template-columns:minmax(0,1fr);gap:.3rem}}

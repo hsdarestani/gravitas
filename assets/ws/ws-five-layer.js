@@ -28,6 +28,7 @@ import {
   renderAdminUsers,
 } from './ws-admin.js?v=20261016-task1&patch=20261102labusage1';
 import { renderAdminContent, renderAdminContentEditor } from './ws-topic-admin.js?v=20261016-task1';
+import { renderAdminPrelaunchFeedback } from './ws-prelaunch-feedback.js?v=20261119-v1';
 import { renderCoreLinks } from './ws-core-links.js?v=20261016-task1';
 import { renderResearchProject } from './ws-project.js?v=20261016-task1&patch=20261110qa1';
 
@@ -61,6 +62,7 @@ const ADMIN_INDEX = [
   ['Users', '/workspace/core/admin/users', 'team', 'Accounts, roles and permissions'],
   ['Topics', '/workspace/core/admin/content', 'topic', 'Write and publish site topics'],
   ['Moderation', '/workspace/core/admin/moderation', 'moderation', 'Review public comments'],
+  ['Prelaunch Feedback', '/workspace/core/admin/feedback', 'activity', 'Survey responses and CSV export'],
   ['Newsletter', '/workspace/core/admin/newsletter', 'mail', 'Subscribers and campaigns'],
   ['Support Tickets', '/workspace/core/admin/tickets', 'support', 'Reply to member requests'],
   ['Lab Studio', '/workspace/core/admin/labs', 'lab', 'Configure Lab code, components and Pulsar guidance'],
@@ -121,6 +123,7 @@ function pathKind(path = location.pathname) {
   match = path.match(/^\/workspace\/core\/admin\/content\/(\d+)\/?$/);
   if (match) return { kind: 'admin', page: 'content-editor', id: match[1] };
   if (path === '/workspace/core/admin/moderation' || path === '/workspace/core/admin/moderation/') return { kind: 'admin', page: 'moderation' };
+  if (path === '/workspace/core/admin/feedback' || path === '/workspace/core/admin/feedback/') return { kind: 'admin', page: 'feedback' };
   if (path === '/workspace/core/admin/newsletter' || path === '/workspace/core/admin/newsletter/') return { kind: 'admin', page: 'newsletter' };
   if (path === '/workspace/core/admin/tickets' || path === '/workspace/core/admin/tickets/') return { kind: 'admin', page: 'tickets' };
   if (path === '/workspace/core/admin/labs' || path === '/workspace/core/admin/labs/') return { kind: 'admin', page: 'labs' };
@@ -535,6 +538,7 @@ export async function renderFiveLayer(hostNode, { go: navigate, renderNotesMirro
     if (route.page === 'content') await renderAdminContent(host, ctx);
     if (route.page === 'content-editor') await renderAdminContentEditor(host, route.id, ctx);
     if (route.page === 'moderation') await renderAdminModeration(host, ctx);
+    if (route.page === 'feedback') await renderAdminPrelaunchFeedback(host, ctx);
     if (route.page === 'newsletter') await renderAdminNewsletter(host, ctx);
     if (route.page === 'tickets') await renderAdminTickets(host, ctx);
     if (route.page === 'labs') await renderAdminLabs(host, ctx);
@@ -559,7 +563,7 @@ function labelRole(value) {
 function adminTitle(page) {
   return {
     users: 'Users & Access', user: 'Account', content: 'Topics', 'content-editor': 'Topic', moderation: 'Moderation',
-    newsletter: 'Newsletter', tickets: 'Support Tickets', labs: 'Interactive Lab',
+    newsletter: 'Newsletter', feedback: 'Prelaunch Feedback', tickets: 'Support Tickets', labs: 'Interactive Lab',
     lms: 'LMS Admin', 'course-editor': 'Course', research: 'Research Admin', 'research-project': 'Project', links: 'Cross-layer Links', activity: 'Activity', deck: 'Nextcloud Deck', nextcloud: 'Nextcloud Mirror',
   }[page] || 'Admin';
 }
