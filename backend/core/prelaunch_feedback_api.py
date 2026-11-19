@@ -4,6 +4,8 @@ import io
 import json
 from collections import Counter
 
+from django.core.exceptions import ValidationError
+from django.core.validators import validate_email
 from django.http import HttpResponse, JsonResponse
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_http_methods
@@ -12,14 +14,62 @@ from .layer_admin_api import _core_admin, _deny
 from .models import PrelaunchFeedback
 
 SURVEY_VERSION = 'prelaunch-2026-v1'
+# Keep the original answers valid; new fields share the same survey version
+# so existing anonymous sessions and earlier admin responses remain intact.
 TEXT_FIELDS = {
-    'video_feedback': 2000,
-    'visual_feedback': 2000,
-    'scientific_content_feedback': 2000,
-    'first_impression': 2000,
+    'video_feedback': 2000, 'visual_feedback': 2000,
+    'scientific_content_feedback': 2000, 'first_impression': 2000,
     'persona_other': 160,
+    'site_purpose': 2000, 'target_audience': 2000,
+    'broken_where': 2000, 'future_topics': 2000,
+    'topic_best_part': 2000, 'topic_improvements': 2000,
+    'video_stop_reason': 2000, 'forum_motivation': 2000,
+    'lab_learn_expectations': 2000, 'one_change': 2000,
+    'other_feedback': 2000,
 }
-RATINGS = {'overall_rating': 10, 'usability': 5, 'expectations_difference': 5}
+RATINGS = {
+    'overall_rating': (1, 10),  # Original survey: do not recast as /5.
+    'usability': (1, 5),  # Original survey: lower = easier.
+    'expectations_difference': (1, 5),
+    'site_works': (1, 5), 'goals_clear': (1, 5),
+    'trustworthy': (1, 5), 'findability': (1, 5),
+    'page_speed': (1, 5), 'device_experience': (1, 5),
+    'visual_attractiveness': (1, 5), 'text_readability': (1, 5),
+    'topics_clarity': (1, 5), 'topic_interest': (1, 5),
+    'topic_quality': (1, 5), 'explanations_clarity': (1, 5),
+    'learning_gain': (1, 5), 'video_content_quality': (1, 5),
+    'video_visuals': (1, 5), 'video_audio': (1, 5),
+    'community_purpose': (1, 5), 'forum_usability': (1, 5),
+    'forum_participation': (1, 5), 'return_likelihood': (1, 5),
+    'recommend_likelihood': (0, 10),
+}
+CHOICES = {
+    'anything_broken': ('yes', 'no'),
+    'topic_difficulty': ('too_easy', 'about_right', 'too_hard'),
+    'topic_length': ('too_short', 'about_right', 'too_long'),
+    'video_watched': ('all', 'part', 'no'),
+    'video_pace': ('too_slow', 'about_right', 'too_fast'),
+    'community_visited': ('yes', 'no'),
+}
+EXPORT_FIELDS = [
+    'persona', 'persona_other',
+    'site_works', 'goals_clear', 'site_purpose', 'target_audience',
+    'trustworthy', 'first_impression', 'expectations_difference',
+    'findability', 'page_speed', 'anything_broken', 'broken_where',
+    'device_experience', 'visual_attractiveness', 'text_readability',
+    'visual_feedback', 'topics_clarity', 'future_topics',
+    'topic_interest', 'topic_quality', 'topic_difficulty', 'topic_length',
+    'explanations_clarity', 'learning_gain', 'video_watched',
+    'video_content_quality', 'video_visuals', 'video_audio',
+    'video_pace', 'video_stop_reason', 'topic_best_part',
+    'topic_improvements', 'video_feedback', 'scientific_content_feedback',
+    'community_visited', 'community_purpose', 'forum_usability',
+    'forum_participation', 'forum_motivation', 'lab_learn_expectations',
+    'return_likelihood', 'recommend_likelihood', 'one_change',
+    'other_feedback', 'contact_email',
+    # Original survey fields, kept for historical records.
+    'overall_rating', 'usability',
+]
 SECTIONS = ('video', 'essay', 'sources', 'viewpoints', 'pulsar', 'forum')
 PERSONAS = ('a1', 'a2', 'a3', 'other')
 
@@ -35,7 +85,7 @@ def _parse_submission(data):
     answers = data.get('answers', {})
     if not isinstance(answers, dict):
         raise ValueError('invalid_answers')
-    if set(answers) - set(TEXT_FIELDS) - set(RATINGS) - {'persona', 'section_ratings'}:
+    if set(answers) - set(TEXT_FIELDS) - set(RATINGS) - set(CHOICES) - {'persona', 'section_ratings', 'contact_email'}:
         raise ValueError('unknown_answer_field')
     clean = {}
     for key, maximum_length in TEXT_FIELDS.items():
@@ -51,13 +101,50 @@ def _parse_submission(data):
         if not isinstance(persona, str) or persona not in PERSONAS:
             raise ValueError('invalid_persona')
         clean['persona'] = persona
-    for key, maximum in RATINGS.items():
+    for key, allowed in CHOICES.items():
         value = answers.get(key)
         if value is None or value == '':
             continue
-        if type(value) is not int or not (1 <= value <= maximum):
+        if not isinstance(value, str) or value not in allowed:
             raise ValueError('invalid_' + key)
         clean[key] = value
+    for key, (minimum, maximum) in RATINGS.items():
+        value = answers.get(key)
+        if value is None or value == '':
+            continue
+        if type(value) is not int or not (minimum <= value <= maximum):
+            raise ValueError('invalid_' + key)
+        clean[key] = value
+    email = answers.get('contact_email')
+    if email not in (None, ''):
+        if not isinstance(email, str) or len(email) > 254:
+            raise ValueError('invalid_contact_email')
+        email = email.strip()
+        try:
+            validate_email(email)
+        except ValidationError:
+            raise ValueError('invalid_contact_email')
+        clean['contact_email'] = email
+
+    # Follow-up branches are never stored when a respondent chooses 'No'.
+    # Preserve old-version free-text video answers until the visitor explicitly
+    # answers video_watched: otherwise an edit would silently erase old feedback.
+    if clean.get('persona') != 'other':
+        clean.pop('persona_other', None)
+    if clean.get('anything_broken') != 'yes':
+        clean.pop('broken_where', None)
+    if clean.get('community_visited') != 'yes':
+        for key in ('community_purpose', 'forum_usability',
+                    'forum_participation', 'forum_motivation'):
+            clean.pop(key, None)
+    if clean.get('video_watched') not in ('all', 'part'):
+        for key in ('video_content_quality', 'video_visuals', 'video_audio',
+                    'video_pace', 'video_stop_reason'):
+            clean.pop(key, None)
+        if clean.get('video_watched') == 'no':
+            clean.pop('video_feedback', None)
+    elif clean.get('video_watched') != 'part':
+        clean.pop('video_stop_reason', None)
     section_ratings = answers.get('section_ratings')
     if section_ratings is not None:
         if not isinstance(section_ratings, dict) or set(section_ratings) - set(SECTIONS):
@@ -132,23 +219,19 @@ def admin_prelaunch_feedback(request):
     if request.GET.get('format') == 'csv':
         buffer = io.StringIO()
         writer = csv.writer(buffer)
-        fields = [
-            'id', 'name', 'created_at', 'updated_at', 'persona', 'persona_other',
-            'video_feedback', 'overall_rating', 'visual_feedback',
-            'scientific_content_feedback', 'usability', 'first_impression',
-            'expectations_difference',
-        ] + ['rating_' + section for section in SECTIONS]
+        fields = ['id', 'name', 'created_at', 'updated_at'] + EXPORT_FIELDS + [
+            'rating_' + section for section in SECTIONS
+        ]
         writer.writerow(fields)
         for submission in base.iterator(chunk_size=200):
-            a = submission.answers or {}
+            answers = submission.answers or {}
             values = [
                 str(submission.pk), submission.name, submission.created_at.isoformat(),
-                submission.updated_at.isoformat(), a.get('persona', ''),
-                a.get('persona_other', ''), a.get('video_feedback', ''),
-                a.get('overall_rating', ''), a.get('visual_feedback', ''),
-                a.get('scientific_content_feedback', ''), a.get('usability', ''),
-                a.get('first_impression', ''), a.get('expectations_difference', ''),
-            ] + [a.get('section_ratings', {}).get(section, '') for section in SECTIONS]
+                submission.updated_at.isoformat()
+            ] + [answers.get(field, '') for field in EXPORT_FIELDS] + [
+                (answers.get('section_ratings') or {}).get(section, '')
+                for section in SECTIONS
+            ]
             writer.writerow([_safe_csv(value) for value in values])
         response = HttpResponse(buffer.getvalue(), content_type='text/csv; charset=utf-8')
         response['Content-Disposition'] = 'attachment; filename="graviquest-prelaunch-feedback.csv"'
@@ -176,14 +259,16 @@ def admin_prelaunch_feedback(request):
     counts = Counter((a or {}).get('persona') or 'unspecified' for a in all_answers)
     keys = list(RATINGS) + ['section:' + s for s in SECTIONS]
     metrics = {}
+    metric_counts = {}
     for key in keys:
         values = []
         for answer in all_answers:
             answer = answer or {}
-            value = answer.get('section_ratings', {}).get(key[8:]) if key.startswith('section:') else answer.get(key)
+            value = (answer.get('section_ratings') or {}).get(key[8:]) if key.startswith('section:') else answer.get(key)
             if type(value) is int:
                 values.append(value)
         metrics[key] = round(sum(values) / len(values), 2) if values else None
+        metric_counts[key] = len(values)
 
     response = JsonResponse({
         'ok': True,
@@ -193,6 +278,7 @@ def admin_prelaunch_feedback(request):
         'per_page': per_page,
         'persona_counts': dict(counts),
         'averages': metrics,
+        'metric_counts': metric_counts,
         'responses': [
             {'id': str(item.pk), **_serialize(item)}
             for item in rows
