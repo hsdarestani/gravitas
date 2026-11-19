@@ -40,6 +40,14 @@
       if (input) setRange(input, null);
     });
   });
+  form.querySelectorAll('[data-clear-radio]').forEach(function (button) {
+    button.addEventListener('click', function () {
+      form.querySelectorAll('input[name="' + button.dataset.clearRadio + '"]').forEach(function (input) {
+        input.checked = false;
+      });
+      if (button.dataset.clearRadio === 'persona') syncPersona();
+    });
+  });
   function syncPersona() {
     const show = checkedValue('persona') === 'other';
     document.getElementById('fb-other-wrap').hidden = !show;
