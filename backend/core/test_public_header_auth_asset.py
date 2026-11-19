@@ -16,7 +16,10 @@ class PublicHeaderAuthAssetTests(SimpleTestCase):
         source = BRIDGE.read_text(encoding='utf-8')
         self.assertIn("function setAccountLink(signedIn)", source)
         self.assertIn("document.querySelectorAll('[data-account-link]')", source)
-        self.assertIn("link.href = signedIn ? FORUM_HOME : '/signup';", source)
+        self.assertIn("setButton(link, signedIn ? 'Forum' : 'Join Us', signedIn ? FORUM_HOME : '/signup',", source)
+        # A member's control carries the Forum's own mark, not Join Us's
+        # figure-and-plus (2026-11-19).
+        self.assertIn('signedIn ? FORUM_ICON', source)
         self.assertIn("var FORUM_HOME = '/api/forum/resume/';", source)
         self.assertIn("setAccountLink(true);", source)
         self.assertIn("setAccountLink(false);", source)
@@ -43,10 +46,23 @@ class PublicHeaderAuthAssetTests(SimpleTestCase):
         source = BRIDGE.read_text(encoding='utf-8')
         self.assertIn('markJoinCard();', source)
         self.assertIn("document.querySelectorAll('.join__act')", source)
-        self.assertIn("primary.href = FORUM_HOME; primary.textContent = 'Open the Forum';", source)
-        self.assertIn("secondary.href = '/api/forum/start/'; secondary.textContent = 'Start a Thread';", source)
+        # Through setButton, never textContent: a g-btn--lead button keeps its
+        # icon slot, or its label sits off centre.
+        self.assertIn("setButton(primary, 'Enter Forum', FORUM_HOME, FORUM_ICON);", source)
+        self.assertIn("setButton(secondary, 'Start a Thread', '/api/forum/start/');", source)
+        self.assertNotIn('primary.textContent', source)
         page = (ROOT / 'community.html').read_text(encoding='utf-8')
         self.assertIn('<div class="join__act">', page)
+
+    def test_hero_join_us_becomes_the_forum_for_a_member(self):
+        # A hero's Join Us means nothing to someone who has joined.
+        source = BRIDGE.read_text(encoding='utf-8')
+        self.assertIn('markHeroes();', source)
+        self.assertIn("setButton(a, 'Enter Forum', FORUM_HOME, FORUM_ICON);", source)
+        self.assertIn('data-member-forum', (ROOT / 'index.html').read_text(encoding='utf-8'))
+        community = (ROOT / 'community.html').read_text(encoding='utf-8')
+        self.assertIn('data-member-forum', community)
+        self.assertIn('data-member-start', community)
 
     def test_sign_in_never_lands_in_the_workspace(self):
         for path in (BRIDGE, ROOT / 'assets' / 'site.js'):
@@ -80,7 +96,7 @@ class PublicHeaderAuthAssetTests(SimpleTestCase):
 
     def test_public_auth_bridge_loader_is_cache_busted(self):
         source = LOADER.read_text(encoding='utf-8')
-        self.assertIn('/assets/production-bridge-core.js?v=20261118-signout1', source)
+        self.assertIn('/assets/production-bridge-core.js?v=20261119-forum1', source)
 
     def test_public_pages_reference_current_auth_loader_version(self):
         stale = []
@@ -92,7 +108,7 @@ class PublicHeaderAuthAssetTests(SimpleTestCase):
             referenced.append(path.name)
             # One loader key on every page since the sign-out controls
             # (2026-11-18), which every public page carries.
-            expected = '20261118-signout1'
+            expected = '20261119-forum1'
             if f'production-bridge.js?v={expected}' not in source:
                 stale.append(path.name)
 

@@ -100,12 +100,63 @@
      starts the Forum's sign-in through our own server, so the member lands
      there already signed in. */
   var FORUM_HOME = '/api/forum/resume/';
+
+  /* The Forum's mark (2026-11-19). A member's account control used to keep
+     Join Us's figure-and-plus beside the word Forum, which put a sign-up
+     drawing on a button for someone who has an account. The Forum had no
+     mark of its own (Discourse ships only stock glyphs), so this one is drawn
+     to the product set's geometry: two speech bubbles, the one in front
+     overlapping the one behind, tails opposite, and the set's solid dot in
+     the front bubble for the member's own post. A place, so it carries the
+     dot; Join Us, an action, does not. Documented in brand.html section 11.
+     Swapped in for the icon a button already has, so the button keeps its
+     g-btn--lead padding, which assumes an icon: setting textContent on such a
+     button dropped the icon and left the text pushed off centre. */
+  var FORUM_ICON = '<svg class="g-btn__icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><g transform="translate(0 0.4)" stroke-width="1.75"><path d="M8.6 17.6h4a3 3 0 0 0 3-3v-3.2a3 3 0 0 0-3-3H5.4a3 3 0 0 0-3 3v3.2a3 3 0 0 0 2.4 2.94v3.06z"/><path d="M8.4 8.4V5.8a3 3 0 0 1 3-3h7.2a3 3 0 0 1 3 3V9a3 3 0 0 1-2.4 2.94V15l-3.6-3"/><circle cx="9" cy="13" r="1.56" fill="currentColor" stroke="none"/></g></svg>';
+  var JOIN_ICONS = new WeakMap();
+
+  /* Rewrites a button's label and icon without touching the rest of it. A
+     button with no icon gets the label only; a button with one keeps its
+     slot and takes the given mark, and the original is kept so a sign-out
+     answer can put Join Us back. */
+  function setButton(button, label, href, icon) {
+    if (!button) return;
+    if (href) button.href = href;
+    var svg = button.querySelector('svg');
+    if (svg && icon) {
+      if (!JOIN_ICONS.has(button)) JOIN_ICONS.set(button, svg.outerHTML);
+      svg.insertAdjacentHTML('beforebegin', icon === 'join' ? JOIN_ICONS.get(button) : icon);
+      svg.remove();
+    }
+    var span = button.querySelector('span');
+    if (span) { span.textContent = label; return; }
+    // A label written as a bare text node beside the icon (community.html's
+    // hero): wrap it so the next swap finds it.
+    [].slice.call(button.childNodes).forEach(function (n) { if (n.nodeType === 3) n.remove(); });
+    span = document.createElement('span');
+    span.textContent = label;
+    button.appendChild(span);
+  }
+
   function setAccountLink(signedIn) {
     [].forEach.call(document.querySelectorAll('[data-account-link]'), function (link) {
-      link.href = signedIn ? FORUM_HOME : '/signup';
-      link.setAttribute('aria-label', signedIn ? 'Open the Forum' : 'Create your account');
-      var label = link.querySelector('span');
-      if (label) label.textContent = signedIn ? 'Forum' : 'Join Us';
+      link.setAttribute('aria-label', signedIn ? 'Enter Forum' : 'Create your account');
+      setButton(link, signedIn ? 'Forum' : 'Join Us', signedIn ? FORUM_HOME : '/signup',
+        signedIn ? FORUM_ICON : (JOIN_ICONS.has(link) ? 'join' : null));
+    });
+  }
+
+  /* A hero's Join Us ([data-member-forum]) means nothing to a member, who has
+     joined. It becomes Enter Forum, with the Forum's mark, entered already
+     signed in. A hero's second button marked [data-member-start] (the
+     Community hero's Open Forum, which would now repeat the first) becomes
+     Start a Thread. Explore Topics and the like are left alone. */
+  function markHeroes() {
+    [].forEach.call(document.querySelectorAll('[data-member-forum]'), function (a) {
+      setButton(a, 'Enter Forum', FORUM_HOME, FORUM_ICON);
+    });
+    [].forEach.call(document.querySelectorAll('[data-member-start]'), function (a) {
+      setButton(a, 'Start a Thread', '/api/forum/start/');
     });
   }
 
@@ -114,6 +165,7 @@
     var note = document.querySelector('.auth__note[data-form-note]');
     if (note && email) note.textContent = 'Signed in as ' + email + '.';
     showSignOut(note);
+    markHeroes();
     markJoinCard();
   }
 
@@ -129,8 +181,8 @@
       act.dataset.member = '1';
       var primary = act.querySelector('.g-btn--primary');
       var secondary = act.querySelector('.g-btn--secondary');
-      if (primary) { primary.href = FORUM_HOME; primary.textContent = 'Open the Forum'; }
-      if (secondary) { secondary.href = '/api/forum/start/'; secondary.textContent = 'Start a Thread'; }
+      setButton(primary, 'Enter Forum', FORUM_HOME, FORUM_ICON);
+      setButton(secondary, 'Start a Thread', '/api/forum/start/');
       var fine = act.parentNode && act.parentNode.querySelector('.join__fine');
       if (fine) fine.textContent = 'You’re signed in. Read, reply, or start a thread of your own.';
     });
