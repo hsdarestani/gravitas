@@ -55,6 +55,11 @@ class PrelaunchFeedbackTests(TestCase):
     def test_anonymous_cannot_read_admin_responses(self):
         self.post({'name': 'Test', 'answers': {'overall_rating': 7}})
         self.assertEqual(self.client.get(self.admin_url).status_code, 401)
+        admin = get_user_model().objects.create_superuser(
+            'owner', email='owner@example.com', password='testpassword'
+        )
+        self.client.force_login(admin)
+        self.assertEqual(self.client.get('/api/platform/bootstrap/').status_code, 200)
         member = get_user_model().objects.create_user('reader', password='testpassword')
         self.client.force_login(member)
         self.assertEqual(self.client.get(self.admin_url).status_code, 403)
