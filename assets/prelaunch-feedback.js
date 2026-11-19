@@ -32,7 +32,7 @@ function fieldControl(field) {
     title.append(badge);
   }
   const heading = el('span', 'fb-question__label', field.label);
-  title.append(heading, el('span', 'fb-question__optional', 'Optional'));
+  title.append(heading);
   wrap.append(title);
   if (field.hint) wrap.append(el('p', 'fb-question__hint', field.hint));
   const name = field.key;
@@ -101,7 +101,7 @@ function build() {
       details.className='fb-more';
       details.dataset.more=group.id;
       const summary=document.createElement('summary');
-      summary.textContent='Add more detail ('+moreQuestions.length+' optional '+(moreQuestions.length===1?'question':'questions')+')';
+      summary.textContent='More questions ('+moreQuestions.length+')';
       details.append(summary);
       const extra=el('div','fb-questions fb-questions--extra');
       moreQuestions.forEach(field=>extra.append(fieldControl(field)));
@@ -134,11 +134,6 @@ function syncState() {
     question.querySelectorAll('input,textarea,select').forEach(input=>{
       input.disabled=question.hidden;
     });
-  }
-  // Selecting Other shows the follow-up field instead of burying it.
-  if(fieldValue('persona')==='other') {
-    const extra=form.querySelector('[data-more="about"]');
-    if(extra)extra.open=true;
   }
   const available=FIELDS.filter(field=>field.star&&gateSatisfied(field));
   const completed=available.filter(field=>fieldValue(field.key)!=='').length;
