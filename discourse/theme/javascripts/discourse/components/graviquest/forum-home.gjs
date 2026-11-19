@@ -11,6 +11,16 @@
 // chips with that room lit, so moving between rooms reads as filtering one
 // list.
 //
+// 2026-11-19, third pass. Seen with This Week's Question and House Rules
+// brought back from forum.html, the head was a field of capsules: room chips,
+// sort chips, a rounded search box and its button, all the same shape, so
+// nothing said which was a filter and which an action. Now only actions are
+// buttons. Rooms are a row of text tabs over one hairline (the active room
+// underlined), sort is two small words beside it, search is a plain field
+// with its icon and no button (Enter searches), and the week's question opens
+// its thread with a text link, so the page has one button: Start a Thread.
+// House Rules sit under the list (house-rules.gjs, outlet after-topic-list).
+//
 // Which rooms, and in what order, is backend/core/forum_rooms.json; the slugs
 // below must match it (core/test_forum_rooms.py fails otherwise), and
 // ops/discourse/rooms.rb creates them on Discourse before every theme release.
@@ -26,6 +36,15 @@ const ROOMS = ["about-the-forum", "about-graviquest", "ai-in-research"];
 // as the approved prototype's "Open the Topic" button does.
 const TOPIC_PAGES = {
   "ai-in-research": "https://graviquest.com/topic-answer-that-looked-right.html",
+};
+
+// This week's question: the sentence the card shows and the thread it opens.
+// Change both here when the question changes. The thread lives in The Open
+// Question, which is not one of the listed rooms, so the card is its door.
+const WEEK = {
+  question:
+    "A model predicts a material’s behaviour correctly, repeatedly, and nobody, including its authors, can say why. Has science been done?",
+  url: "/t/16",
 };
 
 export default class GraviQuestForumHome extends Component {
@@ -61,6 +80,10 @@ export default class GraviQuestForumHome extends Component {
 
   get isTop() {
     return this.sort === "top";
+  }
+
+  get week() {
+    return WEEK;
   }
 
   // A member's thread starts in this room; a visitor is asked to sign in,
@@ -102,22 +125,29 @@ export default class GraviQuestForumHome extends Component {
         <a class="btn btn-primary gq-page-top__action" href="/new-topic">Start a Thread</a>
       </header>
     {{/if}}
+    {{#unless this.category}}
+      <section class="gq-week" aria-labelledby="gq-week-title">
+        <h2 class="gq-week__label" id="gq-week-title">This Week’s Question</h2>
+        <p class="gq-week__question">{{this.week.question}}</p>
+        <a class="gq-week__link" href={{this.week.url}}>Join the Thread <span aria-hidden="true">→</span></a>
+      </section>
+    {{/unless}}
     <div class="gq-filters">
-      <nav class="gq-chips" aria-label="Rooms">
-        <a class="gq-chip {{unless this.category 'is-active'}}" href="/latest" aria-current={{unless this.category "page"}}>All</a>
+      <nav class="gq-tabs" aria-label="Rooms">
+        <a class="gq-tab {{unless this.category 'is-active'}}" href="/latest" aria-current={{unless this.category "page"}}>All</a>
         {{#each this.chips key="slug" as |chip|}}
-          <a class="gq-chip {{if chip.active 'is-active'}}" href={{chip.url}} data-room={{chip.slug}} aria-current={{if chip.active "page"}}>{{chip.name}}</a>
+          <a class="gq-tab {{if chip.active 'is-active'}}" href={{chip.url}} data-room={{chip.slug}} aria-current={{if chip.active "page"}}>{{chip.name}}</a>
         {{/each}}
       </nav>
       <form class="gq-search" action="/search" method="get" role="search">
         <input type="search" name="q" placeholder="Search threads" aria-label="Search threads" />
-        <button class="btn btn-default" type="submit">Search</button>
       </form>
     </div>
     {{#unless this.category}}
-      <nav class="gq-chips gq-chips--sort" aria-label="Sort">
-        <a class="gq-chip {{if this.isLatest 'is-active'}}" href="/latest">Latest</a>
-        <a class="gq-chip {{if this.isTop 'is-active'}}" href="/top">Top</a>
+      <nav class="gq-sort" aria-label="Sort">
+        <span class="gq-sort__label">Sort</span>
+        <a class="{{if this.isLatest 'is-active'}}" href="/latest" aria-current={{if this.isLatest "page"}}>Latest</a>
+        <a class="{{if this.isTop 'is-active'}}" href="/top" aria-current={{if this.isTop "page"}}>Top</a>
       </nav>
     {{/unless}}
   </template>

@@ -2074,7 +2074,7 @@ html body .gq-page-top__action{justify-self:end}
 
 /* The rooms: forum.html's rows (hairline between, mono figures on the right,
    the title taking the accent on hover). */
-html body .gq-forum-home{margin-bottom:4rem}
+html body .gq-forum-home{margin-bottom:2.5rem}
 html body .gq-rooms{list-style:none;margin:0;padding:0}
 html body .gq-rooms > li{margin:0;padding:0}
 html body .gq-roomrow{display:grid;grid-template-columns:minmax(0,1fr) 4.5rem 4.5rem 4.5rem;gap:1rem;align-items:center;padding:1.5rem .5rem;border-bottom:1px solid var(--g-hairline);color:var(--g-text);text-decoration:none;transition:background-color .2s ease}
@@ -2219,18 +2219,52 @@ html body .gq-footer .g-stack>span>span:not(.g-soon){font-size:.875rem}
    (forum-home.gjs). The table is Discourse's list, shown again here. Threads
    in rooms the Forum no longer lists stay at their URLs but are not listed. */
 html body .topic-list .topic-list-item:not(.category-about-the-forum):not(.category-about-graviquest):not(.category-ai-in-research){display:none!important}
-html body .gq-filters{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:1rem;margin:0 0 1rem}
-html body .gq-chips{display:flex;flex-wrap:wrap;gap:.5rem}
-html body .gq-chips--sort{margin:0 0 1.5rem}
-html body .gq-chip{display:inline-flex;align-items:center;min-height:40px;padding:0 1rem;border:1px solid var(--g-hairline);border-radius:99px;font:500 .875rem/1 "DM Sans",sans-serif;color:var(--g-text-muted);text-decoration:none;transition:background-color .2s ease,color .2s ease}
-html body .gq-chip:hover{background:var(--g-surface);color:var(--g-text)}
-html body .gq-chip.is-active{background:var(--gq-wash-strong);border-color:var(--g-border);color:var(--g-text)}
-html body .gq-search{display:flex;gap:.5rem;align-items:center;margin:0}
-html body .gq-search input[type=search]{width:15rem;min-height:40px;margin:0;padding:0 1rem;border:1px solid var(--g-hairline);border-radius:99px;background:transparent;color:var(--g-text);font:400 .875rem "DM Sans",sans-serif}
-html body .gq-search input[type=search]:focus{outline:2px solid var(--g-text);outline-offset:1px}
-html body .gq-search .btn{min-height:40px;border-radius:99px}
-@media (max-width:640px){html body .gq-filters{flex-direction:column;align-items:stretch}html body .gq-search input[type=search]{flex:1;width:auto}}
-@media (prefers-reduced-motion:reduce){html body .gq-chip{transition:none}}
+/* 2026-11-19: no capsules here. Only actions are buttons. Rooms are text tabs
+   over one hairline, the active room underlined in the accent; search is a
+   plain field with its icon and no button (Enter searches); sort is two small
+   words. Below 640px the tabs scroll sideways and search takes the full width. */
+html body .gq-filters{display:flex;align-items:flex-end;justify-content:space-between;gap:1.5rem;margin:0;border-bottom:1px solid var(--g-hairline)}
+html body .gq-tabs{display:flex;gap:1.75rem;min-width:0;overflow-x:auto;scrollbar-width:none}
+html body .gq-tabs::-webkit-scrollbar{display:none}
+html body .gq-tab{position:relative;flex:none;padding:.875rem 0 1rem;font:500 .9375rem/1.2 "DM Sans",sans-serif;color:var(--g-text-subtle);text-decoration:none;white-space:nowrap;transition:color .2s ease}
+html body .gq-tab::after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:2px;border-radius:2px;background:transparent;transition:background-color .2s ease}
+html body .gq-tab:hover{color:var(--g-text)}
+html body .gq-tab.is-active{color:var(--g-text)}
+html body .gq-tab.is-active::after{background:var(--g-accent)}
+html body .gq-tab:focus-visible{outline:2px solid var(--g-accent);outline-offset:2px;border-radius:4px}
+html body .gq-search{position:relative;flex:0 1 16rem;margin:0 0 .625rem}
+html body .gq-search::before{content:"";position:absolute;left:.75rem;top:50%;width:1rem;height:1rem;transform:translateY(-50%);background:var(--g-text-subtle);-webkit-mask:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%23000%22%20stroke-width%3D%221.8%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Ccircle%20cx%3D%2210.5%22%20cy%3D%2210.5%22%20r%3D%226.5%22%2F%3E%3Cpath%20d%3D%22m15.5%2015.5%204.5%204.5%22%2F%3E%3C%2Fsvg%3E") center/contain no-repeat;mask:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%23000%22%20stroke-width%3D%221.8%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Ccircle%20cx%3D%2210.5%22%20cy%3D%2210.5%22%20r%3D%226.5%22%2F%3E%3Cpath%20d%3D%22m15.5%2015.5%204.5%204.5%22%2F%3E%3C%2Fsvg%3E") center/contain no-repeat;pointer-events:none}
+html body .gq-search input[type=search]{width:100%;min-height:38px;margin:0;padding:0 .875rem 0 2.25rem;border:1px solid var(--g-hairline);border-radius:8px;background:var(--g-surface-sunken);color:var(--g-text);font:400 .875rem "DM Sans",sans-serif;box-shadow:none}
+html body .gq-search input[type=search]::placeholder{color:var(--g-text-subtle)}
+html body .gq-search input[type=search]:hover{border-color:var(--g-border)}
+html body .gq-sort{display:flex;justify-content:flex-end;align-items:baseline;gap:1rem;margin:.875rem 0 .5rem;font:400 .8125rem/1 "DM Mono",monospace;letter-spacing:.02em}
+html body .gq-sort__label{color:var(--g-text-subtle)}
+html body .gq-sort a{color:var(--g-text-subtle);text-decoration:none}
+html body .gq-sort a:hover{color:var(--g-text)}
+html body .gq-sort a.is-active{color:var(--g-text);text-decoration:underline;text-decoration-color:var(--g-accent);text-underline-offset:.35em;text-decoration-thickness:1.5px}
+html body.navigation-category .gq-filters{margin-bottom:1.5rem}
+@media (max-width:640px){html body .gq-filters{flex-direction:column-reverse;align-items:stretch;gap:.5rem}html body .gq-search{flex:none;margin:0}html body .gq-tabs{gap:1.25rem}}
+
+/* This Week's Question, between the head and the list: a quiet card (no side
+   stripe), the label in mono, the question in Literata, and a text link. */
+html body .gq-week{margin:0 0 2.5rem;padding:1.75rem 2rem;border:1px solid var(--g-hairline);border-radius:var(--g-radius,12px);background:var(--g-surface)}
+html body .gq-week__label{margin:0 0 .75rem;font:400 .8125rem/1.4 "DM Mono",monospace;letter-spacing:.04em;color:var(--g-accent)}
+html body .gq-week__question{max-width:44rem;margin:0 0 1.25rem;font:400 clamp(1.15rem,1.05rem + .45vw,1.4rem)/1.45 Literata,Georgia,serif;color:var(--g-text)}
+html body .gq-week__link{font-weight:600;font-size:.9375rem;color:var(--g-text);text-decoration:underline;text-decoration-color:var(--g-accent);text-underline-offset:.3em;text-decoration-thickness:1.5px}
+html body .gq-week__link span{display:inline-block;margin-left:.25rem;transition:transform .2s ease}
+html body .gq-week__link:hover{color:var(--g-accent)}
+html body .gq-week__link:hover span{transform:translateX(3px)}
+@media (max-width:640px){html body .gq-week{padding:1.25rem 1.25rem 1.375rem}}
+
+/* House Rules, under every thread list: four numbered lines in one band. */
+html body .gq-rules{margin:3rem 0 1rem;padding-top:1.5rem;border-top:1px solid var(--g-hairline)}
+html body .gq-rules__title{margin:0 0 1rem;font:400 .8125rem/1.4 "DM Mono",monospace;letter-spacing:.04em;color:var(--g-accent)}
+html body .gq-rules__list{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1.5rem;margin:0;padding:0;list-style:none;counter-reset:gq-rule}
+html body .gq-rules__list li{counter-increment:gq-rule;margin:0;font-size:.9375rem;line-height:1.5;color:var(--g-text-muted)}
+html body .gq-rules__list li::before{content:counter(gq-rule,decimal-leading-zero);display:block;margin-bottom:.375rem;font:400 .75rem/1 "DM Mono",monospace;color:var(--g-text-subtle)}
+@media (max-width:900px){html body .gq-rules__list{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:480px){html body .gq-rules__list{grid-template-columns:minmax(0,1fr);gap:1rem}}
+@media (prefers-reduced-motion:reduce){html body :is(.gq-tab,.gq-tab::after,.gq-week__link span){transition:none}}
 /* A room's two actions sit together in its head; Discourse's own New Topic
    button under the head would be the same action twice. */
 html body .gq-room-actions{display:flex;flex-wrap:wrap;gap:.75rem}

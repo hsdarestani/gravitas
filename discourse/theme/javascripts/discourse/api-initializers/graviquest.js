@@ -4,6 +4,7 @@ import Navigation from "../components/graviquest/navigation";
 import ForumHome from "../components/graviquest/forum-home";
 import ThemeToggle from "../components/graviquest/theme-toggle";
 import Footer from "../components/graviquest/footer";
+import HouseRules from "../components/graviquest/house-rules";
 
 import { ThreadBreadcrumb } from "../components/graviquest/thread-details";
 
@@ -64,6 +65,7 @@ export default apiInitializer((api) => {
   api.renderInOutlet("discovery-navigation-bar-above", ForumHome);
   api.renderInOutlet("topic-above-post-stream", ThreadBreadcrumb);
   api.renderInOutlet("below-footer", Footer);
+  api.renderInOutlet("after-topic-list", HouseRules);
   // Every thread in a room shows one line of its opening post, as in the
   // approved prototype; Discourse draws that line for pinned threads only.
   // rooms.rb turns on the setting that sends the excerpt for every thread.
