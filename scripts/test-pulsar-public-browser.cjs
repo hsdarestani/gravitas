@@ -102,9 +102,13 @@ async function fits(page, width) {
       const context=await browser.newContext({viewport:{width,height:844},isMobile:width<500,hasTouch:width<500});
       const page=await context.newPage();
       const requests=[];
+      const warnings=[];
+      page.on('console', entry=>{ if(entry.type()==='warning') warnings.push(entry.text()); });
       let failure=false;
       await page.route(/\/(?:api\/pulsar|gq-pulsar)\/ask\/$/, async route=>{
         const data=route.request().postDataJSON(); requests.push(data);
+        if(failure && typeof failure==='object') return route.fulfill({status:429,
+          contentType:'application/json',body:JSON.stringify(failure)});
         if(failure) return route.fulfill({status:503,body:'unavailable'});
         if(live) {
           const key=semanticKey(data);
@@ -157,6 +161,15 @@ async function fits(page, width) {
         await ask(page,'Explain this in simple terms.');
         assert.match(await page.locator('.gchat__msg--bot').last().innerText(),/could not answer/);
         assert(await page.getByRole('button',{name:'Send',exact:true}).isEnabled());
+        if(!live) {
+          failure={ok:false,error:'cloudflare_ai_quota_exhausted',provider_codes:[4006],
+            request_id:'e'.repeat(32),reply:'Pulsar has reached its AI provider’s free usage limit. Please try later.',links:[]};
+          await ask(page,'PRIVATE_UI_QUESTION');
+          assert.match(await page.locator('.gchat__msg--bot').last().innerText(),/free usage limit/);
+          assert(warnings.some(line=>line.includes('cloudflare_ai_quota_exhausted')),'Structured quota code not logged');
+          assert(warnings.every(line=>!line.includes('PRIVATE_UI_QUESTION')),'User content leaked to console');
+          assert(await page.getByRole('button',{name:'Send',exact:true}).isEnabled());
+        }
         failure=false;
       }
       await page.setViewportSize({width,height:420});
