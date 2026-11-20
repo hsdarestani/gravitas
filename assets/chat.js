@@ -543,8 +543,29 @@
         })
       }, 25000);
     }).then(function (r) {
-      if (!r.ok) throw new Error(r.status);
-      return r.json();
+      return r.json().catch(function () {
+        console.warn('Pulsar request failed', {status: r.status, code: 'invalid_response'});
+        throw new Error('invalid_response');
+      }).then(function (d) {
+        if (!r.ok || (d && d.ok === false)) {
+          // Only stable error metadata; never log prompts, history, complete
+          // payloads, exception text or account/authentication details.
+          var codes = ['cloudflare_ai_quota_exhausted', 'cloudflare_ai_rate_limited',
+            'cloudflare_ai_authentication_failed', 'cloudflare_ai_timeout',
+            'cloudflare_ai_failed', 'cloudflare_ai_network_error',
+            'cloudflare_ai_invalid_response', 'cloudflare_ai_empty_response',
+            'pulsar_provider_not_configured', 'pulsar_unavailable'];
+          console.warn('Pulsar request failed', {
+            status: r.status,
+            code: d && codes.indexOf(d.error) !== -1 ? d.error : 'http_error',
+            providerCodes: d && Array.isArray(d.provider_codes) ? d.provider_codes.filter(function (c) { return Number.isInteger(c); }).slice(0, 4) : [],
+            requestId: d && /^[a-f0-9]{32}$/.test(d.request_id || '') ? d.request_id : ''
+          });
+          if (!d || !d.reply) throw new Error('http_error');
+          return { reply: d.reply, links: [] };
+        }
+        return d;
+      });
     }).then(function (d) {
       if (!d || !d.reply) throw new Error('empty');
       return { reply: d.reply, links: pairs(d.links) };
@@ -562,7 +583,10 @@
           return { reply: 'That request did not go through. Pulsar may be down; try again in a moment.', links: [] };
         });
     }
-    if (CFG.endpoint) return remoteAnswer(q, history).catch(function () { return localAnswer(q); });
+    if (CFG.endpoint) return remoteAnswer(q, history).catch(function (error) {
+      console.warn('Pulsar transport failed', { code: error && error.name === 'AbortError' ? 'timeout' : 'network_or_invalid_response' });
+      return localAnswer(q);
+    });
     // A local lookup returns instantly, which reads as canned. A short beat
     // makes the exchange feel like a reply rather than a page update.
     return new Promise(function (res) { setTimeout(function () { res(localAnswer(q)); }, 420); });

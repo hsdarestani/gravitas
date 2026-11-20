@@ -6,11 +6,30 @@ from urllib.parse import quote
 import requests
 from django.conf import settings
 
-from .errors import PulsarError
+from .errors import PulsarError, PulsarProviderError
 from .types import ProviderResponse
 
 
 logger = logging.getLogger(__name__)
+
+
+def _cloudflare_failure(*, response=None, payload=None, code=None):
+    status = getattr(response, 'status_code', None)
+    status = status if type(status) is int else None
+    rows = payload.get('errors', []) if isinstance(payload, dict) else []
+    codes = [row.get('code') for row in rows[:4] if isinstance(row, dict)] if isinstance(rows, list) else []
+    if code is None:
+        code = ('cloudflare_ai_quota_exhausted' if 4006 in codes else
+                'cloudflare_ai_authentication_failed' if status in (401, 403) else
+                'cloudflare_ai_rate_limited' if status == 429 else 'cloudflare_ai_failed')
+    headers = getattr(response, 'headers', {}) or {}
+    retry = headers.get('Retry-After')
+    retry = int(retry) if isinstance(retry, str) and retry.isdecimal() else None
+    error = PulsarProviderError(code, http_status=status, provider_codes=codes, retry_after=retry)
+    # HTTPError.__str__ contains the account URL; provider bodies can echo user
+    # content. Neither belongs in production logs or the public response.
+    logger.warning('pulsar_provider_failure %s', json.dumps(error.diagnostics()))
+    return error
 
 
 def _clean_setting(name, default=''):
@@ -198,14 +217,17 @@ class ManagedCloudflareProvider:
                 json=request_body,
                 timeout=(8, max(15, timeout)),
             )
-            response.raise_for_status()
+        except requests.Timeout:
+            raise _cloudflare_failure(code='cloudflare_ai_timeout') from None
+        except requests.RequestException:
+            raise _cloudflare_failure(code='cloudflare_ai_network_error') from None
+        try:
             payload = response.json()
-        except (requests.RequestException, ValueError) as exc:
-            logger.warning('Pulsar Cloudflare request failed: %s', exc)
-            raise PulsarError('cloudflare_ai_failed') from exc
-
-        if payload.get('success') is False:
-            raise PulsarError('cloudflare_ai_failed')
+        except ValueError:
+            raise _cloudflare_failure(response=response, code='cloudflare_ai_invalid_response') from None
+        status = getattr(response, 'status_code', 200)
+        if (type(status) is int and status >= 400) or not isinstance(payload, dict) or payload.get('success') is False:
+            raise _cloudflare_failure(response=response, payload=payload)
         result = payload.get('result')
         usage = payload.get('usage') if isinstance(payload.get('usage'), dict) else {}
         if isinstance(result, dict):
@@ -218,13 +240,10 @@ class ManagedCloudflareProvider:
         # A Python dict repr uses single quotes and is NOT valid JSON.
         if response_format is not None and isinstance(answer, (dict, list)):
             answer = json.dumps(answer, ensure_ascii=False)
-        return _response(
-            answer,
-            provider=self.name,
-            model=model,
-            started=started,
-            usage=usage,
-        )
+        try:
+            return _response(answer, provider=self.name, model=model, started=started, usage=usage)
+        except PulsarError:
+            raise _cloudflare_failure(response=response, code='cloudflare_ai_empty_response') from None
 
 
 class ManagedOpenAIProvider:
@@ -490,6 +509,7 @@ class ModelGateway:
             raise PulsarError('pulsar_no_model_provider_configured')
 
         errors = []
+        last_error = None
         for provider in providers:
             provider_kwargs = dict(kwargs)
             if response_format is not None and isinstance(provider, ManagedCloudflareProvider):
@@ -497,6 +517,7 @@ class ModelGateway:
             try:
                 return provider.complete(**provider_kwargs)
             except PulsarError as exc:
+                last_error = exc
                 provider_name = _provider_name(provider)
                 errors.append(f'{provider_name}:{exc}')
                 fallback = _provider_fallback_model(provider_name)
@@ -506,6 +527,7 @@ class ModelGateway:
                         retry_kwargs['model_override'] = fallback
                         return provider.complete(**retry_kwargs)
                     except PulsarError as fallback_exc:
+                        last_error = fallback_exc
                         errors.append(f'{provider_name}:fallback:{fallback_exc}')
                 if provider_override:
                     break
@@ -513,4 +535,4 @@ class ModelGateway:
                     'Pulsar provider %s failed; trying next configured provider',
                     provider_name,
                 )
-        raise PulsarError('pulsar_all_model_providers_failed:' + '|'.join(errors))
+        raise PulsarError('pulsar_all_model_providers_failed:' + '|'.join(errors)) from last_error

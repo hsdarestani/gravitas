@@ -1,6 +1,8 @@
 import json
+import logging
 import re
 import time
+from uuid import uuid4
 
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
@@ -10,6 +12,7 @@ from . import topic_01
 from .models import ContentItem, PublicPageSnapshot
 from .topic_essay_api import TOPIC_01_PAGE, public_essay_context, public_essay_label, published_essays
 from .pulsar import PulsarError, configured, run_text
+from .pulsar_runtime.errors import PulsarProviderError
 from .pulsar_public_guide import PUBLIC_SYSTEM, destinations, present_answer, recent_history, progression_answer, public_thread_context
 from .pulsar_public_context import (
     clean_text,
@@ -19,6 +22,43 @@ from .pulsar_public_context import (
     short_public_answer,
     topic_rows_from_db,
 )
+
+logger = logging.getLogger(__name__)
+
+
+def _unavailable(error, started):
+    # Follow the provider cause through the shared gateway without exposing
+    # exception text, user content, URLs, credentials or private thread IDs.
+    seen = set()
+    cause = error
+    while cause is not None and id(cause) not in seen:
+        seen.add(id(cause))
+        if isinstance(cause, PulsarProviderError):
+            break
+        cause = cause.__cause__
+    info = cause.diagnostics() if isinstance(cause, PulsarProviderError) else {
+        'code': 'pulsar_unavailable', 'provider': 'unavailable',
+        'http_status': None, 'provider_codes': [], 'retry_after': None,
+    }
+    request_id = uuid4().hex
+    logger.warning('pulsar_public_failure %s', json.dumps({
+        **info, 'request_id': request_id, 'elapsed_ms': int((time.monotonic() - started) * 1000),
+    }))
+    code = info['code']
+    reply = {
+        'cloudflare_ai_quota_exhausted': 'Pulsar has reached its AI provider’s free usage limit. Live explanations are temporarily unavailable; please try later.',
+        'cloudflare_ai_rate_limited': 'Pulsar’s AI provider is temporarily limiting requests. Please wait before trying again.',
+        'cloudflare_ai_authentication_failed': 'Pulsar’s AI connection needs attention from the site team. Please try again later.',
+        'cloudflare_ai_timeout': 'Pulsar’s AI provider took too long to respond. Please try again later.',
+    }.get(code, 'Pulsar could not answer just now. Please try your question again in a moment.')
+    response = JsonResponse({'ok': False, 'reply': reply, 'links': [], 'provider': 'fallback',
+        'retryable': code != 'cloudflare_ai_authentication_failed', 'error': code,
+        'provider_codes': info['provider_codes'], 'request_id': request_id,
+        'version': 'public-guide-v2'}, status=429 if code in (
+            'cloudflare_ai_quota_exhausted', 'cloudflare_ai_rate_limited') else 503)
+    if info.get('retry_after') is not None:
+        response['Retry-After'] = str(info['retry_after'])
+    return response
 
 
 def _excerpts(text, question, *, limit):
@@ -230,9 +270,7 @@ def public_pulsar_ask(request):
                             'output_tokens': getattr(result, 'output_tokens', 0),
                             'context_chars': len(prompt),
                             'page_context_available': bool(snapshot)}})
-        except PulsarError:
-            pass
+        except PulsarError as error:
+            return _unavailable(error, started)
     # Honest transient failure, without a keyword index inventing capabilities.
-    return JsonResponse({'ok': True,
-        'reply': 'Pulsar could not answer just now. Please try your question again in a moment.',
-        'links': [], 'provider': 'fallback', 'retryable': True, 'version': 'public-guide-v2'})
+    return _unavailable(PulsarProviderError('pulsar_provider_not_configured', provider='unavailable'), started)
