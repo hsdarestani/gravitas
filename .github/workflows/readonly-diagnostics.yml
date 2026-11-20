@@ -64,7 +64,14 @@ jobs:
           fi
           REMOTE=/tmp/gravitas-diagnostics-$GITHUB_RUN_ID.py
           scp -i ~/.ssh/diagnose -P "$PORT" ops/readonly_runtime_diagnostics.py "$USER@$SSH_HOST:$REMOTE"
-          ssh "${OPTS[@]}" "$USER@$SSH_HOST" "python3 '$REMOTE'; rm -f '$REMOTE'"
+          ssh "${OPTS[@]}" "$USER@$SSH_HOST" "python3 '$REMOTE' --pulsar-incident; rm -f '$REMOTE'"
+
+      - name: Read Workers AI account usage without inference
+        env:
+          CF_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CF_ANALYTICS_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CF_AI_TOKEN: ${{ secrets.CLOUDFLARE_AI_API_TOKEN }}
+        run: python3 ops/readonly_runtime_diagnostics.py --pulsar-cloudflare-analytics
 
       - name: Publish read-only diagnostics result
         if: always()

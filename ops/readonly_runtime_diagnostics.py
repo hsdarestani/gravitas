@@ -1133,8 +1133,167 @@ PYSCRIPT
         print("pulsar_model_envelope unavailable")
 
 
+
+def public_pulsar_incident():
+    """Incident-only collection. No inference and no raw requests/log messages."""
+    import json
+    from datetime import timezone
+    raw = run('sudo', '-n', 'journalctl', '-u', 'gravitas-backend.service',
+              '--since', '2026-11-19 00:00:00 UTC', '--no-pager', '-o', 'json', timeout=25)
+    buckets = collections.Counter()
+    incident = collections.Counter()
+    success_usage = collections.Counter()
+    for line in raw.splitlines():
+        try:
+            record = json.loads(line)
+            message = record.get('MESSAGE', '')
+            stamp = datetime.fromtimestamp(int(record.get('__REALTIME_TIMESTAMP', '0')) / 1e6, timezone.utc)
+        except (ValueError, TypeError):
+            continue
+        if not isinstance(message, str) or not re.search(r'pulsar|cloudflare', message, re.I):
+            continue
+        status = re.search(r'\b([45]\d\d) (?:Client|Server) Error', message)
+        category = ('http_' + status.group(1)) if status else next((name for name, needle in (
+            ('timeout', 'timed out'), ('timeout', 'timeout'), ('auth', 'unauthorized'),
+            ('quota_4006', '4006'), ('runtime_failure', 'run.failed'),
+            ('provider_failure', 'cloudflare_ai_failed'), ('provider_failure', 'request failed'),
+        ) if needle in message.lower()), '')
+        if category:
+            buckets[(stamp.strftime('%Y-%m-%d %H:%M'), category)] += 1
+            if '2026-11-20 07:55' <= stamp.strftime('%Y-%m-%d %H:%M') <= '2026-11-20 08:15':
+                incident[category] += 1
+        if 'pulsar_trace ' in message:
+            try:
+                payload = json.loads(message.split('pulsar_trace ', 1)[1])
+                if payload.get('event') == 'run.completed':
+                    for key in ('input_tokens', 'output_tokens'):
+                        value = payload.get(key, 0)
+                        if isinstance(value, int):
+                            success_usage[(stamp.strftime('%Y-%m-%d'), key)] += value
+            except (ValueError, TypeError):
+                pass
+    print('PULSAR_INCIDENT_LOGS', json.dumps({
+        'observed_window_utc': '2026-11-20 07:55–08:15', 'incident_error_counts': dict(incident),
+        'error_minutes': [{'minute_utc': minute, 'category': category, 'count': count}
+                          for (minute, category), count in sorted(buckets.items())[-80:]],
+        'recorded_usage_only': {f'{day}:{key}': value for (day, key), value in success_usage.items()},
+        'raw_user_content_exported': False,
+    }))
+    # Credentials and Django settings are read under the existing service user.
+    # Only explicit boolean/scalar metadata leaves this subprocess.
+    child = r'''set -euo pipefail
+set -a
+. /etc/gravitas/backend.env
+set +a
+export PYTHONPATH=/opt/gravitas-backend DJANGO_SETTINGS_MODULE=gravitas_backend.settings
+/opt/gravitas-backend/.venv/bin/python - <<'CHILD'
+import json,logging,hashlib
+import django
+django.setup()
+from django.conf import settings
+from core.pulsar_runtime.providers import ModelGateway, _cloudflare_model
+import requests
+account=settings.CLOUDFLARE_AI_ACCOUNT_ID
+token=settings.CLOUDFLARE_AI_API_TOKEN
+model=_cloudflare_model('general')
+report={'account_configured': bool(account), 'token_configured': bool(token),
+ 'model': model, 'timeout_seconds': settings.CLOUDFLARE_AI_TIMEOUT,
+ 'providers':ModelGateway().status(),
+ 'fallback_model_configured':bool(settings.PULSAR_MODEL_FALLBACK or settings.PULSAR_CLOUDFLARE_MODEL_FALLBACK),
+ 'pulsar_info_logging_enabled':logging.getLogger('core.pulsar').isEnabledFor(logging.INFO)}
+headers={'Authorization':'Bearer '+token}
+for label,url in (
+ ('token_verify','https://api.cloudflare.com/client/v4/user/tokens/verify'),
+ ('model_search',f'https://api.cloudflare.com/client/v4/accounts/{account}/ai/models/search')):
+ try:
+  response=requests.get(url,headers=headers,params={'search':model,'per_page':1} if label=='model_search' else None,timeout=(5,15))
+  data=response.json()
+  result=data.get('result')
+  row={'http_status':response.status_code,'success':data.get('success'),
+       'error_codes':[e.get('code') for e in data.get('errors',[]) if isinstance(e,dict)]}
+  if label=='token_verify':row['status']=result.get('status') if isinstance(result,dict) else None
+  if label=='model_search':row['configured_model_found']=any(r.get('name')==model for r in (result or []) if isinstance(r,dict))
+  report[label]=row
+ except (requests.RequestException,ValueError,TypeError) as error:
+  report[label]={'error_class':type(error).__name__}
+print('PULSAR_CONFIG '+json.dumps(report))
+CHILD
+'''
+    result = subprocess.run(['sudo', '-n', '-u', 'gravitas', 'bash', '-c', child],
+                            capture_output=True, text=True, timeout=45, check=False)
+    for line in result.stdout.splitlines():
+        if line.startswith('PULSAR_CONFIG '):
+            print(line)
+    print('PULSAR_CONFIG_EXIT', result.returncode)
+
+
+def cloudflare_readonly_analytics():
+    """Account-wide usage through existing secrets; management requests only."""
+    import os, json, urllib.request, urllib.error
+    from datetime import timezone, timedelta
+    account = os.environ.get('CF_ACCOUNT_ID', '')
+    tokens = [('existing_analytics_token', os.environ.get('CF_ANALYTICS_TOKEN', '')),
+              ('existing_ai_token', os.environ.get('CF_AI_TOKEN', ''))]
+    now = datetime.now(timezone.utc)
+    starts = {'utc_today': now.replace(hour=0, minute=0, second=0, microsecond=0),
+              'rolling_24h': now - timedelta(hours=24)}
+    query = '''query($account: String!, $start: Time!, $end: Time!) {
+      viewer { accounts(filter: {accountTag: $account}) {
+        aiInferenceAdaptiveGroups(limit: 100, filter: {datetime_geq: $start, datetime_leq: $end}) {
+          count dimensions { errorCode modelId } sum { totalNeurons totalInputTokens totalOutputTokens }
+        }
+      } }
+    }'''
+    seen = set()
+    for source, token in tokens:
+        if not account or not token or token in seen:
+            continue
+        seen.add(token)
+        denied = False
+        for window, start in starts.items():
+            request = urllib.request.Request('https://api.cloudflare.com/client/v4/graphql',
+                headers={'Authorization': 'Bearer '+token,'Content-Type':'application/json'},
+                data=json.dumps({'query':query,'variables':{'account':account,
+                     'start':start.isoformat(),'end':now.isoformat()}}).encode())
+            try:
+                with urllib.request.urlopen(request, timeout=20) as response:
+                    payload = json.load(response)
+                errors = payload.get('errors') or []
+                if errors:
+                    print('PULSAR_CF_ANALYTICS', json.dumps({'token_source':source,'window':window,
+                        'available':False,'permission_denied':any('not authorized' in str(e.get('message','')).lower() for e in errors),
+                        'schema_error':any('cannot query' in str(e.get('message','')).lower() or 'unknown' in str(e.get('message','')).lower() for e in errors)}))
+                    denied = True
+                    break
+                accounts=(payload.get('data') or {}).get('viewer',{}).get('accounts',[])
+                rows=accounts[0].get('aiInferenceAdaptiveGroups',[]) if accounts else []
+                neurons=sum((r.get('sum') or {}).get('totalNeurons',0) for r in rows)
+                print('PULSAR_CF_ANALYTICS', json.dumps({'token_source':source,'window':window,
+                    'available':bool(accounts),'neurons':neurons,'free_remaining_estimate':max(0,10000-neurons),
+                    'rows':[{'requests':r.get('count'), 'error_code':r.get('dimensions',{}).get('errorCode'),
+                        'neurons':r.get('sum',{}).get('totalNeurons'),
+                        'input_tokens':r.get('sum',{}).get('totalInputTokens'),
+                        'output_tokens':r.get('sum',{}).get('totalOutputTokens')} for r in rows]}))
+            except (OSError,ValueError,KeyError,TypeError):
+                print('PULSAR_CF_ANALYTICS', json.dumps({'token_source':source,'window':window,'available':False,'request_failed':True}))
+                denied = True
+                break
+        if not denied:
+            return
+    print('PULSAR_CF_ANALYTICS no_authorized_analytics_token')
+
+
 if __name__ == "__main__":
-    forum_pulsar_response_envelope()
+    import sys
+    if "--pulsar-incident" in sys.argv:
+        public_pulsar_incident()
+        sys.exit(0)
+    if "--pulsar-cloudflare-analytics" in sys.argv:
+        cloudflare_readonly_analytics()
+        sys.exit(0)
+    # Model probes are never part of read-only diagnostics.
+    if "--allow-live-forum-probe" in sys.argv:
+        forum_pulsar_response_envelope()
     forum_pulsar_observe_diagnostic()
     api_release_probe_incident()
     print("GraviQuest read-only diagnostics", datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC"))
