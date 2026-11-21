@@ -12,7 +12,7 @@ const SHELL = [
   '/assets/ws/ws-core-assets.js',
   '/assets/ws/ws-math.js',
   '/assets/ws/ws-math.css',
-  '/assets/gravitas-icons.js?v=20261014-pulsar1',
+  '/assets/gravitas-icons.js?v=20261121-src1',
 ];
 
 self.addEventListener('install', (event) => {

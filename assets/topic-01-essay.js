@@ -321,7 +321,7 @@
     ['preprint', 'Preprint', 'notes'],
     ['policy', 'Policy or legal', 'balance'],
     ['news', 'News or blog', 'discussion'],
-    ['web', 'Web page', 'external'],
+    ['web', 'Web page', 'webpage'],
   ];
   function kindOf(title, url) {
     const host = hostOf(url);

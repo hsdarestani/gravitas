@@ -34,7 +34,7 @@
     home: "<g transform=\"translate(0.241 -1.483) scale(0.980000)\" stroke-width=\"1.735\"><path d=\"M3 10.2 12 3l9 7.2\"/><path d=\"M5.2 12v8.2a1 1 0 0 0 1 1h11.6a1 1 0 0 0 1-1V12\"/><circle cx=\"12\" cy=\"16.4\" r=\"1.582\" fill=\"currentColor\" stroke=\"none\"/></g>",
     overview: "<g transform=\"translate(0.647 0.325) scale(0.946052)\" stroke-width=\"1.797\"><rect x=\"2.6\" y=\"3.4\" width=\"18.8\" height=\"17.2\" rx=\"4\"/><path d=\"M2.6 9.4h18.8\"/><path d=\"M13.4 14.2h5\"/><path d=\"M13.4 17.4h3\"/><circle cx=\"7.6\" cy=\"15.8\" r=\"1.638\" fill=\"currentColor\" stroke=\"none\"/></g>",
     projects: "<g transform=\"translate(0.758 -0.858) scale(0.968270)\" stroke-width=\"1.756\"><path d=\"M2.8 6.4a2 2 0 0 1 2-2h4.3a2 2 0 0 1 1.6.8l1 1.4a2 2 0 0 0 1.6.8h5.9a2 2 0 0 1 2 2v9.2a2 2 0 0 1-2 2H4.8a2 2 0 0 1-2-2z\"/><circle cx=\"12\" cy=\"14.4\" r=\"1.601\" fill=\"currentColor\" stroke=\"none\"/></g>",
-    notes: "<g transform=\"translate(1.586 0.550) scale(0.889943)\" stroke-width=\"1.910\"><path d=\"M5.6 3.6a1.6 1.6 0 0 1 1.6-1.6h6.2l5 5v13.4a1.6 1.6 0 0 1-1.6 1.6H7.2a1.6 1.6 0 0 1-1.6-1.6z\"/><path d=\"M13.4 2v5h5\"/><path d=\"M9.2 12.6h5.6\"/><path d=\"M9.2 15.8h3.4\"/><circle cx=\"9.6\" cy=\"19\" r=\"1.742\" fill=\"currentColor\" stroke=\"none\"/></g>",
+    notes: "<g transform=\"translate(1.586 0.550) scale(0.889943)\" stroke-width=\"1.910\"><path d=\"M5.6 3.6a1.6 1.6 0 0 1 1.6-1.6h6.2l5 5v13.4a1.6 1.6 0 0 1-1.6 1.6H7.2a1.6 1.6 0 0 1-1.6-1.6z\"/><path d=\"M13.4 2v5h5\"/><path d=\"M9.2 11.2h5.6\"/><path d=\"M9.2 14.4h3.4\"/><circle cx=\"10\" cy=\"18\" r=\"1.742\" fill=\"currentColor\" stroke=\"none\"/></g>",
     files: "<g transform=\"translate(0.650 1.082) scale(0.945894)\" stroke-width=\"1.797\"><rect x=\"2.6\" y=\"4.4\" width=\"18.8\" height=\"15.2\" rx=\"3.2\"/><path d=\"M2.6 11.2h18.8\"/><path d=\"M9.4 4.4V2.6h5.2v1.8\"/><circle cx=\"12\" cy=\"15.4\" r=\"1.639\" fill=\"currentColor\" stroke=\"none\"/></g>",
     datasets: "<g transform=\"translate(0.715 -0.207) scale(0.968270)\" stroke-width=\"1.756\"><rect x=\"2.8\" y=\"3.6\" width=\"18.4\" height=\"16.8\" rx=\"3.2\"/><path d=\"M2.8 9.2h18.4\"/><path d=\"M2.8 14.8h18.4\"/><path d=\"M12 9.2v11.2\"/><circle cx=\"7.4\" cy=\"17.6\" r=\"1.601\" fill=\"currentColor\" stroke=\"none\"/></g>",
     collaboration: "<g transform=\"translate(1.073 1.079) scale(0.906898)\" stroke-width=\"1.875\"><circle cx=\"8.6\" cy=\"12\" r=\"6.4\"/><circle cx=\"15.4\" cy=\"12\" r=\"6.4\"/><circle cx=\"12\" cy=\"12\" r=\"1.709\" fill=\"currentColor\" stroke=\"none\"/></g>",
@@ -175,6 +175,16 @@
     viewpoint: "<g stroke-width=\"1.7\"><path d=\"M2.6 19h18.8\"/><path d=\"M2.6 16.8v4.4\"/><path d=\"M21.4 16.8v4.4\"/><path d=\"M14 15.2s-4.3-3.8-4.3-7.2a4.3 4.3 0 0 1 8.6 0c0 3.4-4.3 7.2-4.3 7.2z\"/><circle cx=\"14\" cy=\"8\" r=\"1.55\" fill=\"currentColor\" stroke=\"none\"/></g>",
     source: "<g stroke-width=\"1.7\"><rect x=\"4.2\" y=\"2.6\" width=\"15.6\" height=\"18.8\" rx=\"2.6\"/><path d=\"M9.2 6.8H7.8v5h1.4\"/><path d=\"M14.8 6.8h1.4v5h-1.4\"/><circle cx=\"12\" cy=\"9.3\" r=\"1.55\" fill=\"currentColor\" stroke=\"none\"/><path d=\"M7.8 15.4h8.4\"/><path d=\"M7.8 18.2h5\"/></g>",
     related: "<g stroke-width=\"1.7\"><rect x=\"2.6\" y=\"2.6\" width=\"8.4\" height=\"8.4\" rx=\"2.2\"/><rect x=\"13\" y=\"13\" width=\"8.4\" height=\"8.4\" rx=\"2.2\"/><path d=\"M6.8 11v3.4a2.8 2.8 0 0 0 2.8 2.8H13\"/><circle cx=\"17.2\" cy=\"17.2\" r=\"1.55\" fill=\"currentColor\" stroke=\"none\"/></g>",
+    /* The kinds of source in a Topic's Sources list. Paper, Preprint, Policy
+       and News already had marks (magazine, notes, balance, discussion); Web
+       page borrowed External, the arrow that means "open in a new tab". That
+       is an action, drawn at another scale and without the dot, so in a
+       column of things it read as a control and as foreign to the set, and it
+       said the same thing as the row's own Open button beside it. Web page is
+       a thing: a window with its bar, the dot where its address sits, and two
+       lines of text under it. Drawn like the Topic parts above, on the grid
+       at 1.7 and centred by its bounding box. */
+    webpage: "<g stroke-width=\"1.7\"><rect x=\"2.6\" y=\"3.4\" width=\"18.8\" height=\"17.2\" rx=\"3.2\"/><path d=\"M2.6 10.4h18.8\"/><circle cx=\"7\" cy=\"6.9\" r=\"1.55\" fill=\"currentColor\" stroke=\"none\"/><path d=\"M6.6 14.4h10.8\"/><path d=\"M6.6 17.4h6.4\"/></g>",
 
     /* ---- Pulsar -----------------------------------------------------------
        The workspace assistant's mark is Pulsar's own artwork, not a drawing
