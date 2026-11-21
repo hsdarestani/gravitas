@@ -807,14 +807,7 @@
   ],
   "landing": {
    "video_say": "Professor Hulse has spent thirty years on proteins. His student Taylor gets through the week with an AI assistant. Then the three of them sit down and test it.",
-   "chapters": [
-    "Thirty years of proteins",
-    "Meet Pulsar",
-    "The 9.8",
-    "The work that eats a day"
-   ],
    "video_runtime": "5:34",
-   "video_status": "Soon on YouTube",
    "cast_title": "A professor, a student and an assistant",
    "cast_say": "Cut paper, one size each, wherever they stand. Pulsar never stands at all: it lives on screens.",
    "exchange": {

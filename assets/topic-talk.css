@@ -173,8 +173,13 @@
 .tq-modes__anno[aria-pressed="true"] { border-color: var(--g-accent); color: var(--g-text); background: color-mix(in srgb, var(--g-accent) 10%, transparent); }
 .tq-modes__n { min-width: 1.4rem; padding: 0 .35rem; border-radius: var(--g-radius-pill); background: var(--g-surface-hover); font-size: var(--g-fs-eyebrow); line-height: 1.4rem; text-align: center; }
 .tq-modes__note { flex: 1 1 16rem; }
-.tq-ov__card { padding: var(--g-space-sm) var(--g-space-md); border: 1px solid var(--g-hairline); border-radius: var(--g-radius); background: var(--g-surface-sunken); }
-.tq-ov__card ol, .tq-ov__card ul { margin-bottom: 0 !important; }
+/* Overview (review of 2026-11-22): no outer card; the summary reads on the
+   page and the side panel alone is a card, its two parts under plain headings. */
+.tq-ov { padding: 0; border: 0; border-radius: 0; background: transparent; align-items: start; }
+.tq-ov__sum .g-prose { font-family: var(--g-font-read); font-size: var(--g-fs-lead); line-height: var(--g-lh-body); }
+.tq-ov__side { gap: var(--g-space-lg); padding: var(--g-space-md) var(--g-space-lg); border: 1px solid var(--g-hairline); border-radius: var(--g-radius-lg); background: var(--g-surface-raised); }
+.tq-ov__side .tq-ov__k { margin: 0 0 var(--g-space-sm); font-size: var(--g-fs-small); font-weight: var(--g-w-semibold); text-transform: none; letter-spacing: 0; color: var(--g-text); }
+.tq-ov__side ol, .tq-ov__side ul { margin: 0; gap: var(--g-space-xs); line-height: var(--g-lh-snug); }
 
 /* The reader and the annotation column beside it (review of 2026-11-21).
    Opening the panel must not narrow or move the text. From 1392px the Topic
@@ -621,7 +626,10 @@ button.tq-vp__dot:hover, button.tq-vp__dot:focus-visible { transform: scale(1.2)
 :root[data-theme="light"] .gq-well__body { fill: #7fb6dc; }
 
 /* ---- Rail: entries of the open section, progress, the room card ---------- */
-.tq-toc { max-height: calc(100vh - var(--g-header-h) - 2rem); overflow-y: auto; scrollbar-width: thin; overscroll-behavior: contain; }
+/* The scrollbar keeps its own lane and a gap from the text (review of
+   2026-11-21), reserved even while the rail does not scroll, so opening a
+   section never shifts the entries sideways. */
+.tq-toc { max-height: calc(100vh - var(--g-header-h) - 2rem); overflow-y: auto; scrollbar-width: thin; scrollbar-gutter: stable; padding-right: .75rem; overscroll-behavior: contain; }
 .tq-toc__sub { padding: .1rem 0 var(--g-space-2xs) 44px; }
 .tq-toc__sub > ol { display: grid; gap: 1px; }
 .tq-toc__sub li > a { display: block; padding: .3rem .5rem; border-radius: var(--g-radius-sm); }
@@ -630,7 +638,11 @@ button.tq-vp__dot:hover, button.tq-vp__dot:focus-visible { transform: scale(1.2)
 .tq-toc__kids { list-style: none; margin: .15rem 0 .2rem .9rem; padding: 0; display: grid; gap: 1px; }
 .tq-toc__sub .tq-toc__kids li > a { display: block; padding: .2rem .3rem; font-size: var(--g-fs-caption); line-height: 1.3; overflow-wrap: normal; }
 .tq-toc__kids a[aria-current="location"] { color: var(--g-accent) !important; font-weight: var(--g-w-semibold); }
-.tq-toc__prog { display: flex; align-items: center; gap: .5rem; margin: .3rem .5rem .3rem 1.2rem; font-size: var(--g-fs-eyebrow); color: var(--g-text-subtle); }
+/* The bar starts on the entries' text edge and ends where they end; the
+   percentage sits in a fixed slot after it so the bar does not change length
+   between 0% and 100%. */
+.tq-toc__prog { display: flex; align-items: center; gap: .6rem; margin: .5rem .5rem .25rem; font-size: var(--g-fs-eyebrow); line-height: 1; color: var(--g-text-subtle); }
+.tq-toc__prog [data-toc-pct] { flex: none; min-width: 4ch; text-align: right; }
 .tq-toc__bar { flex: 1; height: 3px; border-radius: 2px; background: var(--g-hairline); overflow: hidden; }
 .tq-toc__bar i { display: block; height: 100%; background: var(--g-accent); transition: width .2s linear; }
 @media (max-width: 1000px) { .tq-toc { max-height: none; overflow: visible; } }
@@ -792,7 +804,7 @@ button.tq-moment-chip:hover { background: color-mix(in srgb, var(--g-accent) 18%
 .tq-src + .tq-src { border-top: 1px solid var(--g-hairline); }
 .tq-src:hover { background: var(--g-surface-raised); }
 .tq-src.is-open { background: var(--g-surface-raised); box-shadow: inset 2px 0 0 transparent; }
-.tq-src__row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: var(--g-space-sm); align-items: center; padding: var(--g-space-sm) var(--g-space-md); }
+.tq-src__row { position: relative; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: var(--g-space-sm); align-items: center; padding: var(--g-space-sm) var(--g-space-md); }
 .tq-src__tile { display: grid; place-items: center; width: 2.25rem; height: 2.25rem; border-radius: 50%; background: var(--g-surface-sunken); color: var(--g-text-muted); }
 .tq-src__glyph { width: 1.05rem; height: 1.05rem; }
 .tq-src__tile.is-paper { color: var(--g-accent); background: color-mix(in srgb, var(--g-accent) 12%, var(--g-surface-sunken)); }
@@ -829,26 +841,29 @@ button.tq-moment-chip:hover { background: color-mix(in srgb, var(--g-accent) 18%
 .tq-src__use small { font-size: var(--g-fs-eyebrow); text-transform: uppercase; letter-spacing: .06em; color: var(--g-accent); }
 .tq-src__use span { font-family: var(--g-font-read); font-size: var(--g-fs-small); line-height: var(--g-lh-snug); }
 .tq-src__pre { margin: 0; padding: var(--g-space-xs) var(--g-space-sm); border: 1px solid var(--g-hairline); border-radius: var(--g-radius-sm); background: var(--g-bg); font-family: var(--g-font-mono); font-size: var(--g-fs-caption); line-height: 1.55; white-space: pre-wrap; overflow-wrap: anywhere; max-height: 14rem; overflow-y: auto; }
-.tq-src__panel .g-btn { justify-self: start; }
+/* The whole row opens the panel: one transparent button over it, with the
+   external link lifted above so it still opens the source. */
+.tq-src__hit { position: absolute; inset: 0; z-index: 0; margin: 0; padding: 0; border: 0; background: transparent; cursor: pointer; }
+.tq-src__hit:focus-visible { outline: 2px solid var(--g-focus); outline-offset: -2px; }
+.tq-src__row > :not(.tq-src__hit) { position: relative; z-index: 1; pointer-events: none; }
+.tq-src__act a { pointer-events: auto; }
+@media (hover: hover) and (pointer: fine) { .tq-src:not(.is-open) .tq-src__row:hover { background: var(--g-surface-hover); } }
+/* Cite: format on the left, Copy on the right, the citation under them. */
+.tq-src__citebar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--g-space-xs) var(--g-space-sm); }
+.tq-src__citebar .tq-seg { justify-self: auto; }
 .tq-src__empty { grid-column: 1 / -1; padding: var(--g-space-md); text-align: center; color: var(--g-text-muted); font-size: var(--g-fs-small); }
 .tq-dialog__text { font-family: var(--g-font-mono); font-size: var(--g-fs-caption); line-height: 1.55; min-height: 14rem; resize: vertical; }
 @media (prefers-reduced-motion: reduce) { .tq-src__panel { animation: none; } }
 
 /* ---- Discussion rooms (renderRooms) --------------------------------------- */
-.tq-room--main { position: relative; isolation: isolate; overflow: hidden; min-height: 20rem; justify-content: flex-end; border-color: var(--g-border); background: var(--g-grad-deep-space); color: var(--g-white-tint); }
-.tq-room__bg { position: absolute; inset: 0; z-index: -2; }
-.tq-room__bg img, .tq-room__bg .gq-well { width: 100%; height: 100%; object-fit: cover; display: block; }
-.tq-room__shade { position: absolute; inset: 0; z-index: -1; background: linear-gradient(90deg, rgb(3 3 3 / .88) 0%, rgb(3 3 3 / .6) 55%, rgb(3 3 3 / .25) 100%); }
-@media (max-width: 640px) { .tq-room__shade { background: linear-gradient(180deg, rgb(3 3 3 / .9) 0%, rgb(3 3 3 / .82) 70%, rgb(3 3 3 / .7) 100%); } }
-.tq-room__body { display: grid; gap: var(--g-space-xs); max-width: 40rem; }
-.tq-room__k { margin: 0; font-size: var(--g-fs-eyebrow); text-transform: uppercase; letter-spacing: var(--g-track-eyebrow); color: #7fb6dc; }
-.tq-room--main h3 { margin: 0; color: var(--g-white-tint); font-family: var(--g-font-read); font-weight: var(--g-w-medium); font-size: clamp(1.4rem, 1.1rem + 1.4vw, 2.1rem); max-width: 30ch; }
-.tq-room__say { margin: 0; color: rgb(241 239 236 / .8); font-size: var(--g-fs-small); max-width: 52ch; }
-.tq-room--main .tq-room__quiet, .tq-room--main .tq-room__count { color: rgb(241 239 236 / .72); }
-.tq-room--main .tq-room__quote { background: rgb(0 16 26 / .55); border-color: rgb(241 239 236 / .14); backdrop-filter: blur(6px); }
-.tq-room--main .tq-room__quote p { color: var(--g-white-tint); }
-.tq-room--main .tq-room__quote cite { color: rgb(241 239 236 / .7); }
-.tq-room--main .tk-av { color: var(--g-white-tint); }
+/* Main room: a plain card in the page's tokens, light theme included. */
+.tq-room--main { gap: var(--g-space-md); border-color: var(--g-border); background: var(--g-surface-raised); }
+.tq-room__body { display: grid; gap: var(--g-space-xs); }
+.tq-room__k { margin: 0; font-size: var(--g-fs-eyebrow); text-transform: uppercase; letter-spacing: var(--g-track-eyebrow); color: var(--g-accent); }
+.tq-room--main h3 { margin: 0; color: var(--g-text); font-family: var(--g-font-read); font-weight: var(--g-w-medium); font-size: clamp(1.35rem, 1.1rem + 1vw, 1.85rem); max-width: 34ch; }
+.tq-room__say { margin: 0; color: var(--g-text-muted); font-size: var(--g-fs-small); max-width: 60ch; }
+.tq-room--main .tq-room__live { gap: var(--g-space-sm); }
+.tq-room--main .tq-room__foot { padding-top: var(--g-space-sm); border-top: 1px solid var(--g-hairline); }
 .tq-room h4 { font-family: var(--g-font-read); font-weight: var(--g-w-medium); font-size: var(--g-fs-body); }
 .tq-room__posts { display: grid; gap: var(--g-space-2xs); }
 .tq-room__quote { margin: 0; padding: var(--g-space-xs) var(--g-space-sm); border: 1px solid var(--g-hairline); border-radius: var(--g-radius); background: var(--g-surface-sunken); }

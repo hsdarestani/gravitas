@@ -183,7 +183,7 @@
       if (!open) {
         return '<div class="tq-vp__hist is-veiled" style="--bins:' + options.length + '">' + options.map(function (o) {
           return '<div class="tq-vp__bin is-ghost" aria-hidden="true"><div class="tq-vp__pile"></div><p class="tq-vp__pc">?</p><p class="tq-vp__bl">' + esc(o.label) + '</p></div>';
-        }).join('') + '<div class="tq-vp__veil" role="status">' + ICON.lock + '<b>Results are hidden until you answer</b><span>So other people’s answers do not sway yours.</span></div></div>';
+        }).join('') + '<div class="tq-vp__veil" role="status">' + ICON.lock + '<b>Results and reasons are hidden until you answer</b><span>So other people’s answers do not sway yours.</span></div></div>';
       }
       var rs = (reasons[poll.id] || []).filter(function (c) { return !c.parent_id && c.status !== 'pending' && (c.anchor || {}).option; });
       var total = l.total_votes || 0;
@@ -311,7 +311,9 @@
         (open
           ? '<div class="tq-vp__why2"><h4>See why others think so</h4><p>Like or dislike the reasons. A reason’s score is its likes minus its dislikes.</p></div>' + balance(poll) +
             (reasons[poll.id] === null ? '<p class="tk-empty">Reasons could not be loaded just now.</p>' : reasonColumns(poll))
-          : '<div class="tq-vp__locked">' + ICON.lock + '<div><b>Reasons and results open after you answer</b><span>Seeing them first could change what you think. Answer, then compare.</span></div></div>');
+          /* The veil over the histogram already says what is locked and why;
+             a second lock box under it said the same again (review of 2026-11-21). */
+          : '');
     }
 
     /* ---- Doing ---------------------------------------------------------- */

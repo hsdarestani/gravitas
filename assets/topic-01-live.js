@@ -583,7 +583,7 @@
     var canPlay = !!playable(video);
     window.GQTalk.mount(holder, {
       key: SLUG + '-video-' + (index + 1), scope: 'video',
-      title: 'Comments on this video', titleTag: 'h4',
+      title: 'Comments on this video', titleTag: 'h4', collapsible: true,
       label: 'Your comment on “' + video.title + '”',
       placeholder: 'What stayed with you, or what would you check first?',
       button: 'Post comment',
@@ -857,17 +857,18 @@
   function renderRooms(data) {
     var discussion = data.discussion || {};
     var rooms = rows(discussion.rooms).filter(function (room) { return /^[a-z0-9-]{1,180}$/.test(room.key || ''); });
-    var stills = rows(data.stills);
-    var backdrop = safeUrl((stills[stills.length - 1] || {}).image_url) || safeUrl((videos(data)[0] || {}).poster_url);
     var question = discussion.question || 'What would make you check an answer?';
+    /* The main room is a plain card on the page's own surface (review of
+       2026-11-21): no still or poster behind it, the question at reading
+       size, and the live part (latest replies, counts, the button) across the
+       full width under a hairline, so the button closes the card on its right
+       edge instead of floating mid-card at the end of a narrow text column. */
     var host = fill('rooms',
       '<article class="tq-room tq-room--main" data-room="' + SLUG + '">' +
-        '<div class="tq-room__bg" aria-hidden="true">' + (backdrop ? '<img src="' + esc(backdrop) + '" alt="" loading="lazy" decoding="async">' : well(5, { w: 900, h: 420, n: 24 })) + '</div>' +
-        '<span class="tq-room__shade" aria-hidden="true"></span>' +
         '<div class="tq-room__body"><p class="tq-room__k">Main conversation</p>' +
         '<h3>“' + esc(question) + '”</h3>' +
-        '<p class="tq-room__say">Start here. There are no wrong first answers, and your question might be the one someone else needed.</p>' +
-        '<div class="tq-room__live" data-room-live><p class="tq-room__quiet">Checking room&hellip;</p></div></div></article>' +
+        '<p class="tq-room__say">Start here. There are no wrong first answers, and your question might be the one someone else needed.</p></div>' +
+        '<div class="tq-room__live" data-room-live><p class="tq-room__quiet">Checking room&hellip;</p></div></article>' +
       (rooms.length ? '<div class="tq-rooms">' + rooms.map(function (room) {
         return '<article class="tq-room" id="room-' + esc(room.section || room.key) + '" data-room="' + esc(room.key) + '" data-room-section="' + esc(room.section || room.key) + '">' +
           '<div class="tq-room__top"><span class="g-tag">' + esc(room.label || room.section || 'Room') + '</span></div>' +
@@ -1000,15 +1001,15 @@
     var several = list.length > 1;
     var say = landing.video_say || first.description || '';
     side(node, several ? first.title || item.title : item.title, say);
-    var chapters = node.querySelector('.trail__chap');
-    chapters.innerHTML = (landing.chapters || []).map(function (name) { return '<li>' + esc(name) + '</li>'; }).join('');
-    chapters.hidden = !chapters.children.length;
     var card = node.querySelector('.trail__video');
     card.insertAdjacentHTML('afterbegin', poster(first));
     if (safeUrl(first.poster_url)) card.classList.add('has-thumb');
-    card.setAttribute('aria-label', (first.title || item.title) + ': chapters and full transcript on the Topic page');
+    card.setAttribute('aria-label', (first.title || item.title) + ': full transcript on the Topic page');
     var tag = node.querySelector('[data-set-meta]');
-    tag.innerHTML = (landing.video_runtime ? '<span class="g-nums">' + esc(landing.video_runtime) + '</span> &middot; ' : '') + esc(landing.video_status);
+    /* Only the runtime (review of 2026-11-21): the videos are on YouTube now,
+       so the "Soon on YouTube" status and the chapter list beside it went. */
+    tag.innerHTML = landing.video_runtime ? '<span class="g-nums">' + esc(landing.video_runtime) + '</span>' : '';
+    tag.hidden = !landing.video_runtime;
     if (!several) return;
     var set = document.createElement('ol');
     set.className = 'trail__set';
@@ -1018,12 +1019,11 @@
       var link = document.createElement('a');
       link.href = PAGE + '#video-' + (index + 1);
       /* The first row restores exactly what the panel opened with. A video
-         without a runtime or a public source says "Soon", which is true. */
+         without a runtime shows no tag. */
       link.dataset.title = video.title || item.title;
       link.dataset.say = index ? video.description || '' : say;
-      link.dataset.meta = index ? (video.duration ? video.duration + ' · ' : '') + (video.source_type === 'youtube' ? 'On YouTube' : 'Soon') : tag.textContent;
+      link.dataset.meta = index ? video.duration || '' : tag.textContent;
       link.dataset.poster = safeUrl(video.poster_url);
-      link.dataset.chapters = JSON.stringify(index ? video.chapters || [] : landing.chapters || []);
       if (!index) link.setAttribute('aria-current', 'true');
       link.innerHTML = '<span class="trail__set-n">' + pad2(index + 1) + '</span><span class="trail__set-t">' + esc(video.title) + '</span>';
       row.append(link);

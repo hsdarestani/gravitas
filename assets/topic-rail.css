@@ -72,10 +72,8 @@
   cursor: pointer;
   transition: color var(--g-dur) var(--g-ease-orbit), background-color var(--g-dur) var(--g-ease-orbit), border-color var(--g-dur) var(--g-ease-orbit);
 }
-.trail__step span { font-family: var(--g-font-mono); font-size: var(--g-fs-caption); color: var(--g-text-subtle); }
 .trail__step:hover { color: var(--g-text); border-color: var(--g-text-subtle); }
 .trail__step[aria-current="true"] { color: var(--g-text); background: var(--g-surface-raised); border-color: var(--g-accent); }
-.trail__step[aria-current="true"] span { color: var(--g-accent); }
 
 .trail__nav { display: flex; align-items: center; gap: var(--g-space-2xs); flex: none; }
 .trail__count {
@@ -236,6 +234,7 @@
 .trail__video .video__play { width: 3.5rem; height: 3.5rem; }
 .trail__video .trail__tag { left: calc(var(--g-space-sm) + 4.25rem); bottom: calc(var(--g-space-sm) + .9rem); }
 .trail__tag { white-space: nowrap; }
+.trail__tag[hidden] { display: none; }
 @media (max-width: 599px) {
   .trail { --panel-h: 31rem; }
   .trail__body { justify-content: flex-start; }

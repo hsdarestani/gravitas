@@ -208,11 +208,14 @@
     const points = list(remember, 'ol');
     const actions = list(todo, 'ul');
     return '<div class="tq-ov' + (points || actions ? '' : ' is-single') + '" data-overview>' +
-      '<div class="tq-ov__sum"><p class="tq-ov__k">Summary</p><div class="g-prose">' + opening.map(p => p.outerHTML).join('') + '</div>' +
-      '<button class="g-btn g-btn--primary g-btn--sm" type="button" data-mode-go="depth"><span>Read in depth</span>' + ICON.arrow + '</button></div>' +
-      (points || actions ? '<div class="tq-ov__side">' +
-        (points ? '<div class="tq-ov__card"><p class="tq-ov__k">Key points</p>' + points + '</div>' : '') +
-        (actions ? '<div class="tq-ov__card"><p class="tq-ov__k">What you can do</p>' + actions + '</div>' : '') + '</div>' : '') +
+      /* Review of 2026-11-22: the summary sits on the page at reading size,
+         not inside a coloured card, and only the side panel (key points, then
+         what you can do) is a card. */
+      '<div class="tq-ov__sum"><div class="g-prose">' + opening.map(p => p.outerHTML).join('') + '</div>' +
+      '<button class="g-btn g-btn--secondary g-btn--sm" type="button" data-mode-go="depth"><span>Read in depth</span>' + ICON.arrow + '</button></div>' +
+      (points || actions ? '<aside class="tq-ov__side">' +
+        (points ? '<div class="tq-ov__part"><p class="tq-ov__k">Key points</p>' + points + '</div>' : '') +
+        (actions ? '<div class="tq-ov__part"><p class="tq-ov__k">What you can do</p>' + actions + '</div>' : '') + '</aside>' : '') +
       '</div>';
   }
 
@@ -445,7 +448,11 @@
       const open = st.open === item.key;
       /* The level is the heading above the row now, so the row names only where the essays cite it. */
       const usedIn = item.uses.length ? [...new Set(item.uses.map(u => 'Essay ' + u.essay))].join(', ') : '';
-      const panel = !open ? '' : '<div class="tq-src__panel">' +
+      /* Review of 2026-11-22: the whole row is one target that opens and
+         closes the panel, and the row keeps a single icon, the external link.
+         Inside, one switch chooses between where it is used and Cite (the row
+         used to carry its own Cite and chevron buttons, which duplicated it). */
+      const panel = !open ? '' : '<div class="tq-src__panel is-' + st.tab + '">' +
         '<div class="tq-seg" role="group" aria-label="About this source"><button type="button" data-src-tab="where" aria-pressed="' + (st.tab === 'where') + '">Where it is used</button><button type="button" data-src-tab="cite" aria-pressed="' + (st.tab === 'cite') + '">Cite</button></div>' +
         (st.tab === 'where'
           ? (item.uses.length
@@ -453,20 +460,20 @@
               '<button type="button" class="tq-src__use" data-src-use="' + k + '"><small>Essay ' + u.essay + (u.section ? ' · ' + esc(u.section) : '') + '</small><span>“' + esc(u.sentence) + '”</span></button>').join('') + '</div>'
             : '<p class="tq-src__why">' + (item.group.indexOf('essay-') === 0 ? 'Listed in the essay’s references.' : 'On the reading list at the level “' + esc(item.label) + '”. Not cited in a sentence of the essays.') + '</p>') +
             '<p class="tq-src__full">' + esc(item.title) + '</p>'
-          : '<div class="tq-seg tq-seg--sm" role="group" aria-label="Citation format">' + FORMATS.map(([key, label]) => '<button type="button" data-src-format="' + key + '" aria-pressed="' + (st.format === key) + '">' + label + '</button>').join('') + '</div>' +
-            '<pre class="tq-src__pre">' + esc(formatSource(item, st.format)) + '</pre>' +
-            '<button class="g-btn g-btn--primary g-btn--sm" type="button" data-src-copy>' + ICON.copy + '<span>Copy</span></button>') +
+          : '<div class="tq-src__citebar">' +
+            '<div class="tq-seg tq-seg--sm" role="group" aria-label="Citation format">' + FORMATS.map(([key, label]) => '<button type="button" data-src-format="' + key + '" aria-pressed="' + (st.format === key) + '">' + label + '</button>').join('') + '</div>' +
+            '<button class="g-btn g-btn--secondary g-btn--sm" type="button" data-src-copy>' + ICON.copy + '<span>Copy</span></button></div>' +
+            '<pre class="tq-src__pre">' + esc(formatSource(item, st.format)) + '</pre>') +
         '</div>';
       return '<li class="tq-src' + (open ? ' is-open' : '') + '"' + (item.id ? ' id="' + esc(item.id) + '"' : '') + ' data-src-key="' + esc(item.key) + '">' +
         '<div class="tq-src__row">' +
+          '<button class="tq-src__hit" type="button" data-src-open aria-expanded="' + open + '" aria-label="' + (open ? 'Hide' : 'Show') + ' details: ' + esc(item.short) + '"></button>' +
           '<span class="tq-src__tile is-' + item.kind + '" aria-hidden="true">' + glyph(kind[2], 'tq-src__glyph') + '</span>' +
           '<div class="tq-src__main"><p class="tq-src__meta"><b class="g-nums">' + esc(item.key) + '</b><span>' + esc(kind[1]) + '</span>' + (item.year ? '<span class="g-nums">' + item.year + '</span>' : '') + '</p>' +
             '<p class="tq-src__title">' + esc(item.short) + '</p>' +
             '<p class="tq-src__host">' + esc(hostOf(item.url) || 'No link') + (usedIn ? ' · <span class="tq-src__used">' + esc(usedIn) + '</span>' : '') + '</p></div>' +
           '<div class="tq-src__act">' +
             (item.url ? '<a class="tq-icon-btn" href="' + esc(item.url) + '" target="_blank" rel="noopener" aria-label="Open the source in a new tab" title="Open">' + ICON.ext + '</a>' : '') +
-            '<button class="tq-icon-btn" type="button" data-src-cite aria-expanded="' + (open && st.tab === 'cite') + '" aria-label="Cite this source" title="Cite">' + ICON.copy + '</button>' +
-            '<button class="tq-icon-btn tq-src__chev" type="button" data-src-open aria-expanded="' + (open && st.tab === 'where') + '" aria-label="' + (open ? 'Hide' : 'Show') + ' where it is used" title="Details">' + ICON.chevron + '</button>' +
           '</div></div>' + panel + '</li>';
     }
 
@@ -580,8 +587,7 @@
       if (!row) return;
       const item = byKey(row.dataset.srcKey);
       const refocus = sel => sourcesHost.querySelector('[data-src-key="' + item.key + '"] ' + sel)?.focus({ preventScroll: true });
-      if (t.closest('[data-src-open]')) { const same = st.open === item.key && st.tab === 'where'; st.open = same ? '' : item.key; st.tab = 'where'; draw(); refocus('[data-src-open]'); return; }
-      if (t.closest('[data-src-cite]')) { const same = st.open === item.key && st.tab === 'cite'; st.open = same ? '' : item.key; st.tab = 'cite'; draw(); refocus('[data-src-cite]'); return; }
+      if (t.closest('[data-src-open]')) { const same = st.open === item.key; st.open = same ? '' : item.key; st.tab = 'where'; draw(); refocus('[data-src-open]'); return; }
       const tab = t.closest('[data-src-tab]');
       if (tab) { st.tab = tab.dataset.srcTab; draw(); refocus('[data-src-tab="' + st.tab + '"]'); return; }
       const fmt = t.closest('[data-src-format]');
