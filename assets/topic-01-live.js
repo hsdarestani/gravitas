@@ -275,7 +275,7 @@
   var current = '';
   var reduceMotion = matchMedia('(prefers-reduced-motion: reduce)');
 
-  function sectionList() { return Array.prototype.slice.call(shell.querySelectorAll('.tq-sec')); }
+  function sectionList() { return Array.prototype.slice.call(shell.querySelectorAll('.tq-sec:not([data-empty])')); }
   function glyph(name) { return window.GravitasIcons ? window.GravitasIcons.icon(name, 'tq-toc__svg') : ''; }
 
   /* The open section's own entries, under its name, since the review of
@@ -712,7 +712,7 @@
             '<div class="tq-tl2__ctl">' +
               '<button class="tq-icon-btn" type="button" data-tl-step="-1" aria-label="Previous milestone">' + BACK.replace('g-btn__icon', '') + '</button>' +
               '<button class="tq-icon-btn" type="button" data-tl-step="1" aria-label="Next milestone">' + ARROW.replace('g-btn__icon', '') + '</button>' +
-              '<button class="tq-tl2__play" type="button" data-tl-play aria-pressed="false"' + (reduceMotion.matches ? ' hidden' : '') + '>' + PLAYI + '<span>Play the story</span></button>' +
+              '<button class="tq-tl2__play" type="button" data-tl-play aria-pressed="false"' + (reduceMotion.matches ? ' hidden' : '') + '><span class="tq-tl2__pi">' + PLAYI + '</span><span class="tq-tl2__pl"><span>Play the story</span><span>Pause</span></span></button>' +
             '</div>' +
           '</div>' +
           '<div class="tq-tl2__card" data-tl-card role="tabpanel" aria-live="polite" id="tl-stage"></div>' +
@@ -776,8 +776,11 @@
         if (at >= n - 1) show(0);
         timer = setInterval(function () { if (at >= n - 1) { play(false); return; } show(at + 1); }, 6500);
       }
+      /* Both labels are always in the button, stacked, and the pressed state
+         picks one, so the button keeps the width of the longer label and
+         nothing beside it moves when it is pressed (it used to rewrap). */
       playButton.setAttribute('aria-pressed', String(!!timer));
-      playButton.innerHTML = (timer ? PAUSEI : PLAYI) + '<span>' + (timer ? 'Pause' : 'Play the story') + '</span>';
+      playButton.querySelector('.tq-tl2__pi').innerHTML = timer ? PAUSEI : PLAYI;
     }
     host.addEventListener('click', function (event) {
       var tab = event.target.closest('[data-tl]');
@@ -954,6 +957,15 @@
     toc.counts.talk = renderRooms(data);
     fill('sources-intro', esc(data.sources_intro));
     toc.counts.related = renderNext(data);
+    /* A record with no "next" cards would open Related on a heading over
+       nothing. An empty Related leaves the contents, the pagers and the
+       router (data-empty takes it out of sectionList) and stays hidden; the
+       day an editor adds a card it comes back by itself. */
+    var related = shell.querySelector('#related');
+    if (related) {
+      if (toc.counts.related) related.removeAttribute('data-empty');
+      else { related.setAttribute('data-empty', ''); related.hidden = true; }
+    }
 
     shell.querySelector('[data-t1-status]').hidden = true;
     shell.querySelectorAll('[data-t1-body]').forEach(function (node) { node.hidden = false; });
@@ -1060,12 +1072,19 @@
       return '<li><p class="trail__lvl"><b>' + level[1] + '</b><span>' + level[2] + '</span></p><ul>' + names + '</ul></li>';
     }).join('');
 
+    /* A card without an address is drawn as plain text: since 2026-11-21 the
+       Topics these cards name are drafts whose pages are off the site, so the
+       record names them and links nowhere. Guarded because a page may drop
+       the panel. */
     var next = rows(data.next).filter(function (card) { return card.title; });
-    side(panel('related'), landing.related_title || 'Where this goes next', landing.related_say || '');
-    panel('related').querySelector('.trail__next').innerHTML = next.map(function (card) {
-      var url = card.status === 'proposed' ? '' : safeUrl(card.href);
-      return '<li>' + (url ? '<a href="' + esc(url) + '">' : '<span>') + '<small>' + esc(card.status === 'proposed' ? 'Proposed Topic' : card.kicker) + '</small><b>' + esc(card.title) + '</b>' + (url ? '</a>' : '</span>') + '</li>';
-    }).join('');
+    var relatedPanel = panel('related');
+    if (relatedPanel) {
+      side(relatedPanel, landing.related_title || 'Where this goes next', landing.related_say || '');
+      relatedPanel.querySelector('.trail__next').innerHTML = next.map(function (card) {
+        var url = card.status === 'proposed' ? '' : safeUrl(card.href);
+        return '<li>' + (url ? '<a href="' + esc(url) + '">' : '<span>') + '<small>' + esc(card.status === 'proposed' ? 'Proposed Topic' : card.kicker) + '</small><b>' + esc(card.title) + '</b>' + (url ? '</a>' : '</span>') + '</li>';
+      }).join('');
+    }
 
     window.dispatchEvent(new Event('resize'));
   }

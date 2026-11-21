@@ -3,8 +3,5 @@ Allow: /
 Disallow: /admin/
 Disallow: /api/
 Disallow: /django-static/
-Disallow: /dossier-machine-hypothesis.html
-Disallow: /game-hypothesis-machine.html
-Disallow: /path-ai-in-research.html
 
 Sitemap: https://graviquest.com/sitemap.xml

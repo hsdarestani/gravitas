@@ -26,6 +26,49 @@ class TopicCmsTests(TestCase):
         slugs = [row['slug'] for row in self.client.get('/api/content/?kind=topic').json()['items']]
         self.assertEqual(slugs, [self.topic.slug])
 
+    def test_topic_01_links_no_removed_page(self):
+        text = json.dumps(self.topic.topic_data)
+        for gone in ('/topic-machine-hypothesis.html', '/path-ai-in-research.html'):
+            self.assertNotIn(gone, text)
+
+    def test_removed_pages_migration_keeps_editor_rows(self):
+        from importlib import import_module
+        from django.apps import apps
+        migration = import_module('core.migrations.0108_topic_01_drop_removed_pages')
+        data = dict(self.topic.topic_data)
+        data['next'] = [{'title': 'Old', 'href': '/topic-machine-hypothesis.html'},
+                        {'title': 'Editor card', 'href': '/topics.html'}]
+        data['sources'] = list(data.get('sources') or []) + [{'label': 'Path', 'url': '/path-ai-in-research.html'}]
+        self.topic.topic_data = data
+        self.topic.save()
+        migration.forwards(apps, None)
+        self.topic.refresh_from_db()
+        self.assertEqual([(row['title'], row['href']) for row in self.topic.topic_data['next']],
+                         [('Old', ''), ('Editor card', '/topics.html')])
+        self.assertNotIn('/path-ai-in-research.html', json.dumps(self.topic.topic_data['sources']))
+
+    def test_each_video_gets_its_own_poster_and_an_editor_choice_is_kept(self):
+        from importlib import import_module
+        from django.apps import apps
+        migration = import_module('core.migrations.0109_topic_01_opener_poster')
+        opener_poster = migration.POSTERS['3-8GV5mvTnI'][0]
+        episode_poster = migration.POSTERS['6-wKSrn51Ro'][0]
+        opener = {'title': 'Opener', 'youtube_url': 'https://youtu.be/3-8GV5mvTnI', 'poster_url': migration.SHARED}
+        episode = {'title': 'Episode', 'youtube_url': 'https://youtu.be/6-wKSrn51Ro', 'poster_url': migration.SHARED}
+        chosen = {'title': 'Other', 'youtube_url': 'https://youtu.be/6-wKSrn51Ro', 'poster_url': '/mine.webp'}
+        data = dict(self.topic.topic_data, videos=[opener, episode, chosen], video=dict(opener))
+        self.topic.topic_data = data
+        self.topic.save()
+        migration.forwards(apps, None)
+        self.topic.refresh_from_db()
+        videos = self.topic.topic_data['videos']
+        self.assertEqual([video['poster_url'] for video in videos], [opener_poster, episode_poster, '/mine.webp'])
+        self.assertEqual(self.topic.topic_data['video']['poster_url'], opener_poster)
+        for url in (opener_poster, episode_poster):
+            response = self.client.get('/api/content/media/' + url.split('/')[-2] + '/')
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(response['Content-Type'], 'image/webp')
+
     def test_topic_01_carries_its_video_and_a_labelled_placeholder(self):
         videos = self.topic.topic_data['videos']
         self.assertEqual([video['title'] for video in videos],

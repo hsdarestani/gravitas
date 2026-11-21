@@ -25,8 +25,8 @@
     "companion_url": "",
     "transcript_label": "",
     "transcript_url": "",
-    "poster_url": "/api/content/media/b835e55ced181d6f6265dda7155eae0b.webp/",
-    "poster_alt": "The Answer That Looked Right, video poster"
+    "poster_url": "/api/content/media/b56dd2af5818cb504ed93376a769e051.webp/",
+    "poster_alt": "Hulse in close-up, squinting through his glasses at a small Pulsar card that reads 9.8, Correct."
    }
   ],
   "video": {
@@ -41,8 +41,8 @@
    "companion_url": "",
    "transcript_label": "",
    "transcript_url": "",
-   "poster_url": "/api/content/media/b835e55ced181d6f6265dda7155eae0b.webp/",
-   "poster_alt": "The Answer That Looked Right, video poster"
+   "poster_url": "/api/content/media/b56dd2af5818cb504ed93376a769e051.webp/",
+   "poster_alt": "Hulse in close-up, squinting through his glasses at a small Pulsar card that reads 9.8, Correct."
   },
   "essays": [],
   "essay": {},
@@ -61,13 +61,6 @@
     "label": "EMBL-EBI: what AlphaFold’s confidence score means",
     "url": "https://www.ebi.ac.uk/training/online/courses/alphafold/inputs-and-outputs/evaluating-alphafolds-predicted-structures-using-confidence-scores/plddt-understanding-local-confidence/",
     "short": "EMBL-EBI: what AlphaFold’s confidence score means"
-   },
-   {
-    "level": "start",
-    "level_label": "Start here",
-    "label": "Learning Path: AI in Research",
-    "url": "/path-ai-in-research.html",
-    "short": ""
    },
    {
     "level": "further",
@@ -803,13 +796,13 @@
     "kicker": "Next Topic",
     "title": "Can a machine form a hypothesis?",
     "text": "From checking an answer to asking whether a machine can propose one.",
-    "href": "/topic-machine-hypothesis.html"
+    "href": ""
    },
    {
     "kicker": "Learn",
     "title": "AI in Research",
     "text": "The structured path, from what these models do to using one on your own data.",
-    "href": "/path-ai-in-research.html"
+    "href": ""
    }
   ],
   "landing": {

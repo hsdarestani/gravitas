@@ -44,7 +44,12 @@
     ['undergrad', 'Undergrad', 'The full line of reasoning'],
     ['researcher', 'Researcher', 'Full detail, methods and extras'],
   ];
-  const SOURCE_LEVELS = [['start', 'Start here'], ['further', 'Go further'], ['primary', 'Primary']];
+  /* The three levels the home page's rail promises ("sorted into three
+     levels so you can climb"), with the same words. References the essays
+     cite are not levelled by the editors, so they form a fourth group after
+     the three, and say so. */
+  const SOURCE_LEVELS = [['start', 'Start here', 'No background needed'], ['further', 'Go further', 'Some method expected'], ['primary', 'Primary', 'The papers themselves']];
+  const ESSAY_GROUP = ['essay', 'Cited in the essays', 'Every reference the essays cite'];
   const STORE = 'gq:topic01:reading';
   const reduce = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -371,15 +376,19 @@
       if (!row || !row.label) return;
       const level = SOURCE_LEVELS.find(([key]) => key === (row.level || 'start')) || SOURCE_LEVELS[0];
       const url = safeHttp(row.url);
-      items.push({ group: level[0], where: [level[0]], label: level[1], title: row.label, short: row.short || row.label, url, cite: row.label + (row.url ? '. ' + row.url : ''), uses: [] });
+      items.push({ group: level[0], level: level[0], where: [level[0]], label: level[1], title: row.label, short: row.short || row.label, url, cite: row.label + (row.url ? '. ' + row.url : ''), uses: [] });
     });
     found.forEach(essay => referencesOf(essay).forEach(ref => {
       const url = safeHttp(ref.url);
       const short = ref.text.length > 120 ? ref.text.slice(0, 117).trimEnd() + '…' : ref.text;
-      items.push({ group: 'essay-' + essay.n, where: ['essay-' + essay.n], label: 'Essay ' + essay.n, title: ref.text, short, url, cite: ref.text,
+      items.push({ group: 'essay-' + essay.n, level: 'essay', where: ['essay-' + essay.n], label: 'Essay ' + essay.n, title: ref.text, short, url, cite: ref.text,
         id: 'src-e' + essay.n + '-' + ref.ref, uses: usesOf(essay, ref.ref) });
     }));
     if (!items.length) { sourcesHost.innerHTML = '<p class="ta-empty">No sources are listed yet.</p>'; return 0; }
+    /* Climb order: the three levels, then what the essays cite. */
+    const GROUPS = SOURCE_LEVELS.concat([ESSAY_GROUP]);
+    const rank = item => GROUPS.findIndex(([key]) => key === item.level);
+    items.sort((a, b) => rank(a) - rank(b));
     items.forEach((item, index) => {
       item.n = index + 1;
       item.key = item.group.indexOf('essay-') === 0 ? 'E' + item.group.slice(6) + '·' + pad2(item.n) : 'S' + pad2(item.n);
@@ -389,15 +398,22 @@
     });
     const kinds = KINDS.filter(([key]) => items.some(i => i.kind === key));
     const years = [...new Set(items.map(i => i.year).filter(Boolean))].sort((a, b) => b - a);
+    const groups = GROUPS.filter(([key]) => items.some(i => i.level === key));
     const wheres = SOURCE_LEVELS.map(([key, label]) => [key, label]).concat(found.map(e => ['essay-' + e.n, 'Cited in Essay ' + e.n]))
       .filter(([key]) => items.some(i => i.where.includes(key)));
-    const st = { kind: 'all', year: 'all', where: 'all', query: '', all: false, more: false, open: '', tab: 'where', format: 'plain' };
+    const st = { level: 'all', kind: 'all', year: 'all', where: 'all', query: '', all: false, more: false, open: '', tab: 'where', format: 'plain' };
 
     sourcesHost.innerHTML =
       '<div class="tq-src__tools">' +
         '<label class="tk-search tq-src__search">' + (window.GQTalk ? window.GQTalk.icon.search : '') + '<span class="g-visually-hidden">Search the sources</span><input type="search" placeholder="Search title, author, DOI or website" autocomplete="off" data-src-q></label>' +
         '<button class="g-btn g-btn--ghost g-btn--sm" type="button" aria-expanded="false" data-src-more-filters>' + glyph('filter', 'g-btn__icon') + '<span>More filters</span></button>' +
         '<button class="g-btn g-btn--secondary g-btn--sm" type="button" data-src-cite-all>' + ICON.copy + '<span>Cite all</span></button>' +
+      '</div>' +
+      '<div class="tq-src__chips tq-src__levels" role="group" aria-label="Level">' +
+        [['all', 'All levels']].concat(groups).map(([key, label], k) =>
+          '<button class="chip" type="button" data-src-level="' + key + '" aria-pressed="' + (key === 'all') + '">' +
+            (key !== 'all' && key !== 'essay' ? '<span class="g-nums tq-src__step">' + pad2(k) + '</span>' : '') + esc(label) +
+            ' <span class="g-nums">' + (key === 'all' ? items.length : items.filter(i => i.level === key).length) + '</span></button>').join('') +
       '</div>' +
       '<div class="tq-src__chips" role="group" aria-label="Kind of source">' +
         [['all', 'All', null]].concat(kinds).map(([key, label]) =>
@@ -417,16 +433,18 @@
     const dialog = sourcesHost.querySelector('[data-src-dialog]');
 
     const visible = () => items.filter(item =>
+      (st.level === 'all' || item.level === st.level) &&
       (st.kind === 'all' || item.kind === st.kind) &&
       (st.year === 'all' || item.year === st.year) &&
       (st.where === 'all' || item.where.includes(st.where)) &&
       (!st.query || (item.title + ' ' + item.label + ' ' + hostOf(item.url) + ' ' + item.doi + ' ' + item.key).toLowerCase().includes(st.query)));
-    const filtered = () => st.kind !== 'all' || st.year !== 'all' || st.where !== 'all' || !!st.query;
+    const filtered = () => st.level !== 'all' || st.kind !== 'all' || st.year !== 'all' || st.where !== 'all' || !!st.query;
 
     function card(item) {
       const kind = KINDS.find(([key]) => key === item.kind);
       const open = st.open === item.key;
-      const usedIn = item.uses.length ? [...new Set(item.uses.map(u => 'Essay ' + u.essay))].join(', ') : item.group.indexOf('essay-') === 0 ? '' : item.label;
+      /* The level is the heading above the row now, so the row names only where the essays cite it. */
+      const usedIn = item.uses.length ? [...new Set(item.uses.map(u => 'Essay ' + u.essay))].join(', ') : '';
       const panel = !open ? '' : '<div class="tq-src__panel">' +
         '<div class="tq-seg" role="group" aria-label="About this source"><button type="button" data-src-tab="where" aria-pressed="' + (st.tab === 'where') + '">Where it is used</button><button type="button" data-src-tab="cite" aria-pressed="' + (st.tab === 'cite') + '">Cite</button></div>' +
         (st.tab === 'where'
@@ -456,7 +474,20 @@
       const shown = visible();
       const cut = st.all || filtered() ? shown : shown.slice(0, 12);
       count.textContent = shown.length === items.length ? plural(items.length, 'source', 'sources') : shown.length + ' of ' + items.length + ' sources';
-      list.innerHTML = cut.length ? cut.map(card).join('')
+      /* Each level opens with its own heading, so the climb is visible in
+         the list and not only in the chips. */
+      let last = '';
+      list.innerHTML = cut.length ? cut.map(item => {
+        let head = '';
+        if (item.level !== last) {
+          last = item.level;
+          const g = GROUPS.find(([key]) => key === item.level) || ESSAY_GROUP;
+          const step = SOURCE_LEVELS.findIndex(([key]) => key === g[0]);
+          head = '<li class="tq-src__lvl" role="presentation">' + (step >= 0 ? '<span class="g-nums">' + pad2(step + 1) + '</span>' : '') +
+            '<b>' + esc(g[1]) + '</b><span>' + esc(g[2]) + '</span></li>';
+        }
+        return head + card(item);
+      }).join('')
         : '<li class="tq-src__empty">No source matches. <button class="tk-link" type="button" data-src-clear>Clear search and filters</button></li>';
       more.hidden = cut.length >= shown.length;
       more.innerHTML = '<span>Show all ' + shown.length + ' sources</span>' + ICON.arrow;
@@ -515,6 +546,12 @@
     });
     sourcesHost.addEventListener('click', event => {
       const t = event.target;
+      const lvl = t.closest('[data-src-level]');
+      if (lvl) {
+        st.level = lvl.dataset.srcLevel;
+        sourcesHost.querySelectorAll('[data-src-level]').forEach(b => b.setAttribute('aria-pressed', String(b === lvl)));
+        draw(); return;
+      }
       const chip = t.closest('[data-src-kind]');
       if (chip) {
         st.kind = chip.dataset.srcKind;
@@ -529,7 +566,8 @@
         return;
       }
       if (t.closest('[data-src-clear]')) {
-        Object.assign(st, { kind: 'all', year: 'all', where: 'all', query: '' });
+        Object.assign(st, { level: 'all', kind: 'all', year: 'all', where: 'all', query: '' });
+        sourcesHost.querySelectorAll('[data-src-level]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.srcLevel === 'all')));
         sourcesHost.querySelector('[data-src-q]').value = '';
         sourcesHost.querySelector('[data-src-year]').value = 'all';
         sourcesHost.querySelector('[data-src-where]').value = 'all';
@@ -685,7 +723,6 @@
       return;
     }
     document.body.append(pop, backButton);
-    const covers = Array.isArray(record?.topic_data?.essay_covers) ? record.topic_data.essay_covers : [];
     const stored = readStore();
     const linked = /^#essay-(\d+)$/.exec(location.hash);
     const state = {
@@ -697,25 +734,15 @@
     const several = found.length > 1;
     let notes = null, annotations = null, progressFrame = 0;
 
-    /* An essay's picture: its own cover when the record has one, else a frame
-       of the Topic's video (the stills), each essay a different one. The drawn
-       spacetime well stood in before and read as a broken image, so with no
-       picture at all the stage keeps its plain deep-space gradient. */
-    const stills = (Array.isArray(record?.topic_data?.stills) ? record.topic_data.stills : []).filter(s => s && safeSrc(s.image_url));
-    const coverOf = index => {
-      const cover = covers[index] || {};
-      const own = safeSrc(cover.image_url);
-      if (own) return { src: own, alt: cover.image_alt || '' };
-      const still = stills.length ? stills[(index + 1) % stills.length] : null;
-      return { src: still ? safeSrc(still.image_url) : '', alt: '' };
-    };
+    /* Essays carry no picture, at the owner's request (2026-11-21): no
+       cover in the picker and none behind the stage, which keeps its plain
+       deep-space gradient. Until then each essay borrowed its own cover or
+       a frame of the Topic's video. */
 
     host.innerHTML =
       '<div class="tq-elayout' + (several ? '' : ' is-single') + '">' +
       (several ? '<div class="tq-pick" role="list" aria-label="Essays in this Topic">' + found.map((essay, index) => {
-        const cover = coverOf(index);
         return '<a class="tq-pick__item tq-pick__item--essay" role="listitem" href="#essay-' + essay.n + '" data-essay-pick="' + index + '">' +
-          '<span class="tq-pick__thumb">' + (cover.src ? '<img src="' + esc(cover.src) + '" alt="" loading="lazy" decoding="async">' : '') + '</span>' +
           '<span class="tq-pick__text"><small>Essay ' + essay.n + ' &middot; ' + minutes(essay.fullest.words) + ' min</small><b>' + esc(essay.title) + '</b></span></a>';
       }).join('') + '</div>' : '') +
       '<div class="tq-estage" data-essay-stage></div></div>' +
@@ -732,11 +759,9 @@
     const levelLabel = key => (LEVELS.find(([k]) => k === key) || [key, key])[1];
 
     function drawStage(essay, level) {
-      const cover = coverOf(state.essay);
       const text = essay.levels[level];
       const time = state.mode === 'overview' ? 'About 2 min' : minutes(text.words) + ' min';
       stageNode.innerHTML =
-        '<div class="tq-estage__pic' + (cover.src ? '' : ' is-art') + '" aria-hidden="true">' + (cover.src ? '<img src="' + esc(cover.src) + '" alt="" decoding="async">' : '') + '</div>' +
         '<span class="tq-estage__shade" aria-hidden="true"></span>' +
         '<div class="tq-estage__text" id="essay-' + essay.n + '"><p class="tq-estage__k">' + esc(essay.label) + (several ? ' of ' + found.length : '') + ' &middot; ' + esc(record?.topic_data?.tags?.[0] || 'AI in research') + '</p>' +
           '<h3>' + esc(essay.title) + '</h3><p class="tq-estage__sum">' + esc(firstParagraph(essay.plainest.html, 230)) + '</p></div>' +
@@ -1019,7 +1044,7 @@
     document.addEventListener('gq:topic-section', event => { if (event.detail.id === 'essay') trackProgress(); });
   }
 
-  /* The record first: the page needs its covers and its sources, and the
+  /* The record first: the page needs its sources, and the
      rail's intro text, which topic-01-live.js writes. */
   (window.GQTopic01 || Promise.resolve(null))
     .then(record => getJSON(API).then(data => ({ record, found: group(data.essays) })))

@@ -683,7 +683,17 @@ button.tq-moment-chip:hover { background: color-mix(in srgb, var(--g-accent) 18%
 .tq-tl2__dg.is-blank { width: 0; }
 .tq-tl2__dgs { display: flex; flex-direction: column; transition: transform .9s cubic-bezier(.65, 0, .35, 1); }
 .tq-tl2__dgs i { display: block; height: 1em; font-style: normal; text-align: center; }
-.tq-tl2__ctl { margin-top: auto; padding-top: var(--g-space-sm); display: flex; flex-wrap: wrap; align-items: center; gap: var(--g-space-2xs); }
+/* The controls sit under the year, not at the foot of the column: the foot
+   moved whenever a milestone's text was longer or shorter than the last. The
+   play button has its own row and a fixed width (both labels are stacked in
+   it, one hidden), so pressing it moves nothing. */
+.tq-tl2__ctl { padding-top: var(--g-space-sm); display: flex; flex-wrap: wrap; align-items: center; gap: var(--g-space-2xs); }
+.tq-tl2__ctl .tq-tl2__play { flex-basis: 100%; justify-content: flex-start; }
+.tq-tl2__pi { display: inline-flex; }
+.tq-tl2__pl { display: inline-grid; }
+.tq-tl2__pl > span { grid-area: 1 / 1; text-align: start; }
+.tq-tl2__play[aria-pressed="true"] .tq-tl2__pl > span:first-child,
+.tq-tl2__play[aria-pressed="false"] .tq-tl2__pl > span:last-child { visibility: hidden; }
 .tq-tl2__ctl .tq-icon-btn svg { width: 1rem; height: 1rem; }
 .tq-tl2__ctl .tq-icon-btn:disabled { opacity: .35; cursor: default; }
 .tq-tl2__play {
@@ -741,7 +751,8 @@ button.tq-moment-chip:hover { background: color-mix(in srgb, var(--g-accent) 18%
   .tq-tl2__side { flex-direction: row; flex-wrap: wrap; align-items: center; justify-content: space-between; border-right: 0; border-bottom: 1px solid var(--g-hairline); }
   .tq-tl2__k { flex-basis: 100%; }
   .tq-tl2__year { font-size: 2.75rem; }
-  .tq-tl2__ctl { margin-top: 0; padding-top: 0; }
+  .tq-tl2__ctl { padding-top: 0; }
+  .tq-tl2__ctl .tq-tl2__play { flex-basis: auto; }
   .tq-tl2__card { min-height: 0; }
 }
 @media (prefers-reduced-motion: reduce) {
@@ -765,6 +776,19 @@ button.tq-moment-chip:hover { background: color-mix(in srgb, var(--g-accent) 18%
   border: 1px solid var(--g-hairline); border-radius: var(--g-radius-lg); background: var(--g-surface); overflow: hidden;
 }
 .tq-src { display: block; padding: 0; border: 0; border-radius: 0; background: transparent; transition: background-color var(--g-dur) var(--g-ease-orbit); }
+/* The level a run of rows belongs to (2026-11-21): the three steps the home
+   page's rail promises, then what the essays cite. A quiet band inside the
+   frame, numbered like the steps in the chips above. */
+.tq-src__lvl {
+  display: flex; flex-wrap: wrap; align-items: baseline; gap: .15rem .6rem;
+  padding: var(--g-space-xs) var(--g-space-md); background: var(--g-surface-sunken);
+  font-size: var(--g-fs-eyebrow); text-transform: uppercase; letter-spacing: .08em; color: var(--g-text-subtle);
+}
+.tq-src__lvl + .tq-src, .tq-src + .tq-src__lvl { border-top: 1px solid var(--g-hairline); }
+.tq-src__lvl .g-nums { font-family: var(--g-font-mono); color: var(--g-accent); letter-spacing: 0; }
+.tq-src__lvl b { color: var(--g-text); font-weight: var(--g-w-semibold); }
+.tq-src__lvl span:last-child { text-transform: none; letter-spacing: 0; font-size: var(--g-fs-caption); }
+.tq-src__step { font-family: var(--g-font-mono); color: var(--g-accent); margin-right: .35rem; opacity: 1 !important; margin-left: 0 !important; }
 .tq-src + .tq-src { border-top: 1px solid var(--g-hairline); }
 .tq-src:hover { background: var(--g-surface-raised); }
 .tq-src.is-open { background: var(--g-surface-raised); box-shadow: inset 2px 0 0 transparent; }

@@ -6,12 +6,10 @@ workflow is included in `.github/workflows/deploy.yml`.
 ```
 index.html                        Home
 dossiers.html                     Dossier index (filter + search)
-dossier-machine-hypothesis.html   Dossier 03 — the roadmap's starting topic
+topic-answer-that-looked-right.html  Topic 01, the only published Topic (others are drafts, off the site)
 account.html                      Sign in / create an account
 lab.html                          Interactive lab
-game-hypothesis-machine.html      A game you can actually play
 learn.html                        The four learning paths
-path-ai-in-research.html          One path, expanded
 community.html                    Roles, weekly experiment, events
 newsletter.html                   Subscribe + archive
 about.html                        What this is, and the editorial rules
