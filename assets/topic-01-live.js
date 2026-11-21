@@ -937,7 +937,8 @@
     var list = videos(data);
 
     document.title = item.title + ' · GraviQuest Topic ' + (data.number || '01');
-    fill('number', esc(data.number));
+    /* The breadcrumb ends on the Topic's title, not its number (review of 2026-11-22). */
+    fill('crumb', esc(item.title));
     fill('eyebrow', 'Topic ' + esc(data.number || '01') + ((data.tags || [])[0] ? ' &middot; ' + esc(data.tags[0]) : ''));
     fill('title', esc(item.title));
     fill('lead', esc(data.hero_lead || item.summary));
@@ -1062,6 +1063,15 @@
 
     side(panel('talk'), landing.discussion_title, landing.discussion_say);
     panel('talk').querySelector('.trail__q p').textContent = (data.discussion || {}).question || '';
+    /* The button goes straight into the Forum thread (review of 2026-11-22).
+       The address in the HTML is the thread as it stands; the Forum's own
+       answer replaces it, so a moved or renamed thread is still found. */
+    var forumCta = panel('talk').querySelector('[data-forum-cta]');
+    if (forumCta) getJSON('/api/forum/discussions/' + encodeURIComponent(SLUG) + '/').then(function (payload) {
+      var url = safeUrl((payload.discussion || {}).url);
+      var id = function (href) { var m = /\/t\/(?:[^/]+\/)?(\d+)/.exec(href || ''); return m ? m[1] : ''; };
+      if (url && id(url) !== id(forumCta.href)) forumCta.href = url;
+    }).catch(function () {});
 
     side(panel('sources'), landing.sources_title, landing.sources_say);
     var sources = rows(data.sources);

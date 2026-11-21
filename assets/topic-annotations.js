@@ -404,7 +404,9 @@
       status.querySelector('[data-an-n]').textContent = shown.length === all.length ? T().plural(all.length, 'annotation', 'annotations') : shown.length + ' of ' + all.length + ' annotations';
       status.querySelector('[data-an-clear]').hidden = !(activeFilters() || state.query);
       var tog = panel.querySelector('[data-an-filters]');
-      if (tog) tog.innerHTML = ICON.filter + '<span>Filters</span>' + (activeFilters() ? '<b class="tq-apanel__badge g-nums">' + activeFilters() + '</b>' : '');
+      /* Icon only (review of 2026-11-22): in a 296px panel the word "Filters"
+         squeezed the search box; the count of active filters rides on the icon. */
+      if (tog) tog.innerHTML = ICON.filter + '<span class="g-visually-hidden">Filters</span>' + (activeFilters() ? '<b class="tq-apanel__badge g-nums">' + activeFilters() + '</b>' : '');
       var who = panel.querySelector('[data-an-who]');
       if (who) {
         var names = Array.from(new Set(all.map(function (c) { return c.author; }))).sort();
@@ -441,7 +443,7 @@
         '<div class="tq-apanel__head"><p class="tq-apanel__title">' + ICON.pen + '<b>Annotations</b><span>' + esc(opts.levelLabel || '') + '</span></p>' +
         '<button class="tq-icon-btn tq-icon-btn--sm" type="button" data-an-close aria-label="Close annotations">' + T().icon.close + '</button></div>' +
         '<div class="tq-apanel__tools"><label class="tk-search">' + T().icon.search + '<span class="g-visually-hidden">Search annotations</span><input type="search" placeholder="Search annotations" autocomplete="off" data-an-q value="' + esc(state.query) + '"></label>' +
-        '<button class="g-btn g-btn--ghost g-btn--sm tq-apanel__ftog" type="button" aria-expanded="' + state.filters + '" data-an-filters></button></div>' +
+        '<button class="tq-icon-btn tq-apanel__ftog" type="button" aria-expanded="' + state.filters + '" title="Filters" data-an-filters></button></div>' +
         '<div class="tq-apanel__filters" ' + (state.filters ? '' : 'hidden') + ' data-an-fbox>' +
           '<div class="tq-seg" role="group" aria-label="Type of annotation">' + KINDS.map(function (k) { return '<button type="button" data-an-kind="' + k[0] + '" aria-pressed="' + (state.kind === k[0]) + '">' + k[1] + '</button>'; }).join('') + '</div>' +
           '<div class="tq-apanel__row"><label><span>Author</span><select class="g-select" data-an-who></select></label>' +
