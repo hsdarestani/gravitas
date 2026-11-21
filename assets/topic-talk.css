@@ -176,9 +176,34 @@
 .tq-ov__card { padding: var(--g-space-sm) var(--g-space-md); border: 1px solid var(--g-hairline); border-radius: var(--g-radius); background: var(--g-surface-sunken); }
 .tq-ov__card ol, .tq-ov__card ul { margin-bottom: 0 !important; }
 
-/* The reader and, when asked for, the annotation panel beside it. */
-.tq-readwrap { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--g-space-lg); align-items: start; }
-.tq-readwrap.is-annotating { grid-template-columns: minmax(0, 1fr) 21rem; }
+/* The reader and the annotation column beside it (review of 2026-11-21).
+   Opening the panel must not narrow or move the text. From 1392px the Topic
+   layout is wider and the text has a fixed 45rem (its reading measure) with
+   a column beside it that is there whether the panel is open or not: the
+   panel when open, the margin counts (.tq-amargin) when closed. Below that
+   the text has the whole column and the panel is a sheet over the page. */
+.tq-readwrap { position: relative; display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--g-space-lg); align-items: start; }
+.tq-amargin { display: none; }
+@media (min-width: 1392px) {
+  /* The head above shares the wider measure so the page keeps one edge. */
+  .g-container.tq-layout, .tq-head > .g-container { max-width: calc(82.5rem + 2 * var(--g-gutter)); }
+  .g-container.tq-layout { grid-template-columns: 14rem minmax(0, 1fr); gap: 3rem; }
+  .tq-readwrap, .tq-readwrap.is-annotating { grid-template-columns: 45rem minmax(0, 1fr); gap: 2rem; }
+  .tq-readwrap > .tq-reader { grid-column: 1; grid-row: 1; }
+  .tq-readwrap > .tq-apanel { grid-column: 2; grid-row: 1; }
+  .tq-amargin { display: block; position: absolute; grid-column: 2; grid-row: 1 / -1; inset: 0; pointer-events: none; }
+  .tq-amargin[hidden] { display: none; }
+}
+.tq-amark {
+  position: absolute; left: 0; display: inline-flex; align-items: center; gap: .35rem; height: 1.75rem; padding: 0 .6rem;
+  border: 1px solid var(--g-hairline); border-radius: var(--g-radius-pill); background: var(--g-surface);
+  color: var(--g-text-subtle); font: inherit; font-size: var(--g-fs-caption); font-weight: var(--g-w-medium);
+  cursor: pointer; pointer-events: auto;
+  transition: color var(--g-dur) var(--g-ease-orbit), border-color var(--g-dur) var(--g-ease-orbit);
+}
+.tq-amark svg { width: .85rem; height: .85rem; }
+.tq-amark:hover { color: var(--g-accent); border-color: color-mix(in srgb, var(--g-accent) 50%, transparent); }
+.tq-amark:focus-visible { outline: 2px solid var(--g-focus); outline-offset: 2px; }
 .tq-reader h4[id] { scroll-margin-top: calc(var(--g-header-h) + 5rem); }
 .tq-reader .is-flash, .tq-reader p.is-flash, .tq-reader li.is-flash { border-radius: 4px; background: color-mix(in srgb, var(--g-accent) 12%, transparent); }
 
@@ -193,6 +218,9 @@ mark.tq-an.is-mine { background: color-mix(in srgb, var(--g-accent) 20%, transpa
 mark.tq-an.is-pending { background: transparent; box-shadow: none; text-decoration: underline dashed color-mix(in srgb, var(--g-accent) 80%, transparent); text-underline-offset: .22em; }
 mark.tq-an.is-on, mark.tq-an.is-flash { background: color-mix(in srgb, var(--g-accent) 34%, transparent); outline: none; }
 mark.tq-an:focus-visible { outline: 2px solid var(--g-focus); outline-offset: 1px; }
+/* Wrapped but not shown while the panel is closed; a margin count tints it on hover. */
+mark.tq-an.is-quiet, mark.tq-an.is-quiet.is-mine, mark.tq-an.is-quiet.is-pending { background: transparent; box-shadow: none; text-decoration: none; pointer-events: none; }
+mark.tq-an.is-quiet.is-hint { background: color-mix(in srgb, var(--g-accent) 16%, transparent); }
 .tq-hc {
   display: inline-flex; align-items: center; gap: .3rem; margin-left: .6rem; vertical-align: middle;
   height: 1.6rem; padding: 0 .55rem; border: 1px dashed var(--g-border); border-radius: var(--g-radius-pill);
@@ -223,18 +251,20 @@ mark.tq-an:focus-visible { outline: 2px solid var(--g-focus); outline-offset: 1p
    from the bottom on a phone, when the column is too narrow for both. */
 .tq-apanel {
   position: sticky; top: calc(var(--g-header-h) + 4.5rem); max-height: calc(100vh - var(--g-header-h) - 6rem); overflow-y: auto;
-  display: grid; align-content: start; gap: var(--g-space-xs); padding: var(--g-space-sm);
+  display: grid; grid-template-columns: minmax(0, 1fr); align-content: start; gap: var(--g-space-xs); padding: var(--g-space-sm);
   border: 1px solid var(--g-border); border-radius: var(--g-radius-lg); background: var(--g-surface);
   overscroll-behavior: contain; scrollbar-width: thin;
 }
 .tq-apanel[hidden] { display: none; }
+.tq-apanel > * { min-width: 0; }
 .tq-apanel__head { display: flex; align-items: center; justify-content: space-between; gap: var(--g-space-xs); }
 .tq-apanel__title { display: flex; align-items: center; gap: .45rem; margin: 0; font-size: var(--g-fs-small); }
 .tq-apanel__title svg { width: 1rem; height: 1rem; color: var(--g-accent); }
 .tq-apanel__title span { font-family: var(--g-font-mono); font-size: var(--g-fs-eyebrow); color: var(--g-text-subtle); text-transform: uppercase; letter-spacing: .08em; }
 .tq-apanel__tools { display: flex; gap: var(--g-space-2xs); align-items: center; }
 .tq-apanel__tools .tk-search { flex: 1 1 auto; }
-.tq-apanel__ftog svg { width: 1rem; height: 1rem; }
+.tq-apanel__ftog { flex: none; }
+.tq-apanel__ftog svg { width: 1rem; height: 1rem; flex: none; }
 .tq-apanel__badge { margin-left: .3rem; min-width: 1.2rem; padding: 0 .3rem; border-radius: var(--g-radius-pill); background: var(--g-accent); color: var(--g-cosmos-900); font-size: var(--g-fs-eyebrow); line-height: 1.2rem; text-align: center; }
 .tq-apanel__filters { display: grid; gap: var(--g-space-2xs); padding: var(--g-space-xs); border-radius: var(--g-radius); background: var(--g-surface-sunken); }
 .tq-apanel__row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--g-space-2xs); }
@@ -275,8 +305,7 @@ button.tq-an-ref:hover { color: var(--g-text); background: var(--g-surface-hover
 .tq-an-new { display: grid; gap: var(--g-space-2xs); padding: var(--g-space-sm); border: 1px solid var(--g-accent); border-radius: var(--g-radius); background: var(--g-surface-raised); }
 .tq-an-new__k { margin: 0; font-size: var(--g-fs-eyebrow); text-transform: uppercase; letter-spacing: var(--g-track-eyebrow); color: var(--g-accent); }
 .tq-an-new .g-hint { margin: 0; }
-@media (max-width: 1279px) {
-  .tq-readwrap.is-annotating { grid-template-columns: minmax(0, 1fr); }
+@media (max-width: 1391px) {
   .tq-apanel {
     position: fixed; top: var(--g-header-h); right: 0; bottom: 0; z-index: var(--g-z-overlay);
     width: min(24rem, 100vw); max-height: none; border-radius: var(--g-radius-lg) 0 0 var(--g-radius-lg);

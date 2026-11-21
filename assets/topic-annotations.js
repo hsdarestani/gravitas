@@ -276,12 +276,13 @@
         var pos = locate(idx, a);
         if (pos < 0) return;
         state.found[c.id] = true;
-        /* Drawn only while the panel is open; the index has to be rebuilt
-           after each wrap because a wrap splits text nodes. */
-        if (state.open) {
-          wrap(idx, pos, pos + squash(a.quote).length, c.id, (c.mine ? 'is-mine' : '') + (c.status === 'pending' ? ' is-pending' : ''));
-          idx = index(article);
-        }
+        /* Shown only while the panel is open. With it closed the passage is
+           still wrapped, but quietly (no colour, not clickable), so the margin
+           can say where the notes are. The index has to be rebuilt after each
+           wrap because a wrap splits text nodes. */
+        var first = wrap(idx, pos, pos + squash(a.quote).length, c.id, (c.mine ? 'is-mine' : '') + (c.status === 'pending' ? ' is-pending' : '') + (state.open ? '' : ' is-quiet'));
+        if (first && !state.open) { first.removeAttribute('tabindex'); first.removeAttribute('role'); first.removeAttribute('aria-label'); }
+        idx = index(article);
       });
       if (state.open) {
         hs.forEach(function (h, i) {
@@ -295,10 +296,86 @@
           h.append(button);
         });
       }
+      drawMargin();
       var count = roots.filter(function (c) { return state.found[c.id]; }).length;
       if (opts.onCount) opts.onCount(count);
       if (talk) talk.redraw();
       paintStatus();
+    }
+
+    /* The margin, from the review of 2026-11-21: opening the panel used to
+       take its width out of the text, which narrowed to half and lost the
+       reader's line. On a wide screen the text now keeps one width and one
+       place, with a column beside it held for annotations either way: the
+       panel when it is open, and when it is closed a small count beside each
+       paragraph or heading that has notes. A count opens the panel on its
+       first note; hovering it tints the passages it counts. On a narrower
+       screen the column does not exist (CSS hides the layer) and the panel
+       is a sheet over the page, so the text does not move there either. */
+    var margin = null;
+    function drawMargin() {
+      var host = article.parentNode;
+      if (!margin) {
+        margin = document.createElement('div');
+        margin.className = 'tq-amargin';
+        host.append(margin);
+        margin.addEventListener('click', function (event) {
+          var b = event.target.closest('[data-am]');
+          if (!b) return;
+          if (b.dataset.am) activate(Number(b.dataset.am), false);
+          else setOpen(true);
+        });
+        margin.addEventListener('mouseover', function (event) { hint(event.target.closest('[data-am-ids]')); });
+        margin.addEventListener('mouseout', function () { hint(null); });
+        if (window.ResizeObserver) new ResizeObserver(function () { if (!state.open) place(); }).observe(article);
+      }
+      margin.replaceChildren();
+      margin.hidden = state.open;
+      if (state.open) return;
+      var groups = [];
+      var seen = new Map();
+      article.querySelectorAll('mark.tq-an').forEach(function (m) {
+        var block = m.closest('p, li, blockquote, figure, td, h4') || m.parentNode;
+        var g = seen.get(block);
+        if (!g) { g = { block: block, ids: [] }; seen.set(block, g); groups.push(g); }
+        var id = Number(m.dataset.an);
+        if (g.ids.indexOf(id) < 0) g.ids.push(id);
+      });
+      headings(article).forEach(function (h, i) {
+        if (state.heads[i]) groups.push({ block: h, ids: [], n: state.heads[i] });
+      });
+      groups.forEach(function (g) {
+        var n = g.n || g.ids.length;
+        var b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'tq-amark';
+        b.dataset.am = g.ids.length ? String(g.ids[0]) : '';
+        b.dataset.amIds = g.ids.join(' ');
+        b.setAttribute('aria-label', n + (n === 1 ? ' note' : ' notes') + (g.ids.length ? ' on this passage' : ' on this section') + '. Open annotations.');
+        b.innerHTML = ICON.talk + '<span class="g-nums">' + n + '</span>';
+        b._block = g.block;
+        margin.append(b);
+      });
+      place();
+    }
+    /* Each count sits level with its paragraph, and below the one above it
+       when two paragraphs are too close for both. */
+    function place() {
+      if (!margin || margin.hidden) return;
+      var top = margin.getBoundingClientRect().top;
+      var items = Array.prototype.slice.call(margin.children).map(function (b) {
+        return { b: b, y: b._block.getBoundingClientRect().top - top };
+      }).sort(function (x, y) { return x.y - y.y; });
+      var floor = -Infinity;
+      items.forEach(function (it) {
+        var y = Math.max(it.y, floor);
+        it.b.style.top = y + 'px';
+        floor = y + 34;
+      });
+    }
+    function hint(button) {
+      var ids = button ? button.dataset.amIds.split(' ') : [];
+      article.querySelectorAll('mark.tq-an.is-quiet').forEach(function (m) { m.classList.toggle('is-hint', ids.indexOf(m.dataset.an) >= 0); });
     }
 
     function matches(c) {
