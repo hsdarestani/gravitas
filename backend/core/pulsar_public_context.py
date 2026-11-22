@@ -42,7 +42,7 @@ def public_page(value):
     path = parsed.path
     if re.match(r'^/(workspace|account|admin|login|signup)(?:[/.]|$)', path):
         return ''
-    if path in ('', '/'):
+    if path in ('', '/', '/index', '/index.html'):
         return '/'
     if re.fullmatch(r'/[a-z0-9-]+(?:\.html)?', path):
         return path.removesuffix('.html')
