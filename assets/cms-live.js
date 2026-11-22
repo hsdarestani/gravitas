@@ -1,12 +1,12 @@
 (function () {
   'use strict';
-  if (location.pathname !== '/topics.html') return;
+  if (location.pathname !== '/topics') return;
   var target=document.querySelector('[data-filterable]');
   if(!target) return;
 
   function esc(value){return String(value==null?'':value).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;');}
   function dateLabel(value){if(!value)return'';var d=new Date(value);return Number.isNaN(d.getTime())?'':d.toLocaleDateString('en-GB',{year:'numeric',month:'short',day:'numeric'});}
-  function href(item){var page=(item.topic_data||{}).page_url;return /^\/[a-z0-9-]+\.html$/.test(page||'')?page:'/topic.html?slug='+encodeURIComponent(item.slug);}
+  function href(item){var page=(item.topic_data||{}).page_url;return /^\/[a-z0-9-]+(?:\.html)?$/.test(page||'')?page.replace(/\.html$/,''):'/topic?slug='+encodeURIComponent(item.slug);}
 
   var parent=target.parentElement;
   if(parent){var filters=parent.querySelector('.filters');if(filters)filters.remove();var empty=parent.querySelector('.empty');if(empty)empty.remove();}

@@ -77,7 +77,7 @@
     if (explicit) return explicit;
     var fromQuery = new URLSearchParams(location.search).get('slug');
     if (fromQuery) return fromQuery;
-    var match = location.pathname.match(/topic-([a-z0-9-]+)\.html$/i);
+    var match = location.pathname.match(/topic-([a-z0-9-]+)(?:\.html)?$/i);
     return match ? match[1] : '';
   }
 
@@ -403,7 +403,7 @@
     var tags = Array.isArray(data.tags) ? data.tags : [];
     root.innerHTML =
       '<section class="page-head"><div class="g-container">' +
-      '<p class="crumb"><a href="index.html">Home</a> / <a href="topics.html">Topics</a>' +
+      '<p class="crumb"><a href="/">Home</a> / <a href="/topics">Topics</a>' +
       '</p>' +
       '<h1>' + esc(item.title) + '</h1><p class="g-lead">' + esc(data.hero_lead || item.summary || '') + '</p>' +
       (tags.length ? '<div class="pill-row g-mt-md">' + tags.map(function (tag) { return '<span class="g-tag">' + esc(tag) + '</span>'; }).join('') + '</div>' : '') +
@@ -549,8 +549,8 @@
     host.innerHTML = '';
     if (!authenticated) {
       host.innerHTML = '<div class="topic-login-callout"><h3>Join the discussion</h3><p>Sign in or create an account to comment, reply or like.</p>' +
-        '<div class="g-cluster"><a class="g-btn g-btn--primary" href="/account.html#in">Sign in</a>' +
-        '<a class="g-btn g-btn--secondary" href="/account.html#up">Create account</a></div></div>';
+        '<div class="g-cluster"><a class="g-btn g-btn--primary" href="/login#in">Sign in</a>' +
+        '<a class="g-btn g-btn--secondary" href="/signup#up">Create account</a></div></div>';
       return;
     }
     var form = document.createElement('form');
@@ -684,7 +684,10 @@
       if (!item || item.kind !== 'topic') throw new Error('topic_not_found');
       /* A Topic with a page of its own lives there, whichever link led here. */
       var page = (item.topic_data || {}).page_url;
-      if (/^\/[a-z0-9-]+\.html$/.test(page || '')) { location.replace(page + location.hash); return []; }
+      if (/^\/[a-z0-9-]+(?:\.html)?$/.test(page || '')) {
+        var canonicalPage = page.replace(/\.html$/, '');
+        if (canonicalPage !== location.pathname) { location.replace(canonicalPage + location.hash); return []; }
+      }
       renderTopic(item);
       setupTopicProgress(slug);
       return Promise.all([
@@ -693,6 +696,6 @@
       ]);
     })
     .catch(function () {
-      root.innerHTML = '<section class="page-head"><div class="g-container"><p class="crumb"><a href="topics.html">Topics</a></p><h1>Topic unavailable</h1><p class="g-lead">This topic is not published or could not be loaded.</p></div></section>';
+      root.innerHTML = '<section class="page-head"><div class="g-container"><p class="crumb"><a href="/topics">Topics</a></p><h1>Topic unavailable</h1><p class="g-lead">This topic is not published or could not be loaded.</p></div></section>';
     });
 })();

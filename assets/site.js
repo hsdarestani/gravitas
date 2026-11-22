@@ -398,7 +398,7 @@
      A .video card is a poster frame with a play button on it, and the frame
      was an empty gradient. Rather than paste a path into every card, the file
      is looked up from the page the card points at: the card linking to
-     topic-answer-that-looked-right.html asks for
+     /topic-answer-that-looked-right asks for
      assets/thumbnails/topic-answer-that-looked-right.webp, and a .video with no
      href — the one on a topic page, which is already on the page it means —
      asks for its own filename. Export a still under the page's name, drop it
@@ -475,9 +475,7 @@
     var authWatchBusy = false;
 
     function onAuthRoute() {
-      return location.pathname === '/signup' ||
-        location.pathname === '/login' ||
-        location.pathname === '/account.html';
+      return location.pathname === '/signup' || location.pathname === '/login';
     }
 
     function checkAuthenticatedSession() {

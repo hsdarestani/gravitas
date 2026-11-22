@@ -23,7 +23,7 @@
   }
 
   function loadHomepageCms() {
-    if (location.pathname !== '/' && location.pathname !== '/index.html') return;
+    if (location.pathname !== '/') return;
     if (document.querySelector('script[data-gravitas-home-cms]')) return;
     var script = document.createElement('script');
     script.src = '/assets/cms-home.js';
@@ -101,7 +101,7 @@
         button.addEventListener('click', function () {
           button.disabled = true;
           apiPost('/api/auth/logout/', {})
-            .then(function () { location.href = 'account.html#in'; location.reload(); })
+            .then(function () { location.href = '/login#in'; location.reload(); })
             .catch(function () { button.disabled = false; });
         });
 

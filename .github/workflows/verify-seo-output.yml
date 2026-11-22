@@ -31,9 +31,12 @@ jobs:
           set -euo pipefail
           bash -n ops/verify_seo_output.sh
           grep -Fq '<link rel="canonical" href="https://graviquest.com/">' index.html
-          grep -Fq '<link rel="canonical" href="https://graviquest.com/topics.html">' dossiers.html
+          grep -Fq '<link rel="canonical" href="https://graviquest.com/topics">' topics.html
+          grep -Fq '<link rel="canonical" href="https://graviquest.com/topics">' dossiers.html
           grep -Fq '<meta name="robots" content="noindex, follow">' dossiers.html
           grep -Fq 'Sitemap: https://graviquest.com/sitemap.xml' robots.txt
+          grep -Fq '<loc>https://graviquest.com/topics</loc>' sitemap.xml
+          ! grep -Fq '.html</loc>' sitemap.xml
 
   verify:
     if: >-

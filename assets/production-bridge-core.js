@@ -108,7 +108,7 @@
      to the product set's geometry: two speech bubbles, the one in front
      overlapping the one behind, tails opposite, and the set's solid dot in
      the front bubble for the member's own post. A place, so it carries the
-     dot; Join Us, an action, does not. Documented in brand.html section 11.
+     dot; Join Us, an action, does not. Documented in /brand section 11.
      Swapped in for the icon a button already has, so the button keeps its
      g-btn--lead padding, which assumes an icon: setting textContent on such a
      button dropped the icon and left the text pushed off centre. */
@@ -130,7 +130,7 @@
     }
     var span = button.querySelector('span');
     if (span) { span.textContent = label; return; }
-    // A label written as a bare text node beside the icon (community.html's
+    // A label written as a bare text node beside the icon (/community's
     // hero): wrap it so the next swap finds it.
     [].slice.call(button.childNodes).forEach(function (n) { if (n.nodeType === 3) n.remove(); });
     span = document.createElement('span');
@@ -158,7 +158,7 @@
       setButton(a, 'Enter Forum', FORUM_HOME, FORUM_ICON);
     });
     [].forEach.call(document.querySelectorAll('[data-member-start]'), function (a) {
-      setButton(a, 'Explore Topics', '/topics.html');
+      setButton(a, 'Explore Topics', '/topics');
     });
   }
 
@@ -185,7 +185,7 @@
       var primary = act.querySelector('.g-btn--primary');
       var secondary = act.querySelector('.g-btn--secondary');
       setButton(primary, 'Enter Forum', FORUM_HOME, FORUM_ICON);
-      setButton(secondary, 'Explore Topics', '/topics.html');
+      setButton(secondary, 'Explore Topics', '/topics');
       var fine = act.parentNode && act.parentNode.querySelector('.join__fine');
       if (fine) fine.textContent = 'You’re signed in. Read, reply and like in any thread.';
     });
@@ -716,7 +716,7 @@
 
      Query strings are dropped too, with one exception that matters. A topic is
      now served two ways - the standalone topic-machine-hypothesis.html, and
-     the shell topic.html?slug=machine-hypothesis, which is what cms-live.js
+     the shell /topic?slug=machine-hypothesis, which is what cms-live.js
      links to once the CMS holds rows. Reading only the last path segment gives
      every CMS topic the key "topic", which matches no recognised prefix, so
      the save control silently stopped appearing on exactly the pages the CMS

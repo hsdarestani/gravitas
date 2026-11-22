@@ -460,7 +460,7 @@ export async function renderAdminContentEditor(host, id, { go }) {
       : 'English Topic content only for now. German and Persian translation controls are intentionally hidden.',
     actions: [
       K.link(go, 'All Topics', `${ADMIN}/content`),
-      current && current.status === 'published' ? K.anchor('View on site', data.page_url || `/topic.html?slug=${encodeURIComponent(current.slug)}`) : null,
+      current && current.status === 'published' ? K.anchor('View on site', (data.page_url ? String(data.page_url).replace(/\.html(?=[?#]|$)/, '') : `/topic?slug=${encodeURIComponent(current.slug)}`)) : null,
     ],
   });
   const isTopic01 = current?.slug === TOPIC_01;
