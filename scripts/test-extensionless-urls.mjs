@@ -70,9 +70,11 @@ try {
   assert.ok(!/\.html<\/loc>/.test(sitemap), 'no legacy .html URLs in sitemap');
 
   const deploy = await readFile('.github/workflows/deploy.yml', 'utf8');
-  assert.equal((deploy.match(/try_files \\$uri \\$uri\.html \\$uri\/ \/index\.html;/g) || []).length, 2,
+  const cleanResolution = String.raw`try_files \$uri \$uri.html \$uri/ /index.html;`;
+  assert.equal(deploy.split(cleanResolution).length - 1, 2,
     'both HTTP and HTTPS nginx blocks need clean URL resolution');
-  assert.equal((deploy.match(/location ~ \^\/\(\[A-Za-z0-9_-\]\+\)\\\.html\$/g) || []).length, 2,
+  const legacyRedirect = String.raw`location ~ ^/([A-Za-z0-9_-]+)\.html$ { return 301 /\$1\$is_args\$args; }`;
+  assert.equal(deploy.split(legacyRedirect).length - 1, 2,
     'both HTTP and HTTPS nginx blocks need legacy .html redirects');
 
   console.log('Clean URL smoke checks passed: pages, 301s, queries, CSS, API and sitemap');
