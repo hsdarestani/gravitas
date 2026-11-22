@@ -53,7 +53,7 @@ class PublicPulsarContextTests(TestCase):
             ],
         })
         self.assertEqual(
-            observation['actions'][0]['href'], '/topic-answer-that-looked-right.html',
+            observation['actions'][0]['href'], '/topic-answer-that-looked-right',
         )
         self.assertEqual(observation['actions'][1]['href'], '')
         self.assertEqual(observation['actions'][2]['href'], '')
@@ -69,7 +69,7 @@ class PublicPulsarContextTests(TestCase):
             'What is a topic?', catalog=CATALOG,
         )
         self.assertIn('one question', answer)
-        self.assertEqual(links[0]['href'], '/topics.html')
+        self.assertEqual(links[0]['href'], '/topics')
 
     def test_cannot_claim_database_topics_are_all_visible(self):
         reply, links = short_public_answer(
@@ -79,7 +79,7 @@ class PublicPulsarContextTests(TestCase):
         )
         self.assertIn('database currently lists', reply)
         self.assertIn('public lineup', reply)
-        self.assertEqual(links[0]['href'], '/topics.html')
+        self.assertEqual(links[0]['href'], '/topics')
 
 
 class PublicPulsarApiTests(TestCase):
@@ -136,7 +136,7 @@ class PublicPulsarApiTests(TestCase):
         self.assertIn('Is AI reliable in research', payload['reply'])
         self.assertNotIn('Is the universe computable', payload['reply'])
         self.assertEqual(
-            payload['links'][0]['href'], '/topic-answer-that-looked-right.html',
+            payload['links'][0]['href'], '/topic-answer-that-looked-right',
         )
         model.assert_not_called()
 
