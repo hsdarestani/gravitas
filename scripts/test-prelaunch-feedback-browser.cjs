@@ -104,8 +104,21 @@ async function assertSequentialVisibleNumbers(page,scenario){
           assert.equal(await page.locator('[data-question="video_content_quality"]').isVisible(),true);
           await assertSequentialVisibleNumbers(page,'video-rating question revealed');
           await page.locator('[data-question="video_content_quality"] .fb-choice').nth(4).click();
+          const communityMore=page.locator('[data-more="community"]');
+          assert.equal(await communityMore.isHidden(),true,'Unvisited Community must not show an empty More questions panel');
+          await page.locator('[data-question="community_visited"] label.fb-option').first().click();
+          assert.equal(await page.locator('[data-question="community_purpose"]').isVisible(),true);
+          assert.equal(await communityMore.isVisible(),true,'Community follow-ups appear after Yes');
+          assert.equal(await communityMore.locator('summary').textContent(),'More questions (3)');
+          await communityMore.locator('summary').click();
+          assert.equal(await page.locator('[data-question="forum_usability"]').isVisible(),true);
+          await page.locator('[data-question="forum_usability"] .fb-choice').nth(3).click();
+          await assertSequentialVisibleNumbers(page,'Community follow-ups expanded');
           await page.locator('[data-question="community_visited"] label.fb-option').last().click();
           assert.equal(await page.locator('[data-question="community_purpose"]').isHidden(),true);
+          assert.equal(await communityMore.isHidden(),true,'No hides gated Community extra questions');
+          assert.equal(await page.locator('[data-question="forum_usability"]').isHidden(),true);
+          await assertSequentialVisibleNumbers(page,'Community extras hidden again');
 
           const more=page.locator('[data-more="first"]');
           await more.locator('summary').click();
