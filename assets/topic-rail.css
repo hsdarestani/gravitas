@@ -301,6 +301,12 @@
 .trail__next li > a:hover { border-color: var(--g-border-strong); background: var(--g-surface-hover); }
 .trail__next small { font-size: var(--g-fs-eyebrow); text-transform: uppercase; letter-spacing: var(--g-track-eyebrow); color: var(--g-text-subtle); }
 .trail__next b { font-weight: var(--g-w-semibold); }
+/* A card whose Topic is not open yet carries the PLANNED pill, centred on the
+   card's right edge, and keeps its own background on hover (.is-soon:hover
+   would otherwise inherit the list's transparent one). */
+.trail__next li > .is-soon { position: relative; padding-right: calc(var(--g-space-md) + 6.5rem); }
+.trail__next li > .is-soon:hover { background: var(--g-surface-sunken); }
+.trail__next .is-soon .soon-chip { top: 50%; right: var(--g-space-md); transform: translateY(-50%); }
 
 /* Discussion — this week's question, set large */
 .trail__q { margin: 0; }

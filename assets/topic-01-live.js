@@ -1107,7 +1107,9 @@
       side(relatedPanel, landing.related_title || 'Where this goes next', landing.related_say || '');
       relatedPanel.querySelector('.trail__next').innerHTML = next.map(function (card) {
         var url = card.status === 'proposed' ? '' : safeUrl(card.href);
-        return '<li>' + (url ? '<a href="' + esc(url) + '">' : '<span>') + '<small>' + esc(card.status === 'proposed' ? 'Proposed Topic' : card.kicker) + '</small><b>' + esc(card.title) + '</b>' + (url ? '</a>' : '</span>') + '</li>';
+        /* Not open yet: the brand's PLANNED pill, as on Learn and the
+           Newsletter (review of 2026-11-22). */
+        return '<li>' + (url ? '<a href="' + esc(url) + '">' : '<span class="is-soon" aria-disabled="true"><span class="soon-chip">Planned</span>') + '<small>' + esc(card.status === 'proposed' ? 'Proposed Topic' : card.kicker) + '</small><b>' + esc(card.title) + '</b>' + (url ? '</a>' : '</span>') + '</li>';
       }).join('');
     }
 
