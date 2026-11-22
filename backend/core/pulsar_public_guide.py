@@ -72,7 +72,7 @@ def destinations(pages, catalog, page):
     """Build exact links from the public inventory, not a permissive URL regex."""
     links = {}
     for path, content in pages.items():
-        if BLOCKED.match(path) or path == '/forum-thread.html':
+        if BLOCKED.match(path) or path == '/forum-thread':
             continue
         label = clean_text(content.get('observation', {}).get('heading'), 110)
         if not label:
@@ -106,7 +106,7 @@ def progression_answer(message, page, observation, catalog, pages, allowed, hist
     next_step = q in ('what next', "what's next", 'and then', 'what should i do next', 'then what')
     if not (start or next_step):
         return None
-    if page not in ('/', '/topics.html') and not page.startswith('/topic-'):
+    if page not in ('/', '/topics') and not page.startswith('/topic-'):
         return None
     topic = page if page.startswith('/topic-') else observation.get('featured_href', '')
     if not topic:

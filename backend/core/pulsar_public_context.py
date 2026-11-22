@@ -11,10 +11,10 @@ from urllib.parse import urlsplit
 PUBLIC_FAQ = (
     (('where are the topics', 'where can i find topics', 'where is the topics page'),
      'Open the Topics index to see published and planned questions.',
-     '/topics.html', 'Browse Topics'),
+     '/topics', 'Browse Topics'),
     (('where is the community', 'how can i join the community', 'propose a topic'),
      'You can suggest questions and join the discussion in Community.',
-     '/community.html', 'Community'),
+     '/community', 'Community'),
 )
 
 
@@ -27,9 +27,9 @@ def clean_text(value, limit=240):
 def public_href(value):
     """Only routes to known, same-origin, public Topic pages are permitted."""
     href = clean_text(value, 180)
-    if not re.fullmatch(r'/?topic-[a-z0-9-]+\.html(?:#[a-z0-9-]+)?', href):
+    if not re.fullmatch(r'/?topic-[a-z0-9-]+(?:\.html)?(?:#[a-z0-9-]+)?', href):
         return ''
-    return '/' + href.lstrip('/')
+    return '/' + re.sub(r'\.html(?=#|$)', '', href.lstrip('/'))
 
 
 def public_page(value):
@@ -44,13 +44,9 @@ def public_page(value):
         return ''
     if path in ('', '/'):
         return '/'
-    if re.fullmatch(r'/[a-z0-9-]+\.html', path):
-        return path
+    if re.fullmatch(r'/[a-z0-9-]+(?:\.html)?', path):
+        return path.removesuffix('.html')
     # Unknown/private routes must never silently become the homepage.
-    if path == '/community':
-        return '/community.html'
-    if re.fullmatch(r'/[a-z0-9-]+', path):
-        return path + '.html'
     return ''
 
 
@@ -66,7 +62,7 @@ def public_navigation_href(value):
         href,
     ):
         return ''
-    return '/' + href.lstrip('/')
+    return '/' + re.sub(r'\.html(?=#|$)', '', href.lstrip('/'))
 
 
 def page_observation(raw):
@@ -91,7 +87,7 @@ def page_observation(raw):
 
 
 def public_topic_catalog(raw):
-    """Accept an upper-bounded list of topic cards from /topics.html."""
+    """Accept an upper-bounded list of topic cards from /topics."""
     rows, seen = [], set()
     if not isinstance(raw, list):
         return rows
@@ -147,7 +143,7 @@ def _is_current_topic_question(q):
 
 
 def _topic_links(rows, limit=2):
-    links = [{'label': 'Browse Topics', 'href': '/topics.html'}]
+    links = [{'label': 'Browse Topics', 'href': '/topics'}]
     if limit <= 0:
         return links
     for row in rows:
@@ -172,7 +168,7 @@ def short_public_answer(message, *, page='/', observation=None, catalog=None, db
              'how do i join the discussion', 'how can i join the community'):
         return ('You can read public Forum threads without an account. Sign in to reply to a thread, or to any reply in it, and to like posts; '
                 'replies are reviewed before they appear. Bring a specific question, claim or source you want to discuss.',
-                [{'label': 'Open the Forum', 'href': '/forum.html'}])
+                [{'label': 'Open the Forum', 'href': '/forum'}])
 
     if re.search(r'\b(lab|workspace|lms|courses?|learning paths?)\b', q) and re.search(
         r'\b(can i|where|open|use|available|start|access|now|join)\b', q,
@@ -204,28 +200,28 @@ def short_public_answer(message, *, page='/', observation=None, catalog=None, db
                 _topic_links(rows, limit=0),
             )
         return ('See the current topics and planned questions on the Topics page.',
-                [{'label': 'Browse Topics', 'href': '/topics.html'}])
+                [{'label': 'Browse Topics', 'href': '/topics'}])
 
     if _is_home_question(q) or _is_current_topic_question(q):
-        if page in ('/', '/index.html') or _is_home_question(q):
+        if page in ('/', '/') or _is_home_question(q):
             featured = observation.get('featured_topic')
             href = observation.get('featured_href')
             if featured and href:
                 return ('The homepage features “' + featured + '”.',
                         [{'label': 'Open the featured topic', 'href': href},
-                         {'label': 'All Topics', 'href': '/topics.html'}])
+                         {'label': 'All Topics', 'href': '/topics'}])
         if page.startswith('/topic-') and rows:
             match = next((r for r in rows if r.get('href') == page), None)
             if match:
                 return ('This page is “' + match['title'] + '”.',
-                        [{'label': 'All Topics', 'href': '/topics.html'}])
+                        [{'label': 'All Topics', 'href': '/topics'}])
         if _has_topic_word(q) or _is_home_question(q):
             return ('I can verify the topics listed on the public Topics page; open it here.',
-                    [{'label': 'Browse Topics', 'href': '/topics.html'}])
+                    [{'label': 'Browse Topics', 'href': '/topics'}])
 
     if q in ('what is a topic', 'what are topics'):
         return ('A GraviQuest Topic explores one question using video, an essay, sources and interactive material.',
-                [{'label': 'Browse Topics', 'href': '/topics.html'}])
+                [{'label': 'Browse Topics', 'href': '/topics'}])
 
     # Answer a named on-page action without guessing where its button leads.
     if any(word in q for word in ('button', 'click', 'where', 'find', 'open')):

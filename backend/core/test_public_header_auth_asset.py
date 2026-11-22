@@ -50,7 +50,7 @@ class PublicHeaderAuthAssetTests(SimpleTestCase):
         # Through setButton, never textContent: a g-btn--lead button keeps its
         # icon slot, or its label sits off centre.
         self.assertIn("setButton(primary, 'Enter Forum', FORUM_HOME, FORUM_ICON);", source)
-        self.assertIn("setButton(secondary, 'Explore Topics', '/topics.html');", source)
+        self.assertIn("setButton(secondary, 'Explore Topics', '/topics');", source)
         self.assertNotIn("'Start a Thread'", source)
         self.assertNotIn('primary.textContent', source)
         page = (ROOT / 'community.html').read_text(encoding='utf-8')
