@@ -106,7 +106,7 @@ def _synced_page_context(snapshot, message, anchor):
 def _essay_context(page, message, snapshot, anchor='', reading=None):
     if not (anchor.startswith('essay') or re.search(r'\b(essay|essays|reference|citation|citations)\b', message, re.I)):
         return ''
-    if page not in ('/', '/index.html', TOPIC_01_PAGE):
+    if page not in ('/', '/', TOPIC_01_PAGE):
         if not re.search(r'topic\s+0?1\b|answer that looked right', message, re.I):
             return ''
         snapshot = PublicPageSnapshot.objects.filter(path=TOPIC_01_PAGE).values_list('content', flat=True).first() or {}
@@ -155,7 +155,7 @@ def public_pulsar_ask(request):
         return JsonResponse({'ok': False, 'error': 'message_required'}, status=400)
 
     page = public_page(data.get('page')) if data.get('page') else ''
-    key = '/' if page == '/index.html' else page
+    key = '/' if page == '/' else page
     # One query supplies a small public inventory; only selected excerpts are
     # transmitted. It contains no account, private research or draft records.
     pages = dict(PublicPageSnapshot.objects.values_list('path', 'content'))
@@ -164,7 +164,7 @@ def public_pulsar_ask(request):
         prior = pages.get(TOPIC_01_PAGE, {})
         pages[TOPIC_01_PAGE] = {**prior, 'sections': live['sections'],
             'observation': {**prior.get('observation', {}), 'heading': live['title']}}
-    if key == '/topic.html':
+    if key == '/topic':
         slug = clean_text(data.get('topic_slug'), 140)
         dynamic = topic_01.snapshot(slug) if re.fullmatch(r'[a-z0-9-]+', slug) else None
         if dynamic:
@@ -173,7 +173,7 @@ def public_pulsar_ask(request):
             pages.pop(key, None)
     snapshot = pages.get(key, {})
     observation = snapshot.get('observation') or page_observation(data.get('page_context') if key else {})
-    catalog = public_topic_catalog(pages.get('/topics.html', {}).get('topic_catalog', data.get('topic_catalog')))
+    catalog = public_topic_catalog(pages.get('/topics', {}).get('topic_catalog', data.get('topic_catalog')))
     history = recent_history(data.get('history'))
     if not snapshot and re.search(r'\b(summari[sz]e (?:this|the)(?: page)?|what (?:is|s) this page about)\b', message, re.I):
         return JsonResponse({'ok': True,
@@ -210,9 +210,9 @@ def public_pulsar_ask(request):
     # sections, rather than choosing a second generic site destination.
     related = ''
     featured_href = observation.get('featured_href', '')
-    if key in ('/', '/topics.html') and featured_href in pages:
+    if key in ('/', '/topics') and featured_href in pages:
         related = _synced_page_context(pages[featured_href], query, '')[:1600]
-    elif key in ('/', '/topics.html') and TOPIC_01_PAGE in pages:
+    elif key in ('/', '/topics') and TOPIC_01_PAGE in pages:
         related = _synced_page_context(pages[TOPIC_01_PAGE], query, '')[:1600]
     relevant_paths = {key, featured_href, TOPIC_01_PAGE if related else ''}
     relevant = {href: label for href, label in allowed.items() if href.split('#')[0] in relevant_paths}
@@ -229,7 +229,7 @@ def public_pulsar_ask(request):
         'Related published Topic': related,
         'Topic essay as shown to readers': essay_context,
         'Current public Forum thread': ((public_thread_context(data.get('forum_topic')) or '(This thread is not available as an anonymous public read.)')
-                                       if key == '/forum.html' and data.get('forum_topic') else ''),
+                                       if key == '/forum' and data.get('forum_topic') else ''),
         'Recent conversation': history,
         'Available destinations': offered,
         'Visitor question': message,

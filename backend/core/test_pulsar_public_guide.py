@@ -23,15 +23,15 @@ class PublicGuideTests(TestCase):
     def test_navigation_uses_exact_published_destinations(self):
         pages = dict(PublicPageSnapshot.objects.values_list('path', 'content'))
         links = destinations(pages, [], '/')
-        self.assertIn('/topics.html', links)
-        self.assertNotIn('/lab.html', links)
+        self.assertIn('/topics', links)
+        self.assertNotIn('/lab', links)
         self.assertFalse(any(href.startswith('/workspace') for href in links))
         reply, result = present_answer(
-            'Read [Sources](/topic-answer-that-looked-right.html#sources). '
+            'Read [Sources](/topic-answer-that-looked-right#sources). '
             'Ignore [bad](javascript:alert) and /workspace. Also https://[bad.', links, '/')
         self.assertNotIn('/workspace', reply)
         self.assertNotIn('javascript:', reply)
-        self.assertEqual([row['href'] for row in result], ['/topic-answer-that-looked-right.html#sources'])
+        self.assertEqual([row['href'] for row in result], ['/topic-answer-that-looked-right#sources'])
 
     @patch('core.pulsar_api.configured', return_value=True)
     @patch('core.pulsar_api.run_text')
@@ -39,8 +39,8 @@ class PublicGuideTests(TestCase):
         model.return_value = SimpleNamespace(text='Compare the evidence for each claim.', provider='test', run_id='one')
         history = [{'role': 'user', 'content': 'Where should I start?'},
                    {'role': 'assistant', 'content': 'Read the opening essay.', 'page': '/',
-                    'links': [{'label': 'Essays', 'href': '/topic-answer-that-looked-right.html#essay'}]}]
-        payload = self.ask('Explain the evidence.', page='/topic-answer-that-looked-right.html', section='sources', history=history).json()
+                    'links': [{'label': 'Essays', 'href': '/topic-answer-that-looked-right#essay'}]}]
+        payload = self.ask('Explain the evidence.', page='/topic-answer-that-looked-right', section='sources', history=history).json()
         self.assertEqual(payload['provider'], 'test')
         args = model.call_args.kwargs
         prompt = json.loads(args['user'])
@@ -107,13 +107,13 @@ class PublicGuideTests(TestCase):
         self.assertTrue(destinations_seen)
 
     def test_participation_explains_public_reading_signin_and_moderation(self):
-        payload = self.ask('How can I participate in the discussion?', page='/forum.html').json()
+        payload = self.ask('How can I participate in the discussion?', page='/forum').json()
         self.assertIn('without an account', payload['reply'])
         self.assertIn('Sign in', payload['reply'])
         self.assertIn('reviewed before', payload['reply'])
 
     def test_missing_content_does_not_imply_the_page_is_offline(self):
-        payload = self.ask('Summarize this page.', page='/survey.html').json()
+        payload = self.ask('Summarize this page.', page='/survey').json()
         self.assertEqual(payload['provider'], 'public_context_missing')
         self.assertIn('verified content', payload['reply'])
         self.assertNotIn('page is unavailable', payload['reply'])
@@ -122,7 +122,7 @@ class PublicGuideTests(TestCase):
     @patch('core.pulsar_api.run_text')
     def test_legacy_simulator_copy_cannot_be_reported_as_a_launch(self, model, configured):
         model.return_value = SimpleNamespace(text='This page describes a temperature model.', provider='test', run_id='one')
-        payload = self.ask('Summarize this page.', page='/lab-protein-stability.html').json()
+        payload = self.ask('Summarize this page.', page='/lab-protein-stability').json()
         self.assertIn('not publicly available', payload['reply'])
 
     @override_settings(GRAVITAS_FORUM_URL='https://forum.graviquest.com')
@@ -144,5 +144,5 @@ class PublicGuideTests(TestCase):
     def test_dynamic_topic_uses_only_a_published_record(self, model, configured):
         model.return_value = SimpleNamespace(text='A short explanation.', provider='test', run_id='one')
         ContentItem.objects.create(kind='topic', status='draft', slug='private-draft', title='Secret draft')
-        self.ask('What is this about?', page='/topic.html', topic_slug='private-draft')
+        self.ask('What is this about?', page='/topic', topic_slug='private-draft')
         self.assertNotIn('Secret draft', model.call_args.kwargs['user'])

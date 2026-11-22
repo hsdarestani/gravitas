@@ -11,7 +11,7 @@ from .topic_essay_sources import SOURCE_PATHS
 from .models import ProjectMembership, PublicPageSnapshot, ResearchProject, TopicEssayPublication, Workspace
 
 
-TOPIC_URL = '/topic-answer-that-looked-right.html'
+TOPIC_URL = '/topic-answer-that-looked-right'
 PUBLIC_URL = '/api/topics/answer-that-looked-right/essays/'
 PROJECT_ID = 813
 EDITOR_URL = f'/api/platform/projects/{PROJECT_ID}/topic-essays/'

@@ -20,7 +20,7 @@ from .platform_access import can_edit, can_manage, downloads_allowed
 from .topic_essay_sources import ESSAYS, SLOTS, SOURCE_FILES, SOURCE_PATHS, is_topic_essay_source, slot_label
 from .topic_essay_render import render_essay
 
-TOPIC_01_PAGE = '/topic-answer-that-looked-right.html'
+TOPIC_01_PAGE = '/topic-answer-that-looked-right'
 MAX_SOURCE_BYTES = 1024 * 1024
 
 

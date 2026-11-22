@@ -135,7 +135,7 @@ class Command(BaseCommand):
         if featured and featured_href:
             home['observation'].update(featured_topic=featured['observation']['heading'], featured_href=public_href(featured_href))
 
-        rows = {('/' if name == 'index' else f'/{name}.html'): content for name, content in pages.items()}
+        rows = {('/' if name == 'index' else f'/{name}'): content for name, content in pages.items()}
         with transaction.atomic():
             existing = PublicPageSnapshot.objects.in_bulk()
             for path, content in rows.items():
