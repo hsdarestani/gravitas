@@ -38,6 +38,19 @@ const WORDS = {
   "user.summary.post_count": { one: "reply", other: "replies" },
   "user.summary.likes_received": { one: "like received", other: "likes received" },
   "user.summary.top_topics": "Top threads",
+  // The rest of a profile still said "topic" beside "Top threads" (2026-11-22:
+  // a profile read "Top threads … No topics yet."). The empty states of the
+  // Activity tabs, in the same words.
+  "user.summary.no_topics": "No threads yet.",
+  "user.summary.more_topics": "More threads",
+  "user.summary.topics": "Threads",
+  "user.summary.topics_entered": { one: "thread viewed", other: "threads viewed" },
+  "user_activity.no_topics_title": "You have not started any threads yet",
+  "user_activity.no_topics_title_others": "%{username} has not started any threads yet",
+  "user_activity.no_replies_title": "You have not replied to any threads yet",
+  "user_activity.no_replies_title_others": "%{username} has not replied to any threads yet",
+  "user_activity.no_likes_title": "You haven’t liked any threads yet",
+  "user_activity.no_likes_title_others": "%{username} has not liked any threads yet",
 };
 
 // A string replaces a string; a plural ({one, other}) replaces a plural, form

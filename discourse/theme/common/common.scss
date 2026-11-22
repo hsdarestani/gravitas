@@ -2658,3 +2658,181 @@ html body .fk-d-menu .dropdown-menu > li{flex-shrink:0}
 html body .fk-d-menu .dropdown-menu .btn.no-text:not(#gq-x):not(#gq-y){width:100%!important;height:auto!important;min-height:0!important;aspect-ratio:auto!important}
 html body .fk-d-menu .notifications-tracking-btn__icons{margin-right:.25rem}
 html body .fk-d-menu .dropdown-menu .btn.-selected{background:var(--g-surface)!important;box-shadow:inset 0 0 0 1px var(--g-border)}
+
+/* ---- A thread that reads like the forums people already know (2026-11-22) ------
+   The owner set the thread beside Reddit's and found it weak: the opening
+   post was a box whose picture hung halfway down its left edge (Discourse
+   makes that picture sticky, so it followed the scroll and sat mid-card),
+   the team's posts said "system", the views/replies/links figures sat at
+   two heights, the actions were faint 12px glyphs with a like count adrift
+   from its heart, and Reply floated over the words while reading. Nothing
+   is added here; what was there is laid out as a plain forum post:
+
+     the way back, the title,
+     picture · name · time on one line, the words under it,
+     the actions as round buttons (heart and its count in one),
+     the figures as one quiet line,
+     a reply field under the post (Discourse's floating Reply, put in place),
+     then the replies, each a picture · name · time line, its words and its
+     actions, joined to its parent by a visible line.
+
+   Discourse's own nested styles are kept for the tree's geometry (gutter,
+   hook and line offsets); only colour, size and the sticky pictures change. */
+/* The tree's lines: opaque (a hook crossing a line must not darken it) and
+   mixed from the theme's own inks, so the light theme gets its own grey. */
+html body .nested-view{--primary-low:color-mix(in srgb,var(--g-text-muted) 24%,var(--g-bg));--tertiary:var(--g-accent)}
+
+/* The opening post: on the page, not in a box. */
+html body .nested-view__header{margin:0 0 1.25rem!important}
+html body .nested-view__op{margin:0!important;padding:0!important;border:0!important;border-radius:0!important;background:transparent!important;overflow:visible!important}
+html body .nested-view__op-row{display:grid!important;grid-template-columns:2rem minmax(0,1fr)!important;align-items:center!important;gap:0 .625rem!important}
+html body .nested-view__op-row > .topic-avatar{position:static!important;grid-column:1!important;grid-row:1!important;align-self:center!important;margin:0!important;line-height:0}
+html body .nested-view__op-row > .topic-avatar img.avatar{width:2rem!important;height:2rem!important}
+html body .nested-view__op-row .topic-meta-data{grid-column:2!important;grid-row:1!important;display:flex!important;justify-content:flex-start!important;align-items:center;gap:.5rem;min-width:0;margin:0!important;padding:0!important}
+html body .nested-view__op-row .nested-view__op-body{display:contents!important}
+html body .nested-view__op-row .nested-view__op-body > *{grid-column:1/-1}
+html body .nested-view__op-row .topic-meta-data .names{flex:0 1 auto!important;margin:0!important;min-width:0}
+html body .nested-view__op-row .topic-meta-data .post-infos{margin:0!important;transform:none!important}
+html body .nested-view :is(.nested-view__op-row,.nested-post__header) .read-state{display:none!important}
+html body .nested-view :is(.nested-view__op-row,.nested-post__header) .post-infos a.post-date::before{content:"\00b7";margin-right:.5rem;font:400 .875rem/1 "DM Sans",sans-serif;color:var(--g-text-subtle)}
+html body .nested-view :is(.nested-view__op-row,.nested-post__header) .post-infos :is(.post-date,.relative-date){font:400 .8125rem/1.3 "DM Sans",sans-serif!important;color:var(--g-text-subtle)!important;text-decoration:none}
+html body .nested-view :is(.nested-view__op-row,.nested-post__header) .post-infos .post-date:hover .relative-date{color:var(--g-text)!important}
+html body .nested-view .names .svg-icon-title{display:none}
+html body .nested-view__op-content{margin:.875rem 0 0!important}
+html body .nested-view__op-content .cooked{font-size:1.0625rem!important;line-height:1.75!important;color:var(--g-text)!important}
+html body .nested-view__op-menu.post-menu-area{margin:1.125rem 0 0!important}
+/* The team's account is GraviQuest here too: the post-header rule further up
+   keys on the flat thread's article[data-user-id], which nested posts lack. */
+html body .nested-view :is(.nested-post__header,.nested-view__op-body) .names .first a[data-user-card="system"]{font-size:0!important}
+html body .nested-view :is(.nested-post__header,.nested-view__op-body) .names .first a[data-user-card="system"]::before{content:"GraviQuest";font:600 .9375rem/1.3 "DM Sans",sans-serif;color:var(--g-text)}
+
+/* The figures: one line, figure and word on one baseline, links included
+   (its trigger was missed by the rule above and stood on two lines). */
+html body .nested-view__topic-map.topic-map{margin:1rem 0 0!important;padding:0!important;border:0!important}
+html body .nested-view__topic-map .topic-map__stats{gap:.25rem 1rem!important}
+html body .nested-view__topic-map :is(.topic-map__views-trigger,.topic-map__links-trigger,.topic-map__likes-trigger,.topic-map__stat){display:inline-flex!important;flex-direction:row!important;align-items:baseline!important;gap:.3rem!important;width:auto!important;height:auto!important;min-width:0!important;min-height:0!important;aspect-ratio:auto!important;padding:0!important;margin:0!important;border:0!important;background:transparent!important;box-shadow:none!important}
+html body .nested-view__topic-map :is(.topic-map__views-trigger,.topic-map__links-trigger,.topic-map__likes-trigger):hover :is(.number,.topic-map__stat-label){color:var(--g-text)!important}
+html body .nested-view__topic-map .topic-map__stats .number{font:500 .8125rem/1 "DM Sans",sans-serif!important;color:var(--g-text-muted)!important}
+html body .nested-view__topic-map .topic-map__stat-label{font:400 .8125rem/1 "DM Sans",sans-serif!important;color:var(--g-text-subtle)!important}
+html body .nested-view__topic-map .topic-map__users-list{gap:0!important}
+html body .nested-view__topic-map .topic-map__users-list > div + div{margin-left:-.375rem}
+html body .nested-view__topic-map .topic-map__users-list img.avatar{width:1.5rem!important;height:1.5rem!important;box-shadow:0 0 0 2px var(--g-bg)}
+html body .nested-view__topic-map .topic-map__buttons:empty{display:none}
+
+/* Actions: round buttons of one height. Icons at 16px in the muted ink, the
+   label (Reply) beside its icon; the heart and its count are one button-shaped
+   group, heart first. Under the opening post they sit on a soft fill, the way
+   a post's own actions do on any forum; under a reply they are bare until
+   hovered, so a long thread is not a wall of capsules. */
+html body .nested-view nav.post-controls{margin:0!important;justify-content:flex-start!important}
+html body .nested-view nav.post-controls .actions{display:flex;flex-wrap:wrap;align-items:center;gap:.25rem!important;margin:0!important}
+html body .nested-view nav.post-controls .actions .btn{width:auto!important;min-width:2rem!important;height:2rem!important;min-height:2rem!important;aspect-ratio:auto!important;padding:0 .5rem!important;gap:.375rem!important;border:0!important;border-radius:999px!important;background:transparent!important;box-shadow:none!important;transform:none!important;font:500 .8125rem/1 "DM Sans",sans-serif!important;color:var(--g-text-muted)!important}
+html body .nested-view nav.post-controls .actions .btn.no-text{padding:0!important;width:2rem!important}
+html body .nested-view nav.post-controls .actions .btn .d-icon{width:1rem!important;height:1rem!important;margin:0!important;color:currentColor!important}
+html body .nested-view nav.post-controls .actions .btn .d-button-label{margin:0!important;color:currentColor!important}
+html body .nested-view nav.post-controls .actions .btn:hover{background:var(--gq-wash-strong)!important;color:var(--g-text)!important}
+html body .nested-view nav.post-controls .actions .btn.post-action-menu__reply{padding:0 .75rem 0 .625rem!important}
+html body .nested-view nav.post-controls .actions .btn.fade-out{opacity:1!important}
+html body .nested-view nav.post-controls .double-button{display:inline-flex!important;flex-direction:row-reverse!important;align-items:center;gap:0!important;margin:0!important;border-radius:999px}
+html body .nested-view nav.post-controls .double-button .btn{background:transparent!important}
+html body .nested-view nav.post-controls .double-button:has(.like-count):hover{background:var(--gq-wash-strong)}
+html body .nested-view nav.post-controls .double-button .like-count{width:auto!important;min-width:0!important;padding:0 .625rem 0 0!important;font:500 .8125rem/1 "DM Sans",sans-serif!important;color:var(--g-text-muted)!important}
+html body .nested-view nav.post-controls .double-button .like-count:has(.d-icon){flex-direction:row!important;gap:.375rem!important;padding:0 .625rem!important}
+html body .nested-view nav.post-controls .double-button .like-count + .toggle-like{padding:0!important;width:2rem!important}
+html body .nested-view nav.post-controls .toggle-like.has-like,html body .nested-view nav.post-controls .toggle-like.has-like .d-icon,html body .nested-view nav.post-controls .like-count:has(.d-icon) .d-icon{color:var(--g-text)!important}
+html body .nested-view nav.post-controls .bookmark.bookmarked,html body .nested-view nav.post-controls .bookmark.bookmarked .d-icon{color:var(--g-accent)!important}
+html body .nested-view__op-menu nav.post-controls .actions{gap:.5rem!important}
+html body .nested-view__op-menu nav.post-controls .actions > .btn,html body .nested-view__op-menu nav.post-controls .double-button{background:var(--gq-wash)!important}
+html body .nested-view__op-menu nav.post-controls .actions > .btn:hover,html body .nested-view__op-menu nav.post-controls .double-button:hover{background:var(--gq-wash-strong)!important}
+html body .nested-view__op-menu nav.post-controls :is(.actions > .btn,.double-button .btn){height:2.25rem!important;min-height:2.25rem!important}
+html body .nested-view__op-menu nav.post-controls :is(.actions > .btn.no-text,.double-button .btn.no-text:not(.like-count)){width:2.25rem!important}
+/* Reply under the opening post is the reply field below it, a step away. */
+html body .nested-view__op-menu .post-action-menu__reply{display:none!important}
+
+/* The reply field. Discourse floats Reply, the bell and the staff wrench at
+   the window's foot, where they covered the words being read. They are put
+   under the opening post instead, as forums put their reply box: Reply is a
+   wide field-shaped button that opens the composer, the bell and the wrench
+   round buttons beside it. The flex order moves the row only visually; the
+   sort row and the replies follow it. */
+html body .nested-view > :is(.nested-view__controls,.nested-view__roots),html body .nested-view > .nested-view__controls ~ *{order:2}
+html body .nested-view > .nested-view__floating-actions{order:1;position:static!important;inset:auto!important;transform:none!important;opacity:1!important;pointer-events:auto!important;display:flex!important;justify-content:flex-start!important;align-items:center;gap:.5rem!important;margin:1.5rem 0 0!important;padding:0!important}
+html body .nested-view__floating-actions .nested-view__floating-reply{order:-1;flex:1 1 auto;justify-content:flex-start!important;gap:.625rem!important;height:2.75rem!important;min-height:2.75rem!important;padding:0 1.25rem!important;border:1px solid var(--g-border)!important;border-radius:999px!important;background:var(--g-surface-sunken)!important;box-shadow:none!important;transform:none!important;font:400 .9375rem/1 "DM Sans",sans-serif!important;color:var(--g-text-subtle)!important;transition:border-color .2s ease,color .2s ease}
+html body .nested-view__floating-actions .nested-view__floating-reply .d-icon{width:1rem;height:1rem;color:currentColor!important}
+html body .nested-view__floating-actions .nested-view__floating-reply .d-button-label{font-size:0!important}
+html body .nested-view__floating-actions .nested-view__floating-reply .d-button-label::before{content:"Write a reply\2026";font:400 .9375rem/1 "DM Sans",sans-serif;color:inherit}
+html body .nested-view__floating-actions .nested-view__floating-reply:hover{border-color:var(--g-accent)!important;color:var(--g-text)!important;background:var(--g-surface-sunken)!important}
+html body .nested-view__floating-actions .btn-default{width:2.75rem!important;min-width:2.75rem!important;height:2.75rem!important;min-height:2.75rem!important;border:1px solid var(--g-border)!important;border-radius:999px!important;background:transparent!important;box-shadow:none!important;transform:none!important;color:var(--g-text-muted)!important}
+html body .nested-view__floating-actions .btn-default:hover{border-color:var(--g-accent)!important;color:var(--g-text)!important}
+html body .nested-view__floating-actions .btn-default .d-icon{color:currentColor!important}
+html body .nested-view__floating-actions .topic-notifications-button{margin:0!important}
+
+/* The sort row, a quiet line between the post and its replies. */
+html body .nested-view__controls{margin:2rem 0 .5rem!important;padding:0 0 .75rem!important}
+html body .nested-sort-selector{display:flex;align-items:center;gap:.25rem}
+html body .nested-sort-selector__label{font:400 .8125rem/1 "DM Sans",sans-serif!important;color:var(--g-text-subtle)!important}
+html body .nested-sort-selector__trigger{width:auto!important;height:2rem!important;min-height:2rem!important;aspect-ratio:auto!important;padding:0 .5rem!important;gap:.25rem!important;border-radius:999px!important}
+html body .nested-sort-selector__trigger:hover{background:var(--gq-wash-strong)!important}
+html body .nested-sort-selector__trigger .d-icon{width:.75rem;height:.75rem;color:var(--g-text-subtle)!important}
+
+/* A reply: picture · name · time on the picture's line, words under the name,
+   actions under the words. Pictures stay where their reply starts. */
+html body .nested-post{margin-top:1.25rem!important}
+html body .nested-post.--depth-0:first-child{margin-top:.75rem!important}
+html body .nested-post__gutter .topic-avatar,html body .nested-post__placeholder-avatar{position:static!important}
+html body .nested-post__header{align-items:center!important;flex-wrap:wrap;gap:.25rem .5rem!important;min-height:var(--nested-avatar-size,24px)}
+html body .nested-post__header .post-infos{order:0!important;margin:0!important;transform:none!important}
+html body .nested-post__op-badge{order:0;margin:0!important;padding:.125rem .4rem!important;border:1px solid var(--gq-accent-line)!important;border-radius:999px!important;background:transparent!important;font:500 .6875rem/1 "DM Sans",sans-serif!important;letter-spacing:.04em;color:var(--g-accent)!important;transform:none!important}
+html body .nested-post__content{margin:.25rem 0 .375rem!important}
+html body .nested-post__content .cooked{font-size:1rem!important;line-height:1.65!important;color:var(--g-text)!important}
+html body .nested-post__menu{margin:0 0 0 -.5rem!important}
+
+/* The tree's lines in a visible grey, and the fold circle at the foot of a
+   line big enough to see and hit, lit on hover. */
+html body .nested-post__depth-line-icon{width:1rem!important;height:1rem!important;background:var(--g-bg)!important}
+html body .nested-post__depth-line-icon .d-icon{color:var(--g-text-subtle)!important}
+html body .nested-post__depth-line:is(:hover,:focus-visible) .nested-post__depth-line-icon .d-icon{color:var(--g-accent)!important}
+html body .nested-post__depth-line--leaf .nested-post__depth-line-icon .d-icon{opacity:.6}
+html body .nested-post__collapsed-bar{gap:.5rem!important;min-height:var(--nested-avatar-size,24px);font:400 .8125rem/1.3 "DM Sans",sans-serif!important}
+html body .nested-post__collapsed-username{color:var(--g-text)!important;font-weight:600}
+html body .nested-post__collapsed-reply-count{color:var(--g-accent)!important}
+html body .nested-post__collapsed-bar:hover .nested-post__collapsed-username{color:var(--g-accent)!important}
+
+/* A deleted reply: its marker, in line with the pictures. With nothing
+   under it, it has no line to fold, so no fold circle under the bin. */
+html body .nested-post--deleted > .nested-post__gutter .nested-post__depth-line--leaf{visibility:hidden}
+html body .nested-post__placeholder--deleted{display:flex;align-items:center;min-height:var(--nested-avatar-size,24px);margin:0!important;padding:0 0 1rem!important}
+html body .nested-post__placeholder-label{font:italic 400 .875rem/1.3 "DM Sans",sans-serif!important;color:var(--g-text-subtle)!important}
+html body .nested-post__placeholder-actions .btn{width:2rem!important;min-width:2rem!important;height:2rem!important;min-height:2rem!important;border-radius:999px!important;color:var(--g-text-subtle)!important;background:transparent!important}
+html body .nested-post__placeholder-actions .btn:hover{background:var(--gq-wash-strong)!important;color:var(--g-text)!important}
+html body .nested-post-children__load-more,html body .nested-post__expand-replies.btn,html body .nested-post__continue-link{color:var(--g-accent)!important;font:500 .8125rem/1.3 "DM Sans",sans-serif!important}
+html body .nested-post__expand-replies.btn .d-icon{color:var(--g-accent)!important}
+
+/* Phones: Discourse's mobile tree (lines under the pictures, no fold circle);
+   the post sits on the page like the replies, the reply field full width. */
+html.mobile-view body .nested-view{padding-inline:0!important}
+html.mobile-view body .nested-view__op,html.mobile-view body .nested-view__roots{margin-inline:0!important}
+html.mobile-view body .nested-post.--depth-0{background:transparent!important;padding:0 0 .5rem!important}
+html.mobile-view body .nested-view__floating-actions{margin-top:1.25rem!important}
+/* The moderation line goes under the sort control, on the left, not wrapped
+   into the middle of the row. */
+@media (max-width:640px){html body .nested-view__controls{flex-wrap:wrap;gap:.25rem 1rem!important}html body .nested-view__controls-right{flex:1 1 100%}html:not(.anon) body .nested-view__controls-right::before{display:block;text-align:left!important}}
+@media (prefers-reduced-motion:reduce){html body .nested-view__floating-actions .nested-view__floating-reply{transition:none}}
+
+/* The account menu's tab badges: the count sat across the middle of its tab
+   and hid the icon under it (the messages tab with one unread). It sits on
+   the tab's upper right corner, a small accent pill, as counts do on icons. */
+html body .user-menu .menu-tabs-container .user-menu-tab{position:relative;overflow:visible}
+html body .user-menu .menu-tabs-container .user-menu-tab .badge-notification{position:absolute!important;top:3px!important;right:1px!important;left:auto!important;bottom:auto!important;transform:none!important;min-width:1rem;height:1rem;margin:0!important;padding:0 .25rem!important;border-radius:999px!important;background:var(--g-accent)!important;color:var(--gq-on-accent)!important;font:600 .625rem/1rem "DM Sans",sans-serif!important;text-align:center;box-shadow:0 0 0 2px var(--g-surface-raised);box-sizing:border-box}
+
+/* A profile's head on a phone: the picture was centred above a name set on
+   the left. Picture and name share one row, as the wide head has them. */
+html.mobile-view body .user-main .about .primary{flex-direction:row!important;align-items:center!important;text-align:left!important;gap:1rem!important}
+html.mobile-view body .user-main .about .user-profile-avatar{margin:0!important;flex:none}
+html.mobile-view body .user-main .about .user-profile-avatar img.avatar{width:4rem!important;height:4rem!important}
+html.mobile-view body .user-main .about .primary-textual{flex:1 1 0!important;width:auto!important;min-width:0;text-align:left!important}
+html.mobile-view body .user-main .about .primary > .controls{flex:1 1 100%!important}
+
+/* An email's "primary" mark was Discourse's green, a colour the brand has
+   none of; it is a quiet label in the subtle ink. */
+html body .user-preferences .email-second .primary{color:var(--g-text-subtle)!important;font:400 .8125rem/1.4 "DM Sans",sans-serif}
