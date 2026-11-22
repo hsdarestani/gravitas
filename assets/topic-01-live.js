@@ -97,6 +97,18 @@
 
   function pad2(n) { return String(n).padStart(2, '0'); }
 
+  /* A video's own runtime as a player clock ("41 s" -> "0:41", "5 min 34 s"
+     -> "5:34"). The record writes durations in words for the Topic page; the
+     reel's tag is a clock. Anything it cannot read is shown as written. */
+  function runtimeClock(duration) {
+    var text = String(duration || '').trim();
+    if (!text || /^\d+(:\d{2}){1,2}$/.test(text)) return text;
+    var h = /(\d+)\s*h/i.exec(text), m = /(\d+)\s*min/i.exec(text), s = /(\d+)\s*s(?:ec)?\b/i.exec(text);
+    if (!h && !m && !s) return text;
+    var mins = m ? +m[1] : 0, secs = pad2(s ? +s[1] : 0);
+    return h ? h[1] + ':' + pad2(mins) + ':' + secs : mins + ':' + secs;
+  }
+
   function longDate(iso) {
     var date = new Date(iso || '');
     if (isNaN(date.getTime())) return '';
@@ -1007,9 +1019,13 @@
     card.setAttribute('aria-label', (first.title || item.title) + ': full transcript on the Topic page');
     var tag = node.querySelector('[data-set-meta]');
     /* Only the runtime (review of 2026-11-21): the videos are on YouTube now,
-       so the "Soon on YouTube" status and the chapter list beside it went. */
-    tag.innerHTML = landing.video_runtime ? '<span class="g-nums">' + esc(landing.video_runtime) + '</span>' : '';
-    tag.hidden = !landing.video_runtime;
+       so the "Soon on YouTube" status and the chapter list beside it went.
+       Each video's own duration since the review of 2026-11-22: the landing's
+       single video_runtime was written for one video and kept showing 5:34 on
+       the first of two, which runs 41 s. It is the fallback only. */
+    var runtime = runtimeClock(first.duration) || runtimeClock(landing.video_runtime);
+    tag.innerHTML = runtime ? '<span class="g-nums">' + esc(runtime) + '</span>' : '';
+    tag.hidden = !runtime;
     if (!several) return;
     var set = document.createElement('ol');
     set.className = 'trail__set';
@@ -1022,7 +1038,7 @@
          without a runtime shows no tag. */
       link.dataset.title = video.title || item.title;
       link.dataset.say = index ? video.description || '' : say;
-      link.dataset.meta = index ? video.duration || '' : tag.textContent;
+      link.dataset.meta = index ? runtimeClock(video.duration) : tag.textContent;
       link.dataset.poster = safeUrl(video.poster_url);
       if (!index) link.setAttribute('aria-current', 'true');
       link.innerHTML = '<span class="trail__set-n">' + pad2(index + 1) + '</span><span class="trail__set-t">' + esc(video.title) + '</span>';
