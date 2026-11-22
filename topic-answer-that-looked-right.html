@@ -30,10 +30,10 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
 <link rel="stylesheet" href="assets/gravitas.css?v=up-f706806e3a02-g1df6ff09-lit1">
 <link rel="stylesheet" href="assets/site.css?v=up-f706806e3a02-g1df6ff09-ds12">
 
-<link rel="stylesheet" href="assets/topic-answer.css?v=20261122-tq18">
-<link rel="stylesheet" href="assets/topic-talk.css?v=20261122-tk15">
+<link rel="stylesheet" href="assets/topic-answer.css?v=20261123-tq19">
+<link rel="stylesheet" href="assets/topic-talk.css?v=20261123-tk16">
 <link rel="stylesheet" href="assets/chat.css?v=20261119-public-guide2">
-<link rel="stylesheet" href="assets/production-overrides.css?v=up-f706806e3a02-g1df6ff09-rl3">
+<link rel="stylesheet" href="assets/production-overrides.css?v=up-f706806e3a02-g1df6ff09-rl4">
 </head>
 <body class="is-overview">
 <a class="g-skip-link" href="#main">Skip to content</a>
@@ -79,11 +79,13 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
   <p class="crumb"><a href="index.html">Home</a> / <a href="topics.html">Topics</a> / <span data-t1="crumb" aria-current="page"></span></p>
   <p class="g-eyebrow" data-t1="eyebrow"></p>
   <h1 data-t1="title"></h1>
-  <p class="g-lead" data-t1="lead"></p>
   <p class="ta-empty" data-t1-status role="status">Loading this Topic&hellip;</p>
   <div class="tq-head__foot" data-t1-body hidden>
     <div class="g-cluster" data-t1="tags"></div>
     <dl class="tq-facts" data-t1="facts"></dl>
+    <!-- Follow, for the whole Topic. production-bridge.js mounts it here; the
+         Topic page has no Save of its own, its videos and essays do. -->
+    <span class="tq-head__follow" data-t1="follow" data-rl-own-page></span>
     <button class="g-btn g-btn--secondary g-btn--sm" type="button" data-t1-share>
       <svg class="g-btn__icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5.5" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="18.5" r="2.5"/><path d="M8.2 10.8l7.6-4M8.2 13.2l7.6 4"/></svg><span>Share</span>
     </button>
@@ -99,32 +101,39 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
 
 <div class="tq-body">
 
+<!-- Overview (2026-11-22): the teaser beside the Topic's description, then
+     a map of the parts below. Filled by renderOverview in topic-01-live.js. -->
+<section class="layer tq-sec" id="overview" data-toc="Overview" data-toc-icon="overview" data-toc-hint="The question in forty seconds" aria-labelledby="h-overview">
+  <div class="layer__head"><span class="layer__n">01</span><h2 id="h-overview">Overview</h2></div>
+  <div data-t1="overview"></div>
+</section>
+
 <section class="layer tq-sec" id="video" data-toc="Videos" data-toc-icon="video" data-toc-hint="Watch the story" aria-labelledby="h-video">
-  <div class="layer__head"><span class="layer__n">01</span><h2 id="h-video">Videos</h2></div>
+  <div class="layer__head"><span class="layer__n">02</span><h2 id="h-video">Videos</h2></div>
   <div data-t1="videos"></div>
 </section>
 
 <section class="layer tq-sec" id="essay" data-toc="Essays" data-toc-icon="magazine" data-toc-hint="Read it at your level" aria-labelledby="h-essay">
-  <div class="layer__head"><span class="layer__n">02</span><h2 id="h-essay">Essays</h2></div>
+  <div class="layer__head"><span class="layer__n">03</span><h2 id="h-essay">Essays</h2></div>
   <!-- topic-01-essay.js draws the picker, the Overview / In depth switch, the
        three reading levels and the reader from the published route. -->
   <div data-essays aria-live="polite"><p class="ta-empty">Loading the essays&hellip;</p></div>
 </section>
 
 <section class="layer tq-sec" id="timeline" data-toc="Timeline" data-toc-icon="timeline" data-toc-hint="How the question developed" aria-labelledby="h-timeline">
-  <div class="layer__head"><span class="layer__n">03</span><h2 id="h-timeline">How the Question Gathered Weight</h2></div>
+  <div class="layer__head"><span class="layer__n">04</span><h2 id="h-timeline">How the Question Gathered Weight</h2></div>
   <div data-t1="timeline"></div>
 </section>
 
 <section class="layer tq-sec" id="views" data-toc="Viewpoints" data-toc-icon="viewpoint" data-toc-hint="Where people stand, and you" aria-labelledby="h-views">
-  <div class="layer__head"><span class="layer__n">04</span><h2 id="h-views">Viewpoints</h2></div>
+  <div class="layer__head"><span class="layer__n">05</span><h2 id="h-views">Viewpoints</h2></div>
   <p class="tq-intro" data-t1="views-intro"></p>
   <div class="tq-views" data-t1="views"></div>
   <div data-t1="polls"></div>
 </section>
 
 <section class="layer tq-sec" id="talk" data-toc="Discussion" data-toc-icon="discussion" data-toc-hint="A room for every part" aria-labelledby="h-talk">
-  <div class="layer__head"><span class="layer__n">05</span><h2 id="h-talk">Discussion</h2></div>
+  <div class="layer__head"><span class="layer__n">06</span><h2 id="h-talk">Discussion</h2></div>
   <p class="tq-intro">Every video, essay and question has its own room in the Forum. Step into one, or start with the main conversation.</p>
   <div data-t1="rooms"></div>
   <!-- This week's question is the main room's heading, so it is not repeated
@@ -133,13 +142,13 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
 </section>
 
 <section class="layer tq-sec" id="sources" data-toc="Sources" data-toc-icon="source" data-toc-hint="Every reference in one list" aria-labelledby="h-sources">
-  <div class="layer__head"><span class="layer__n">06</span><h2 id="h-sources">Sources and Bibliography</h2></div>
+  <div class="layer__head"><span class="layer__n">07</span><h2 id="h-sources">Sources and Bibliography</h2></div>
   <p class="tq-intro" data-t1="sources-intro"></p>
   <div data-sources></div>
 </section>
 
 <section class="layer tq-sec" id="related" data-toc="Related" data-toc-icon="related" data-toc-hint="Where this goes next" aria-labelledby="h-related">
-  <div class="layer__head"><span class="layer__n">07</span><h2 id="h-related">Where This Goes Next</h2></div>
+  <div class="layer__head"><span class="layer__n">08</span><h2 id="h-related">Where This Goes Next</h2></div>
   <div class="tq-related" data-t1="next"></div>
 </section>
 
@@ -170,11 +179,11 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
 <script src="assets/site.js?v=20261119-forum1"></script>
 <script src="assets/gravitas-icons.js?v=20261121-src1" defer></script>
 <script src="assets/topic-talk.js?v=20261119-tk1" defer></script>
-<script src="assets/topic-annotations.js?v=20261122-tk3" defer></script>
+<script src="assets/topic-annotations.js?v=20261123-tk4" defer></script>
 <script src="assets/topic-viewpoints.js?v=20261121-tk5" defer></script>
-<script src="assets/topic-01-live.js?v=20261122-tq21" defer></script>
-<script src="assets/topic-01-essay.js?v=20261122-tq15" defer></script>
+<script src="assets/topic-01-live.js?v=20261123-tq22" defer></script>
+<script src="assets/topic-01-essay.js?v=20261123-tq16" defer></script>
 <script src="assets/chat.js?v=20261120-provider-errors1" defer></script>
-<script src="assets/production-bridge.js?v=20261122-forum2" defer></script>
+<script src="assets/production-bridge.js?v=20261123-saved1" defer></script>
 </body>
 </html>

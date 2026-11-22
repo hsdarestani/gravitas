@@ -639,3 +639,54 @@ body:has([data-topic-01-shell]) { --g-chrome-h: calc(var(--g-header-h) + 1px); }
 .tq-next.is-off .tq-next__pic { opacity: .55; filter: grayscale(.5); }
 .tq-next.is-off .tq-next__body strong { color: var(--g-text-muted); }
 .tq-next.is-off .tq-next__go { color: var(--g-text-subtle); font-weight: var(--g-w-regular); }
+
+/* ---- 01 Overview (2026-11-22) -------------------------------------------------
+   The teaser beside the Topic's description. The text column runs the
+   height of the player: its first line sits on the player's top edge and
+   its buttons on the bottom edge (review of 2026-11-23: it floated off
+   centre before). The teaser is the Videos player (.tq-stage). */
+[data-t1="overview"] { container-type: inline-size; }
+.tq-ovw {
+  display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); column-gap: var(--g-space-lg); row-gap: var(--g-space-sm);
+  grid-template-areas: "media lead" "media desc" "media act"; grid-template-rows: auto auto 1fr;
+}
+.tq-ovw.is-text { grid-template-columns: minmax(0, 1fr); grid-template-areas: "lead" "desc" "act"; }
+.tq-ovw__media { grid-area: media; min-width: 0; align-self: start; }
+.tq-ovw__lead { grid-area: lead; margin: -.3em 0 0; font-family: var(--g-font-read); font-size: 1.15rem; line-height: 1.5; color: var(--g-text); text-wrap: pretty; }
+.tq-ovw__desc { grid-area: desc; margin: 0; font-size: var(--g-fs-small); line-height: var(--g-lh-body); color: var(--g-text-muted); }
+.tq-ovw__act { grid-area: act; align-self: end; }
+/* Narrower, the teaser line would push the text below the player, so it
+   goes under both and the lead and buttons keep the player's edges. */
+@container (max-width: 1040px) {
+  .tq-ovw { grid-template-areas: "media lead" "media act" "desc desc"; grid-template-rows: auto 1fr auto; }
+  .tq-ovw__desc { margin-top: var(--g-space-xs); max-width: 70ch; }
+}
+@container (max-width: 760px) {
+  .tq-ovw { grid-template-columns: minmax(0, 1fr); grid-template-areas: "media" "lead" "desc" "act"; grid-template-rows: none; }
+  .tq-ovw__lead { margin-top: var(--g-space-2xs); }
+  .tq-ovw__desc { margin-top: 0; }
+}
+
+/* ---- Planned (a video not out yet) -------------------------------------------
+   The brand's PLANNED pill (site.css .soon-chip), placed in flow here rather
+   than in the corner of a card. */
+.tq-stage__planned, .tq-inline-chip, .tq-pick__blank .soon-chip { position: static; transform: none; }
+.tq-stage__planned { z-index: 1; }
+.tq-inline-chip { vertical-align: middle; margin-left: .35rem; }
+.tq-pick__item.is-planned { border-style: dashed; background: transparent; }
+.tq-pick__item.is-planned .tq-pick__thumb { background: var(--g-surface-sunken); }
+.tq-pick__item.is-planned .tq-pick__text small { color: var(--g-text-subtle); }
+.tq-stage.is-soon .tq-stage__title { color: rgb(241 239 236 / .7); }
+
+/* ---- Follow and Save (production-bridge.js mounts them in .rl-slot) ----------
+   One of the row's own buttons; pressed, the mark fills and the button takes
+   the accent ring, the way a chosen picker card does. */
+.rl-slot { display: contents; }
+.rl-save[aria-pressed="true"] { border-color: var(--g-accent); color: var(--g-text); box-shadow: 0 0 0 3px color-mix(in srgb, var(--g-accent) 16%, transparent); }
+.rl-save[aria-pressed="true"] svg { fill: currentColor; }
+.tq-head__foot .tq-head__follow { margin-left: auto; display: inline-flex; }
+.tq-head__foot .tq-head__follow:not(:empty) + .g-btn { margin-left: 0; }
+.tq-head__foot .tq-head__follow .g-btn { margin-left: 0; }
+
+/* A phone: Follow sits beside Share. */
+@media (max-width: 600px) { .tq-head__foot .tq-head__follow { margin-left: 0; } }

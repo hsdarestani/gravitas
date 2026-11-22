@@ -483,3 +483,54 @@
   font-size: var(--g-fs-caption);
   line-height: var(--g-lh-snug);
 }
+
+/* ---- The Saved drawer as a small library (2026-11-22) -------------------------
+   Groups (Saved Videos, Saved Essays, Followed Topics, then anything else),
+   a strip that filters to one, and rows that carry a video's still and
+   runtime or the mark of what they are. Tokens only, so both themes hold. */
+.rl-filter { display: flex; flex-wrap: wrap; gap: var(--g-space-3xs, .25rem); padding: .25rem; border: 1px solid var(--g-hairline); border-radius: var(--g-radius-pill); background: var(--g-surface-sunken); }
+.rl-filter__b {
+  flex: 1 1 auto; display: inline-flex; align-items: center; justify-content: center; gap: .4rem;
+  min-height: 2rem; padding: 0 .75rem; border: 0; border-radius: var(--g-radius-pill);
+  background: transparent; color: var(--g-text-muted); font: inherit; font-size: var(--g-fs-caption); font-weight: var(--g-w-medium); cursor: pointer;
+  transition: color var(--g-dur-fast) var(--g-ease-fall), background-color var(--g-dur-fast) var(--g-ease-fall);
+}
+.rl-filter__b b { font-weight: var(--g-w-regular); font-size: var(--g-fs-eyebrow); color: var(--g-text-subtle); }
+.rl-filter__b:hover { color: var(--g-text); }
+.rl-filter__b[aria-pressed="true"] { background: var(--g-surface-raised); color: var(--g-text); box-shadow: 0 0 0 1px var(--g-border); }
+.rl-filter__b[aria-pressed="true"] b { color: var(--g-accent); }
+.rl-filter__b:focus-visible { outline: 2px solid var(--g-focus); outline-offset: 1px; }
+
+.rl-group__head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--g-space-xs); }
+.rl-group__head h3 { margin: 0; font-size: var(--g-fs-small); font-weight: var(--g-w-semibold); letter-spacing: 0; text-transform: none; color: var(--g-text); }
+.rl-group__n { font-family: var(--g-font-mono); font-size: var(--g-fs-eyebrow); color: var(--g-text-subtle); }
+.rl-group__list { display: grid; gap: var(--g-space-2xs); }
+
+.rl-group .rl-row {
+  align-items: center; padding: .45rem; border: 1px solid var(--g-hairline); border-radius: var(--g-radius);
+  background: var(--g-surface-raised); transition: border-color var(--g-dur-fast) var(--g-ease-fall);
+}
+.rl-group .rl-row:last-child { border-bottom: 1px solid var(--g-hairline); }
+.rl-group .rl-row:hover { border-color: var(--g-border-strong); }
+.rl-group .rl-row__link { display: flex; align-items: center; gap: var(--g-space-xs); min-width: 0; }
+.rl-row__art {
+  position: relative; flex: none; display: grid; place-items: center; width: 2.75rem; height: 2.75rem;
+  border-radius: var(--g-radius-sm); background: var(--g-surface-sunken); color: var(--g-accent); overflow: hidden;
+}
+.rl-row__art svg { width: 1.2rem; height: 1.2rem; }
+.rl-row__art.has-still { width: 5rem; height: auto; aspect-ratio: 16 / 9; }
+.rl-row__art.has-still img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
+.rl-row__art small {
+  position: absolute; right: 3px; bottom: 3px; padding: 0 .3rem; border-radius: var(--g-radius-pill);
+  background: rgb(3 3 3 / .72); color: #f1efec; font-family: var(--g-font-mono); font-size: .6rem; line-height: 1.5;
+}
+.rl-row__text { display: grid; gap: .15rem; min-width: 0; }
+.rl-row__text strong {
+  font-size: var(--g-fs-small); font-weight: var(--g-w-medium); line-height: var(--g-lh-snug);
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden;
+}
+.rl-row__text small { color: var(--g-text-subtle); font-size: var(--g-fs-caption); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rl-row__link:hover .rl-row__text strong { text-decoration: underline; text-underline-offset: .18em; }
+.rl-row__link:focus-visible { outline: 2px solid var(--g-focus); outline-offset: 3px; border-radius: var(--g-radius-sm); }
+.rl-blank__art { display: grid; place-items: center; width: 3rem; height: 3rem; margin-bottom: var(--g-space-xs); border-radius: 50%; color: var(--g-accent); box-shadow: inset 0 0 0 1px var(--g-hairline); }
+.rl-blank__art svg { width: 1.3rem; height: 1.3rem; }

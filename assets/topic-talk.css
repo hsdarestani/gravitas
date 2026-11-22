@@ -877,3 +877,52 @@ button.tq-moment-chip:hover { background: color-mix(in srgb, var(--g-accent) 18%
 .tq-room { transition: border-color var(--g-dur) var(--g-ease-orbit), transform 200ms var(--g-ease-orbit); }
 @media (hover: hover) and (pointer: fine) { .tq-rooms .tq-room:not(.is-closed):hover { border-color: var(--g-border-strong); transform: translateY(-2px); } }
 @media (prefers-reduced-motion: reduce) { .tq-room { transition: none; } }
+
+/* ---- Save on the essay's stage ------------------------------------------------
+   The stage is the same deep-space plate in both themes, so its button wears
+   the player's glass, not the theme's secondary button. */
+.tq-estage__act { margin-top: var(--g-space-sm); display: flex; gap: var(--g-space-2xs); }
+.tq-estage .rl-save { background: rgb(0 16 26 / .45); border-color: rgb(241 239 236 / .35); color: var(--g-white-tint); backdrop-filter: blur(6px); }
+@media (hover: hover) and (pointer: fine) { .tq-estage .rl-save:hover { background: rgb(0 48 73 / .8); border-color: rgb(241 239 236 / .6); color: var(--g-white-tint); } }
+.tq-estage .rl-save[aria-pressed="true"] { background: var(--g-white-tint); border-color: var(--g-white-tint); color: var(--g-cosmos-blue); box-shadow: none; }
+
+/* ---- Rail: an essay and its sections (review of 2026-11-22) --------------------
+   The essay is a parent entry: "Essay 1 · 12 min" in mono over its title at
+   small-semibold, and a hairline between essays. Its sections hang under it,
+   numbered 01, 02… exactly as the headings are numbered in the text, smaller
+   and quieter, so a section can never be read as an essay. */
+.tq-toc__sub.has-parents > ol { gap: 0; }
+.tq-toc__sub .tq-toc__parent + .tq-toc__parent { margin-top: var(--g-space-2xs); padding-top: var(--g-space-2xs); border-top: 1px solid var(--g-hairline); }
+.tq-toc__sub .tq-toc__parent > a { display: grid; gap: .15rem; padding: .45rem .5rem; }
+.tq-toc__sub .tq-toc__parent > a span { font-size: var(--g-fs-small); font-weight: var(--g-w-semibold); color: var(--g-text-muted); line-height: 1.3; }
+.tq-toc__sub .tq-toc__parent > a:hover span { color: var(--g-text); }
+.tq-toc__k { font-family: var(--g-font-mono); font-size: var(--g-fs-eyebrow); letter-spacing: .06em; text-transform: uppercase; color: var(--g-text-subtle); }
+.tq-toc__sub .tq-toc__parent.is-current > a { background: var(--g-surface-hover); }
+.tq-toc__sub .tq-toc__parent.is-current > a span { color: var(--g-text); }
+.tq-toc__sub .tq-toc__parent.is-current .tq-toc__k { color: var(--g-accent); }
+.tq-toc__sub.has-parents .tq-toc__prog { margin: .45rem .5rem .35rem; }
+.tq-toc__sub.has-parents .tq-toc__kids { margin: 0 0 .25rem .2rem; }
+.tq-toc__sub.has-parents .tq-toc__kids li > a { display: grid; grid-template-columns: 1.6rem minmax(0, 1fr); align-items: baseline; padding: .22rem .3rem; color: var(--g-text-subtle); }
+.tq-toc__num { font-style: normal; font-family: var(--g-font-mono); font-size: .66rem; color: var(--g-text-subtle); opacity: .8; }
+.tq-toc__sub.has-parents .tq-toc__kids a[aria-current="location"] { color: var(--g-text) !important; }
+.tq-toc__sub.has-parents .tq-toc__kids a[aria-current="location"] .tq-toc__num { color: var(--g-accent); opacity: 1; }
+
+/* ---- Section headings in the text (review of 2026-11-22) ------------------------
+   They were set in the interface face a step below the reading text, and got
+   lost in it. Each now opens its section: a hairline above, room around it,
+   its number in the mono accent (the rail uses the same numbers), and the
+   title at h3 size in DM Sans bold. Headings inside boxes and figures carry
+   no id and keep their own look. */
+.tq-reader { counter-reset: tq-sec; }
+.tq-reader h4[id] {
+  counter-increment: tq-sec;
+  margin: var(--g-space-2xl) 0 var(--g-space-sm); padding-top: var(--g-space-lg); border-top: 1px solid var(--g-hairline);
+  font-family: var(--g-font); font-size: var(--g-fs-h3); font-weight: var(--g-w-bold); line-height: var(--g-lh-head); letter-spacing: var(--g-track-head);
+  color: var(--g-text); text-wrap: balance;
+}
+.tq-reader h4[id]::before {
+  content: counter(tq-sec, decimal-leading-zero); display: block; margin-bottom: .45rem;
+  font-family: var(--g-font-mono); font-size: var(--g-fs-eyebrow); font-weight: var(--g-w-medium); letter-spacing: .1em; color: var(--g-accent);
+}
+.tq-reader > h4[id]:first-child { margin-top: 0; padding-top: 0; border-top: 0; }
+.tq-reader h4[id] .tq-hc { vertical-align: .2em; }

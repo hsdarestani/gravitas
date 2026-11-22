@@ -619,6 +619,7 @@
   var LIB_KIND_LABEL = {
     topic: 'Topic', dossier: 'Dossier', article: 'Article',
     path: 'Learning path', lab: 'Interactive', page: 'Page',
+    video: 'Video', essay: 'Essay',
   };
 
   /* True when the pile on screen came from the signed-in mirror rather than a
@@ -974,8 +975,18 @@
     var saved = relation === 'following' ? 'Following' : 'Saved';
     var idle = relation === 'following' ? 'Follow this topic' : 'Save for later';
     var icon = relation === 'following' ? LIB_ICON_FOLLOW : LIB_ICON_SAVE;
+    /* A slot in a page's own action row (the Topic page's videos, essays and
+       head) is one of that row's buttons: the brand's small secondary
+       button with a short label, Save / Saved, Follow / Following, and the
+       aria-label naming what it keeps. */
+    var slot = size === 'slot';
+    var short = relation === 'following' ? ['Follow', 'Following'] : ['Save', 'Saved'];
+    var what = LIB_KIND_LABEL[item.kind] ? LIB_KIND_LABEL[item.kind].toLowerCase() : 'item';
+    var spoken = relation === 'following' ? ['Follow this ' + what, 'Following this ' + what + '. Stop following']
+      : ['Save this ' + what, 'Saved. Remove this ' + what + ' from saved'];
 
-    var button = libButton('rl-toggle' + (size === 'card' ? ' rl-toggle--card' : ''), icon, idle);
+    var button = libButton(slot ? 'g-btn g-btn--secondary g-btn--sm rl-save' : 'rl-toggle' + (size === 'card' ? ' rl-toggle--card' : ''), icon, idle);
+    if (slot) button.querySelector('svg').setAttribute('class', 'g-btn__icon');
     button.dataset.rlRelation = relation;
     button.dataset.rlKey = item.item_key;
     if (size !== 'card') button.append(document.createElement('span'));
@@ -983,11 +994,11 @@
     button.sync = function () {
       var on = !!lib[relation][item.item_key];
       button.setAttribute('aria-pressed', String(on));
-      var label = on ? saved : idle;
+      var label = slot ? spoken[on ? 1 : 0] : on ? saved : idle;
       button.setAttribute('aria-label', label);
       button.title = label;
       var text = button.querySelector('span');
-      if (text) text.textContent = label;
+      if (text) text.textContent = slot ? short[on ? 1 : 0] : label;
     };
 
     button.addEventListener('click', function (event) {
@@ -1027,10 +1038,44 @@
 
       var tray = document.createElement('div');
       tray.className = 'rl-card-tray';
-      tray.append(libToggleButton(item, 'saved', 'card'));
-      if (item.kind === 'topic') tray.append(libToggleButton(item, 'following', 'card'));
+      /* A Topic is followed, not saved (2026-11-22): its videos and essays
+         are what a reader saves, each from its own section. */
+      tray.append(libToggleButton(item, item.kind === 'topic' ? 'following' : 'saved', 'card'));
       card.append(tray);
       card.classList.add('rl-has-tray');
+    });
+  }
+
+  /* ---- Slots a page leaves for its own controls ------------------------
+     Since 2026-11-22 the Topic page saves its parts one by one: each video
+     and each essay carries a Save, the Topic itself a Follow. The page draws
+     an empty <span data-rl-slot> where the button belongs and describes what
+     it keeps in data-rl-* (key, kind, title, url with the part's own #anchor,
+     summary, and detail, topic and poster for the Saved list); this mounts
+     the button. A part's url keeps its hash, unlike a page's: reopening a
+     saved essay has to land on that essay. */
+  var LIB_SLOT_KINDS = { topic: 1, video: 1, essay: 1, article: 1, dossier: 1, path: 1, lab: 1, page: 1 };
+
+  function libMountSlots() {
+    [].forEach.call(document.querySelectorAll('[data-rl-slot]:not([data-rl-mounted])'), function (slot) {
+      var d = slot.dataset;
+      var relation = d.rlRelation === 'following' ? 'following' : 'saved';
+      if (!LIB_KEY_RE.test(d.rlKey || '') || !LIB_SLOT_KINDS[d.rlKind] || !d.rlTitle) return;
+      var url = '';
+      try {
+        var parsed = new URL(d.rlUrl || '', location.href);
+        if (parsed.origin === location.origin) url = parsed.pathname + parsed.search + parsed.hash;
+      } catch (err) { url = ''; }
+      var meta = {};
+      if (d.rlDetail) meta.detail = d.rlDetail;
+      if (d.rlTopic) meta.topic = d.rlTopic;
+      if (d.rlPoster && /^\/(?!\/)/.test(d.rlPoster)) meta.poster = d.rlPoster;
+      var item = {
+        item_key: d.rlKey, kind: d.rlKind, title: d.rlTitle.slice(0, 240),
+        url: url, summary: (d.rlSummary || '').slice(0, 400), meta: meta,
+      };
+      slot.dataset.rlMounted = '1';
+      slot.append(libToggleButton(item, relation, 'slot'));
     });
   }
 
@@ -1050,6 +1095,9 @@
     if (!item || LIB_PLACEHOLDER.test(item.title)) return;
     var existing = document.querySelector('.rl-page-bar');
     if (existing) return;
+    /* A page that places its own controls (the Topic page puts Follow beside
+       Share, and Save on each video and essay) gets no bar. */
+    if (document.querySelector('[data-rl-own-page]')) return;
 
     var heading = document.querySelector('#main h1, main h1');
     if (!heading) return;
@@ -1062,8 +1110,7 @@
 
     var bar = document.createElement('div');
     bar.className = 'rl-page-bar';
-    bar.append(libToggleButton(item, 'saved'));
-    if (item.kind === 'topic') bar.append(libToggleButton(item, 'following'));
+    bar.append(libToggleButton(item, item.kind === 'topic' ? 'following' : 'saved'));
 
     var note = document.createElement('p');
     note.className = 'rl-page-bar__note';
@@ -1277,36 +1324,93 @@
     if (libLastFocus && libLastFocus.isConnected) libLastFocus.focus();
   }
 
-  function libGroup(title, hint) {
+  /* ---- What the drawer lists, in groups -----------------------------------
+     Redesigned on 2026-11-22, when a Topic's videos and essays became things
+     a reader saves one by one: the drawer is a small library, not one long
+     list. Saved Videos, Saved Essays and Followed Topics each have a group
+     (then anything else saved, then paths in progress), a strip at the top
+     filters to one of them, and each row carries what makes it findable at a
+     glance: a video's still and runtime, an essay's reading time, the Topic
+     it came from. A row links to the part itself (#video-2, #essay-1), so
+     reopening it lands on that video or essay. */
+  var libFilter = 'all';
+
+  var LIB_GROUPS = [
+    { id: 'video', title: 'Saved Videos', tab: 'Videos', icon: 'video', test: function (item, relation) { return relation === 'saved' && item.kind === 'video'; } },
+    { id: 'essay', title: 'Saved Essays', tab: 'Essays', icon: 'magazine', test: function (item, relation) { return relation === 'saved' && item.kind === 'essay'; } },
+    { id: 'topic', title: 'Followed Topics', tab: 'Topics', icon: 'topic', test: function (item, relation) { return relation === 'following'; },
+      hint: 'Topics you want more of. Once you have an account these decide what the newsletter sends you.' },
+    { id: 'other', title: 'Also Saved', tab: 'Other', icon: 'library', test: function (item, relation) { return relation === 'saved' && item.kind !== 'video' && item.kind !== 'essay'; } },
+  ];
+  var LIB_OTHER_ICON = { topic: 'topic', article: 'magazine', dossier: 'magazine', path: 'path', lab: 'lab' };
+
+  function libGlyph(name) {
+    var icons = window.GravitasIcons;
+    return icons && icons.icon ? icons.icon(name, 'rl-glyph') : LIB_ICON_SAVE;
+  }
+
+  function libGroup(group, count) {
     var section = document.createElement('section');
     section.className = 'rl-group';
+    section.dataset.rlGroup = group.id;
+    var head = document.createElement('div');
+    head.className = 'rl-group__head';
     var heading = document.createElement('h3');
-    heading.textContent = title;
-    section.append(heading);
-    if (hint) {
+    heading.textContent = group.title;
+    var n = document.createElement('span');
+    n.className = 'rl-group__n g-nums';
+    n.textContent = String(count);
+    head.append(heading, n);
+    section.append(head);
+    if (group.hint) {
       var note = document.createElement('p');
       note.className = 'rl-group__hint';
-      note.textContent = hint;
+      note.textContent = group.hint;
       section.append(note);
     }
     return section;
   }
 
-  function libRow(item, relation) {
+  function libRow(item, relation, group) {
     var row = document.createElement('div');
-    row.className = 'rl-row';
+    row.className = 'rl-row rl-row--' + group.id;
 
     var link = document.createElement('a');
     link.className = 'rl-row__link';
     link.href = item.url || '/' + item.item_key + '.html';
-    link.append(Object.assign(document.createElement('strong'), { textContent: item.title }));
-    var kindLabel = LIB_KIND_LABEL[item.kind] || item.kind;
-    var line = [kindLabel, item.meta && item.meta.detail].filter(Boolean).join(' · ');
-    link.append(Object.assign(document.createElement('small'), { textContent: line }));
+    /* Opening a saved part on the page it is already on: the page follows
+       the address, so only the drawer has to get out of the way. */
+    link.addEventListener('click', function () { libClose(); });
+
+    var meta = item.meta || {};
+    var art = document.createElement('span');
+    art.className = 'rl-row__art';
+    if (group.id === 'video' && meta.poster) {
+      var img = new Image();
+      img.src = meta.poster;
+      img.alt = '';
+      img.loading = 'lazy';
+      art.classList.add('has-still');
+      art.append(img);
+      if (meta.detail) art.append(Object.assign(document.createElement('small'), { className: 'g-nums', textContent: meta.detail }));
+    } else {
+      art.innerHTML = libGlyph(group.id === 'other' ? LIB_OTHER_ICON[item.kind] || 'library' : group.icon);
+    }
+    link.append(art);
+
+    var text = document.createElement('span');
+    text.className = 'rl-row__text';
+    text.append(Object.assign(document.createElement('strong'), { textContent: item.title }));
+    var bits = [];
+    if (group.id === 'other') bits.push(LIB_KIND_LABEL[item.kind] || item.kind);
+    if (meta.topic && meta.topic !== item.title) bits.push(meta.topic);
+    if (meta.detail && !(group.id === 'video' && meta.poster)) bits.push(meta.detail);
+    if (bits.length) text.append(Object.assign(document.createElement('small'), { textContent: bits.join(' · ') }));
+    link.append(text);
     row.append(link);
 
     var drop = libButton('rl-row__drop', LIB_ICON_CLOSE,
-      relation === 'following' ? 'Stop following' : 'Remove from saved');
+      relation === 'following' ? 'Stop following ' + item.title : 'Remove ' + item.title + ' from saved');
     drop.addEventListener('click', function () {
       libToggle(item, relation).catch(function () {});
     });
@@ -1316,22 +1420,27 @@
 
   function libPathRow(key, path) {
     var row = document.createElement('div');
-    row.className = 'rl-row';
+    row.className = 'rl-row rl-row--path';
 
     var link = document.createElement('a');
     link.className = 'rl-row__link';
     link.href = path.url || '/' + key + '.html';
-    link.append(Object.assign(document.createElement('strong'),
-      { textContent: path.title || key }));
-    link.append(Object.assign(document.createElement('small'),
+    var art = document.createElement('span');
+    art.className = 'rl-row__art';
+    art.innerHTML = libGlyph('path');
+    link.append(art);
+    var text = document.createElement('span');
+    text.className = 'rl-row__text';
+    text.append(Object.assign(document.createElement('strong'), { textContent: path.title || key }));
+    text.append(Object.assign(document.createElement('small'),
       { textContent: path.done.length + ' of ' + (path.total || '?') + ' steps · ' + libPathPercent(key) + '%' }));
-
     var meter = document.createElement('div');
     meter.className = 'rl-meter';
     var fill = document.createElement('i');
     fill.style.width = Math.max(2, libPathPercent(key)) + '%';
     meter.append(fill);
-    link.append(meter);
+    text.append(meter);
+    link.append(text);
     row.append(link);
     return row;
   }
@@ -1343,8 +1452,10 @@
     body.innerHTML = '';
     foot.innerHTML = '';
 
-    var saved = Object.keys(lib.saved).map(function (key) { return lib.saved[key]; });
-    var following = Object.keys(lib.following).map(function (key) { return lib.following[key]; });
+    var entries = [];
+    ['saved', 'following'].forEach(function (relation) {
+      Object.keys(lib[relation]).forEach(function (key) { entries.push({ item: lib[relation][key], relation: relation }); });
+    });
     var paths = Object.keys(lib.paths).filter(function (key) {
       return lib.paths[key].done.length;
     });
@@ -1357,39 +1468,65 @@
       body.append(warning);
     }
 
-    if (!saved.length && !following.length && !paths.length) {
+    if (!entries.length && !paths.length) {
+      libFilter = 'all';
       var blank = document.createElement('div');
       blank.className = 'rl-blank';
       blank.innerHTML =
-        '<p><b>Nothing kept yet.</b></p>' +
-        '<p>Use the bookmark on any topic, dossier, essay, path or interactive and it lands here. ' +
-        'No account needed to start — one only matters when you want the pile on another device.</p>';
+        '<span class="rl-blank__art">' + LIB_ICON_SAVE + '</span>' +
+        '<p><b>Nothing saved yet.</b></p>' +
+        '<p>Save a video or an essay from any Topic, or follow a Topic, and it lands here with a link straight back to it. ' +
+        'No account needed to start. One only matters when you want them on another device.</p>';
       body.append(blank);
       return;
     }
 
-    if (saved.length) {
-      var savedGroup = libGroup('Saved · ' + saved.length);
-      saved.sort(libNewestFirst).forEach(function (item) {
-        savedGroup.append(libRow(item, 'saved'));
+    var filled = LIB_GROUPS.map(function (group) {
+      var items = entries.filter(function (e) { return group.test(e.item, e.relation); });
+      items.sort(function (a, b) { return libNewestFirst(a.item, b.item); });
+      return { group: group, items: items };
+    }).filter(function (g) { return g.items.length; });
+    if (paths.length) filled.push({ group: { id: 'path', title: 'Paths in Progress', tab: 'Paths', icon: 'path' }, items: paths });
+    if (!filled.some(function (g) { return g.group.id === libFilter; })) libFilter = 'all';
+
+    /* The strip, only when there is more than one kind of thing to choose. */
+    if (filled.length > 1) {
+      var strip = document.createElement('div');
+      strip.className = 'rl-filter';
+      strip.setAttribute('role', 'group');
+      strip.setAttribute('aria-label', 'Show');
+      [{ id: 'all', tab: 'All', n: entries.length + paths.length }].concat(filled.map(function (g) {
+        return { id: g.group.id, tab: g.group.tab, n: g.items.length };
+      })).forEach(function (tab) {
+        var b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'rl-filter__b';
+        b.setAttribute('aria-pressed', String(libFilter === tab.id));
+        b.innerHTML = '<span></span><b class="g-nums"></b>';
+        b.querySelector('span').textContent = tab.tab;
+        b.querySelector('b').textContent = String(tab.n);
+        b.addEventListener('click', function () {
+          libFilter = tab.id;
+          libPaintDrawer();
+          var again = libDrawer && libDrawer.querySelector('.rl-filter__b[aria-pressed="true"]');
+          if (again) again.focus();
+        });
+        strip.append(b);
       });
-      body.append(savedGroup);
+      body.append(strip);
     }
 
-    if (following.length) {
-      var followGroup = libGroup('Following · ' + following.length,
-        'Topics you want more of. Once you have an account these decide what the newsletter sends you.');
-      following.sort(libNewestFirst).forEach(function (item) {
-        followGroup.append(libRow(item, 'following'));
+    filled.forEach(function (g) {
+      if (libFilter !== 'all' && libFilter !== g.group.id) return;
+      var section = libGroup(g.group, g.items.length);
+      var list = document.createElement('div');
+      list.className = 'rl-group__list';
+      g.items.forEach(function (entry) {
+        list.append(g.group.id === 'path' ? libPathRow(entry, lib.paths[entry]) : libRow(entry.item, entry.relation, g.group));
       });
-      body.append(followGroup);
-    }
-
-    if (paths.length) {
-      var pathGroup = libGroup('Paths in progress · ' + paths.length);
-      paths.forEach(function (key) { pathGroup.append(libPathRow(key, lib.paths[key])); });
-      body.append(pathGroup);
-    }
+      section.append(list);
+      body.append(section);
+    });
 
     if (!libAuthKnown) return;
 
@@ -1411,7 +1548,7 @@
 
     var signIn = document.createElement('p');
     signIn.className = 'rl-foot__note';
-    signIn.innerHTML = 'Everything above is stored in this browser only — clearing site data loses it. ' +
+    signIn.innerHTML = 'Everything above is stored in this browser only. Clearing site data loses it. ' +
       'Making an account moves the lot across as it is. ' +
       '<a href="/login">Already have one?</a>';
     foot.append(signIn);
@@ -1534,6 +1671,7 @@
     libMountTrigger();
     libMountCards();
     libMountPage();
+    libMountSlots();
     libMountSteps();
     libMountAuthNote();
     libPaint();
@@ -1564,6 +1702,7 @@
         libScanning = false;
         libMountCards();
         libMountPage();
+        libMountSlots();
         libMountSteps();
       });
     });

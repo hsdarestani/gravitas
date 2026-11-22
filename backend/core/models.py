@@ -326,6 +326,10 @@ class ReaderSavedItem(models.Model):
         PATH = 'path', 'Learning path'
         LAB = 'lab', 'Lab / Interactive'
         PAGE = 'page', 'Page'
+        # One part of a Topic page, saved on its own since 2026-11-22: a
+        # video or an essay, its url pointing at #video-<n> / #essay-<n>.
+        VIDEO = 'video', 'Video'
+        ESSAY = 'essay', 'Essay'
 
     class Relation(models.TextChoices):
         SAVED = 'saved', 'Saved'

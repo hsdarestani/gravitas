@@ -291,8 +291,10 @@
           button.type = 'button';
           button.className = 'tq-hc' + (n ? ' has' : '');
           button.dataset.hc = String(i);
-          button.setAttribute('aria-label', n ? n + (n === 1 ? ' comment' : ' comments') + ' on this section. Add yours.' : 'Comment on this section');
-          button.innerHTML = ICON.talk + '<span>' + (n || 'Comment') + '</span>';
+          button.setAttribute('aria-label', n ? n + (n === 1 ? ' annotation' : ' annotations') + ' on this section. Add yours.' : 'Annotate this section');
+          /* Annotate, not Comment (2026-11-22): a note on a section is an
+             annotation like one on a passage, and the page says so. */
+          button.innerHTML = ICON.pen + '<span>' + (n || 'Annotate') + '</span>';
           h.append(button);
         });
       }
@@ -427,11 +429,11 @@
       var p = state.pending;
       if (!p) { box.innerHTML = ''; return; }
       var draft = T().readDraft(key, 'new');
-      box.innerHTML = '<form class="tq-an-new" data-an-form><p class="tq-an-new__k">' + (p.kind === 'heading' ? 'New comment on a section' : 'New annotation') + '</p>' +
+      box.innerHTML = '<form class="tq-an-new" data-an-form><p class="tq-an-new__k">' + (p.kind === 'heading' ? 'New annotation on' : 'New annotation') + '</p>' +
         (p.kind === 'heading' ? '<p class="tq-an-ref is-section is-static">' + ICON.read + '<span>' + esc(p.heading) + '</span></p>' : '<p class="tq-an-ref is-static"><q>' + esc(p.quote) + '</q></p>') +
         '<label class="g-visually-hidden" for="an-new-' + opts.essay + '">Your note</label>' +
         '<textarea class="g-textarea" id="an-new-' + opts.essay + '" rows="3" maxlength="5000" placeholder="What does this passage make you think, or doubt?" required>' + esc(draft) + '</textarea>' +
-        '<div class="tk-row"><button class="g-btn g-btn--primary g-btn--sm" type="submit">Save note</button><button class="g-btn g-btn--ghost g-btn--sm" type="button" data-an-cancel>Cancel</button></div>' +
+        '<div class="tk-row"><button class="g-btn g-btn--primary g-btn--sm" type="submit">Annotate</button><button class="g-btn g-btn--ghost g-btn--sm" type="button" data-an-cancel>Cancel</button></div>' +
         '<p class="g-hint">Members can annotate. A moderator reads every note before others see it.</p><div data-an-signin></div></form>';
       var field = box.querySelector('textarea');
       field.focus();

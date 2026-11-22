@@ -115,6 +115,43 @@ rooms.each do |category|
 end
 puts "Deleted replies removed for good: #{purged}"
 
+# The likes and views of the testing weeks go too (2026-11-22, the owner: as
+# the test replies were removed, their likes and views should be). In the
+# listed rooms every like is deleted, each post's like and read counts and
+# each thread's like and view counts go to zero, the per-visitor view records
+# that Discourse counts views from are emptied, and the like counters on the
+# profiles of everyone who gave or received one are counted again.
+#
+# Once only, unlike the purge above: from launch on, likes and views are real
+# and a theme release must never wipe them. The date it ran is kept in the
+# plugin store; delete that row to run it again.
+reset_key = "likes_views_reset_20261122"
+if PluginStore.get("graviquest", reset_key).blank?
+  like = PostActionType.types[:like]
+  topic_ids = Topic.with_deleted.where(category_id: rooms.map(&:id)).pluck(:id)
+  post_ids = Post.with_deleted.where(topic_id: topic_ids).pluck(:id)
+  likes = PostAction.with_deleted.where(post_id: post_ids, post_action_type_id: like)
+  touched = (likes.distinct.pluck(:user_id) + Post.with_deleted.where(id: likes.select(:post_id)).distinct.pluck(:user_id)).uniq
+  ActiveRecord::Base.transaction do
+    removed = likes.delete_all
+    UserAction.where(target_post_id: post_ids, action_type: [UserAction::LIKE, UserAction::WAS_LIKED]).delete_all
+    Post.with_deleted.where(id: post_ids).update_all(like_count: 0, reads: 0)
+    Topic.with_deleted.where(id: topic_ids).update_all(like_count: 0, views: 0)
+    TopicViewItem.where(topic_id: topic_ids).delete_all
+    TopicViewStat.where(topic_id: topic_ids).delete_all if defined?(TopicViewStat)
+    UserStat.where(user_id: touched).find_each do |stat|
+      stat.update_columns(
+        likes_given: PostAction.where(user_id: stat.user_id, post_action_type_id: like).count,
+        likes_received: UserAction.where(user_id: stat.user_id, action_type: UserAction::WAS_LIKED).count,
+      )
+    end
+    puts "Likes removed: #{removed}; views reset on #{topic_ids.size} threads"
+  end
+  PluginStore.set("graviquest", reset_key, Time.now.utc.iso8601)
+else
+  puts "Likes and views were reset on #{PluginStore.get('graviquest', reset_key)}; not again"
+end
+
 # Rooms that are not in the list are admin-only (2026-11-19, the owner: "make
 # the old rooms private, so nobody sees them; moderators see only the three
 # rooms"). Until then they were only unlisted, and their threads still showed

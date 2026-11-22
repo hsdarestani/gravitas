@@ -31,10 +31,10 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
 <link rel="stylesheet" href="assets/site.css?v=up-f706806e3a02-g1df6ff09-ds12">
 <link rel="stylesheet" href="assets/hero.css?v=20261110-align5">
 <link rel="stylesheet" href="assets/landing.css?v=20261117-lp16">
-<link rel="stylesheet" href="assets/topic-rail.css?v=20261122-reel10">
+<link rel="stylesheet" href="assets/topic-rail.css?v=20261123-reel11">
 <link rel="stylesheet" href="assets/forum.css?v=20261118-fm11">
 <link rel="stylesheet" href="assets/chat.css?v=20261119-public-guide2">
-<link rel="stylesheet" href="assets/production-overrides.css?v=up-f706806e3a02-g1df6ff09-rl3">
+<link rel="stylesheet" href="assets/production-overrides.css?v=up-f706806e3a02-g1df6ff09-rl4">
 <link rel="stylesheet" href="/assets/forum-live.css?v=20261110-forum3">
 </head>
 <body class="is-overview">
@@ -94,7 +94,7 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
       <div class="lp-hero__col">
         <p class="g-eyebrow">Weighty Questions, Worked Through Together</p>
         <h1 class="g-display lp-hero__title">Science, AI and the <em>Gravity</em> of <em>Questions</em></h1>
-        <p class="g-lead lp-hero__lede">A community drawn together by the weighty questions in science and AI, with a forum to talk them through.</p>
+        <p class="g-lead lp-hero__lede">A growing community of curious minds exploring science and AI one deep question at a time, and talking each one over in our forum.</p>
         <div class="g-cluster g-mt-lg">
           <a class="g-btn g-btn--primary g-btn--lg g-btn--lead" href="/signup" data-member-forum>
             <svg class="g-btn__icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><g transform="translate(0.645 0.673) scale(0.945894)" stroke-width="1.797"><path d="M2.6 20.4v-1.7a4.6 4.6 0 0 1 4.6-4.6h3.4a4.6 4.6 0 0 1 4.6 4.6v1.7"/><path d="M18.8 5.6v4.8"/><path d="M16.4 8h4.8"/><circle cx="8.9" cy="7.4" r="3.5" fill="currentColor" stroke="none"/></g></svg>
@@ -174,7 +174,8 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
 
     <div class="trail__bar" data-t1-hide-on-failure>
       <div class="trail__steps" role="group" aria-label="Jump within this Topic">
-        <button class="chip trail__step" type="button" aria-current="true">Videos</button>
+        <button class="chip trail__step" type="button" aria-current="true">Overview</button>
+        <button class="chip trail__step" type="button" aria-current="false">Videos</button>
         <button class="chip trail__step" type="button" aria-current="false">Essays</button>
         <button class="chip trail__step" type="button" aria-current="false">Timeline</button>
         <button class="chip trail__step" type="button" aria-current="false">Viewpoints</button>
@@ -183,13 +184,28 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
         <button class="chip trail__step" type="button" aria-current="false">Related</button>
       </div>
       <div class="trail__nav">
-        <span class="trail__count g-nums" data-rail-count aria-live="polite">01 / 07</span>
+        <span class="trail__count g-nums" data-rail-count aria-live="polite">01 / 08</span>
         <button class="trail__arrow" type="button" data-rail-prev aria-label="Previous panel"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5M11 18l-6-6 6-6"/></svg></button>
         <button class="trail__arrow" type="button" data-rail-next aria-label="Next panel"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
       </div>
     </div>
 
-    <div class="trail__rail" data-t1-hide-on-failure tabindex="0" role="region" aria-label="Current Topic, seven panels side by side">
+    <div class="trail__rail" data-t1-hide-on-failure tabindex="0" role="region" aria-label="Current Topic, eight panels side by side">
+
+      <!-- Overview (2026-11-22): the Topic's teaser and its description, as at
+           the head of the Topic page. topic-01-live.js fills it. -->
+      <article class="trail__panel" data-t1-panel="overview" aria-label="Overview">
+        <div class="trail__side">
+          <h3></h3>
+          <p class="trail__say"></p>
+        </div>
+        <div class="trail__body">
+          <a class="video trail__video" data-ovw-card href="topic-answer-that-looked-right.html#overview">
+            <span class="video__play"><svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg></span>
+            <span class="trail__tag" data-ovw-meta hidden></span>
+          </a>
+        </div>
+      </article>
 
       <article class="trail__panel" data-t1-panel="video" aria-label="Videos">
         <div class="trail__side">
@@ -443,11 +459,11 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
 <script src="assets/site.js?v=20261119-forum1"></script>
 <script src="assets/hero.js?v=20261109-stars2"></script>
 <script src="assets/landing.js?v=20261118-soon3" defer></script>
-<script src="assets/topic-01-live.js?v=20261122-tq21" defer></script>
-<script src="assets/topic-01-essay.js?v=20261122-tq15" defer></script>
-<script src="assets/topic-rail.js?v=20261121-reel8" defer></script>
+<script src="assets/topic-01-live.js?v=20261123-tq22" defer></script>
+<script src="assets/topic-01-essay.js?v=20261123-tq16" defer></script>
+<script src="assets/topic-rail.js?v=20261123-reel9" defer></script>
 <script src="assets/chat.js?v=20261120-provider-errors1" defer></script>
-<script src="assets/production-bridge.js?v=20261122-forum2" defer></script>
+<script src="assets/production-bridge.js?v=20261123-saved1" defer></script>
 <script src="/assets/forum-live.js?v=20261118-forum6" defer></script>
 </body>
 </html>

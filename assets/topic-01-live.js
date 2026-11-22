@@ -75,11 +75,46 @@
     return '<img src="' + esc(src) + '" alt="' + esc(alt) + '" width="' + size[0] + '" height="' + size[1] + '" loading="lazy" decoding="async">';
   }
 
-  function videos(data) {
+  function allVideos(data) {
     var list = rows(data.videos);
     if (list.length) return list;
     return data.video && typeof data.video === 'object' && Object.keys(data.video).length ? [data.video] : [];
   }
+
+  /* Since 2026-11-22 one video can be the Topic's teaser (role "teaser"): it
+     is drawn in Overview, at the head of the page and of the home-page reel,
+     and never in Videos. The rest are the episodes. */
+  function teaserOf(data) { return allVideos(data).filter(function (video) { return video.role === 'teaser'; })[0] || null; }
+  function videos(data) { return allVideos(data).filter(function (video) { return video.role !== 'teaser'; }); }
+
+  /* A video that is not published (source "none") holds its place in the
+     list as Planned: the brand's pill, no player, nothing to save or share. */
+  function isPlanned(video) { return !playable(video); }
+
+  /* The address of the Forum thread for the whole Topic. The HTML's own
+     fallback is the thread as it stands; the Forum's answer replaces it, so
+     a moved thread is still found. One request for the page and the reel. */
+  var TOPIC_THREAD = 'https://forum.graviquest.com/t/discussion-is-ai-reliable-in-research/21';
+  var threadUrl = null;
+  function topicThread() {
+    if (!threadUrl) threadUrl = getJSON('/api/forum/discussions/' + encodeURIComponent(SLUG) + '/')
+      .then(function (payload) { return safeUrl((payload.discussion || {}).url) || TOPIC_THREAD; })
+      .catch(function () { return TOPIC_THREAD; });
+    return threadUrl;
+  }
+
+  /* A place for a Save or Follow control. production-bridge.js owns the
+     reader's library and mounts the button into it (libMountSlots), so the
+     toggle, the store and the header count stay one implementation. */
+  function librarySlot(relation, item) {
+    return '<span class="rl-slot" data-rl-slot data-rl-relation="' + relation + '" data-rl-key="' + esc(item.key) + '" data-rl-kind="' + esc(item.kind) + '"' +
+      ' data-rl-title="' + esc(item.title) + '" data-rl-url="' + esc(item.url) + '"' +
+      (item.summary ? ' data-rl-summary="' + esc(String(item.summary).slice(0, 400)) + '"' : '') +
+      (item.detail ? ' data-rl-detail="' + esc(item.detail) + '"' : '') +
+      (item.topic ? ' data-rl-topic="' + esc(item.topic) + '"' : '') +
+      (item.poster ? ' data-rl-poster="' + esc(item.poster) + '"' : '') + '></span>';
+  }
+  var topicTitle = '';
 
   function youtubeId(address) {
     try {
@@ -296,15 +331,22 @@
      and the rooms. Each entry is an address the section reads for itself. */
   function subList(id, subs) {
     var progress = toc.progress[id] || { pct: 0, active: '' };
-    return '<div class="tq-toc__sub"><ol>' + subs.map(function (sub, index) {
+    /* An entry with a kicker (an essay: "Essay 1 · 12 min") is a parent: its
+       kicker and title set it apart from its sections, which are numbered
+       as the reader numbers them in the text (review of 2026-11-22: the
+       essay's title and its sections read alike). The progress sits under
+       the title it belongs to. */
+    var parents = subs.some(function (sub) { return sub.kicker; });
+    return '<div class="tq-toc__sub' + (parents ? ' has-parents' : '') + '"><ol>' + subs.map(function (sub) {
       var children = sub.children && sub.children.length
-        ? '<ol class="tq-toc__kids">' + sub.children.map(function (kid, k) {
+        ? (sub.progress ? '<div class="tq-toc__prog"><span class="tq-toc__bar" role="progressbar" aria-label="Reading progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="' + progress.pct + '"><i style="width:' + progress.pct + '%"></i></span><span class="g-nums" data-toc-pct>' + progress.pct + '%</span></div>' : '') +
+          '<ol class="tq-toc__kids" aria-label="Sections">' + sub.children.map(function (kid, k) {
           var on = progress.active ? kid.href === progress.active : k === 0;
-          return '<li><a href="' + esc(kid.href) + '"' + (on ? ' aria-current="location"' : '') + '>' + esc(kid.label) + '</a></li>';
-        }).join('') + '</ol>' +
-          (sub.progress ? '<div class="tq-toc__prog"><span class="tq-toc__bar" role="progressbar" aria-label="Reading progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="' + progress.pct + '"><i style="width:' + progress.pct + '%"></i></span><span class="g-nums" data-toc-pct>' + progress.pct + '%</span></div>' : '')
+          return '<li><a href="' + esc(kid.href) + '"' + (on ? ' aria-current="location"' : '') + '><i class="tq-toc__num g-nums" aria-hidden="true">' + pad2(k + 1) + '</i><span>' + esc(kid.label) + '</span></a></li>';
+        }).join('') + '</ol>'
         : '';
-      return '<li' + (sub.current ? ' class="is-current"' : '') + '><a href="' + esc(sub.href) + '"' + (sub.current ? ' aria-current="true"' : '') + '>' +
+      return '<li class="' + (sub.kicker ? 'tq-toc__parent' : '') + (sub.current ? ' is-current' : '') + '"><a href="' + esc(sub.href) + '"' + (sub.current ? ' aria-current="true"' : '') + '>' +
+        (sub.kicker ? '<small class="tq-toc__k">' + esc(sub.kicker) + '</small>' : '') +
         '<span>' + esc(sub.label) + '</span></a>' + children + '</li>';
     }).join('') + '</ol></div>';
   }
@@ -534,10 +576,11 @@
     return raw.split(':').reduce(function (total, part) { return total * 60 + Number(part); }, 0);
   }
 
-  function stage(video, index, total) {
+  function stage(video, index, total, kind) {
     var source = playable(video);
     var still = safeUrl(video.poster_url);
-    var badge = (total > 1 ? 'Video ' + (index + 1) + ' of ' + total : 'Video') + (video.duration ? ' &middot; ' + esc(video.duration) : '');
+    var badge = kind || (total > 1 ? 'Video ' + (index + 1) + ' of ' + total : 'Video') + (video.duration ? ' &middot; ' + esc(video.duration) : '');
+    if (kind && video.duration) badge += ' &middot; ' + esc(runtimeClock(video.duration));
     var watch = source && source.kind === 'youtube' ? safeUrl(video.youtube_url) : '';
     var where = watch
       ? '<a class="tq-stage__chip tq-stage__where" href="' + esc(watch) + '" target="_blank" rel="noopener">Watch on YouTube' + EXT + '</a>'
@@ -548,7 +591,7 @@
       '<span class="tq-stage__chip tq-stage__badge">' + badge + '</span>' + where +
       (source
         ? '<button class="tq-stage__play" type="button" data-play aria-label="Play ' + esc(video.title) + '">' + BIGPLAY + '</button>'
-        : '<span class="tq-stage__soon" role="img" aria-label="' + esc(video.title) + ' is not published yet">Coming soon</span>') +
+        : '<span class="soon-chip tq-stage__planned" role="img" aria-label="' + esc(video.title) + ' is planned">Planned</span>') +
       '</div>';
   }
 
@@ -567,20 +610,37 @@
     return facts.length ? '<dl class="tq-vfacts">' + facts.join('') + '</dl>' : '';
   }
 
+  /* What a saved video is in the reader's library: its own address on the
+     page (#video-2 opens that video), its title and runtime, and the Topic
+     it belongs to. */
+  function videoItem(video, index) {
+    return {
+      key: 'topic-' + SLUG + '--video-' + (index + 1), kind: 'video', title: video.title,
+      url: '/' + PAGE + '#video-' + (index + 1), summary: video.description,
+      detail: runtimeClock(video.duration), topic: topicTitle, poster: safeUrl(video.poster_url)
+    };
+  }
+
   function videoBelow(video, index) {
+    if (isPlanned(video)) {
+      return '<div class="tq-vbelow__text"><h3>' + esc(video.title) + ' <span class="soon-chip tq-inline-chip">Planned</span></h3>' +
+        '<p>' + (video.description ? esc(video.description) : 'The next video in this Topic is in the making.') + '</p></div>';
+    }
     return '<div class="tq-vbelow__text"><h3>' + esc(video.title) + '</h3>' +
       (video.description ? '<p>' + esc(video.description) + '</p>' : '') + videoFacts(video) + '</div>' +
-      '<div class="tq-actions tq-vbelow__act"><button class="g-btn g-btn--secondary g-btn--sm" type="button" data-share-video="' + (index + 1) + '">' + SHARE + '<span>Share</span></button>' +
+      '<div class="tq-actions tq-vbelow__act">' + librarySlot('saved', videoItem(video, index)) +
+      '<button class="g-btn g-btn--secondary g-btn--sm" type="button" data-share-video="' + (index + 1) + '">' + SHARE + '<span>Share</span></button>' +
       '<a class="g-btn g-btn--primary g-btn--sm" href="#talk" data-room-jump="videos">' + TALK + '<span>Discuss the videos</span></a></div>';
   }
 
   function videoPicker(list) {
     return '<div class="tq-pick" role="list" aria-label="Videos in this Topic">' + list.map(function (video, index) {
       var thumb = safeUrl(video.poster_url);
-      return '<a class="tq-pick__item" role="listitem" href="#video-' + (index + 1) + '" data-video="' + index + '">' +
-        '<span class="tq-pick__thumb">' + (thumb ? '<img src="' + esc(thumb) + '" alt="" loading="lazy" decoding="async">' : '<span class="tq-pick__blank" aria-hidden="true">' + pad2(index + 1) + '</span>') +
+      var planned = isPlanned(video);
+      return '<a class="tq-pick__item' + (planned ? ' is-planned' : '') + '" role="listitem" href="#video-' + (index + 1) + '" data-video="' + index + '">' +
+        '<span class="tq-pick__thumb">' + (thumb ? '<img src="' + esc(thumb) + '" alt="" loading="lazy" decoding="async">' : '<span class="tq-pick__blank" aria-hidden="true">' + (planned ? '<span class="soon-chip">Planned</span>' : pad2(index + 1)) + '</span>') +
         (video.duration ? '<span class="tq-pick__dur">' + esc(video.duration) + '</span>' : '') + '</span>' +
-        '<span class="tq-pick__text"><small>Video ' + (index + 1) + '</small><b>' + esc(video.title) + '</b></span></a>';
+        '<span class="tq-pick__text"><small>Video ' + (index + 1) + (planned ? ' &middot; Planned' : '') + '</small><b>' + esc(video.title) + '</b></span></a>';
     }).join('') + '</div>';
   }
 
@@ -656,9 +716,10 @@
       var fresh = talkHolder.cloneNode(false);
       talkHolder.replaceWith(fresh);
       talkHolder = fresh;
-      mountVideoTalk(talkHolder, list[index], index, seek);
+      if (isPlanned(list[index])) talkHolder.hidden = true;
+      else mountVideoTalk(talkHolder, list[index], index, seek);
       if (several && window.GQTopicToc) window.GQTopicToc.set('video', list.length, list.map(function (video, k) {
-        return { label: video.title, href: '#video-' + (k + 1), current: k === index, mark: video.duration ? '' : '' };
+        return { label: video.title + (isPlanned(video) ? ' · Planned' : ''), href: '#video-' + (k + 1), current: k === index };
       }));
       host.querySelectorAll('[data-video]').forEach(function (link) {
         if (Number(link.getAttribute('data-video')) === index) link.setAttribute('aria-current', 'true');
@@ -692,6 +753,42 @@
       var asked = /^#video-(\d+)$/.exec(location.hash);
       var index = asked ? Math.min(list.length - 1, Math.max(0, Number(asked[1]) - 1)) : -1;
       if (index >= 0 && index !== at) show(index);
+    });
+  }
+
+  /* ---- Overview -----------------------------------------------------------
+     Asked for on 2026-11-22: the Topic opens on its teaser, the 41-second
+     video that poses the question, beside the description that used to sit
+     under the title. A map of the parts under both was tried and taken
+     out the next day (2026-11-23): the rail already lists them. */
+  function renderOverview(item, data) {
+    var teaser = teaserOf(data);
+    var lead = data.hero_lead || item.summary || '';
+    var section = shell.querySelector('#overview');
+    if (!section) return;
+    if (!teaser && !lead) { section.setAttribute('data-empty', ''); section.hidden = true; return; }
+    section.removeAttribute('data-empty');
+    var source = teaser && playable(teaser);
+    var host = fill('overview',
+      '<div class="tq-ovw' + (teaser ? '' : ' is-text') + '">' +
+        (teaser ? '<div class="tq-ovw__media" data-ovw-media>' + stage(teaser, 0, 1, 'Teaser') + '</div>' : '') +
+        /* Grid items, not one text column, so the layout can place them:
+           the lead on the player's top edge, the buttons on its bottom edge,
+           and the longer teaser line beside or under both by width. */
+        '<p class="tq-ovw__lead">' + esc(lead) + '</p>' +
+        (teaser && teaser.description ? '<p class="tq-ovw__desc">' + esc(teaser.description) + '</p>' : '') +
+        '<div class="tq-actions tq-ovw__act">' +
+          '<a class="g-btn g-btn--primary g-btn--sm" href="#video" data-toc-go="video">' + PLAYI + '<span>Watch Video</span></a>' +
+          '<a class="g-btn g-btn--secondary g-btn--sm" href="#essay" data-toc-go="essay"><span>Read Essays</span>' + ARROW + '</a>' +
+        '</div>' +
+      '</div>');
+    if (source) host.addEventListener('click', function (event) {
+      if (!event.target.closest('[data-ovw-media] [data-play]')) return;
+      var holder = host.querySelector('[data-ovw-media] .tq-stage');
+      holder.classList.add('is-playing');
+      holder.innerHTML = embed(teaser, source, true);
+      var frame = holder.querySelector('iframe, video');
+      if (frame) frame.focus();
     });
   }
 
@@ -756,7 +853,8 @@
       host.querySelector('[data-tl-kicker]').innerHTML = 'Milestone ' + (index + 1) + ' of ' + n + (year ? '' : ' &middot; ' + esc(row.date));
       card.innerHTML = '<h3>' + esc(row.title) + '</h3><p class="tq-tl2__d">' + inline(row.description) + '</p>' +
         (row.why ? '<div class="tq-tl2__why"><p class="tq-tl2__why-k">Why it matters here</p><p>' + inline(row.why) + '</p></div>' : '') +
-        '<a class="tq-tl2__talk" href="#talk" data-room-jump="timeline">' + TALK + '<span>Discuss this milestone</span></a>';
+        '<a class="tq-tl2__talk" href="' + esc(TOPIC_THREAD) + '" target="_blank" rel="noopener" data-topic-thread>' + TALK + '<span>Discuss this milestone</span></a>';
+      topicThread().then(function (url) { card.querySelectorAll('[data-topic-thread]').forEach(function (a) { a.href = url; }); });
       if (!first) { card.classList.remove('is-swap'); void card.offsetWidth; card.classList.add('is-swap'); }
       host.querySelector('.tq-tl2__marks').style.setProperty('--tl-p', n > 1 ? index / (n - 1) : 1);
       centre();
@@ -953,7 +1051,13 @@
     fill('crumb', esc(item.title));
     fill('eyebrow', 'Topic' + ((data.tags || [])[0] ? ' &middot; ' + esc(data.tags[0]) : ''));
     fill('title', esc(item.title));
-    fill('lead', esc(data.hero_lead || item.summary));
+    topicTitle = item.title;
+    /* Follow is for the whole Topic, and only Follow: a video or an essay is
+       saved on its own, from its section (2026-11-22). */
+    fill('follow', librarySlot('following', {
+      key: 'topic-' + SLUG, kind: 'topic', title: item.title, url: '/' + PAGE,
+      summary: data.hero_lead || item.summary, detail: (data.tags || [])[0] || ''
+    }));
     fill('tags', (data.tags || []).map(function (tag) { return '<span class="g-tag">' + esc(tag) + '</span>'; }).join(''));
     var published = longDate(item.published_at), updated = longDate(item.updated_at);
     fill('facts', (published ? '<div><dt>Published</dt><dd>' + published + '</dd></div>' : '') +
@@ -961,6 +1065,7 @@
     var shareButton = shell.querySelector('[data-t1-share]');
     if (shareButton) shareButton.addEventListener('click', function () { share(shareButton, pageUrl(), item.title); });
 
+    renderOverview(item, data);
     renderVideos(list);
     toc.counts.video = list.length;
 
@@ -1041,12 +1146,40 @@
       link.dataset.meta = index ? runtimeClock(video.duration) : tag.textContent;
       link.dataset.poster = safeUrl(video.poster_url);
       if (!index) link.setAttribute('aria-current', 'true');
-      link.innerHTML = '<span class="trail__set-n">' + pad2(index + 1) + '</span><span class="trail__set-t">' + esc(video.title) + '</span>';
+      /* A video not out yet keeps its row, with the brand's PLANNED pill. */
+      if (isPlanned(video)) { link.dataset.say = video.description || 'The next video in this Topic is in the making.'; link.dataset.meta = 'Planned'; }
+      link.innerHTML = '<span class="trail__set-n">' + pad2(index + 1) + '</span><span class="trail__set-t">' + esc(video.title) + '</span>' +
+        (isPlanned(video) ? '<span class="soon-chip trail__set-soon">Planned</span>' : '');
       row.append(link);
       set.append(row);
     });
     node.querySelector('.trail__side').append(set);
     node.setAttribute('data-rail-set', '');
+  }
+
+  /* The reel's first panel since 2026-11-22: the teaser and the Topic's
+     description, as at the head of the Topic page. Without a teaser the
+     panel leaves the reel with its step. */
+  function railOverview(item, data) {
+    var node = panel('overview');
+    if (!node) return;
+    var teaser = teaserOf(data);
+    if (!teaser) {
+      var at = Array.prototype.indexOf.call(node.parentNode.children, node);
+      var step = rail.querySelectorAll('.trail__step')[at];
+      if (step) step.remove();
+      node.remove();
+      return;
+    }
+    side(node, item.title, data.hero_lead || item.summary || '');
+    var card = node.querySelector('[data-ovw-card]');
+    card.insertAdjacentHTML('afterbegin', poster(teaser));
+    if (safeUrl(teaser.poster_url)) card.classList.add('has-thumb');
+    card.setAttribute('aria-label', 'Teaser: ' + (teaser.title || item.title));
+    var tag = node.querySelector('[data-ovw-meta]');
+    var runtime = runtimeClock(teaser.duration);
+    tag.innerHTML = runtime ? '<span class="trail__tag-k">Teaser &middot; </span><span class="g-nums">' + esc(runtime) + '</span>' : 'Teaser';
+    tag.hidden = false;
   }
 
   var LEVELS = [
@@ -1060,6 +1193,7 @@
     var landing = data.landing || {};
     var views = rows((data.viewpoints || {}).items).slice(0, 2);
 
+    railOverview(item, data);
     railVideos(item, data);
 
     var intro = panel('essays').querySelector('[data-topic-essay-intro]');

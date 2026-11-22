@@ -176,7 +176,11 @@ function videoRow(values = {}) {
   const row = item('Video', values.title, 'topic-video-row');
   const title = K.input(values.title || '', 'text', 'Optional video title');
   renameOnInput(row, title, 'Video');
-  const sourceType = K.select([['none', 'Not published yet'], ['youtube', 'YouTube'], ['self_hosted', 'Self-hosted']], values.source_type || 'none');
+  const sourceType = K.select([['none', 'Not published yet (shown as Planned)'], ['youtube', 'YouTube'], ['self_hosted', 'Self-hosted']], values.source_type || 'none');
+  /* Since 2026-11-22 a video can be the Topic's teaser: it is drawn in the
+     Overview at the head of the Topic page and on the home-page reel, and
+     never in Videos. Kept as a field so a save cannot drop it. */
+  const role = K.select([['episode', 'Episode (Videos)'], ['teaser', 'Teaser (Overview)']], values.role === 'teaser' ? 'teaser' : 'episode');
   const youtube = K.input(values.youtube_url || '', 'url', 'YouTube URL');
   const self = mediaField('Self-hosted video', values.self_hosted_url || '', 'video/*');
   const poster = mediaField('Thumbnail', values.poster_url || '', 'image/*');
@@ -196,7 +200,7 @@ function videoRow(values = {}) {
   sourceType.addEventListener('change', sync);
   sync();
   row.append(
-    K.fields([K.field('Title', title), K.field('Source type', sourceType), K.field('Runtime', duration), youtubeField, self.holder]),
+    K.fields([K.field('Title', title), K.field('Role', role), K.field('Source type', sourceType), K.field('Runtime', duration), youtubeField, self.holder]),
     K.fields([poster.holder, K.field('Thumbnail description', posterAlt)], 2),
     K.field('Description', description),
     K.fields([
@@ -205,7 +209,7 @@ function videoRow(values = {}) {
       K.field('Transcript label', transcriptLabel), K.field('Transcript URL', transcriptUrl),
     ], 2),
   );
-  row._topicFields = { title, sourceType, youtube, selfUrl: self.url, poster: poster.url, posterAlt, duration, description, info, companionLabel, companionUrl, transcriptLabel, transcriptUrl };
+  row._topicFields = { title, role, sourceType, youtube, selfUrl: self.url, poster: poster.url, posterAlt, duration, description, info, companionLabel, companionUrl, transcriptLabel, transcriptUrl };
   return row;
 }
 
@@ -659,7 +663,7 @@ export async function renderAdminContentEditor(host, id, { go }) {
     const videoRows = collect(videos.list, '.topic-video-row', (row) => {
       const f = row._topicFields; if (!f) return null;
       return {
-        title: f.title.value.trim(), source_type: f.sourceType.value, youtube_url: f.youtube.value.trim(), self_hosted_url: f.selfUrl.value.trim(),
+        title: f.title.value.trim(), ...(f.role.value === 'teaser' ? { role: 'teaser' } : {}), source_type: f.sourceType.value, youtube_url: f.youtube.value.trim(), self_hosted_url: f.selfUrl.value.trim(),
         poster_url: f.poster.value.trim(), poster_alt: f.posterAlt.value.trim(),
         description: f.description.value, duration: f.duration.value.trim(), info: f.info.value.trim(),
         companion_label: f.companionLabel.value.trim(), companion_url: f.companionUrl.value.trim(),

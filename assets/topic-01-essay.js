@@ -722,6 +722,14 @@
     backButton.hidden = true;
   });
 
+  function saveSlot(essay, record) {
+    const attr = (name, value) => value ? ' data-rl-' + name + '="' + esc(value) + '"' : '';
+    return '<span class="rl-slot" data-rl-slot data-rl-relation="saved"' +
+      attr('key', 'topic-' + SLUG + '--essay-' + essay.n) + attr('kind', 'essay') + attr('title', essay.title) +
+      attr('url', '/' + TOPIC_PAGE + '#essay-' + essay.n) + attr('summary', firstParagraph(essay.plainest.html, 380)) +
+      attr('detail', minutes(essay.fullest.words) + ' min read') + attr('topic', record?.title || '') + '></span>';
+  }
+
   /* ---- The Topic page ---------------------------------------------------- */
   function drawPage(found, record) {
     if (!found.length) {
@@ -735,7 +743,12 @@
       essay: Math.max(0, found.findIndex(e => e.n === Number(linked ? linked[1] : stored.essay))),
       mode: stored.mode === 'depth' ? 'depth' : 'overview',
       level: stored.level || '',
-      annotations: !!stored.annotations,
+      /* On by default everywhere but a phone (2026-11-23, the owner). On a
+         phone the panel is a sheet over half the essay (topic-talk.css,
+         640px and under), so there it waits to be asked for. A new key: the
+         old one saved false for every reader, which would have kept the new
+         default from reaching anyone. */
+      annotations: typeof stored.annotationsOn === 'boolean' ? stored.annotationsOn : matchMedia('(min-width: 641px)').matches,
     };
     const several = found.length > 1;
     let notes = null, annotations = null, progressFrame = 0;
@@ -770,7 +783,11 @@
       stageNode.innerHTML =
         '<span class="tq-estage__shade" aria-hidden="true"></span>' +
         '<div class="tq-estage__text" id="essay-' + essay.n + '"><p class="tq-estage__k">' + esc(essay.label) + (several ? ' of ' + found.length : '') + ' &middot; ' + esc(record?.topic_data?.tags?.[0] || 'AI in research') + '</p>' +
-          '<h3>' + esc(essay.title) + '</h3><p class="tq-estage__sum">' + esc(firstParagraph(essay.plainest.html, 230)) + '</p></div>' +
+          '<h3>' + esc(essay.title) + '</h3><p class="tq-estage__sum">' + esc(firstParagraph(essay.plainest.html, 230)) + '</p>' +
+          /* Save, for this essay on its own: the library keeps #essay-<n>, so
+             reopening it lands on this essay (2026-11-22). production-bridge.js
+             mounts the button into the slot. */
+          '<div class="tq-estage__act">' + saveSlot(essay, record) + '</div></div>' +
         '<dl class="tq-estage__facts">' +
           (essay.published ? '<div><dt>Published</dt><dd>' + longDate(essay.published) + '</dd></div>' : '') +
           '<div><dt>Reading time</dt><dd>' + time + (state.mode === 'depth' ? ' &middot; ' + levelLabel(level) : '') + '</dd></div>' +
@@ -826,7 +843,7 @@
             state.annotations = open;
             main.querySelector('[data-readwrap]')?.classList.toggle('is-annotating', open);
             modes.querySelector('[data-an-toggle]')?.setAttribute('aria-pressed', String(open));
-            writeStore({ essay: essay.n, mode: state.mode, level: state.level, annotations: open });
+            writeStore({ essay: essay.n, mode: state.mode, level: state.level, annotationsOn: open });
           },
         });
       } else if (window.GQAnnotations) {
@@ -835,7 +852,7 @@
       wireEnd(essay, wholeKey);
       railFor(essay);
       if (focusSwitch) modes.querySelector('[role="tab"][aria-selected="true"]')?.focus({ preventScroll: true });
-      writeStore({ essay: essay.n, mode: state.mode, level: state.level, annotations: state.annotations });
+      writeStore({ essay: essay.n, mode: state.mode, level: state.level, annotationsOn: state.annotations });
     }
 
     /* The rail: the essays, and under the open one its sections while it is
@@ -845,7 +862,7 @@
       const article = main.querySelector('[data-reader]');
       const sections = article ? sectionsOf(article) : [];
       window.GQTopicToc.set('essay', found.length, found.map(e => ({
-        label: e.title, href: '#essay-' + e.n, current: e.n === essay.n,
+        label: e.title, href: '#essay-' + e.n, current: e.n === essay.n, kicker: e.label + ' · ' + minutes(e.fullest.words) + ' min',
         children: e.n === essay.n && sections.length ? sections.map(s => ({ label: s.label, href: '#' + s.id })) : null,
         progress: e.n === essay.n && sections.length,
       })));

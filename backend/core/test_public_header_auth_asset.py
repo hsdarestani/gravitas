@@ -98,7 +98,7 @@ class PublicHeaderAuthAssetTests(SimpleTestCase):
 
     def test_public_auth_bridge_loader_is_cache_busted(self):
         source = LOADER.read_text(encoding='utf-8')
-        self.assertIn('/assets/production-bridge-core.js?v=20261122-forum2', source)
+        self.assertIn('/assets/production-bridge-core.js?v=20261123-saved1', source)
 
     def test_public_pages_reference_current_auth_loader_version(self):
         stale = []
@@ -110,7 +110,7 @@ class PublicHeaderAuthAssetTests(SimpleTestCase):
             referenced.append(path.name)
             # One loader key on every page since the sign-out controls
             # (2026-11-18), which every public page carries.
-            expected = '20261122-forum2'
+            expected = '20261123-saved1'
             if f'production-bridge.js?v={expected}' not in source:
                 stale.append(path.name)
 

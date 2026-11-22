@@ -68,9 +68,20 @@
     return best;
   }
 
+  /* Below 900px each panel is as tall as what it holds (topic-rail.css),
+     and the rail takes the height of the panel in view, so a short panel
+     does not end in an empty block and the foot follows it (review of
+     2026-11-23). Wider, every panel keeps the declared --panel-h. */
+  var narrow = window.matchMedia('(max-width: 899px)');
+  function fit() {
+    if (!narrow.matches || index < 0) { rail.style.height = ''; return; }
+    rail.style.height = panels[index].offsetHeight + 'px';
+  }
+
   function setIndex(i) {
     if (i === index) return;
     index = i;
+    fit();
     if (count) count.textContent = pad2(i + 1) + ' / ' + pad2(panels.length);
     steps.forEach(function (s, k) { s.setAttribute('aria-current', k === i ? 'true' : 'false'); });
     panels.forEach(function (p, k) { p.classList.toggle('is-current', k === i); });
@@ -188,8 +199,14 @@
   });
 
   window.addEventListener('load', update);
-  window.addEventListener('resize', update);
-  if ('ResizeObserver' in window) new ResizeObserver(update).observe(rail);
+  window.addEventListener('resize', function () { update(); fit(); });
+  if ('ResizeObserver' in window) {
+    new ResizeObserver(update).observe(rail);
+    /* A panel's content arrives after first paint (topic-01-live.js), so
+       the height follows the panel, not only the window. */
+    var watch = new ResizeObserver(fit);
+    panels.forEach(function (p) { watch.observe(p); });
+  }
 
   root.classList.add('is-live');
   update();
