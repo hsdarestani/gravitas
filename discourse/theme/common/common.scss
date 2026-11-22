@@ -2839,3 +2839,52 @@ html.mobile-view body .user-main .about .primary > .controls{flex:1 1 100%!impor
 /* An email's "primary" mark was Discourse's green, a colour the brand has
    none of; it is a quiet label in the subtle ink. */
 html body .user-preferences .email-second .primary{color:var(--g-text-subtle)!important;font:400 .8125rem/1.4 "DM Sans",sans-serif}
+
+/* ---- Second pass over the thread (2026-11-22, the owner's review) -----------
+   The reply field under the opening post is a flex item of .nested-view, and
+   Discourse gives it z-index 998 for the days it floated. A flex item honours
+   z-index even unpositioned, so the field was drawn over the list of who liked
+   a post (a menu at 300) and over the open composer. It sits in the page's
+   flow now and needs no layer of its own. */
+html body .nested-view > .nested-view__floating-actions{z-index:auto!important}
+
+/* The tracking menu: each choice's icon sat on the name's line, small and
+   off its baseline, with the sentence wrapping under the icon's column. The
+   icon is a round chip of its own column, level with the name; the name and
+   its sentence share the text column. The chosen level fills its chip. */
+html body .fk-d-menu.notifications-tracking-content .fk-d-menu__inner-content{padding:.375rem!important}
+html body .fk-d-menu.notifications-tracking-content .dropdown-menu{display:flex;flex-direction:column;gap:2px;padding:0!important;margin:0!important}
+/* On a phone the same menu opens as a sheet (.fk-d-menu-modal), which the
+   rules above for .fk-d-menu never reached: each choice was the 40px icon
+   square with its name and sentence piled over it. Full-width rows here too. */
+html body .fk-d-menu-modal.notifications-tracking-content .dropdown-menu{display:flex!important;flex-direction:column;gap:2px;width:100%!important;padding:0!important;margin:0!important}
+html body .fk-d-menu-modal.notifications-tracking-content .dropdown-menu__item{width:100%!important;list-style:none}
+html body :is(.fk-d-menu,.fk-d-menu-modal) .dropdown-menu .notifications-tracking-btn:not(#gq-x):not(#gq-y){display:grid!important;width:100%!important;height:auto!important;min-height:0!important;aspect-ratio:auto!important;grid-template-columns:2rem minmax(0,1fr);align-items:start;column-gap:.75rem!important;row-gap:0!important;padding:.625rem .75rem!important;border:0!important;border-radius:10px!important;text-align:left;justify-content:stretch!important;background:transparent!important;box-shadow:none!important}
+html body :is(.fk-d-menu,.fk-d-menu-modal) .dropdown-menu .notifications-tracking-btn:not(#gq-x):not(#gq-y):hover{background:var(--gq-wash-strong)!important}
+html body :is(.fk-d-menu,.fk-d-menu-modal) .dropdown-menu .notifications-tracking-btn.-selected:not(#gq-x):not(#gq-y){background:var(--gq-wash-strong)!important;box-shadow:inset 0 0 0 1px var(--g-hairline)!important}
+html body :is(.fk-d-menu,.fk-d-menu-modal) .notifications-tracking-btn__icons{grid-column:1;display:flex!important;align-items:center;justify-content:center;width:2rem;height:2rem;margin:0!important;border-radius:999px;background:var(--gq-wash-strong);color:var(--g-text-muted)}
+html body :is(.fk-d-menu,.fk-d-menu-modal) .dropdown-menu .notifications-tracking-btn .notifications-tracking-btn__icons .d-icon{width:1rem!important;height:1rem!important;margin:0!important;color:currentColor!important}
+html body :is(.fk-d-menu,.fk-d-menu-modal) .notifications-tracking-btn.-selected .notifications-tracking-btn__icons{background:var(--g-accent);color:var(--gq-on-accent)}
+html body :is(.fk-d-menu,.fk-d-menu-modal) .dropdown-menu .notifications-tracking-btn.-selected .notifications-tracking-btn__icons .d-icon{color:var(--gq-on-accent)!important}
+html body :is(.fk-d-menu,.fk-d-menu-modal) .notifications-tracking-btn__texts{grid-column:2;display:flex!important;flex-direction:column;gap:.125rem;min-width:0;padding-top:.375rem}
+html body :is(.fk-d-menu,.fk-d-menu-modal) .notifications-tracking-btn__label{font:600 .9375rem/1.35 "DM Sans",sans-serif!important;color:var(--g-text)!important}
+html body :is(.fk-d-menu,.fk-d-menu-modal) .notifications-tracking-btn__description{font:400 .8125rem/1.45 "DM Sans",sans-serif!important;color:var(--g-text-muted)!important;white-space:normal!important}
+
+/* A deleted reply keeps its bin and its line, but not a fold circle under the
+   bin: there is nothing of its own to fold, and its replies stay readable. */
+html body .nested-post--deleted > .nested-post__gutter .nested-post__depth-line-icon{display:none!important}
+
+/* The bar over selected text is the Topic page's (topic-talk.css .tq-selbar):
+   one solid pill, buttons 2rem tall with a 1rem icon and a short label, no
+   menu frame around it. X and email left it in the admin settings
+   (share_quote_buttons is empty). */
+html body .fk-d-menu[data-identifier="post-text-selection-toolbar"]{background:transparent!important;border:0!important;box-shadow:none!important;padding:0!important}
+html body .fk-d-menu[data-identifier="post-text-selection-toolbar"] .fk-d-menu__inner-content{padding:0!important;background:transparent!important}
+html body .quote-button{display:inline-flex!important;flex-direction:column;padding:3px!important;border:0!important;border-radius:999px!important;background:var(--gq-solid)!important;color:var(--gq-solid-fg)!important;box-shadow:var(--g-shadow)!important}
+html body .quote-button .buttons{display:inline-flex!important;align-items:center;gap:2px;padding:0!important;margin:0!important;border:0!important}
+html body .quote-button .buttons .btn:not(#gq-x):not(#gq-y){display:inline-flex!important;align-items:center;gap:.375rem!important;width:auto!important;min-width:0!important;height:2rem!important;min-height:2rem!important;padding:0 .75rem!important;border:0!important;border-radius:999px!important;background:transparent!important;color:var(--gq-solid-fg)!important;font:600 .8125rem/1 "DM Sans",sans-serif!important;box-shadow:none!important;aspect-ratio:auto!important}
+html body .quote-button .buttons .btn .d-icon{width:1rem!important;height:1rem!important;margin:0!important;color:currentColor!important}
+html body .quote-button .buttons .btn .d-button-label{color:currentColor!important}
+html body .quote-button .buttons .btn:not(#gq-x):hover{background:color-mix(in srgb,var(--gq-solid-fg) 12%,transparent)!important}
+html body .quote-button .buttons .btn:focus-visible{outline:2px solid currentColor!important;outline-offset:-2px}
+html body .quote-button .extra:empty{display:none}

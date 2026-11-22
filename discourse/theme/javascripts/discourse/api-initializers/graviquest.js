@@ -144,13 +144,16 @@ export default apiInitializer((api) => {
   // owner: write GraviQuest instead). Any label that says exactly "system" is
   // rewritten in place: only the text node's value changes, so Ember still
   // owns the node and redraws it as before. Posts are named in common.scss.
-  const TEAM_LABELS = ".item-label, .user-card .names__secondary.username, .user-card .username";
+  // A quote of a team post is titled with the username too ("system:" over
+  // the quoted lines, 2026-11-22), so a quote's title is relabelled the same
+  // way, its colon kept.
+  const TEAM_LABELS = ".item-label, .user-card .names__secondary.username, .user-card .username, aside.quote[data-username='system'] > .title";
   let naming = 0;
   const nameTheTeam = () => {
     naming = 0;
     document.querySelectorAll(TEAM_LABELS).forEach((label) => {
       for (const node of label.childNodes) {
-        if (node.nodeType === Node.TEXT_NODE && node.nodeValue.trim() === "system") {
+        if (node.nodeType === Node.TEXT_NODE && /^system:?$/.test(node.nodeValue.trim())) {
           node.nodeValue = node.nodeValue.replace("system", "GraviQuest");
         }
       }

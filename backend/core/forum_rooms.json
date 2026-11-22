@@ -9,7 +9,7 @@
         {
           "key": "room-intro-about-the-forum",
           "title": "Welcome to the GraviQuest Forum",
-          "body": "This is where the GraviQuest community talks things through.\n\n**How it works**\n\n- Open a room and read any thread. No account is needed to read.\n- Each thread opens with a post from the team. Sign in with your GraviQuest account to reply to it, or to any reply under it, and to like posts.\n\n**The rules we keep**\n\n1. Take a position, then say why.\n2. Cite it, or say you cannot.\n3. A moderator reads member posts before they appear.\n\nQuestions about the Forum itself are welcome below."
+          "body": "This is where the GraviQuest community talks things through.\n\n**How it works**\n\n- Open a room and read any thread. No account is needed to read.\n- Each thread opens with a post from the team. Sign in with your GraviQuest account to reply to it, or to any reply under it, and to like posts.\n- A moderator reads member posts before they appear.\n\nQuestions about the Forum itself are welcome below."
         }
       ]
     },
@@ -21,7 +21,7 @@
         {
           "key": "room-intro-about-graviquest",
           "title": "What GraviQuest is",
-          "body": "GraviQuest is a community drawn together by the weighty questions in science and AI, with a forum to talk them through.\n\nEach Topic takes one question and explores it through videos, essays and discussion. Topic 01 starts with an AI assistant that hands back a correct number, and asks what that actually proved.\n\n[See the Topics](https://graviquest.com/topics.html) · [How the community works](https://graviquest.com/community)\n\nQuestions about GraviQuest itself are welcome below."
+          "body": "GraviQuest is a community drawn together by the weighty questions in science and AI, with a forum to talk them through.\n\n[How the community works](https://graviquest.com/community)\n\nQuestions about GraviQuest itself are welcome below."
         }
       ]
     },
@@ -33,19 +33,21 @@
       "threads": [
         {
           "key": "room-thread-topic-01-videos",
-          "title": "Videos: The Answer That Looked Right",
-          "body": "Our first video: Professor Hulse, his student Taylor, and an AI assistant that hands back a correct number.\n\nWhere would you have stopped it and asked for the source? Say which moment, and what you would have checked.\n\n[Watch it on the Topic page](https://graviquest.com/topic-answer-that-looked-right.html)"
+          "title": "Topic 01: Video Discussion",
+          "body": "This thread is for discussing the [videos in Topic 01](https://graviquest.com/topic-answer-that-looked-right.html#video).\n\nWhat did you find interesting, confusing, convincing, or worth questioning? What do you think could have been done differently, or what would you like to see explored further?\n\nFeel free to discuss anything about the videos: their ideas, storytelling, scientific content, visuals, characters, production, or anything else that caught your attention.\n\nShare your thoughts, criticism, suggestions, or alternative interpretations. We'd love to hear what you think and how we can make future videos better together."
         },
         {
           "key": "room-thread-topic-01-essays",
-          "title": "Essays: claim by claim",
-          "body": "Respond to the Topic 01 essays here.\n\nQuote the claim you are answering, say whether its source holds, and link a better one if you have it.\n\n[Read them on the Topic page](https://graviquest.com/topic-answer-that-looked-right.html)"
+          "title": "Topic 01: Essay Discussion",
+          "body": "This thread is for discussing the [essays published in Topic 01](https://graviquest.com/topic-answer-that-looked-right.html#essay).\n\nFeel free to comment on anything you find interesting, challenge an argument, offer a different perspective, question a claim, discuss the annotations or sources, or point out something that could have been explained better.\n\nIf you disagree with an idea, have a different interpretation, know a source worth exploring, or think we've overlooked something, we'd love to hear about it.\n\nThe essays are a starting point for discussion, not the final word, and we update them together, through discussions."
         },
         {
           "key": "answer-that-looked-right",
-          "also_keys": ["ai-in-research"],
+          "also_keys": [
+            "ai-in-research"
+          ],
           "existing": true,
-          "title": "Discussion: Is AI reliable in research?"
+          "title": "Topic 01: Discussion"
         }
       ]
     }
