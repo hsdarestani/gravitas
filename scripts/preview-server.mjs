@@ -63,8 +63,19 @@ async function stat(p) {
 
 /* Resolves a URL path to a file, mirroring the production location blocks. */
 async function resolveFile(pathname) {
-  const redirects = { '/account.html': '/login', '/workspace.html': '/workspace' };
+  const redirects = {
+    '/index.html': '/',
+    '/account.html': '/login', '/workspace.html': '/workspace',
+    '/dossiers.html': '/topics', '/dossiers': '/topics',
+    '/science-evidence.html': '/lab?lab=science-universe',
+    '/science-evidence': '/lab?lab=science-universe',
+    '/forum.html': 'https://forum.graviquest.com/',
+    '/forum-thread.html': 'https://forum.graviquest.com/',
+    '/forum': 'https://forum.graviquest.com/',
+  };
   if (redirects[pathname]) return { redirect: redirects[pathname] };
+  // A real legacy public page redirects; an extensionless page serves the same HTML.
+  if (/^\/[A-Za-z0-9_-]+\.html$/.test(pathname)) return { redirect: pathname.slice(0, -5) };
   if (pathname === '/community') return { file: path.join(ROOT, 'community.html') };
   if (pathname === '/login' || pathname === '/signup') return { file: path.join(ROOT, 'account.html') };
   if (pathname === '/workspace' || pathname.startsWith('/workspace/')) {
@@ -92,7 +103,7 @@ async function resolveFile(pathname) {
   }
   const html = target.endsWith('.html') ? null : target + '.html';
   if (html && (await stat(html))) return { file: html };
-  /* nginx: try_files $uri $uri/ /index.html */
+  /* nginx: try_files $uri $uri.html $uri/ /index.html */
   return { file: path.join(ROOT, 'index.html'), fallback: true };
 }
 
@@ -293,7 +304,8 @@ const server = http.createServer(async (req, res) => {
     }
     if (resolved.redirect) {
       log(301, req.method, url.pathname, '-> ' + resolved.redirect);
-      res.writeHead(301, { Location: resolved.redirect }); res.end();
+      const location = resolved.redirect + (url.search ? (resolved.redirect.includes('?') ? '&' : '?') + url.search.slice(1) : '');
+      res.writeHead(301, { Location: location }); res.end();
       return;
     }
     if (!(await stat(resolved.file))) {

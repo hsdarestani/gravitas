@@ -547,6 +547,14 @@ jobs:
                   proxy_set_header X-Forwarded-Proto \$scheme;
               }
 
+              # Public HTML is exposed at extensionless canonical URLs.
+              # Preserve old bookmarks/search results, while keeping app/API routes intact.
+              location = /index.html { return 301 /; }
+              location = /dossiers.html { return 301 /topics; }
+              location = /dossiers { return 301 /topics; }
+              location = /science-evidence.html { return 301 /lab?lab=science-universe; }
+              location = /science-evidence { return 301 /lab?lab=science-universe; }
+              location ~ ^/([A-Za-z0-9_-]+)\.html$ { return 301 /\$1\$is_args\$args; }
               location = /account.html { return 301 /login; }
               location = /workspace.html { return 301 /workspace; }
               location = /community { try_files /community.html =404; }
@@ -568,7 +576,7 @@ jobs:
               }
 
               location / {
-                  try_files \$uri \$uri/ /index.html;
+                  try_files \$uri \$uri.html \$uri/ /index.html;
               }
 
               location ~ /\\. {
@@ -639,6 +647,14 @@ jobs:
                   proxy_pass http://127.0.0.1:8000;
               }
 
+              # Public HTML is exposed at extensionless canonical URLs.
+              # Preserve old bookmarks/search results, while keeping app/API routes intact.
+              location = /index.html { return 301 /; }
+              location = /dossiers.html { return 301 /topics; }
+              location = /dossiers { return 301 /topics; }
+              location = /science-evidence.html { return 301 /lab?lab=science-universe; }
+              location = /science-evidence { return 301 /lab?lab=science-universe; }
+              location ~ ^/([A-Za-z0-9_-]+)\.html$ { return 301 /\$1\$is_args\$args; }
               location = /account.html { return 301 /login; }
               location = /workspace.html { return 301 /workspace; }
               location = /community { try_files /community.html =404; }
@@ -660,7 +676,7 @@ jobs:
               }
 
               location / {
-                  try_files \$uri \$uri/ /index.html;
+                  try_files \$uri \$uri.html \$uri/ /index.html;
               }
 
               location ~ /\\. {
