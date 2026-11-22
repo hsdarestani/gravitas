@@ -109,7 +109,7 @@ async function assertSequentialVisibleNumbers(page,scenario){
           await page.locator('[data-question="community_visited"] label.fb-option').first().click();
           assert.equal(await page.locator('[data-question="community_purpose"]').isVisible(),true);
           assert.equal(await communityMore.isVisible(),true,'Community follow-ups appear after Yes');
-          assert.equal(await communityMore.locator('summary').textContent(),'More questions (3)');
+          assert.equal(await communityMore.locator('summary').textContent(),'3 More Questions');
           await communityMore.locator('summary').click();
           assert.equal(await page.locator('[data-question="forum_usability"]').isVisible(),true);
           await page.locator('[data-question="forum_usability"] .fb-choice').nth(3).click();

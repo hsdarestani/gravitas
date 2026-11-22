@@ -2,7 +2,7 @@
    Visible question numbers are assigned at render time; never hard-code them here.
    Original answer keys and expanded sections remain unchanged. */
 export const GROUPS = [
-  { id:'about', letter:'A', title:'About you', note:'Your perspective helps us understand responses.', fields:[
+  { id:'about', letter:'A', title:'About You', note:'Your perspective helps us understand responses.', fields:[
     { key:'persona', label:'Which description fits you best?', type:'persona', options:[
       ['a1','Curious Explorer','I enjoy discovering science without needing technical detail.'],
       ['a2','Early-Career Researcher','I am studying or starting out in scientific research.'],
@@ -12,7 +12,7 @@ export const GROUPS = [
     { key:'persona_other', label:'If other, how would you describe yourself?', type:'text', max:160, gate:'persona:other' },
     { key:'name', label:'Your name (leave blank to remain anonymous)', type:'input', max:120 }
   ]},
-  { id:'first', letter:'B', title:'First impression and goals', note:'What did you think GraviQuest was trying to achieve?', fields:[
+  { id:'first', letter:'B', title:'First Impression and Goals', note:'What did you think GraviQuest was trying to achieve?', fields:[
     {key:'site_works', star:true, label:'Overall, how well does the site work?', type:'score5', low:'Not well', high:'Very well'},
     {key:'goals_clear', star:true, label:'How clear are the site’s goals?', type:'score5', low:'Not clear', high:'Very clear'},
     {key:'site_purpose', label:'In your own words, what is this site trying to do?', type:'text', extra:true},
@@ -21,21 +21,21 @@ export const GROUPS = [
     {key:'first_impression', label:'What was your very first impression?', type:'text', extra:true},
     {key:'expectations_difference', label:'How different was the experience from what you expected?', type:'score5', low:'As expected', high:'Very different', extra:true}
   ]},
-  { id:'technical', letter:'C', title:'Navigation and technical', note:'Finding things and using the site on your device.', fields:[
+  { id:'technical', letter:'C', title:'Navigation and Technical', note:'Finding things and using the site on your device.', fields:[
     {key:'findability', star:true, label:'How easy was it to find what you were looking for?', type:'score5', low:'Very difficult', high:'Very easy'},
     {key:'anything_broken', label:'Did anything break, look wrong, or not work?', type:'yesno'},
     {key:'broken_where', label:'Where did you notice the problem?', type:'text', gate:'anything_broken:yes'},
     {key:'page_speed', label:'How quickly did pages and videos load?', type:'score5', low:'Very slowly', high:'Very quickly', extra:true},
     {key:'device_experience', label:'How well did the site work on your device?', type:'score5', low:'Not well', high:'Very well', extra:true}
   ]},
-  { id:'visual', letter:'D', title:'Look and feel', note:'Your reaction to the design and readability.', fields:[
+  { id:'visual', letter:'D', title:'Look and Feel', note:'Your reaction to the design and readability.', fields:[
     {key:'visual_attractiveness', star:true, label:'How visually attractive is the site?', type:'score5', low:'Not attractive', high:'Very attractive'},
     {key:'text_readability', label:'How easy is the text to read (font, size, contrast)?', type:'score5', low:'Very difficult', high:'Very easy', extra:true},
     {key:'visual_feedback', label:'Any other comments about the visual design?', type:'text', extra:true}
   ]},
-  { id:'topics', letter:'E', title:'Topics section', note:'Tell us about the topic overview and what you would like to explore next.', fields:[
-    {key:'topics_clarity', label:'How easy is it to see what each topic is about?', type:'score5', low:'Not easy', high:'Very easy'},
-    {key:'future_topics', label:'Which future topics would interest you most?', type:'text', extra:true}
+  { id:'topics', letter:'E', title:'Topics Page', note:'Tell us about the Topics page and what you would like to explore next.', fields:[
+    {key:'topics_clarity', label:'How easy is it to see what each Topic is about?', type:'score5', low:'Not easy', high:'Very easy'},
+    {key:'future_topics', label:'Which future Topics would interest you most?', type:'text', extra:true}
   ]},
   { id:'topic01', letter:'F', title:'Current Topic', note:'Is AI reliable in research? Only rate the parts you explored.', fields:[
     {key:'topic_interest', star:true, label:'How interesting is this Topic for you?', type:'score5', low:'Not interesting', high:'Very interesting'},
@@ -55,14 +55,14 @@ export const GROUPS = [
     {key:'video_feedback', label:'Any other thoughts about the video?', type:'text', gate:'video_watched:all,part', extra:true},
     {key:'scientific_content_feedback', label:'Any other comments on the scientific content?', type:'text', extra:true}
   ]},
-  { id:'community', letter:'G', title:'Community and discussion forum', note:'If you did not visit, you can skip this entire section.', fields:[
-    {key:'community_visited', label:'Did you visit the Community page or forum?', type:'yesno'},
+  { id:'community', letter:'G', title:'Community and Forum', note:'If you did not visit, you can skip this entire section.', fields:[
+    {key:'community_visited', label:'Did you visit the Community page or the Forum?', type:'yesno'},
     {key:'community_purpose', label:'How clear is the purpose of the Community section?', type:'score5', low:'Not clear', high:'Very clear', gate:'community_visited:yes'},
-    {key:'forum_usability', label:'How easy was the forum to use (reading, posting, replying)?', type:'score5', low:'Very difficult', high:'Very easy', gate:'community_visited:yes', extra:true},
-    {key:'forum_participation', label:'How likely are you to post or reply in the forum?', type:'score5', low:'Very unlikely', high:'Very likely', gate:'community_visited:yes', extra:true},
+    {key:'forum_usability', label:'How easy was the Forum to use (reading, posting, replying)?', type:'score5', low:'Very difficult', high:'Very easy', gate:'community_visited:yes', extra:true},
+    {key:'forum_participation', label:'How likely are you to post or reply in the Forum?', type:'score5', low:'Very unlikely', high:'Very likely', gate:'community_visited:yes', extra:true},
     {key:'forum_motivation', label:'What would make you more likely to join the discussions?', type:'text', gate:'community_visited:yes', extra:true}
   ]},
-  { id:'future', letter:'H', title:'Coming soon: Lab and Learn', note:'These features are not available in this prelaunch. We are asking about expectations, not usability.', fields:[
+  { id:'future', letter:'H', title:'Coming Soon: Lab and Learn', note:'Lab and Learn open after the prelaunch, so this asks what you expect to find there.', fields:[
     {key:'lab_learn_expectations', label:'What would you expect to find in Lab? And in Learn?', type:'text'}
   ]},
   { id:'overall', letter:'I', title:'Overall', note:'Think about your experience as a whole.', fields:[
@@ -70,7 +70,7 @@ export const GROUPS = [
     {key:'recommend_likelihood', star:true, label:'How likely are you to recommend the site to a friend or colleague?', type:'score10', low:'Not at all likely', high:'Extremely likely'},
     {key:'one_change', star:true, label:'If you could change one thing, what would it be?', type:'text'}
   ]},
-  { id:'final_comments', letter:'J', title:'Final comments and suggestions', note:'Have a specific criticism, suggestion or anything else to add? Tell us here.', fields:[
+  { id:'final_comments', letter:'J', title:'Final Comments and Suggestions', note:'Have a specific criticism, suggestion or anything else to add? Tell us here.', fields:[
     {key:'other_feedback', label:'Anything else you would like to tell us?', type:'text'},
     {key:'contact_email', label:'May we contact you with follow-up questions? Leave your email only if you agree.', type:'email', max:254, hint:'Adding your email gives us permission to contact you about this feedback only. No marketing subscription.'}
   ]}
@@ -79,7 +79,7 @@ export const FIELDS = GROUPS.flatMap(group => group.fields);
 export const FIELD_BY_KEY = Object.fromEntries(FIELDS.map(field => [field.key, field]));
 export const PRIORITY_KEYS = FIELDS.filter(field => field.star).map(field => field.key);
 export const LEGACY_LABELS = [
-  ['overall_rating','Previous form — Overall / 10'],
-  ['usability','Previous form — Ease / 5 (lower = easier)'],
-  ['section_ratings','Previous form — Section ratings']
+  ['overall_rating','Previous form: Overall / 10'],
+  ['usability','Previous form: Ease / 5 (lower = easier)'],
+  ['section_ratings','Previous form: Section ratings']
 ];
