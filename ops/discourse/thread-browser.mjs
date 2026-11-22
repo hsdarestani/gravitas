@@ -17,7 +17,16 @@ for (const { engine, name, options } of browsers) {
   try {
     const page = await browser.newPage(options);
     const errors = [];
-    page.on("pageerror", error => errors.push(error.message));
+    // Discourse keeps a message-bus long poll open on every page. When the
+    // test navigates away, WebKit reports the aborted poll as a page error
+    // ("…/message-bus/…/poll due to access control checks."), which failed
+    // the iOS run on 2026-11-22 with the thread and profile otherwise passing.
+    // That one message is the browser cancelling a request, not the page
+    // failing; every other error still counts.
+    page.on("pageerror", error => {
+      if (/\/message-bus\/[^/]+\/poll due to access control checks/.test(error.message)) return;
+      errors.push(error.message);
+    });
     // The front page (forum-home.gjs): a chip per room, in the
     // order of backend/core/forum_rooms.json, and every thread in one table.
     await page.goto(site + "/latest", { waitUntil: "domcontentloaded" });
