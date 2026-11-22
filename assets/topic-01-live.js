@@ -955,7 +955,6 @@
     toc.counts.timeline = renderTimeline(data);
     fill('views-intro', esc(data.viewpoints_intro));
     toc.counts.views = renderPolls(data);
-    fill('corrections', esc((data.discussion || {}).corrections));
     toc.counts.talk = renderRooms(data);
     fill('sources-intro', esc(data.sources_intro));
     toc.counts.related = renderNext(data);

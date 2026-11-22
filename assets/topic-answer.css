@@ -604,8 +604,6 @@ body:has([data-topic-01-shell]) { --g-chrome-h: calc(var(--g-header-h) + 1px); }
 .tq-room__quiet { margin: 0; font-size: var(--g-fs-caption); color: var(--g-text-subtle); }
 .tq-room__foot { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--g-space-xs); }
 .tq-room__count { font-size: var(--g-fs-caption); color: var(--g-text-subtle); }
-.tq-notes { display: grid; grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr)); gap: var(--g-space-sm); }
-.tq-notes p:last-child { margin: 0; }
 
 /* ---- 06 Sources ---------------------------------------------------------------------- */
 .tq-src__tools { display: flex; flex-wrap: wrap; gap: var(--g-space-xs); align-items: center; margin-bottom: var(--g-space-xs); }
