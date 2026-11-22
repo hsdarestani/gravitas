@@ -781,7 +781,7 @@
       const depth = state.mode === 'depth';
       modes.innerHTML =
         '<div class="tq-tabs" role="tablist" aria-label="Reading mode">' +
-          '<button type="button" role="tab" id="tab-overview" aria-controls="essay-panel" aria-selected="' + !depth + '" tabindex="' + (depth ? -1 : 0) + '" data-mode="overview">Overview</button>' +
+          '<button type="button" role="tab" id="tab-overview" aria-controls="essay-panel" aria-selected="' + !depth + '" tabindex="' + (depth ? -1 : 0) + '" data-mode="overview">Summary</button>' +
           '<button type="button" role="tab" id="tab-depth" aria-controls="essay-panel" aria-selected="' + depth + '" tabindex="' + (depth ? 0 : -1) + '" data-mode="depth">In depth</button></div>' +
         (depth && essay.order.length > 1 ? '<div class="depth" role="group" aria-label="Reading level">' + LEVELS.filter(([key]) => essay.levels[key]).map(([key, label, note]) =>
           '<button type="button" data-level="' + key + '" aria-pressed="' + (key === level) + '" title="' + esc(note) + '">' + label + '</button>').join('') + '</div>' : '') +

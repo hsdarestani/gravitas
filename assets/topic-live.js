@@ -159,11 +159,11 @@
         (essay.title ? '<h3 class="topic-live__item-title">' + esc(essay.title) + '</h3>' : '') +
         '<div class="depthbar"><p class="depthbar__note">This essay reads two ways. Pick one.</p>' +
         '<div class="depth" role="group" aria-label="Reading depth for essay ' + esc(index + 1) + '">' +
-        '<button type="button" data-topic-depth="overview" aria-pressed="true">Overview</button>' +
+        '<button type="button" data-topic-depth="overview" aria-pressed="true">Summary</button>' +
         '<button type="button" data-topic-depth="indepth" aria-pressed="false">In depth</button></div></div>' +
         (image ? '<figure class="topic-essay-image"><img src="' + esc(image) + '" alt="' + esc(essay.image_alt || '') + '"></figure>' : '') +
         '<div class="' + (aside ? 'split' : '') + '"><div class="g-prose topic-essay-copy">' +
-        '<div data-topic-level="overview">' + safeRichHtml(essay.overview_html || '<p>No overview has been published yet.</p>') + '</div>' +
+        '<div data-topic-level="overview">' + safeRichHtml(essay.overview_html || '<p>No summary has been published yet.</p>') + '</div>' +
         '<div data-topic-level="indepth" hidden>' + safeRichHtml(essay.indepth_html || '<p>No in-depth version has been published yet.</p>') + '</div>' +
         '</div>' + aside + '</div></article>';
     });

@@ -2072,8 +2072,8 @@ html.mobile-view body .topic-list .pull-right .badge-posts::before{content:"";wi
    The owner's brief: open the Forum and see three rooms, one saying what the
    Forum is, one saying what GraviQuest is, and Topic 01, which holds three of
    the team's threads (its videos, its essays, its discussion). Anyone signed
-   in reads, replies and likes, and may start a thread, which a moderator reads
-   before it appears, as the forum always has. As plain as a feed, and the top
+   in reads, replies and likes, and a moderator reads each reply before it
+   appears. Only admins open threads (2026-11-22). As plain as a feed, and the top
    of the page as plain as graviquest.com/forum.html's, whose head and rows
    these are (assets/forum.css there: .fm-top, .fm-h1, .fm-row).
 
@@ -2323,6 +2323,9 @@ html body .gq-rules__list li{margin:0;padding-top:.875rem;border-top:1px solid v
 /* Discourse's own New Topic (and the drafts menu that is its second half, a
    round chevron listing unfinished posts) would repeat New thread. */
 html body.navigation-category #main-outlet :is(#create-topic,.topic-create-button__combo,.topic-drafts-menu-trigger){display:none!important}
+/* Only admins open threads (2026-11-22): everyone else has no New Topic
+   anywhere. graviquest.js marks an admin's page with gq-can-start. */
+html:not(.gq-can-start) body #main-outlet :is(#create-topic,.topic-create-button__combo,.topic-drafts-menu-trigger){display:none!important}
 
 /* ---- The composer as a plain box (2026-11-18) --------------------------------
    Discourse posts only through its composer, so it stays, but as a box to

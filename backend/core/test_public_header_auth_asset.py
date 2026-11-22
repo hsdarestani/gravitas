@@ -42,14 +42,16 @@ class PublicHeaderAuthAssetTests(SimpleTestCase):
 
     def test_the_account_card_offers_a_member_the_forum(self):
         # Community's "Join the discussion." card: Create an Account and Sign
-        # in for a visitor; the Forum and a new thread for a member.
+        # in for a visitor; the Forum and the Topics for a member. Only admins
+        # open threads on the Forum, so nothing offers a member a new one.
         source = BRIDGE.read_text(encoding='utf-8')
         self.assertIn('markJoinCard();', source)
         self.assertIn("document.querySelectorAll('.join__act')", source)
         # Through setButton, never textContent: a g-btn--lead button keeps its
         # icon slot, or its label sits off centre.
         self.assertIn("setButton(primary, 'Enter Forum', FORUM_HOME, FORUM_ICON);", source)
-        self.assertIn("setButton(secondary, 'Start a Thread', '/api/forum/start/');", source)
+        self.assertIn("setButton(secondary, 'Explore Topics', '/topics.html');", source)
+        self.assertNotIn("'Start a Thread'", source)
         self.assertNotIn('primary.textContent', source)
         page = (ROOT / 'community.html').read_text(encoding='utf-8')
         self.assertIn('<div class="join__act">', page)
@@ -96,7 +98,7 @@ class PublicHeaderAuthAssetTests(SimpleTestCase):
 
     def test_public_auth_bridge_loader_is_cache_busted(self):
         source = LOADER.read_text(encoding='utf-8')
-        self.assertIn('/assets/production-bridge-core.js?v=20261119-forum1', source)
+        self.assertIn('/assets/production-bridge-core.js?v=20261122-forum2', source)
 
     def test_public_pages_reference_current_auth_loader_version(self):
         stale = []
@@ -108,7 +110,7 @@ class PublicHeaderAuthAssetTests(SimpleTestCase):
             referenced.append(path.name)
             # One loader key on every page since the sign-out controls
             # (2026-11-18), which every public page carries.
-            expected = '20261119-forum1'
+            expected = '20261122-forum2'
             if f'production-bridge.js?v={expected}' not in source:
                 stale.append(path.name)
 

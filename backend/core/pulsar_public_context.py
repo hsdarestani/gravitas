@@ -170,8 +170,8 @@ def short_public_answer(message, *, page='/', observation=None, catalog=None, db
 
     if q in ('how can i participate', 'how can i participate in the discussion',
              'how do i join the discussion', 'how can i join the community'):
-        return ('You can read public Forum threads without an account. Sign in to reply, like or start a thread; '
-                'posts are reviewed before they appear. Bring a specific question, claim or source you want to discuss.',
+        return ('You can read public Forum threads without an account. Sign in to reply to a thread, or to any reply in it, and to like posts; '
+                'replies are reviewed before they appear. Bring a specific question, claim or source you want to discuss.',
                 [{'label': 'Open the Forum', 'href': '/forum.html'}])
 
     if re.search(r'\b(lab|workspace|lms|courses?|learning paths?)\b', q) and re.search(

@@ -150,13 +150,15 @@
      joined. It becomes Enter Forum, with the Forum's mark, entered already
      signed in. A hero's second button marked [data-member-start] (the
      Community hero's Open Forum, which would now repeat the first) becomes
-     Start a Thread. Explore Topics and the like are left alone. */
+     Explore Topics. It was Start a Thread until 2026-11-22, but only admins
+     open rooms and threads on the Forum; a member replies and likes, so the
+     button promised something a member cannot do. */
   function markHeroes() {
     [].forEach.call(document.querySelectorAll('[data-member-forum]'), function (a) {
       setButton(a, 'Enter Forum', FORUM_HOME, FORUM_ICON);
     });
     [].forEach.call(document.querySelectorAll('[data-member-start]'), function (a) {
-      setButton(a, 'Start a Thread', '/api/forum/start/');
+      setButton(a, 'Explore Topics', '/topics.html');
     });
   }
 
@@ -171,8 +173,9 @@
 
   /* The Community page's account card ("Join the discussion.") offers Create
      an Account and Sign in. A member has done both, so for them the card's
-     two actions become the two things an account is for there: the Forum,
-     entered already signed in, and starting a thread in it. The heading and
+     two actions become the Forum, entered already signed in, and the Topics
+     its threads are about (not Start a Thread: only admins open threads,
+     2026-11-22). The heading and
      the line under it still hold. Found by class, not rewritten in the page,
      so the page's own copy can change without this following it. */
   function markJoinCard() {
@@ -182,9 +185,9 @@
       var primary = act.querySelector('.g-btn--primary');
       var secondary = act.querySelector('.g-btn--secondary');
       setButton(primary, 'Enter Forum', FORUM_HOME, FORUM_ICON);
-      setButton(secondary, 'Start a Thread', '/api/forum/start/');
+      setButton(secondary, 'Explore Topics', '/topics.html');
       var fine = act.parentNode && act.parentNode.querySelector('.join__fine');
-      if (fine) fine.textContent = 'You’re signed in. Read, reply, or start a thread of your own.';
+      if (fine) fine.textContent = 'You’re signed in. Read, reply and like in any thread.';
     });
   }
 

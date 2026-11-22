@@ -12,11 +12,12 @@
 # poll, a chip row and a table, and a visitor could not tell where to go. The
 # owner asked for the minimum: three rooms with the team's threads in them.
 # Topic 01 is one room holding three threads (its videos, its essays, its
-# discussion). Members read, reply, like and may start threads, held for
-# review, exactly as before.
+# discussion). Members read, reply and like, held for review. Only admins
+# open rooms and threads (2026-11-22, the owner).
 #
-# Permissions. Rooms it creates get the same access as every other public
-# room (bootstrap.rb), and listed rooms keep theirs. Since 2026-11-19 rooms
+# Permissions. A room it creates is readable by everyone, members reply in
+# it, and only admins open threads (2026-11-22; it gave everyone full access
+# before). Listed rooms that already exist keep theirs. Since 2026-11-19 rooms
 # that are not in the list are made admin-only (see the end of this file).
 #
 # What it does:
@@ -78,7 +79,9 @@ rooms = spec.fetch("rooms").map do |room|
     category.update!(name: room.fetch("name")) if category.name != room.fetch("name")
   else
     category = Category.create!(name: room.fetch("name"), slug: room.fetch("slug"), user: system_user,
-                                color: "003049", text_color: "f1efec", permissions: { "everyone" => 1 })
+                                color: "003049", text_color: "f1efec",
+                                permissions: { "everyone" => CategoryGroup.permission_types[:create_post],
+                                               "admins" => CategoryGroup.permission_types[:full] })
   end
   describe(category, room.fetch("description"), system_user)
   room.fetch("threads").each { |thread| keep_thread(category, thread, system_user) }

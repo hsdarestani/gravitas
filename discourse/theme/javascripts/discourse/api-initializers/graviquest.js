@@ -84,6 +84,12 @@ export default apiInitializer((api) => {
   // approved prototype; Discourse draws that line for pinned threads only.
   // rooms.rb turns on the setting that sends the excerpt for every thread.
   api.registerValueTransformer("topic-list-item-expand-pinned", () => true);
+  // Only admins open threads (2026-11-22). Discourse's own New Topic on the
+  // lists follows trust level, not that rule, so common.scss hides it unless
+  // <html> carries gq-can-start, which only an admin's session gets.
+  if (api.getCurrentUser()?.admin) {
+    document.documentElement.classList.add("gq-can-start");
+  }
   // A post's bookmark is a plain toggle beside the like, never folded behind
   // "…" and without Discourse's reminder menu (see bookmark-toggle.gjs).
   // Guarded per call so a Discourse that renames a key keeps its own menu.

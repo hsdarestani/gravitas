@@ -128,15 +128,19 @@ export default class GraviQuestForumHome extends Component {
     return WEEK;
   }
 
-  // A member's thread starts in this room; a visitor is asked to sign in,
-  // as Discourse's own button does.
+  // Only admins open rooms and threads (2026-11-22, the owner). Each thread
+  // is one opening post by the team; members reply to it, and to each other
+  // under it, and like. So Start a Thread and New thread are drawn for an
+  // admin only: offered to a member or a visitor, they promised something
+  // neither can do.
+  get canStartThread() {
+    return !!this.currentUser?.admin;
+  }
+
+  // An admin's new thread starts in this room.
   @action
   newThread(event) {
     event.preventDefault();
-    if (!this.currentUser) {
-      window.location.href = "/login";
-      return;
-    }
     this.composer.openNewTopic({ category: this.category });
   }
 
@@ -175,9 +179,12 @@ export default class GraviQuestForumHome extends Component {
         <h1>Forum</h1>
         <p class="gq-lead">Discuss each Topic’s question, share what you found, and ask about GraviQuest itself. Every thread is open to read.</p>
       </div>
-      {{! In a room, New thread in the room's band is this action; the head
-          keeps the button's place so nothing above the rooms moves. }}
-      <a class="btn btn-primary gq-page-top__action {{if this.category 'gq-is-held'}}" href="/new-topic" aria-hidden={{if this.category "true"}} tabindex={{if this.category "-1"}}>Start a Thread</a>
+      {{! Admins only. In a room, New thread in the room's band is this
+          action; the head keeps the button's place so nothing above the
+          rooms moves. }}
+      {{#if this.canStartThread}}
+        <a class="btn btn-primary gq-page-top__action {{if this.category 'gq-is-held'}}" href="/new-topic" aria-hidden={{if this.category "true"}} tabindex={{if this.category "-1"}}>Start a Thread</a>
+      {{/if}}
     </header>
     <section class="gq-week" aria-labelledby="gq-week-title">
       <div class="gq-week__text">
@@ -221,7 +228,9 @@ export default class GraviQuestForumHome extends Component {
           {{#if this.topicPage}}
             <a class="btn btn-default" href={{this.topicPage}}>Open the Topic</a>
           {{/if}}
-          <a class="btn btn-primary gq-new-thread" href="/new-topic" {{on "click" this.newThread}}>New thread</a>
+          {{#if this.canStartThread}}
+            <a class="btn btn-primary gq-new-thread" href="/new-topic" {{on "click" this.newThread}}>New thread</a>
+          {{/if}}
         </div>
       </section>
     {{/if}}

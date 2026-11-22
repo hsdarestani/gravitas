@@ -65,7 +65,9 @@
     const html =
       '<header class="gq-page-top gq-forum-home"><div><span class="gq-eyebrow">Community · Forum</span><h1>Forum</h1>' +
       '<p class="gq-lead">Discuss each Topic’s question, share what you found, and ask about GraviQuest itself. Every thread is open to read.</p></div>' +
-      `<a class="btn btn-primary gq-page-top__action${category ? ' gq-is-held' : ''}" href="/new-topic">Start a Thread</a></header>` +
+      // Start a Thread and New thread are drawn for admins only (2026-11-22),
+      // and this preview is signed out, so neither appears here.
+      '</header>' +
       '<section class="gq-week"><div class="gq-week__text">' +
       `<h2 class="gq-week__label">This Week’s Question · ${esc(WEEK.topic)}</h2>` +
       `<p class="gq-week__question">${esc(WEEK.question)}</p>` +
@@ -84,7 +86,7 @@
           (category.description_text ? `<p class="gq-room__lead">${esc(category.description_text)}</p>` : '') +
           '</div><div class="gq-room__actions">' +
           (topicPage ? `<a class="btn btn-default" href="${topicPage}">Open the Topic</a>` : '') +
-          '<a class="btn btn-primary gq-new-thread" href="/new-topic">New thread</a></div></section>'
+          '</div></section>'
         : '');
     if (!mine) {
       mine = document.createElement('div');
