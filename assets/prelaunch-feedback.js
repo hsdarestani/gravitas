@@ -137,6 +137,15 @@ function syncState() {
       input.disabled=question.hidden;
     });
   }
+  // Do not offer an expandable panel when every extra question is gated off.
+  // The Community follow-ups, for example, only apply after choosing Yes.
+  for (const details of host.querySelectorAll('details.fb-more')) {
+    const available=Array.from(details.querySelectorAll('.fb-question')).filter(question=>!question.hidden);
+    const summary=details.querySelector('summary');
+    if (summary) summary.textContent='More questions ('+available.length+')';
+    details.hidden=available.length===0;
+    if (details.hidden && details.open) details.open=false;
+  }
   // Number questions in the exact order the visitor can currently see.
   // Accordion contents and conditional follow-ups do not reserve numbers when hidden.
   let visibleNumber=0;
