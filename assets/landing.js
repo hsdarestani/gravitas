@@ -1,6 +1,6 @@
 // The home page's two chapters that are still being built: Lab (02) and
 // Learn (03). Both have been shown as under construction since 2026-11-17, at
-// the owner's request, while lab.html and learn.html keep their own heroes.
+// the owner's request, while /lab and /learn keep their own heroes.
 //
 // The workspace window that used to open this file (chapter 04, a tablist
 // over four illustrated spaces) left with the chapter the same day: the

@@ -614,7 +614,7 @@ function runLab(lab,initialScenario){
   bar.append(back,node('span','lab-runtime-title',lab.title));
   if(lab.topic_slug){
     var link=node('a','lab-topic-link','Related Topic');
-    link.href='/topic.html?slug='+encodeURIComponent(lab.topic_slug);
+    link.href='/topic?slug='+encodeURIComponent(lab.topic_slug);
     bar.append(link);
   }
   main.append(bar);
@@ -937,7 +937,7 @@ window.addEventListener('message',function(e){
     if(data.action==='tour')startTour();
     if(data.action==='sources')openKnowledge();
     if(data.action==='fullscreen'&&fullscreenButton)fullscreenButton.click();
-    var destinations={'navigate:home':'/index.html','navigate:topics':'/topics.html','navigate:learn':'/learn.html','navigate:community':'/community.html','navigate:about':'/about.html','navigate:youtube':'https://www.youtube.com/@GraviQuest','navigate:linkedin':'https://www.linkedin.com/company/graviquest/','navigate:instagram':'https://www.instagram.com/graviquest'};
+    var destinations={'navigate:home':'/','navigate:topics':'/topics','navigate:learn':'/learn','navigate:community':'/community','navigate:about':'/about','navigate:youtube':'https://www.youtube.com/@GraviQuest','navigate:linkedin':'https://www.linkedin.com/company/graviquest/','navigate:instagram':'https://www.instagram.com/graviquest'};
     if(typeof data.action==='string'&&Object.prototype.hasOwnProperty.call(destinations,data.action))location.assign(destinations[data.action]);return;
   }
   if(active.slug==='science-universe'&&data.type==='lab:ask'){
@@ -1005,7 +1005,7 @@ window.addEventListener('message',function(e){
   }
 });
 var labs=[];
-// The catalog is off lab.html since 2026-11-17, at the owner's request: the
+// The catalog is off /lab since 2026-11-17, at the owner's request: the
 // page shows only its under-construction card until the Lab is agreed. A
 // direct ?lab=<slug> link still opens that Lab. Set true to list them again.
 var CATALOG_PUBLIC=false;

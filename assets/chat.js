@@ -455,11 +455,11 @@
 
   function publicTopicCards() {
     if (publicTopicsPromise) return publicTopicsPromise;
-    if (CFG.publicPage === '/forum.html') return Promise.resolve([]);
-    if (location.pathname.endsWith('/topics.html')) {
+    if ((CFG.publicPage === '/forum' || CFG.publicPage === '/forum.html')) return Promise.resolve([]);
+    if (location.pathname.endsWith('/topics')) {
       return Promise.resolve(readPublicTopicCards(document));
     }
-    publicTopicsPromise = timedFetch('/topics.html', { cache: 'default', credentials: 'omit' }, 4000)
+    publicTopicsPromise = timedFetch('/topics', { cache: 'default', credentials: 'omit' }, 4000)
       .then(function (response) {
         if (!response.ok) throw new Error('topics-unavailable');
         return response.text();
@@ -478,7 +478,7 @@
     if (!publicPath) return { heading: '', featured_topic: '', featured_href: '', actions: [] };
 
     var main = document.querySelector('main');
-    var home = path === '/' || path === '/index.html';
+    var home = path === '/' || path === '/';
     var heading = main && main.querySelector('h1');
     var featured = home && main && main.querySelector('.lp-topic__q');
     var featuredLink = home && main && main.querySelector('.lp-topic__intro a[href^="topic-"]');
@@ -538,7 +538,7 @@
           message: q, history: history, page: CFG.publicPage || location.pathname, forum_topic: CFG.forumTopic || null,
           suggested: (current() ? current().msgs : []).filter(function (m) { return m.who === 'bot'; }).reduce(function (all, m) { return all.concat(m.links || []); }, []).slice(-10),
           section: currentSection(), reading: readingContext(), locale: document.documentElement.lang || 'en',
-          topic_slug: location.pathname === '/topic.html' ? new URLSearchParams(location.search).get('slug') : '',
+          topic_slug: location.pathname === '/topic' ? new URLSearchParams(location.search).get('slug') : '',
           page_context: publicPageContext(), topic_catalog: catalog
         })
       }, 25000);

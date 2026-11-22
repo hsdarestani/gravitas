@@ -207,7 +207,7 @@ export function renderLibrary(host, ctx) {
         'It works without an account too — this is where it arrives once you have one.',
       ));
       const browse = el('a', 'ws-btn ws-btn--solid', 'Open the public archive');
-      browse.href = '/topics.html';
+      browse.href = '/topics';
       holder.append(browse);
       return;
     }

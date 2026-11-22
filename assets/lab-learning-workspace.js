@@ -65,7 +65,7 @@ function replyActions(fa=false){
   {label:label('Explore on my own','خودم بررسی می‌کنم'),action:skipGuide}
  ];
 }
-function accountLink(label,mode='in'){const link=el('a','g-btn g-btn--secondary g-btn--sm',label);link.href='/account.html?next='+encodeURIComponent('/lab.html?lab=science-universe')+'#'+mode;link.target='_blank';link.rel='noopener';return link;}
+function accountLink(label,mode='in'){const link=el('a','g-btn g-btn--secondary g-btn--sm',label);link.href='/login?next='+encodeURIComponent('/lab?lab=science-universe')+'#'+mode;link.target='_blank';link.rel='noopener';return link;}
 function renderAccess(){
  config.refreshReplies?.();
  if(!notice||!access)return;notice.replaceChildren();notice.classList.toggle('is-exhausted',!access.authenticated&&access.remaining===0);

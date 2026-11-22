@@ -28,7 +28,7 @@
   var WORKSPACE_PUBLIC = false;
 
   function learn() {
-    if (!WORKSPACE_PUBLIC || location.pathname !== '/learn.html') return;
+    if (!WORKSPACE_PUBLIC || location.pathname !== '/learn') return;
     var grid = document.querySelector('.g-grid.g-grid--2');
     if (!grid) return;
     getJson('/api/lms/courses/').then(function (data) {
@@ -55,10 +55,10 @@
   }
 
   function community() {
-    if (location.pathname !== '/community.html') return;
+    if (location.pathname !== '/community') return;
     // This used to replace the page's roles with the account access tiers,
     // internal Core team included, and retitle the join band to match, so the
-    // live page never showed what community.html said. The access model is
+    // live page never showed what /community said. The access model is
     // the workspace's business; the public page describes what members do.
     //
     // Open Topic votes used to arrive as a section of their own, a grid of
