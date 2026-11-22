@@ -27,19 +27,19 @@
     },
     {
       "slug": "ai-in-research",
-      "name": "Topic 01 · AI in Research",
+      "name": "AI in Research",
       "description": "Watch, read, then talk it through: one thread for the videos, one for the essays, one for the discussion.",
       "topic_url": "https://graviquest.com/topic-answer-that-looked-right.html",
       "threads": [
         {
           "key": "room-thread-topic-01-videos",
-          "title": "Topic 01: Video Discussion",
-          "body": "This thread is for discussing the [videos in Topic 01](https://graviquest.com/topic-answer-that-looked-right.html#video).\n\nWhat did you find interesting, confusing, convincing, or worth questioning? What do you think could have been done differently, or what would you like to see explored further?\n\nFeel free to discuss anything about the videos: their ideas, storytelling, scientific content, visuals, characters, production, or anything else that caught your attention.\n\nShare your thoughts, criticism, suggestions, or alternative interpretations. We'd love to hear what you think and how we can make future videos better together."
+          "title": "Video Discussion: Is AI reliable in research?",
+          "body": "This thread is for discussing the [videos in this Topic](https://graviquest.com/topic-answer-that-looked-right.html#video).\n\nWhat did you find interesting, confusing, convincing, or worth questioning? What do you think could have been done differently, or what would you like to see explored further?\n\nFeel free to discuss anything about the videos: their ideas, storytelling, scientific content, visuals, characters, production, or anything else that caught your attention.\n\nShare your thoughts, criticism, suggestions, or alternative interpretations. We'd love to hear what you think and how we can make future videos better together."
         },
         {
           "key": "room-thread-topic-01-essays",
-          "title": "Topic 01: Essay Discussion",
-          "body": "This thread is for discussing the [essays published in Topic 01](https://graviquest.com/topic-answer-that-looked-right.html#essay).\n\nFeel free to comment on anything you find interesting, challenge an argument, offer a different perspective, question a claim, discuss the annotations or sources, or point out something that could have been explained better.\n\nIf you disagree with an idea, have a different interpretation, know a source worth exploring, or think we've overlooked something, we'd love to hear about it.\n\nThe essays are a starting point for discussion, not the final word, and we update them together, through discussions."
+          "title": "Essay Discussion: Is AI reliable in research?",
+          "body": "This thread is for discussing the [essays published in this Topic](https://graviquest.com/topic-answer-that-looked-right.html#essay).\n\nFeel free to comment on anything you find interesting, challenge an argument, offer a different perspective, question a claim, discuss the annotations or sources, or point out something that could have been explained better.\n\nIf you disagree with an idea, have a different interpretation, know a source worth exploring, or think we've overlooked something, we'd love to hear about it.\n\nThe essays are a starting point for discussion, not the final word, and we update them together, through discussions."
         },
         {
           "key": "answer-that-looked-right",
@@ -47,7 +47,7 @@
             "ai-in-research"
           ],
           "existing": true,
-          "title": "Topic 01: Discussion"
+          "title": "Discussion: Is AI reliable in research?"
         }
       ]
     }

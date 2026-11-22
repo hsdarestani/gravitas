@@ -227,7 +227,7 @@ def public_pulsar_ask(request):
         'Public website topic cards': visible_context,
         'Synchronized public page copy': synced_context or '(Unavailable: do not invent the current page.)',
         'Related published Topic': related,
-        'Topic 01 essay as shown to readers': essay_context,
+        'Topic essay as shown to readers': essay_context,
         'Current public Forum thread': ((public_thread_context(data.get('forum_topic')) or '(This thread is not available as an anonymous public read.)')
                                        if key == '/forum.html' and data.get('forum_topic') else ''),
         'Recent conversation': history,

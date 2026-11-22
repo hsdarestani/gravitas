@@ -30,7 +30,7 @@
   const ROOMS = ['about-the-forum', 'about-graviquest', 'ai-in-research'];
   const TOPIC_PAGES = { 'ai-in-research': 'https://graviquest.com/topic-answer-that-looked-right.html' };
   const WEEK = {
-    topic: 'Topic 01 · AI in Research',
+    topic: 'AI in Research',
     question: 'Is AI reliable in research?',
     url: 'https://graviquest.com/api/forum/open/answer-that-looked-right/',
   };

@@ -32,7 +32,7 @@
         var a=document.createElement('a');
         a.className='entry';
         a.href=href(item);
-        a.innerHTML='<span class="entry__type">'+(topic.number?'Topic '+esc(topic.number):'Topic '+String(index+1).padStart(2,'0'))+'</span><div>' +
+        a.innerHTML='<span class="entry__type">'+'Topic'+'</span><div>' +
           '<h3>'+esc(item.title)+'</h3><p>'+esc(item.summary||'')+'</p>' +
           '<div class="entry__meta"><span>'+esc(parts.join(' · ')||'Topic')+'</span><span>'+(item.published_at?esc(dateLabel(item.published_at)):'Open')+'</span></div></div>';
         target.appendChild(a);

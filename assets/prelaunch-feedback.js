@@ -1,4 +1,4 @@
-import { GROUPS, FIELDS, PRIORITY_KEYS } from './prelaunch-feedback-schema.js?v=20261119-sequential1';
+import { GROUPS, FIELDS, PRIORITY_KEYS } from './prelaunch-feedback-schema.js?v=20261122-sequential2';
 
 const form = document.getElementById('prelaunch-form');
 const host = document.getElementById('fb-question-groups');

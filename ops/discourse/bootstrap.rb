@@ -85,7 +85,7 @@ end
 rooms = {}
 [
   ["The Weighty Question", "open-question"],
-  ["Topic 01 · AI in Research", "ai-in-research"],
+  ["AI in Research", "ai-in-research"],
   ["Topic 03 · Discovery", "discovery"],
   ["Corrections", "corrections"], ["Propose a Topic", "propose-a-topic"],
   ["Lab results", "lab-results"], ["Introductions", "introductions"],

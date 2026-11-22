@@ -73,7 +73,7 @@ class ForumFeedListsOnlyTheRoomsTests(TestCase):
         cache.clear()
         self.categories = {'category_list': {'categories': [
             {'id': 5, 'name': 'The Weighty Question', 'slug': 'open-question', 'topic_count': 2},
-            {'id': 6, 'name': 'Topic 01 · AI in Research', 'slug': 'ai-in-research', 'topic_count': 3},
+            {'id': 6, 'name': 'AI in Research', 'slug': 'ai-in-research', 'topic_count': 3},
             {'id': 30, 'name': 'About the Forum', 'slug': 'about-the-forum', 'topic_count': 1},
         ]}}
         self.topics = {'topic_list': {'topics': [

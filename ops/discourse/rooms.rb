@@ -11,7 +11,7 @@
 # Why (2026-11-18). The Forum had grown ten rooms, a weekly question card, a
 # poll, a chip row and a table, and a visitor could not tell where to go. The
 # owner asked for the minimum: three rooms with the team's threads in them.
-# Topic 01 is one room holding three threads (its videos, its essays, its
+# The Topic room holds three threads (its videos, its essays, its
 # discussion). Members read, reply and like, held for review. Only admins
 # open rooms and threads (2026-11-22, the owner).
 #
@@ -89,6 +89,31 @@ rooms = spec.fetch("rooms").map do |room|
 end
 
 SiteSetting.default_navigation_menu_categories = rooms.map(&:id).join("|")
+
+# Replies an admin deleted stay in Discourse as soft-deleted posts, and staff
+# keep seeing each one as a "deleted" stub in its thread. The test replies of
+# November 2026 were deleted by hand from the admin panel and their stubs
+# stayed (2026-11-22, the owner: only each thread's opening post should
+# remain). In the team's threads, a reply that is already deleted is removed
+# for good. Nothing that is not deleted is touched, and an opening post never
+# is. Safe to repeat: once purged there is nothing left to find.
+purged = 0
+rooms.each do |category|
+  Topic.where(category_id: category.id).pluck(:id).each do |topic_id|
+    Post.with_deleted.where(topic_id: topic_id).where.not(deleted_at: nil).where("post_number > 1").find_each do |post|
+      begin
+        PostDestroyer.new(Discourse.system_user, post, force_destroy: true, context: "GraviQuest purge of deleted replies").destroy
+      rescue StandardError => e
+        puts "PostDestroyer could not remove post #{post.id} (#{e.class}); removing the row"
+      end
+      # Whatever Discourse's own path left behind (nothing, when it worked).
+      Post.with_deleted.where(id: post.id).delete_all
+      purged += 1
+    end
+    Topic.reset_highest(topic_id) if Topic.respond_to?(:reset_highest)
+  end
+end
+puts "Deleted replies removed for good: #{purged}"
 
 # Rooms that are not in the list are admin-only (2026-11-19, the owner: "make
 # the old rooms private, so nobody sees them; moderators see only the three

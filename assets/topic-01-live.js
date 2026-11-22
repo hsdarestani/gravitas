@@ -948,10 +948,10 @@
     var data = item.topic_data || {};
     var list = videos(data);
 
-    document.title = item.title + ' · GraviQuest Topic ' + (data.number || '01');
+    document.title = item.title + ' · GraviQuest';
     /* The breadcrumb ends on the Topic's title, not its number (review of 2026-11-22). */
     fill('crumb', esc(item.title));
-    fill('eyebrow', 'Topic ' + esc(data.number || '01') + ((data.tags || [])[0] ? ' &middot; ' + esc(data.tags[0]) : ''));
+    fill('eyebrow', 'Topic' + ((data.tags || [])[0] ? ' &middot; ' + esc(data.tags[0]) : ''));
     fill('title', esc(item.title));
     fill('lead', esc(data.hero_lead || item.summary));
     fill('tags', (data.tags || []).map(function (tag) { return '<span class="g-tag">' + esc(tag) + '</span>'; }).join(''));

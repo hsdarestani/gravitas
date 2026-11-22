@@ -1,7 +1,7 @@
 /* Expanded prelaunch survey analytics, preserving historical answers. */
 import * as P from './ws-platform.js?v=20261016-task1&patch=20261027reliability1';
 import * as K from './ws-admin-kit.js?v=20261016-task1';
-import { GROUPS, FIELDS, LEGACY_LABELS } from '../prelaunch-feedback-schema.js?v=20261119-sequential1';
+import { GROUPS, FIELDS, LEGACY_LABELS } from '../prelaunch-feedback-schema.js?v=20261122-sequential2';
 
 const el=K.el;
 const endpoint='/platform/admin/prelaunch-feedback/';

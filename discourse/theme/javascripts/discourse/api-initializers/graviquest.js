@@ -10,7 +10,7 @@ import BookmarkToggle from "../components/graviquest/bookmark-toggle";
 import { ThreadBreadcrumb } from "../components/graviquest/thread-details";
 
 // Discourse calls a discussion a "topic" and a room a "category". On
-// GraviQuest a Topic is a published dossier ("Topic 01 · AI in Research" is a
+// GraviQuest a Topic is a published dossier ("AI in Research" is a
 // room's name), so a "New Topic" button beside the "Propose a Topic" room
 // read as an offer to start a dossier. The forum's own copy already says
 // thread and room; these are the stock strings a member meets most. Only

@@ -2144,7 +2144,7 @@ html body:is(.navigation-category,.navigation-topics) .topic-list td.posters img
    Discourse names (backend/core/forum_rooms.json), not the rooms it no longer
    lists. Starting from a room's page picks that room already. Only in the
    composer: staff moving a thread still see every room. */
-html body #reply-control .category-chooser .select-kit-row:not(:is([data-name="About the Forum"],[data-name="About GraviQuest"],[data-name="Topic 01 · AI in Research"])){display:none!important}
+html body #reply-control .category-chooser .select-kit-row:not(:is([data-name="About the Forum"],[data-name="About GraviQuest"],[data-name="AI in Research"])){display:none!important}
 
 /* A thread: one column, posts then the reply box. The rail of counts and
    faces left in thread-details.gjs; the "More threads" list under the reply

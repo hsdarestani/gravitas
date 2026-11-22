@@ -404,7 +404,7 @@
     root.innerHTML =
       '<section class="page-head"><div class="g-container">' +
       '<p class="crumb"><a href="index.html">Home</a> / <a href="topics.html">Topics</a>' +
-      (data.number ? ' / ' + esc(data.number) : '') + '</p>' +
+      '</p>' +
       '<h1>' + esc(item.title) + '</h1><p class="g-lead">' + esc(data.hero_lead || item.summary || '') + '</p>' +
       (tags.length ? '<div class="pill-row g-mt-md">' + tags.map(function (tag) { return '<span class="g-tag">' + esc(tag) + '</span>'; }).join('') + '</div>' : '') +
       '</div></section>' +

@@ -37,9 +37,9 @@ export const GROUPS = [
     {key:'topics_clarity', label:'How easy is it to see what each topic is about?', type:'score5', low:'Not easy', high:'Very easy'},
     {key:'future_topics', label:'Which future topics would interest you most?', type:'text', extra:true}
   ]},
-  { id:'topic01', letter:'F', title:'Topic 01', note:'Is AI reliable in research? Only rate the parts you explored.', fields:[
-    {key:'topic_interest', star:true, label:'How interesting is Topic 01 for you?', type:'score5', low:'Not interesting', high:'Very interesting'},
-    {key:'topic_quality', star:true, label:'How would you rate the overall quality of Topic 01?', type:'score5', low:'Poor', high:'Excellent'},
+  { id:'topic01', letter:'F', title:'Current Topic', note:'Is AI reliable in research? Only rate the parts you explored.', fields:[
+    {key:'topic_interest', star:true, label:'How interesting is this Topic for you?', type:'score5', low:'Not interesting', high:'Very interesting'},
+    {key:'topic_quality', star:true, label:'How would you rate the overall quality of this Topic?', type:'score5', low:'Poor', high:'Excellent'},
     {key:'video_watched', label:'Did you watch the video?', type:'select', options:[['all','All of it'],['part','Part of it'],['no','No']]},
     {key:'video_content_quality', star:true, label:'How good was the content of the video?', type:'score5', low:'Poor', high:'Excellent', gate:'video_watched:all,part'},
     {key:'topic_difficulty', label:'How difficult was it?', type:'select', options:[['too_easy','Too easy'],['about_right','About right'],['too_hard','Too hard']], extra:true},
@@ -50,7 +50,7 @@ export const GROUPS = [
     {key:'video_audio', label:'How good were the sound and narration?', type:'score5', low:'Poor', high:'Excellent', gate:'video_watched:all,part', extra:true},
     {key:'video_pace', label:'How was the pace of the video?', type:'select', options:[['too_slow','Too slow'],['about_right','About right'],['too_fast','Too fast']], gate:'video_watched:all,part', extra:true},
     {key:'video_stop_reason', label:'If you stopped the video early, why?', type:'text', gate:'video_watched:part', extra:true},
-    {key:'topic_best_part', label:'What was the most interesting or useful part of Topic 01?', type:'text', extra:true},
+    {key:'topic_best_part', label:'What was the most interesting or useful part of this Topic?', type:'text', extra:true},
     {key:'topic_improvements', label:'What was confusing, or what could be better?', type:'text', extra:true},
     {key:'video_feedback', label:'Any other thoughts about the video?', type:'text', gate:'video_watched:all,part', extra:true},
     {key:'scientific_content_feedback', label:'Any other comments on the scientific content?', type:'text', extra:true}

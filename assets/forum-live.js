@@ -9,7 +9,7 @@
    punctuation, so shortcodes are dropped from titles. Official threads are
    posted by Discourse's "system" account, which has no picture and read as a
    member called SY; it is shown as GraviQuest with the site's own mark. And a
-   room named "Topic 01 · AI in Research" is drawn the way the design's room
+   room named "AI in Research" is drawn the way the design's room
    pill was, a mono number before the name, with rooms that hold no public
    thread left out of the row, since choosing one shows an empty list. */
 (function () {

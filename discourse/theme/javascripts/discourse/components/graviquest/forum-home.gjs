@@ -59,7 +59,7 @@ const TOPIC_PAGES = {
 // so it follows the backend rather than a thread number written here. When the
 // next Topic opens, change these three lines.
 const WEEK = {
-  topic: "Topic 01 · AI in Research",
+  topic: "AI in Research",
   question: "Is AI reliable in research?",
   url: "https://graviquest.com/api/forum/open/answer-that-looked-right/",
 };

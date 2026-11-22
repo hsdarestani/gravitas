@@ -157,7 +157,7 @@
   /* ---- Home page: the essays are one panel of the rail ------------------ */
   function fillRail(found) {
     const first = found[0];
-    document.querySelectorAll('[data-topic-essay-title]').forEach(node => { node.textContent = first ? first.title : 'Topic 01 essay'; });
+    document.querySelectorAll('[data-topic-essay-title]').forEach(node => { node.textContent = first ? first.title : 'Essay'; });
     if (excerpt) {
       const text = first ? firstParagraph(first.fullest.html) : '';
       excerpt.textContent = text;
@@ -1063,7 +1063,7 @@
     .catch(error => {
       if (window.console) console.error(error);
       if (excerpt) excerpt.closest('blockquote').hidden = true;
-      document.querySelectorAll('[data-topic-essay-title]').forEach(node => { node.textContent = 'Topic 01 essay'; });
+      document.querySelectorAll('[data-topic-essay-title]').forEach(node => { node.textContent = 'Essay'; });
       if (host) host.innerHTML = '<p class="ta-empty" role="status">The essays are temporarily unavailable. Reload to try again.</p>';
       (window.GQTopic01 || Promise.resolve(null)).then(record => {
         if (!sourcesHost) return;

@@ -126,12 +126,12 @@ export async function renderProjectStructure(doc, projectId) {
           const label = slot.linked ? 'Publish' : slot.occupied ? 'Replace source and publish' : 'Link and publish';
           const publish = button(`${label} · ${slot.label}`, async () => {
             if (saving || publishing || input.value !== savedContent) return;
-            if (!confirm(`Publish the saved Markdown in “${path}” as ${slot.label} on the public Topic 01 page and in Pulsar?`)) return;
+            if (!confirm(`Publish the saved Markdown in “${path}” as ${slot.label} on the public Topic page and in Pulsar?`)) return;
             publishing = true;
             showEssayTools();
             try {
               essayState = await call(essayEndpoint, { method: 'POST', body: { path, depth, etag, version: slot.version } });
-              status.textContent = `Published · Topic 01 · ${slot.label}`;
+              status.textContent = `Published · Topic · ${slot.label}`;
             } catch (error) {
               if (error.message === 'essay_source_changed') {
                 status.textContent = 'The file changed in Nextcloud. Reopen it and review the latest version before publishing.';
@@ -146,7 +146,7 @@ export async function renderProjectStructure(doc, projectId) {
             }
           });
           publish.disabled = saving || publishing || input.value !== savedContent;
-          publish.title = 'Save Markdown edits before publishing them to Topic 01.';
+          publish.title = 'Save Markdown edits before publishing them to the Topic.';
           essayTools.append(publish);
         }
       }
