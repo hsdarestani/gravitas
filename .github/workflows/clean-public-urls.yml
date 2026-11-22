@@ -1,0 +1,32 @@
+name: Clean public URLs
+
+on:
+  pull_request:
+    paths:
+      - '*.html'
+      - 'assets/**'
+      - 'backend/core/templates/core/**'
+      - 'scripts/**'
+      - 'ops/verify_seo_output.sh'
+      - '.github/workflows/deploy.yml'
+      - '.github/workflows/clean-public-urls.yml'
+  push:
+    branches: [main]
+    paths:
+      - '*.html'
+      - 'assets/**'
+      - 'backend/core/templates/core/**'
+      - 'scripts/**'
+      - 'ops/verify_seo_output.sh'
+      - '.github/workflows/deploy.yml'
+      - '.github/workflows/clean-public-urls.yml'
+
+jobs:
+  clean-public-urls:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node scripts/test-extensionless-urls.mjs

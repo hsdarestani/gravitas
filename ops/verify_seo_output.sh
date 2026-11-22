@@ -47,11 +47,11 @@ absent 'fonts.gstatic.com' home.html 'External font leak'
 absent '312K' home.html 'Unverified audience claim'
 absent '418K views' home.html 'Unverified audience claim'
 # The old .html URL must redirect, rather than silently serve a duplicate.
-legacy_headers="$(curl -4 -sSI --connect-timeout 8 --max-time 35 "$BASE/topics.html" | tr -d '\\r')"
-if ! printf '%s\\n' "$legacy_headers" | grep -Eq '^HTTP/[^ ]+ 301'; then
+legacy_headers="$(curl -4 -sSI --connect-timeout 8 --max-time 35 "$BASE/topics.html" | tr -d '\r')"
+if ! printf '%s\n' "$legacy_headers" | grep -Eq '^HTTP/[^ ]+ 301'; then
   echo "::error::Legacy Topics must return HTTP 301" >&2; exit 1
 fi
-if ! printf '%s\\n' "$legacy_headers" | grep -Eiq '^location: (https?://[^/]+)?/topics([?[:space:]]|$)'; then
+if ! printf '%s\n' "$legacy_headers" | grep -Eiq '^location: (https?://[^/]+)?/topics([?[:space:]]|$)'; then
   echo "::error::Legacy Topics must redirect to /topics" >&2; exit 1
 fi
 echo 'GraviQuest current canonical and privacy SEO checks passed'

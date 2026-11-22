@@ -475,9 +475,7 @@
     var authWatchBusy = false;
 
     function onAuthRoute() {
-      return location.pathname === '/signup' ||
-        location.pathname === '/login' ||
-        location.pathname === '/signup';
+      return location.pathname === '/signup' || location.pathname === '/login';
     }
 
     function checkAuthenticatedSession() {
