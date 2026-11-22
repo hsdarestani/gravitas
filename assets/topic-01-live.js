@@ -29,7 +29,7 @@
   'use strict';
 
   var SLUG = 'answer-that-looked-right';
-  var PAGE = 'topic-answer-that-looked-right.html';
+  var PAGE = 'topic-answer-that-looked-right';
   var CHANNEL = 'https://www.youtube.com/@GraviQuest';
   var ARROW = '<svg class="g-btn__icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>';
   var BACK = '<svg class="g-btn__icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M11 6l-6 6 6 6"/></svg>';

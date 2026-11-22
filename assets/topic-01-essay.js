@@ -38,7 +38,7 @@
   'use strict';
   const API = '/api/topics/answer-that-looked-right/essays/';
   const SLUG = 'answer-that-looked-right';
-  const TOPIC_PAGE = 'topic-answer-that-looked-right.html';
+  const TOPIC_PAGE = 'topic-answer-that-looked-right';
   const LEVELS = [
     ['curious', 'Curious', 'Plain language, the main idea'],
     ['undergrad', 'Undergrad', 'The full line of reasoning'],

@@ -1,6 +1,6 @@
 (function () {
   'use strict';
-  if (location.pathname !== '/' && location.pathname !== '/index.html') return;
+  if (location.pathname !== '/') return;
 
   var section = document.getElementById('current-topic');
   if (!section) return;
@@ -11,7 +11,7 @@
       .replace(/"/g, '&quot;').replace(/'/g, '&#039;');
   }
   function topicUrl(item, hash) {
-    return '/topic.html?slug=' + encodeURIComponent(item.slug) + (hash || '');
+    return '/topic?slug=' + encodeURIComponent(item.slug) + (hash || '');
   }
   function setText(selector, value) {
     var node = section.querySelector(selector);
@@ -59,7 +59,7 @@
            and a fragment means the browser drops them partway down a page they
            have not seen the top of — #essay lands about a fifth of the way in,
            and the discussion panel's #talk lands at the very bottom. The
-           static hrefs in index.html never carried a fragment here; this
+           static hrefs in / never carried a fragment here; this
            script was adding one only once live content arrived, so the same
            button behaved differently depending on whether the API answered.
            The buttons that name a section below still keep their anchors:
