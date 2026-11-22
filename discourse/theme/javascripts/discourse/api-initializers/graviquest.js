@@ -74,6 +74,11 @@ function useHouseWords() {
 
 export default apiInitializer((api) => {
   useHouseWords();
+  // Staff (admins and moderators) keep what readers do not need, such as a
+  // post's edit count; common.scss keys those on this class.
+  if (api.getCurrentUser()?.staff) {
+    document.documentElement.classList.add("gq-staff");
+  }
   api.renderInOutlet("before-header-panel", Navigation);
   api.headerIcons.add("gq-theme", ThemeToggle, { before: "hamburger" });
   api.renderInOutlet("discovery-navigation-bar-above", ForumHome);

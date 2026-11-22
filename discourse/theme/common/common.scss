@@ -2907,10 +2907,11 @@ html body .cooked aside.quote > blockquote{margin:0!important;padding:.5rem 1rem
 
 /* The fold circle at the foot of a reply's line sits on the reply's action
    row: its centre was 5px above the row's, because the line stops 12px short
-   of the reply's foot. */
-html body .nested-post__depth-line--leaf .nested-post__depth-line-icon{bottom:-5px!important;top:auto!important}
+   of the reply's foot. The same on a reply with replies under it, whose
+   circle is at the foot of its own line too. */
+html body .nested-post__gutter > .nested-post__depth-line .nested-post__depth-line-icon{bottom:-5px!important;top:auto!important}
 
-/* The edit count beside a post's author ("5 ✏") is not shown: the owner
-   found it noise (2026-11-22). Hidden for everyone, staff included; the
-   history itself is still reachable from the post's admin menu. */
-html body .post-info.edits{display:none!important}
+/* The edit count beside a post's author ("5 ✏") is noise to a reader (the
+   owner, 2026-11-22), but staff keep it: graviquest.js marks a staff
+   session with html.gq-staff. */
+html:not(.gq-staff) body .post-info.edits{display:none!important}
