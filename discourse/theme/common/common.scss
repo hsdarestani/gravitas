@@ -2872,7 +2872,9 @@ html body :is(.fk-d-menu,.fk-d-menu-modal) .notifications-tracking-btn__descript
 
 /* A deleted reply keeps its bin and its line, but not a fold circle under the
    bin: there is nothing of its own to fold, and its replies stay readable. */
-html body .nested-post--deleted > .nested-post__gutter .nested-post__depth-line-icon{display:none!important}
+html body .nested-post--deleted > .nested-post__gutter .nested-post__depth-line-icon,
+/* Signed out, Discourse leaves the --deleted class off and only the placeholder says so. */
+html body .nested-post:has(> .nested-post__main > .nested-post__placeholder--deleted) > .nested-post__gutter .nested-post__depth-line-icon{display:none!important}
 
 /* The bar over selected text is the Topic page's (topic-talk.css .tq-selbar):
    one solid pill, buttons 2rem tall with a 1rem icon and a short label, no
@@ -2888,3 +2890,27 @@ html body .quote-button .buttons .btn .d-button-label{color:currentColor!importa
 html body .quote-button .buttons .btn:not(#gq-x):hover{background:color-mix(in srgb,var(--gq-solid-fg) 12%,transparent)!important}
 html body .quote-button .buttons .btn:focus-visible{outline:2px solid currentColor!important;outline-offset:-2px}
 html body .quote-button .extra:empty{display:none}
+
+/* A quoted post is one card, as Reddit and most forums draw it: the quoted
+   author's picture and name on the card's first line, the expand and go-to
+   controls at that line's right end, the quoted text under them. The name sat
+   outside the box, pressed against the reply's own header, and the controls
+   floated far off to the right of nothing (2026-11-22). */
+html body .cooked aside.quote{margin:.875rem 0 1rem!important;padding:0!important;border:1px solid var(--g-hairline)!important;border-radius:12px!important;background:var(--g-surface)!important;overflow:hidden}
+html body .cooked aside.quote > .title{display:flex!important;align-items:center;gap:.5rem;margin:0!important;padding:.75rem 1rem 0!important;border:0!important;background:transparent!important;font:600 .8125rem/1.3 "DM Sans",sans-serif!important;color:var(--g-text)!important}
+html body .cooked aside.quote > .title img.avatar{width:20px!important;height:20px!important;margin:0!important;border-radius:50%;flex:none}
+html body .cooked aside.quote > .title .quote-controls{float:none!important;display:flex;align-items:center;gap:2px;margin:-.25rem -.5rem -.25rem auto!important}
+html body .cooked aside.quote > .title .quote-controls .btn:not(#gq-x){width:1.75rem!important;min-width:1.75rem!important;height:1.75rem!important;min-height:1.75rem!important;padding:0!important;border-radius:999px!important;background:transparent!important;color:var(--g-text-subtle)!important}
+html body .cooked aside.quote > .title .quote-controls .btn:not(#gq-x):hover{background:var(--gq-wash-strong)!important;color:var(--g-text)!important}
+html body .cooked aside.quote > .title .quote-controls .btn .d-icon{width:.875rem!important;height:.875rem!important;color:currentColor!important}
+html body .cooked aside.quote > blockquote{margin:0!important;padding:.5rem 1rem .875rem!important;border:0!important;border-radius:0!important;background:transparent!important}
+
+/* The fold circle at the foot of a reply's line sits on the reply's action
+   row: its centre was 5px above the row's, because the line stops 12px short
+   of the reply's foot. */
+html body .nested-post__depth-line--leaf .nested-post__depth-line-icon{bottom:-5px!important;top:auto!important}
+
+/* The edit count beside a post's author ("5 ✏") is not shown: the owner
+   found it noise (2026-11-22). Hidden for everyone, staff included; the
+   history itself is still reachable from the post's admin menu. */
+html body .post-info.edits{display:none!important}
