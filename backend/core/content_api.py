@@ -5,6 +5,7 @@ import re
 from pathlib import Path
 
 from django.conf import settings
+from django.db import transaction
 from django.db.models import Prefetch
 from django.http import FileResponse, JsonResponse
 from django.shortcuts import get_object_or_404, render
@@ -175,6 +176,41 @@ def _voter_key(request):
     return hashlib.sha256(raw).hexdigest()
 
 
+# Before a guest signs in Django rotates their session ID. Retain the guest's
+# pseudonymous vote key in session data so that the choice can follow the person
+# without creating a second counted vote. This is kept separate from _voter_key,
+# which is also used by legacy essay reactions.
+ANONYMOUS_POLL_KEY = 'gravitas_poll_guest_voter_key'
+
+
+def _poll_voter_key(request):
+    session_key = _voter_key(request)
+    if not request.user.is_authenticated:
+        if request.session.get(ANONYMOUS_POLL_KEY) != session_key:
+            request.session[ANONYMOUS_POLL_KEY] = session_key
+        return session_key
+
+    raw = f'{settings.SECRET_KEY}:viewpoints:member:{request.user.pk}'.encode('utf-8')
+    member_key = hashlib.sha256(raw).hexdigest()
+    legacy_key = request.session.pop(ANONYMOUS_POLL_KEY, '')
+    # Upgrade old votes from this session, including votes cast before login
+    # and ones made by logged-in users before account-scoped voting existed.
+    # get_or_create is protected by the existing topic+poll+voter constraint:
+    # simultaneous sign-ins cannot accidentally count the same user twice.
+    candidate_keys = {session_key, legacy_key} - {'', member_key}
+    if candidate_keys:
+        with transaction.atomic():
+            for prior in TopicPollVote.objects.filter(voter_key__in=candidate_keys).order_by('pk'):
+                TopicPollVote.objects.get_or_create(
+                    topic_id=prior.topic_id,
+                    poll_id=prior.poll_id,
+                    voter_key=member_key,
+                    defaults={'option_id': prior.option_id},
+                )
+                prior.delete()
+    return member_key
+
+
 SEEN_KEY = 'gravitas_polls_seen'
 
 
@@ -213,7 +249,7 @@ def _poll_json(request, topic, poll_id='', sealed=False):
         if option_id in valid:
             counts[option_id] += 1
     selected = topic.poll_votes.filter(
-        voter_key=_voter_key(request),
+        voter_key=_poll_voter_key(request),
         poll_id=poll['id'],
     ).values_list('option_id', flat=True).first()
     selected = selected if selected in valid else None
@@ -256,13 +292,13 @@ def topic_poll(request, slug):
     option_id = str(payload.get('option_id') or '').strip()
     if option_id not in {item['id'] for item in poll['options']}:
         return JsonResponse({'ok': False, 'error': 'invalid_option'}, status=400)
-    voter = _voter_key(request)
+    voter = _poll_voter_key(request)
     if _has_seen(request, topic, poll['id']) and not topic.poll_votes.filter(voter_key=voter, poll_id=poll['id']).exists():
         return JsonResponse({'ok': False, 'error': 'results_seen_first',
                              'poll': _poll_json(request, topic, poll['id'])}, status=409)
     TopicPollVote.objects.update_or_create(
         topic=topic,
-        voter_key=_voter_key(request),
+        voter_key=_poll_voter_key(request),
         poll_id=poll['id'],
         defaults={'option_id': option_id},
     )

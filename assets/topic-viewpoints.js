@@ -334,7 +334,7 @@
         st.changing = false;
         if (!why) return 'Answer saved. Here is how everyone answered.';
         var side = sideOfOption(poll, choice) || st.whySide || sidesOf(poll)[0].key;
-        return T().me().then(function (who) {
+        return T().me(true).then(function (who) {
           if (!who.authenticated) { st.why = why; return 'Answer saved. Sign in to add your reason; it is kept on this device.'; }
           return T().post(slug + '-poll-' + poll.id, why, { anchor: { kind: 'reason', option: choice, side: side } }).then(function () {
             st.why = '';
@@ -362,7 +362,7 @@
     function reactTo(poll, id, value, button) {
       var c = (reasons[poll.id] || []).filter(function (r) { return r.id === id; })[0];
       if (!c) return;
-      T().me().then(function (who) {
+      T().me(true).then(function (who) {
         if (!who.authenticated) { T().toast('Sign in to rate a reason.', { href: '/login', label: 'Sign in' }); return; }
         var next = c.viewer_reaction === value ? '' : value;
         var before = { like_count: c.like_count, dislike_count: c.dislike_count, viewer_reaction: c.viewer_reaction };
@@ -506,7 +506,7 @@
         var parent = Number(replyForm.getAttribute('data-vp-reply'));
         var body = replyForm.querySelector('textarea').value.trim();
         if (!body) return;
-        T().me().then(function (who) {
+        T().me(true).then(function (who) {
           if (!who.authenticated) { replyForm.querySelector('[data-vp-signin]').innerHTML = T().signInPrompt('reply'); return; }
           return T().post(slug + '-poll-' + poll.id, body, { parent: parent }).then(function () {
             return loadReasons(poll, true);
@@ -522,7 +522,7 @@
         var side = addForm.querySelector('[data-vp-addside]').value;
         if (!line) return;
         var option = poll.kind === 'scale' ? (addDialog.dataset.option || '') : side;
-        T().me().then(function (who) {
+        T().me(true).then(function (who) {
           if (!who.authenticated) { addForm.querySelector('[data-vp-signin]').innerHTML = T().signInPrompt('add a reason'); return; }
           return T().post(slug + '-poll-' + poll.id, line + (more ? '\n' + more : ''), { anchor: { kind: 'reason', option: option, side: side } }).then(function () {
             addDialog.close();
@@ -568,6 +568,16 @@
       if (!asked) return;
       var index = Math.min(polls.length - 1, Math.max(0, Number(asked[1]) - 1));
       if (index !== at) { at = index; draw(); railFor(); }
+    });
+    // The same browser can sign in as another member in a second tab.
+    // Drop the previous member's selected answer, pending reasons and reactions
+    // before drawing the newly authenticated account's data.
+    window.addEventListener('gq-talk-account-changed', function () {
+      live = {}; reasons = {}; ui = {};
+      if (dialog.open) dialog.close();
+      if (addDialog.open) addDialog.close();
+      host.querySelectorAll('[data-vp-meta]').forEach(function (node) { node.textContent = ''; });
+      draw();
     });
     T().on && polls.forEach(function (poll) { T().on(slug + '-poll-' + poll.id, function () { loadReasons(poll).then(function () { if (polls[at] === poll) draw(); }); }); });
 

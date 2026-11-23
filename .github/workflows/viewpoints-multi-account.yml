@@ -1,0 +1,56 @@
+name: Viewpoints multi-account QA
+
+on:
+  pull_request:
+    paths:
+      - 'backend/core/content_api.py'
+      - 'backend/core/views.py'
+      - 'backend/core/models.py'
+      - 'backend/core/test_viewpoints_multiaccount.py'
+      - 'assets/topic-talk.js'
+      - 'assets/topic-viewpoints.js'
+      - 'scripts/test-viewpoints-auth-cache.cjs'
+      - 'docs/viewpoints-multi-account-qa.md'
+      - '.github/workflows/viewpoints-multi-account.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'backend/core/content_api.py'
+      - 'backend/core/views.py'
+      - 'backend/core/models.py'
+      - 'backend/core/test_viewpoints_multiaccount.py'
+      - 'assets/topic-talk.js'
+      - 'assets/topic-viewpoints.js'
+      - 'scripts/test-viewpoints-auth-cache.cjs'
+      - '.github/workflows/viewpoints-multi-account.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  verify-viewpoints:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate Viewpoints and comment client JavaScript
+        run: |
+          node --check assets/topic-talk.js
+          node --check assets/topic-viewpoints.js
+          node --check assets/topic-01-live.js
+          node --check scripts/test-viewpoints-auth-cache.cjs
+      - name: Verify browser cache invalidation on account switch
+        run: node scripts/test-viewpoints-auth-cache.cjs
+      - name: Install isolated Django test dependencies
+        run: |
+          python3 -m venv "$RUNNER_TEMP/gq-viewpoint-tests"
+          "$RUNNER_TEMP/gq-viewpoint-tests/bin/pip" install --disable-pip-version-check -q -r backend/requirements.txt
+      - name: Run multi-account E2E and existing Topic API regressions
+        env:
+          PYTHONPATH: ${{ github.workspace }}/backend
+          DJANGO_SETTINGS_MODULE: gravitas_backend.test_settings
+        run: |
+          set -euo pipefail
+          PY="$RUNNER_TEMP/gq-viewpoint-tests/bin/python"
+          "$PY" -m django check
+          "$PY" -m django test core.test_viewpoints_multiaccount core.test_topic_cms --verbosity 2
