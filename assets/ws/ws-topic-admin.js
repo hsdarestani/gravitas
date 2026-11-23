@@ -21,6 +21,7 @@
 
 import * as P from './ws-platform.js?v=20261016-task1&patch=20261027reliability1';
 import * as K from './ws-admin-kit.js?v=20261016-task1';
+import { renderNoteMarkdown } from './ws-notes-markdown.js?v=20261016-task1';
 
 const { el } = K;
 const ADMIN = '/workspace/core/admin';
@@ -28,6 +29,236 @@ const ADMIN = '/workspace/core/admin';
    stills, a transcript, an exercise and its panels on the home page. Its page
    looks the record up by this slug, so the slug is not editable there. */
 const TOPIC_01 = 'answer-that-looked-right';
+
+function mountTopic01EssayPicker(host) {
+  // Admin-only reader/publisher. No public content is changed until Publish is clicked.
+  const defaultFolder = '02_Working/Research/notes/Challenges_of_AI_in_Research';
+  const message = el('p', 'fl-muted', 'Select an existing Markdown file in the research project. Browsing and previewing never publish changes.');
+  const projectSelect = K.select([['', 'Loading research projects…']], '');
+  const folderInput = K.input(defaultFolder, 'text', 'Project-relative folder path');
+  const fileSelect = K.select([['', 'Select a .md file']], '');
+  const slotSelect = K.select([['', 'Select an essay / reading level']], '');
+  const browseButton = K.button('Open folder', () => browse(folderInput.value));
+  const upButton = K.button('Parent folder', () => browse(folderInput.value.split('/').filter(Boolean).slice(0, -1).join('/')));
+  const folderList = el('div', 'fl-row__actions');
+  folderList.style.flexWrap = 'wrap';
+  const status = K.status();
+  const published = el('p', 'fl-muted');
+  const fileInfo = el('p', 'fl-muted', 'No Markdown file selected.');
+  const preview = el('div', 'fl-panel');
+  preview.style.maxHeight = '400px';
+  preview.style.overflow = 'auto';
+  preview.style.padding = '16px';
+  preview.textContent = 'Select a file to preview its saved Markdown.';
+  const publish = K.button('Publish selected Markdown', async () => {
+    const depth = slotSelect.value;
+    const option = essayState?.slots?.[depth];
+    if (!selected || !option || busy || !projectId) return;
+    const target = option.label;
+    const action = option.linked ? 'Update the published version' : option.occupied ? 'REPLACE the currently published source' : 'Publish a new reading level';
+    if (!window.confirm(`${action}: ${target}\n\nFile: ${selected.path}\n\nThis will change the public essay and Pulsar content immediately. Continue?`)) return;
+    busy = true;
+    refreshPublish();
+    K.setStatus(status, 'Publishing the selected saved revision…');
+    try {
+      await P.call(endpoint('topic-essays/'), {
+        method: 'POST',
+        body: { path: selected.path, depth, etag: selected.etag, version: option.version || '' },
+      });
+      const publishedPath = selected.path;
+      await refreshPublished();
+      await loadFile(publishedPath, true);
+      K.setStatus(status, `Published successfully: ${target}.`, 'ok');
+    } catch (error) {
+      const reason = error.message === 'essay_source_changed'
+        ? 'The file changed in Nextcloud. Re-select it and review its latest revision.'
+        : error.message === 'essay_publication_changed'
+          ? 'The publication changed since the preview. Refresh before publishing.'
+          : error.message === 'essay_file_already_linked'
+            ? 'That file is already linked to another essay level.'
+            : error.message || 'Publication could not be confirmed.';
+      K.setStatus(status, reason, 'bad');
+    } finally {
+      busy = false;
+      refreshPublish();
+    }
+  }, { solid: true });
+  publish.disabled = true;
+  const reload = K.button('Refresh file', () => {
+    if (selected) loadFile(selected.path);
+  });
+  let projectId = 0;
+  let selected = null;
+  let essayState = null;
+  let busy = false;
+  let generation = 0;
+
+  function endpoint(suffix) {
+    return `/platform/projects/${projectId}/${suffix}`;
+  }
+  function option(value, label) {
+    const node = el('option', null, label);
+    node.value = value;
+    return node;
+  }
+  function refreshPublish() {
+    const slot = essayState?.slots?.[slotSelect.value];
+    publish.disabled = busy || !selected || !selected.etag || !selected.canEdit
+      || !slot || (!slot.linked && !essayState.can_bind);
+    projectSelect.disabled = busy;
+    folderInput.disabled = busy;
+    fileSelect.disabled = busy;
+    slotSelect.disabled = busy;
+    browseButton.disabled = busy;
+    upButton.disabled = busy;
+    reload.disabled = busy || !selected;
+  }
+  function clearSelection() {
+    selected = null;
+    essayState = null;
+    slotSelect.replaceChildren(option('', 'Select an essay / reading level'));
+    fileInfo.textContent = 'No Markdown file selected.';
+    preview.textContent = 'Select a file to preview its saved Markdown.';
+    reload.disabled = true;
+    refreshPublish();
+  }
+  function fileStatus(state) {
+    return Object.values(state.slots || {}).map((slot) =>
+      `${slot.label}: ${slot.linked ? 'Linked to this file' : slot.occupied ? 'Published from another file' : 'Not published'}`
+    ).join(' · ');
+  }
+  async function refreshPublished() {
+    const state = await P.call(endpoint('topic-essays/?path='));
+    published.textContent = 'Current live slots: ' +
+      Object.values(state.slots || {}).map((slot) =>
+        `${slot.label} (${slot.occupied ? 'published' : 'not published'})`
+      ).join(' · ');
+  }
+  async function browse(path) {
+    if (!projectId || busy) return;
+    const clean = String(path || '').trim().replace(/^\/+|\/+$/g, '');
+    if (clean.includes('\\') || clean.split('/').some((part) => part === '..' || part === '.')) {
+      K.setStatus(status, 'Use a folder path relative to the research project.', 'bad');
+      return;
+    }
+    const request = ++generation;
+    clearSelection();
+    fileSelect.replaceChildren(option('', 'Loading Markdown files…'));
+    folderList.replaceChildren();
+    K.setStatus(status, 'Reading project folder…');
+    try {
+      const listing = await P.call(endpoint(`structure/?path=${encodeURIComponent(clean)}`));
+      if (request !== generation) return;
+      folderInput.value = clean;
+      const entries = Array.isArray(listing.items) ? listing.items : [];
+      const markdown = entries.filter((item) => !item.folder && /\.md$/i.test(item.name || ''));
+      fileSelect.replaceChildren(option('', markdown.length ? 'Select a .md file' : 'No Markdown files in this folder'));
+      markdown.forEach((item) => fileSelect.append(option(item.path, item.name)));
+      entries.filter((item) => item.folder).forEach((item) => {
+        folderList.append(K.button(`${item.name}/`, () => browse(item.path), { tiny: true }));
+      });
+      K.setStatus(status, `${markdown.length} Markdown file(s) in ${clean || 'project root'}.`);
+    } catch (error) {
+      if (request !== generation) return;
+      fileSelect.replaceChildren(option('', 'Folder unavailable'));
+      K.setStatus(status, `${error.message || 'Folder unavailable'}. Try a different folder or the project root.`, 'bad');
+    }
+  }
+  async function loadFile(path, afterPublish = false) {
+    if (!projectId || !path || (busy && !afterPublish)) return;
+    const request = ++generation;
+    clearSelection();
+    K.setStatus(status, 'Loading the saved Markdown revision and publishing status…');
+    try {
+      const [file, state] = await Promise.all([
+        P.call(endpoint(`file-content/?path=${encodeURIComponent(path)}&edit=1`)),
+        P.call(endpoint(`topic-essays/?path=${encodeURIComponent(path)}`)),
+      ]);
+      if (request !== generation) return;
+      if (!file.etag || typeof file.content !== 'string') throw new Error('File revision is unavailable.');
+      selected = { path, etag: file.etag, canEdit: !!file.can_edit };
+      essayState = state;
+      const slots = Object.entries(state.slots || {});
+      slotSelect.replaceChildren(option('', slots.length ? 'Choose a publication slot' : 'No eligible essay level'));
+      slots.forEach(([key, slot]) => slotSelect.append(option(key, slot.label)));
+      const linked = slots.find(([, slot]) => slot.linked);
+      if (linked || slots.length === 1) slotSelect.value = (linked || slots[0])[0];
+      fileInfo.textContent = `Source: ${path} · ${fileStatus(state)} · Preview is read-only; public figures and callouts use a different renderer.`;
+      preview.replaceChildren(renderNoteMarkdown(file.content));
+      reload.disabled = false;
+      K.setStatus(status, 'Saved Markdown loaded. Nothing has been published.');
+      refreshPublish();
+    } catch (error) {
+      if (request !== generation) return;
+      K.setStatus(status, error.message || 'Could not load this Markdown file.', 'bad');
+    }
+  }
+  async function loadProject() {
+    if (busy) return;
+    const value = Number(projectSelect.value);
+    projectId = Number.isInteger(value) && value > 0 ? value : 0;
+    ++generation;
+    clearSelection();
+    fileSelect.replaceChildren(option('', 'Select a .md file'));
+    folderList.replaceChildren();
+    published.textContent = '';
+    if (!projectId) return;
+    K.setStatus(status, 'Checking Topic 01 research project access…');
+    try {
+      await refreshPublished(); // The backend accepts only the configured Topic 01 project.
+      await browse(defaultFolder);
+    } catch (error) {
+      K.setStatus(status, `This project cannot manage Topic 01 essays (${error.message || 'access denied'}). Choose the configured research project with edit access.`, 'bad');
+    }
+  }
+
+  projectSelect.addEventListener('change', loadProject);
+  folderInput.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      browse(folderInput.value);
+    }
+  });
+  fileSelect.addEventListener('change', () => {
+    if (fileSelect.value) loadFile(fileSelect.value);
+    else clearSelection();
+  });
+  slotSelect.addEventListener('change', refreshPublish);
+  reload.disabled = true;
+  host.append(
+    K.heading('Markdown source & publication'),
+    message,
+    K.field('Research project', projectSelect),
+    K.field('Browse project folder', folderInput, 'Files stay in Nextcloud; this admin screen only selects them.'),
+    K.cardActions([browseButton, upButton]),
+    folderList,
+    K.fields([
+      K.field('Markdown file', fileSelect),
+      K.field('Publish as', slotSelect),
+    ], 2),
+    published,
+    fileInfo,
+    K.heading('Source preview — not yet published'),
+    preview,
+    K.cardActions([publish, reload]),
+    status,
+  );
+  P.call('/platform/projects/').then(({ projects }) => {
+    const visible = (Array.isArray(projects) ? projects : []).filter((item) => item.permissions?.can_edit);
+    projectSelect.replaceChildren(option('', visible.length ? 'Choose a research project' : 'No editable research project available'));
+    visible.forEach((item) => projectSelect.append(option(String(item.id), item.title)));
+    const configured = visible.find((item) => Number(item.id) === 213);
+    const plausible = visible.find((item) => /ai.*research|challenges.of.ai/i.test(item.title || ''));
+    const preferred = configured || plausible;
+    if (preferred) {
+      projectSelect.value = String(preferred.id);
+      loadProject();
+    } else {
+      K.setStatus(status, 'Select the Topic 01 research project to browse its Markdown files.');
+    }
+  }).catch((error) => K.setStatus(status, error.message || 'Could not load research projects.', 'bad'));
+}
+
 
 function cookie(name) {
   const hit = document.cookie.split('; ').find((row) => row.startsWith(name + '='));
@@ -567,6 +798,8 @@ export async function renderAdminContentEditor(host, id, { go }) {
     essayNote.body.append(K.fields([picture.holder, K.field(`Essay ${index + 1} cover description`, alt)], 2));
     return { url: picture.url, alt };
   });
+
+  if (isTopic01) mountTopic01EssayPicker(essayNote.body);
 
   const counted = (name, list) => `${name}${list.children.length ? ` · ${list.children.length}` : ''}`;
   form.append(K.tabs([
