@@ -2,7 +2,7 @@
 
 **Date:** 23 November 2026  
 **Scope:** Topic 01, `/topic-answer-that-looked-right#views`  
-**Status:** Original “frontend not connected to backend” claim **not confirmed**; two narrower cross-account problems **confirmed in source and corrected in PR #398**, with isolated Django + client regression coverage. Production rollout and authenticated browser acceptance must be reported separately from code/CI approval.
+**Status:** Original “frontend not connected to backend” claim **not confirmed**; the narrower cross-account defects are corrected in PR #398. **17 Django/API tests, shipped-client account-cache regression, JS syntax and the scoped CI workflow passed.** Production rollout and authenticated browser acceptance must be reported separately from code/CI approval.
 
 ## Verified production read-only evidence (before patch)
 
@@ -31,7 +31,7 @@ New tests in `backend/core/test_viewpoints_multiaccount.py` use separate Django 
 
 `scripts/test-viewpoints-auth-cache.cjs` additionally executes the **shipped client module** in an isolated browser-like harness: guest → Alice → Bob → guest changes invalidate in-memory private comment caches. The CI checks syntax of `assets/topic-talk.js` and `assets/topic-viewpoints.js`.
 
-CI workflow: `.github/workflows/viewpoints-multi-account.yml`.  
+CI workflow: `.github/workflows/viewpoints-multi-account.yml` — **passed** in [run #45126092229](https://github.com/hsdarestani/gravitas/actions/runs/45126092229), 17 Django tests; client cache harness also passed.  
 PR: https://github.com/hsdarestani/gravitas/pull/398
 
 ## Remaining distinctions for an honest release report
