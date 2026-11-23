@@ -242,6 +242,10 @@ def _poll_json(request, topic, poll_id='', sealed=False):
     poll = _poll_definition(topic, poll_id)
     if poll is None:
         return None
+    # A guest vote may be adopted into an existing member vote during this
+    # request. Resolve identity before tallying, or the first response after
+    # login can show a count that includes the now-removed duplicate.
+    voter = _poll_voter_key(request)
     options = poll['options']
     valid = {item['id'] for item in options}
     counts = {item['id']: 0 for item in options}
@@ -249,7 +253,7 @@ def _poll_json(request, topic, poll_id='', sealed=False):
         if option_id in valid:
             counts[option_id] += 1
     selected = topic.poll_votes.filter(
-        voter_key=_poll_voter_key(request),
+        voter_key=voter,
         poll_id=poll['id'],
     ).values_list('option_id', flat=True).first()
     selected = selected if selected in valid else None

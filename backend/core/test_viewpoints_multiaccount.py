@@ -84,6 +84,24 @@ class ViewpointsMultiAccountTests(TestCase):
         self.assertEqual(self.vote(guest, self.second).status_code, 200)
         self.assertEqual(TopicPollVote.objects.filter(topic=self.topic, poll_id=self.poll_id).count(), 1)
 
+    def test_existing_member_and_guest_vote_merge_before_count_response(self):
+        self.assertEqual(self.vote(self.a, self.first).status_code, 200)
+        guest = Client()
+        self.assertEqual(self.vote(guest, self.second).status_code, 200)
+        self.assertEqual(TopicPollVote.objects.filter(topic=self.topic, poll_id=self.poll_id).count(), 2)
+        guest.force_login(self.alice)
+        first_response = self.poll_for(guest)
+        self.assertEqual(first_response['selected'], self.first)
+        self.assertEqual(first_response['total_votes'], 1,
+                         'The initial authenticated response must reflect the merged count')
+        self.assertEqual(TopicPollVote.objects.filter(topic=self.topic, poll_id=self.poll_id).count(), 1)
+
+    def test_topic_page_loads_uncached_viewpoints_client(self):
+        from pathlib import Path
+        source = (Path(__file__).resolve().parents[2] / 'topic-answer-that-looked-right.html').read_text()
+        self.assertIn('topic-talk.js?v=20261123-vp2', source)
+        self.assertIn('topic-viewpoints.js?v=20261123-vp2', source)
+
     def test_reveal_first_is_session_local_and_cannot_override_a_vote(self):
         self.assertTrue(self.poll_for(self.a)['sealed'])
         self.assertTrue(self.poll_for(self.a, reveal='1')['seen_first'])
