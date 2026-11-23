@@ -65,9 +65,20 @@
   }
 
   var mePromise = null;
+  var accountIdentity = null;
   function me(force) {
     if (!mePromise || force) {
       mePromise = request('/api/auth/me/').then(function (data) {
+        var identity = data.authenticated && data.user ? 'member:' + data.user.id : 'guest';
+        var changed = accountIdentity !== null && accountIdentity !== identity;
+        accountIdentity = identity;
+        if (changed) {
+          // Tabs share a browser session. Never reuse another account's
+          // unpublished reasons, author flags or reactions after a login switch.
+          Object.keys(cache).forEach(function (key) { delete cache[key]; });
+          Object.keys(listeners).forEach(notify);
+          window.dispatchEvent(new Event('gq-talk-account-changed'));
+        }
         return { authenticated: !!data.authenticated, name: (data.user && data.user.name) || '' };
       }).catch(function () { return { authenticated: false, name: '' }; });
     }
@@ -120,6 +131,11 @@
   var listeners = {};
   function on(key, fn) { (listeners[key] = listeners[key] || []).push(fn); }
   function notify(key) { (listeners[key] || []).slice().forEach(function (fn) { try { fn(); } catch (err) { /* one block's failure is its own */ } }); }
+
+  // A user can sign out or switch accounts in another tab without reloading
+  // this Topic. Revalidate identity when the tab becomes active again.
+  window.addEventListener('focus', function () { me(true); });
+  document.addEventListener('visibilitychange', function () { if (!document.hidden) me(true); });
 
   /* ---- Small parts ---------------------------------------------------------- */
   var ICON = {
