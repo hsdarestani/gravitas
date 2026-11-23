@@ -153,7 +153,7 @@ async function fits(page, width) {
       await fits(page,width);
       {
         const latest=requests.at(-1);
-        assert.equal(latest.page,'/topic-answer-that-looked-right.html');
+        assert.equal(latest.page,'/topic-answer-that-looked-right');
         assert.equal(latest.section,'essay');
         assert(latest.history.some(t=>t.content==='What next?'));
         assert(!('token' in latest) && !('cookie' in latest));
@@ -177,11 +177,11 @@ async function fits(page, width) {
       const shortBounds=await fits(page,width);
       await page.screenshot({path:path.join(out,`pulsar-keyboard-${width}.png`)});
       await page.setViewportSize({width,height:844});
-      for(const route of ['/topics.html','/about.html','/community.html','/lab.html','/learn.html','/education.html','/education-de.html','/privacy.html']) {
+      for(const route of ['/topics','/about','/community','/lab','/learn','/education','/education-de','/privacy']) {
         await page.goto(base+route,{waitUntil:'domcontentloaded'});
         await page.getByRole('button',{name:'Ask Pulsar',exact:true}).click();
         await fits(page,width);
-        if(live && route==='/lab.html') {
+        if(live && route==='/lab') {
           await ask(page,'Can I use the Lab now?');
           assert.match(await page.locator('.gchat__msg--bot').last().innerText(),/not|under construction|pre-launch/i);
         }
