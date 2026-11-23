@@ -474,14 +474,14 @@
   function publicPageContext() {
     // The public endpoint must not receive workspace or account DOM content.
     var path = location.pathname;
-    var publicPath = (path === '/' || path === '/community' || (path.lastIndexOf('/') === 0 && path.endsWith('.html'))) && !/^\/(workspace|account)([/.]|$)/.test(path);
+    var publicPath = path === '/' || /^\/(?:about|brand|community|education(?:-de)?|forum|impressum|lab(?:-[a-z0-9-]+)?|learn|newsletter|prelaunch-feedback|privacy|topics|topic(?:-[a-z0-9-]+)?|science-evidence)$/.test(path);
     if (!publicPath) return { heading: '', featured_topic: '', featured_href: '', actions: [] };
 
     var main = document.querySelector('main');
-    var home = path === '/' || path === '/';
+    var home = path === '/';
     var heading = main && main.querySelector('h1');
     var featured = home && main && main.querySelector('.lp-topic__q');
-    var featuredLink = home && main && main.querySelector('.lp-topic__intro a[href^="topic-"]');
+    var featuredLink = home && main && main.querySelector('.lp-topic__intro a[href^="/topic-"], .lp-topic__intro a[href^="topic-"]');
     var actions = main ? Array.prototype.slice.call(main.querySelectorAll('a[href], button'), 0, 45)
       .filter(function (node) { return !node.disabled && node.getAttribute('aria-disabled') !== 'true' && !node.closest('[hidden], [data-public-context-skip]'); })
       .map(function (node) {

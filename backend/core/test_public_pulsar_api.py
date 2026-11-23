@@ -34,7 +34,7 @@ class PublicPulsarContextTests(TestCase):
             ]
         )
         self.assertEqual(len(rows), 4)
-        self.assertEqual(rows[0]['href'], '/topic-answer-that-looked-right.html')
+        self.assertEqual(rows[0]['href'], '/topic-answer-that-looked-right')
 
     def test_only_public_page_fields_are_kept(self):
         self.assertEqual(public_page('/workspace/private'), '')
@@ -62,7 +62,7 @@ class PublicPulsarContextTests(TestCase):
             observation=observation,
         )
         self.assertIn('Open the Topic', reply)
-        self.assertEqual(links[0]['href'], '/topic-answer-that-looked-right.html')
+        self.assertEqual(links[0]['href'], '/topic-answer-that-looked-right')
 
     def test_faq_distinguishes_topic_definition_from_current_topic(self):
         answer, links = short_public_answer(

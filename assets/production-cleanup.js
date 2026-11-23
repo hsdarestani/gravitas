@@ -286,7 +286,7 @@
   }
 
   function showNewsletterConfirmation() {
-    if (!/newsletter\.html$/.test(location.pathname)) return;
+    if (location.pathname !== '/newsletter') return;
     var value = new URLSearchParams(location.search).get('confirmed');
     if (value !== '1' && value !== '0') return;
     var note = document.querySelector('[data-form-note]');
