@@ -67,7 +67,7 @@ function mountTopic01EssayPicker(host) {
       });
       const publishedPath = selected.path;
       await refreshPublished();
-      await loadFile(publishedPath);
+      await loadFile(publishedPath, true);
       K.setStatus(status, `Published successfully: ${target}.`, 'ok');
     } catch (error) {
       const reason = error.message === 'essay_source_changed'
@@ -105,6 +105,13 @@ function mountTopic01EssayPicker(host) {
     const slot = essayState?.slots?.[slotSelect.value];
     publish.disabled = busy || !selected || !selected.etag || !selected.canEdit
       || !slot || (!slot.linked && !essayState.can_bind);
+    projectSelect.disabled = busy;
+    folderInput.disabled = busy;
+    fileSelect.disabled = busy;
+    slotSelect.disabled = busy;
+    browseButton.disabled = busy;
+    upButton.disabled = busy;
+    reload.disabled = busy || !selected;
   }
   function clearSelection() {
     selected = null;
@@ -157,8 +164,8 @@ function mountTopic01EssayPicker(host) {
       K.setStatus(status, `${error.message || 'Folder unavailable'}. Try a different folder or the project root.`, 'bad');
     }
   }
-  async function loadFile(path) {
-    if (!projectId || !path || busy) return;
+  async function loadFile(path, afterPublish = false) {
+    if (!projectId || !path || (busy && !afterPublish)) return;
     const request = ++generation;
     clearSelection();
     K.setStatus(status, 'Loading the saved Markdown revision and publishing status…');
@@ -187,6 +194,7 @@ function mountTopic01EssayPicker(host) {
     }
   }
   async function loadProject() {
+    if (busy) return;
     const value = Number(projectSelect.value);
     projectId = Number.isInteger(value) && value > 0 ? value : 0;
     ++generation;
