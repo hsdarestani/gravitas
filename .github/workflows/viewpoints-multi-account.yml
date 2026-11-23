@@ -9,6 +9,7 @@ on:
       - 'backend/core/test_viewpoints_multiaccount.py'
       - 'assets/topic-talk.js'
       - 'assets/topic-viewpoints.js'
+      - 'scripts/test-viewpoints-auth-cache.cjs'
       - 'docs/viewpoints-multi-account-qa.md'
       - '.github/workflows/viewpoints-multi-account.yml'
   push:
@@ -20,6 +21,7 @@ on:
       - 'backend/core/test_viewpoints_multiaccount.py'
       - 'assets/topic-talk.js'
       - 'assets/topic-viewpoints.js'
+      - 'scripts/test-viewpoints-auth-cache.cjs'
       - '.github/workflows/viewpoints-multi-account.yml'
 
 permissions:
@@ -36,6 +38,9 @@ jobs:
           node --check assets/topic-talk.js
           node --check assets/topic-viewpoints.js
           node --check assets/topic-01-live.js
+          node --check scripts/test-viewpoints-auth-cache.cjs
+      - name: Verify browser cache invalidation on account switch
+        run: node scripts/test-viewpoints-auth-cache.cjs
       - name: Install isolated Django test dependencies
         run: |
           python3 -m venv "$RUNNER_TEMP/gq-viewpoint-tests"
