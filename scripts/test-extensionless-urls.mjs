@@ -70,6 +70,14 @@ try {
   assert.ok(!/\.html<\/loc>/.test(sitemap), 'no legacy .html URLs in sitemap');
 
   const deploy = await readFile('.github/workflows/deploy.yml', 'utf8');
+  // Reproduce the production root/index conflict: / must serve the HTML file
+  // directly or an internal index redirect reaches the legacy /index.html 301.
+  const rootHandler = String.raw`location = / {
+                  default_type text/html;
+                  try_files /index.html =404;
+              }`;
+  assert.equal(deploy.split(rootHandler).length - 1, 2,
+    'both HTTP and HTTPS nginx blocks must break the /index.html redirect loop');
   const cleanResolution = String.raw`try_files \$uri \$uri.html \$uri/ /index.html;`;
   assert.equal(deploy.split(cleanResolution).length - 1, 2,
     'both HTTP and HTTPS nginx blocks need clean URL resolution');

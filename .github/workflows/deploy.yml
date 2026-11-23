@@ -549,6 +549,13 @@ jobs:
 
               # Public HTML is exposed at extensionless canonical URLs.
               # Preserve old bookmarks/search results, while keeping app/API routes intact.
+              # Serve the home document in-place: the index module must not
+              # internally redirect / to /index.html, whose canonical 301
+              # otherwise loops forever back to /.
+              location = / {
+                  default_type text/html;
+                  try_files /index.html =404;
+              }
               location = /index.html { return 301 /; }
               location = /dossiers.html { return 301 /topics; }
               location = /dossiers { return 301 /topics; }
@@ -649,6 +656,13 @@ jobs:
 
               # Public HTML is exposed at extensionless canonical URLs.
               # Preserve old bookmarks/search results, while keeping app/API routes intact.
+              # Serve the home document in-place: the index module must not
+              # internally redirect / to /index.html, whose canonical 301
+              # otherwise loops forever back to /.
+              location = / {
+                  default_type text/html;
+                  try_files /index.html =404;
+              }
               location = /index.html { return 301 /; }
               location = /dossiers.html { return 301 /topics; }
               location = /dossiers { return 301 /topics; }
