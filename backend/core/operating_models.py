@@ -263,6 +263,7 @@ class OperatingTask(models.Model):
     status = models.CharField(max_length=16, choices=WorkStatus.choices, default=WorkStatus.ACTIVE)
     due_date = models.DateField(blank=True, null=True)
     definition_of_done = models.TextField()
+    studio_duration_days = models.PositiveSmallIntegerField(blank=True, null=True)
     dependency = models.ForeignKey('self', on_delete=models.SET_NULL, related_name='dependants', blank=True, null=True)
     parent = models.ForeignKey('self', on_delete=models.PROTECT, related_name='subtasks', blank=True, null=True)
     workflow_state = models.CharField(max_length=8, choices=WorkflowState.choices, default='', editable=False)
@@ -299,19 +300,12 @@ class OperatingTask(models.Model):
             cursor = cursor.parent
         if self.pk and self.subtasks.exclude(workspace_id=self.workspace_id, project_id=self.project_id).exists():
             raise ValidationError({'project': 'Move the complete task family together.'})
-        # Dependencies are finish-to-start. Read the edges once rather than
-        # walking a long chain with one query per predecessor.
         if self.dependency_id:
-            edges = dict(type(self).objects.filter(workspace_id=self.workspace_id).values_list('pk', 'dependency_id'))
-            seen = {self.pk} if self.pk else set()
-            cursor = self.dependency_id
-            while cursor is not None:
-                if cursor in seen:
-                    raise ValidationError({'dependency': 'Task dependencies cannot contain a cycle.'})
-                if cursor not in edges:
-                    raise ValidationError({'dependency': 'Dependencies must share a workspace.'})
-                seen.add(cursor)
-                cursor = edges[cursor]
+            from .task_dependencies import validate_dependency_graph
+            additional = self.additional_predecessors.values_list('predecessor_id', flat=True) if self.pk else ()
+            validate_dependency_graph(self.workspace_id, {
+                self.pk: {self.dependency_id, *additional},
+            })
 
     @transaction.atomic
     def save(self, *args, **kwargs):
@@ -336,10 +330,18 @@ class OperatingTask(models.Model):
                     )
                 ):
                     raise WorkflowTaskError('Use the parent workflow to manage this step.', code='workflow_step_locked')
-        if self.dependency_id and (previous is None or previous['dependency_id'] != self.dependency_id):
-            # Serialize competing edge additions before the final cycle check.
+        fields_to_write = kwargs.get('update_fields')
+        entering_work = (previous and previous['status'] != self.status and self.status in (WorkStatus.ACTIVE, WorkStatus.DONE)
+                         and (fields_to_write is None or 'status' in fields_to_write))
+        new_dependency = self.dependency_id and (previous is None or previous['dependency_id'] != self.dependency_id)
+        if new_dependency or entering_work:
+            # A transition and an edge edit must observe the same canonical graph.
             from .models import Workspace
             Workspace.objects.select_for_update().get(pk=self.workspace_id)
+        if entering_work and self.additional_predecessors.exists():
+            if (self.additional_predecessors.exclude(predecessor__status=WorkStatus.DONE).exists()
+                    or self.dependency_id and self.dependency.status != WorkStatus.DONE):
+                raise WorkflowTaskError('Finish the prerequisites first.', code='task_prerequisites_incomplete')
         self.clean()
         from .task_dates import track_dates
         fields = track_dates(self, previous, kwargs.get('update_fields'))
@@ -381,6 +383,19 @@ class OperatingTask(models.Model):
                 name='grav_task_workflow_step',
             ),
             models.UniqueConstraint(fields=('parent', 'workflow_position'), name='grav_task_workflow_step_position'),
+        ]
+
+
+class OperatingTaskPredecessor(models.Model):
+    """Additional finish-to-start edges. The legacy primary edge stays on the task."""
+
+    task = models.ForeignKey(OperatingTask, on_delete=models.CASCADE, related_name='additional_predecessors')
+    predecessor = models.ForeignKey(OperatingTask, on_delete=models.CASCADE, related_name='additional_dependants')
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=('task', 'predecessor'), name='grav_unique_task_predecessor'),
+            models.CheckConstraint(condition=~Q(task=models.F('predecessor')), name='grav_task_predecessor_not_self'),
         ]
 
 
@@ -716,6 +731,7 @@ class OperatingTaskComment(models.Model):
         related_name='gravitas_operating_task_comments',
     )
     body = models.TextField(max_length=10000)
+    parent = models.ForeignKey('self', null=True, blank=True, on_delete=models.SET_NULL, related_name='replies')
     mentions = models.ManyToManyField(
         settings.AUTH_USER_MODEL,
         related_name='gravitas_operating_task_mentions',

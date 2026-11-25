@@ -5,7 +5,7 @@ from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
 
 from . import operating_api as base
-from .operating_models import OperatingTask, OperatingTaskWorkflow, WorkflowState, WorkStatus
+from .operating_models import OperatingTask, OperatingTaskWorkflow, WorkflowState, WorkflowTaskError, WorkStatus
 from .platform_access import can_comment, can_edit, can_view
 from .task_consolidation import canonical_id
 from .task_workflows import (
@@ -124,7 +124,7 @@ def task_workflow(request, task_id, project_id=None):
         return _serialize(task, workflow, steps, user, edit, comment)
     try:
         _apply(task, workflow, steps, user, edit, comment, payload)
-    except WorkflowRequestError as error:
+    except (WorkflowRequestError, WorkflowTaskError) as error:
         return workflow_error(error)
     workflow.revision += 1
     workflow.save(update_fields=['revision', 'parts', 'final_approval'])

@@ -81,9 +81,25 @@ from core.shared_service_access import (
     shared_with_me_layer_safe,
 )
 from core.sharing_consistency_api import sharing_v5
+from core.workspace_studio_api import (
+    studio_csrf, studio_dependency, studio_meeting, studio_project_canvas, studio_shell, studio_state, studio_task, studio_task_content, studio_task_details,
+)
 from core.workspace_pages_api import workspace_page_detail, workspace_pages
 
 urlpatterns = [
+    path('workspace-v2', studio_shell),
+    path('workspace-v2/', studio_shell),
+    path('api/workspace-v2/state/', studio_state),
+    path('api/workspace-v2/csrf/', studio_csrf),
+    path('api/workspace-v2/tasks/', studio_task),
+    path('api/workspace-v2/tasks/<int:task_id>/', studio_task),
+    path('api/workspace-v2/tasks/<int:task_id>/details/', studio_task_details),
+    path('api/workspace-v2/tasks/<int:task_id>/<slug:kind>/', studio_task_content),
+    path('api/workspace-v2/tasks/<int:task_id>/<slug:kind>/<int:item_id>/', studio_task_content),
+    path('api/workspace-v2/dependencies/', studio_dependency),
+    path('api/workspace-v2/meetings/', studio_meeting),
+    path('api/workspace-v2/meetings/<int:meeting_id>/', studio_meeting),
+    path('api/workspace-v2/projects/<int:project_id>/canvas/', studio_project_canvas),
     path('api/forum/config/', forum.forum_config),
     path('api/forum/moderation/classify/', forum_moderation_classify),
     path('api/forum/start/', forum.forum_start),

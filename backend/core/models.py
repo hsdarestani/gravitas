@@ -526,6 +526,12 @@ class ResearchProject(models.Model):
         ordering = ['-updated_at']
 
 
+class WorkspaceStudioCanvas(models.Model):
+    project = models.OneToOneField(ResearchProject, on_delete=models.CASCADE, related_name='studio_layout')
+    canvas = models.JSONField(default=dict, blank=True)
+    revision = models.PositiveIntegerField(default=0)
+
+
 class ProjectMembership(models.Model):
     class Role(models.TextChoices):
         OWNER = 'owner', 'Owner'

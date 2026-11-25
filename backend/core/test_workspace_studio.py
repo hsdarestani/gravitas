@@ -1,0 +1,193 @@
+import uuid
+
+from django.contrib.auth import get_user_model
+from django.test import Client, TestCase, override_settings
+
+from .models import ResearchProject, WorkspaceMembership
+from .operating_models import OperatingTask, OperatingTaskPredecessor, WorkStatus
+from .platform_access import policy_for
+from .platform_models import ObjectPolicy
+from .platform_runtime_v3 import ensure_platform_workspaces
+
+
+STUDIO = '/api/workspace-v2/'
+BOARD = '/api/operating/task-board/'
+
+
+@override_settings(WORKSPACE_STUDIO_ENABLED=True)
+class WorkspaceStudioTests(TestCase):
+    def setUp(self):
+        users = get_user_model().objects
+        self.admin = users.create_user('studio-admin@example.test')
+        self.member = users.create_user('studio-member@example.test')
+        self.external = users.create_user('studio-external@example.test')
+        spaces = ensure_platform_workspaces(self.admin)
+        self.workspace = spaces['core']
+        WorkspaceMembership.objects.create(workspace=self.workspace, user=self.member)
+        self.project = ResearchProject.objects.create(workspace=spaces['research'], owner=self.admin, title='Integration')
+        self.client.force_login(self.admin)
+
+    def task(self, title, **kwargs):
+        return OperatingTask.objects.create(
+            workspace=self.workspace, title=title, owner=self.admin, status=WorkStatus.READY,
+            definition_of_done='Reviewed', **kwargs,
+        )
+
+    def state(self):
+        response = self.client.get(STUDIO + 'state/')
+        self.assertEqual(response.status_code, 200, response.content)
+        return response.json()
+
+    def post(self, suffix, payload):
+        return self.client.post(STUDIO + suffix, payload, content_type='application/json')
+
+    def patch(self, task, payload):
+        return self.client.patch(STUDIO + f'tasks/{task.pk}/', {
+            **payload, 'expected_updated_at': task.updated_at.isoformat(),
+        }, content_type='application/json')
+
+    def test_shell_gate_and_core_authorization(self):
+        self.assertContains(self.client.get('/workspace-v2'), '/assets/workspace-v2/workspace.js')
+        with self.settings(WORKSPACE_STUDIO_ENABLED=False):
+            self.assertEqual(self.client.get('/workspace-v2').status_code, 404)
+            self.assertEqual(self.client.get(STUDIO + 'state/').status_code, 404)
+        self.client.logout()
+        self.assertEqual(self.client.get(STUDIO + 'state/').status_code, 401)
+        self.client.force_login(self.external)
+        self.assertEqual(self.client.get(STUDIO + 'state/').status_code, 403)
+        self.client.force_login(self.member)
+        self.assertEqual(self.state()['actor']['id'], self.member.pk)
+        self.assertEqual(self.client.get(STUDIO + 'state/?workspace_id=9989999').status_code, 403)
+
+    def test_bidirectional_canonical_task_edits_and_stale_revision(self):
+        created = self.post('tasks/', {
+            'title':'V2 created', 'definition_of_done':'Reviewed', 'owner_id':self.admin.pk,
+            'project_id':self.project.pk, 'status':'ready', 'duration_days':3,
+            'client_create_id': str(uuid.uuid4()), 'checklist':['Verify'],
+        })
+        self.assertEqual(created.status_code, 201, created.content)
+        task = OperatingTask.objects.get(pk=created.json()['id'])
+        self.assertEqual(task.project_id, self.project.pk)
+        self.assertEqual(task.studio_duration_days, 3)
+        self.assertEqual(task.checklist_items.get().title, 'Verify')
+        self.assertEqual(self.client.get(BOARD + f'{task.pk}/').json()['task']['title'], 'V2 created')
+        response = self.client.patch(BOARD + f'{task.pk}/', {'title':'V1 edited'}, content_type='application/json')
+        self.assertEqual(response.status_code, 200, response.content)
+        self.assertEqual(next(row['title'] for row in self.state()['tasks'] if row['id']==task.pk), 'V1 edited')
+        self.assertEqual(self.patch(task, {'title':'Outdated overwrite'}).status_code, 409)
+        task.refresh_from_db()
+        response = self.patch(task, {'title':'V2 edited'})
+        self.assertEqual(response.status_code, 200, response.content)
+        self.assertEqual(self.client.get(BOARD + f'{task.pk}/').json()['task']['title'], 'V2 edited')
+
+    def test_retried_create_and_csrf(self):
+        payload = {
+            'title':'One task', 'definition_of_done':'Reviewed', 'status':'ready',
+            'client_create_id':str(uuid.uuid4()),
+        }
+        first = self.post('tasks/', payload)
+        self.assertEqual(first.status_code, 201, first.content)
+        replay = self.post('tasks/', payload)
+        self.assertEqual(replay.json()['id'], first.json()['id'])
+        self.assertTrue(replay.json()['replayed'])
+        self.assertEqual(self.post('tasks/', {**payload, 'title':'Different content'}).status_code, 409)
+        self.assertEqual(OperatingTask.objects.filter(title='One task').count(), 1)
+        csrf = Client(enforce_csrf_checks=True)
+        csrf.force_login(self.admin)
+        self.assertEqual(csrf.post(STUDIO+'tasks/', payload, content_type='application/json').status_code, 403)
+        token = csrf.get(STUDIO+'csrf/').json()['csrf_token']
+        self.assertEqual(csrf.post(STUDIO+'tasks/', payload, content_type='application/json', HTTP_X_CSRFTOKEN=token).status_code, 200)
+
+    def test_multiple_dependencies_merge_with_legacy_and_reject_cycles(self):
+        first, second = self.task('First'), self.task('Second')
+        target = self.task('Target', dependency=first)
+        change = {'action':'add', 'task_id':target.pk, 'predecessor_id':second.pk}
+        self.assertEqual(self.post('dependencies/', change).status_code, 200)
+        self.assertEqual(self.post('dependencies/', change).status_code, 200)
+        self.assertEqual(OperatingTaskPredecessor.objects.filter(task=target).count(), 1)
+        actual = next(row for row in self.state()['tasks'] if row['id']==target.pk)
+        self.assertEqual(set(actual['predecessor_ids']), {first.pk, second.pk})
+        self.assertTrue(actual['blocked_by_dependency'])
+        self.assertEqual(self.patch(target, {'status':'active'}).json()['error'], 'task_prerequisites_incomplete')
+        v1_status = self.client.patch(BOARD + f'{target.pk}/', {'status':'active'}, content_type='application/json')
+        self.assertEqual(v1_status.json()['error'], 'task_prerequisites_incomplete')
+        third = self.task('Third')
+        result = self.post('dependencies/', {'changes':[
+            {'action':'add','task_id':third.pk,'predecessor_id':first.pk},
+            {'action':'add','task_id':first.pk,'predecessor_id':target.pk},
+        ]})
+        self.assertEqual(result.json()['error'], 'dependency_cycle')
+        self.assertFalse(OperatingTaskPredecessor.objects.filter(task=third).exists())
+        v1_cycle = self.client.patch(BOARD + f'{second.pk}/', {'dependency_id':target.pk}, content_type='application/json')
+        self.assertEqual(v1_cycle.status_code, 409)
+        for predecessor in (first, second):
+            predecessor.status = WorkStatus.DONE
+            predecessor.save()
+        self.assertEqual(self.patch(target, {'status':'active'}).status_code, 200)
+
+    def test_private_predecessor_is_redacted_without_disabling_gate(self):
+        hidden = self.task('Private prerequisite')
+        policy_for(hidden, create=True, created_by=self.admin, default_visibility=ObjectPolicy.Visibility.PRIVATE)
+        public = self.task('Visible follower', dependency=hidden)
+        policy_for(public, create=True, created_by=self.admin, default_visibility=ObjectPolicy.Visibility.WORKSPACE)
+        self.client.force_login(self.member)
+        state = self.state()
+        self.assertNotIn(hidden.pk, {row['id'] for row in state['tasks']})
+        public_row = next(row for row in state['tasks'] if row['id']==public.pk)
+        self.assertEqual(public_row['predecessor_ids'], [])
+        self.assertTrue(public_row['blocked_by_dependency'])
+        self.assertEqual(self.client.get(STUDIO+f'tasks/{hidden.pk}/details/').status_code, 404)
+
+    def test_studio_workflow_and_comments_share_existing_rows(self):
+        task = self.task('Needs QA')
+        suffix = f'tasks/{task.pk}/'
+        root = self.post(suffix+'comments/', {'body':'A note'})
+        self.assertEqual(root.status_code, 201, root.content)
+        reply = self.post(suffix+'comments/', {'body':'Reply', 'parent_id':root.json()['comment']['id']})
+        self.assertEqual(reply.status_code, 201, reply.content)
+        comments = self.client.get(f'/api/operating/tasks/{task.pk}/comments/').json()['comments']
+        self.assertEqual(comments[1]['parent_id'], comments[0]['id'])
+        attached = self.post(suffix+'workflow/', {'action':'install','workflow':{'template':'development'}})
+        self.assertEqual(attached.status_code, 200, attached.content)
+        self.assertEqual(attached.json()['workflow']['parts'][0]['iterations'][0]['number'], 1)
+        self.assertEqual(self.client.get(f'/api/operating/tasks/{task.pk}/workflow/').json()['workflow'], attached.json()['workflow'])
+        task.refresh_from_db()
+        completed = self.patch(task, {'status':'done'})
+        self.assertEqual(completed.status_code, 409, completed.content)
+        self.assertEqual(completed.json()['error'], 'workflow_approval_required')
+
+    def test_canvas_round_trip_and_revision_protect_existing_project(self):
+        task = self.task('Canvas task', project=self.project)
+        url = STUDIO + f'projects/{self.project.pk}/canvas/'
+        layout = {
+            'positions':{str(task.pk):{'x':180,'y':210}}, 'groups':[], 'arrows':[],
+            'frames':[{'id':'one','title':'Research','x':30,'y':60,'width':240,'height':190}],
+            'start_date':'2026-11-25',
+        }
+        def save(revision, canvas):
+            return self.client.patch(url, {'revision':revision, 'canvas':canvas}, content_type='application/json')
+        response = save(0, layout)
+        self.assertEqual(response.status_code, 200, response.content)
+        self.assertEqual(save(0, layout).status_code, 409)
+        current = next(row for row in self.state()['projects'] if row['id']==self.project.pk)
+        self.assertEqual(current['canvas'], layout)
+        self.assertEqual(current['canvas_revision'], 1)
+        invalid = {**layout,'positions':{'99999':{'x':1,'y':1}}}
+        self.assertEqual(save(1, invalid).status_code, 400)
+        self.project.title = 'Renamed from the existing model'
+        self.project.save()
+        self.assertEqual(self.project.studio_layout.revision, 1)
+
+    def test_staff_only_scope_and_meeting_archive_use_the_same_record(self):
+        from .operating_models import OperatingMeeting
+
+        created = self.post('meetings/', {
+            'title':'Review', 'date':'2026-11-25', 'time':'09:30', 'end':'10:30',
+            'notes':'Finalize acceptance criteria', 'owner_id':self.admin.pk,
+        })
+        self.assertEqual(created.status_code, 201, created.content)
+        ident = created.json()['meeting']['id']
+        archived = self.client.patch(STUDIO + f'meetings/{ident}/', {'status':'done'}, content_type='application/json')
+        self.assertEqual(archived.status_code, 200, archived.content)
+        self.assertEqual(OperatingMeeting.objects.get(pk=ident).status, WorkStatus.DONE)
+        self.assertEqual(self.client.get('/api/operating/meetings/').json()['meetings'][0]['id'], ident)

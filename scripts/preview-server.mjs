@@ -38,6 +38,7 @@ const CURL = arg('curl', process.platform === 'win32'
   ? path.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'curl.exe')
   : 'curl');
 /* The prefixes nginx hands to Django; everything else is a file on disk. */
+const isStudio = url => /^\/workspace-v2\/?(?:\?|$)/.test(url);
 const PROXY_PREFIXES = ['/api/', '/admin/', '/django-static/', '/content/'];
 
 const TYPES = {
@@ -282,7 +283,7 @@ async function proxy(req, res, url) {
 
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, 'http://' + (req.headers.host || 'localhost'));
-  const isProxied = PROXY_PREFIXES.some((p) => url.pathname === p.slice(0, -1) || url.pathname.startsWith(p));
+  const isProxied = isStudio(req.url) || PROXY_PREFIXES.some((p) => url.pathname === p.slice(0, -1) || url.pathname.startsWith(p));
 
   try {
     if (isProxied) {

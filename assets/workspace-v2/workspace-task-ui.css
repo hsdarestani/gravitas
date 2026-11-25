@@ -1,0 +1,218 @@
+/* Task details */
+.task-modal-head.task-hero{
+  position:relative;isolation:isolate;flex:none;align-items:flex-start;
+  gap:14px;padding:22px 20px 20px;color:#eff7ff;
+  background:radial-gradient(ellipse at 18% -60%,#36718f 0%,transparent 72%),linear-gradient(120deg,#112e49,#0b1b30 83%);
+}
+.task-hero::before{
+  content:'';position:absolute;inset:0;z-index:-1;pointer-events:none;
+  background:radial-gradient(circle,#a4ceef38 1px,transparent 1.4px) 0 0 / 16px 16px;
+  mask-image:linear-gradient(105deg,transparent 29%,#000 90%);
+}
+.task-hero-mark{
+  display:grid;place-items:center;flex:none;width:47px;height:47px;margin-top:2px;
+  border:1px solid color-mix(in srgb,var(--task-tone) 56%,#314f77);border-radius:13px;
+  color:color-mix(in srgb,var(--task-tone) 68%,white);
+  background:color-mix(in srgb,var(--task-tone) 21%,#11304b);
+}
+.task-hero-mark .ico{width:23px;height:23px}
+.task-hero-crumb{font-size:.76rem;font-weight:650;color:#bfd5e8;overflow-wrap:anywhere}
+.task-hero-crumb .ico{width:11px;height:11px;vertical-align:-1px;margin-inline:2px}
+.task-hero .task-modal-title h2{color:#f5f9ff;margin-block:5px 9px;font-size:clamp(1.35rem,4.5vw,1.86rem)}
+.task-hero-state{display:flex;gap:5px;flex-wrap:wrap}
+.task-hero-state .status{border-color:#a2c5e347;background:#18324e;color:#dceaf7}
+.task-hero-state .status.doing{color:#a9ddff;background:#173759}
+.task-hero-state .status.done{color:#a2ecc8;background:#143f3f}
+.task-hero-state .status:is(.blocked,.attention){color:#ffe0a0;background:#493920}
+.task-hero-tools{gap:5px;flex-wrap:wrap;justify-content:flex-end;max-width:123px}
+.task-hero-tools .icon-btn{
+  color:#d8eafa;background:#12304a;border-color:#b0d5f240;width:34px;height:34px;
+}
+.task-hero-tools .icon-btn:hover,.task-hero .dialog-grip:hover{background:#234863;color:white}
+.task-hero .dialog-grip{color:#9abbd5;margin-left:-8px;margin-right:-6px}
+
+.task-facts{
+  display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1.35fr) minmax(0,.75fr);
+  gap:1px;background:var(--border);border-bottom:1px solid var(--border);flex:none;
+}
+.task-fact{display:grid;gap:4px;align-content:start;background:var(--surface);padding:12px 14px;min-width:0}
+.task-fact h3{
+  display:flex;align-items:center;gap:5px;color:var(--subtle);
+  font-size:.68rem;font-weight:700;line-height:1.25;
+}
+.task-fact h3 .ico,.task-deadline-label .ico,.task-owner-summary .ico{width:13px;height:13px;flex:none}
+.task-fact strong{font-size:.81rem;color:var(--text);overflow-wrap:anywhere}
+.task-fact-owners{display:flex;min-width:0;align-items:center;flex-wrap:wrap;gap:4px 9px}
+.task-fact-owners>span,.task-owner-summary{display:inline-flex;gap:5px;align-items:center;min-width:0;font-size:.76rem;font-weight:650;overflow-wrap:anywhere}
+.task-fact-owners>span>i,.task-owner-summary>i{display:inline-flex;flex:none;font-style:normal}
+.task-priority>div{display:grid;gap:6px;align-items:center}
+.task-priority small{font-size:.68rem;color:var(--subtle);white-space:nowrap}
+.task-priority-track{display:block;height:4px;max-width:108px;border-radius:9px;background:var(--raised)}
+.task-priority-track i{display:block;width:var(--importance);height:100%;border-radius:inherit;background:var(--accent)}
+.task-deadline-label{display:inline-flex;align-items:center;gap:4px;color:var(--subtle);font-size:.76rem;font-weight:550}
+.task-deadline-label.near{color:var(--warning)}
+.task-deadline-label.late{color:var(--danger)}
+.task-deadline-label.complete{color:var(--good)}
+.task-card-actions{
+  display:flex;gap:3px 7px;flex-wrap:wrap;padding:6px 14px;flex:none;
+  border-bottom:1px solid var(--border);background:var(--well);
+}
+.task-card-actions .btn{font-size:.76rem;min-height:32px;padding:4px 7px}
+#task-dialog .task-tabs{flex:none}
+
+.board-task-actions>.task-card,.reference-task-actions>.reference-tile,
+.reference-task-actions.with-meeting-action>.reference-tile,
+.task-overview .blocklist .reference-task-actions>.reference-tile,
+.task-overview .blocklist .reference-task-actions.with-meeting-action>.reference-tile{padding-right:10px}
+.board-task-actions .board-card-title,.with-meeting-action .task-reference-heading{padding-right:59px}
+.reference-task-actions:not(.with-meeting-action) .task-reference-heading{padding-right:27px}
+.task-reference-state,.task-reference-footer{display:flex;align-items:center;flex-wrap:wrap;gap:5px 9px}
+.task-reference-footer{
+  justify-content:space-between;border-top:1px solid var(--border);padding-top:6px;color:var(--subtle);
+}
+.task-reference-footer .reference-progress{margin-left:auto;font-size:.73rem}
+.task-owner-summary small{font-size:.67rem;padding:1px 4px;border-radius:6px;background:var(--raised);color:var(--text)}
+.schedule-task-name{display:flex;align-items:center;gap:7px;margin-block:0 3px}
+.builder-deadline{min-width:136px}
+[data-template-duration][hidden]{display:none}
+
+.meeting-note-shell{margin-top:8px}
+.meeting-pin-row{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:6px}
+.calendar-pinned-label,.meeting-note-pin{display:inline-flex;align-items:center;gap:5px;color:var(--accent-text);font-weight:700;font-size:.75rem}
+.calendar-pinned-label .ico,.meeting-note-pin .ico{width:14px;height:14px}
+.calendar-pinned-note{
+  display:grid;gap:6px;padding:11px 12px;border:1px solid var(--border);
+  border-left:3px solid var(--accent);border-radius:9px;background:color-mix(in srgb,var(--accent) 9%,var(--surface));min-width:0;
+}
+.calendar-pinned-note button{
+  display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 7px;align-items:center;text-align:left;
+  min-height:34px;padding:2px 0;border:0;background:transparent;color:var(--text);overflow-wrap:anywhere;
+}
+.calendar-pinned-note button small{grid-column:1;color:var(--subtle)}
+.calendar-pinned-note button .ico{grid-column:2;grid-row:1 / span 2;color:var(--accent-text)}
+.calendar-pinned-note p{margin:0;color:var(--text);white-space:pre-wrap;overflow-wrap:anywhere;font-size:.85rem;line-height:1.45}
+#meeting-report:focus{outline:2px solid var(--accent);outline-offset:2px}
+
+@media(max-width:550px){
+  .task-modal-head.task-hero{gap:8px;padding:12px 10px}
+  .task-hero-mark{width:31px;height:31px;border-radius:8px}
+  .task-hero-mark .ico{width:17px;height:17px}
+  .task-hero-tools{gap:3px;max-width:67px}
+  .task-hero-tools .icon-btn{width:30px;height:30px}
+  .task-hero .task-modal-title h2{margin-bottom:6px}
+  .task-facts{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+  .task-fact{padding:7px 9px}
+  .task-priority{grid-column:span 2;display:flex;align-items:center;gap:9px}
+  .task-priority>div{display:flex}
+  .task-priority-track{width:58px}
+  .task-card-actions{padding:3px 8px}
+}
+
+/* My work focus */
+.focus-lead{
+  display:flex;align-items:center;gap:16px;padding:19px 22px;margin-bottom:14px;
+  border:1px solid #38667e;border-radius:14px;color:#f1f8ff;
+  background:radial-gradient(ellipse at 12% 0%,#22516e,transparent 75%),#10243c;
+}
+.focus-lead-icon{
+  width:48px;height:48px;display:grid;place-items:center;flex:none;border-radius:12px;
+  background:#76b1d22b;border:1px solid #84c6e46a;color:#b6e9ff;
+}
+.focus-lead-icon .ico{width:24px;height:24px}
+.focus-lead-copy{flex:1;min-width:0;overflow-wrap:anywhere}
+.focus-lead h2{color:#b6d7ec;font-size:.82rem;font-weight:650;margin-bottom:3px}
+.focus-lead-copy>strong{font-size:clamp(1.15rem,3vw,1.55rem);line-height:1.18;letter-spacing:-.03em}
+.focus-lead-copy p{font-size:.85rem;color:#c1dcee;margin-top:3px}
+.focus-lead-action.btn{
+  align-self:center;flex:none;min-height:40px;background:#d9efff;color:#0f3049;border:1px solid #d9efff;
+}
+.focus-lead-action.btn:hover{background:white;color:#092438;border-color:white}
+.focus-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));align-items:start;gap:14px}
+.focus-section{min-width:0}
+.focus-section .panel-head,.project-notes .panel-head{gap:8px;justify-content:flex-start}
+.focus-section .panel-head>small,.project-notes .panel-head>small{
+  margin-inline-start:auto;font-weight:600;color:var(--subtle);
+}
+.focus-section .tile-icon{width:29px;height:29px}
+.focus-section .tile-icon .ico{width:16px;height:16px}
+.focus-waiting .tile-icon{color:var(--warning)}
+.focus-today .tile-icon,.focus-impact .tile-icon{color:var(--accent-text)}
+.focus-rows{padding:5px 9px 9px}
+.focus-task{
+  display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:start;gap:8px;width:100%;
+  padding:10px 6px;border:1px solid transparent;border-bottom-color:var(--border);border-radius:0;
+  color:var(--text);background:transparent;text-align:left;
+}
+.focus-task:hover,.focus-task:focus-visible{border-radius:8px;border-color:var(--border);background:var(--hover)}
+.focus-task:last-child{border-bottom-color:transparent}
+.focus-task-copy,.focus-task-meta{display:grid;gap:3px}
+.focus-task-copy strong{font-size:.9rem;line-height:1.22;overflow-wrap:anywhere}
+.focus-task-copy small{color:var(--subtle);font-size:.79rem;overflow-wrap:anywhere}
+.focus-task-meta{justify-items:end;white-space:nowrap}
+.focus-task-copy .focus-context{display:flex;gap:4px;margin-top:3px;color:var(--text);line-height:1.35}
+.focus-context .ico{width:13px;height:13px;margin-top:2px;flex:none;color:var(--accent-text)}
+.focus-waiting .focus-context .ico{color:var(--warning)}
+.focus-empty{padding:9px;color:var(--subtle);font-size:.89rem}
+.focus-more>summary{padding:8px 6px;color:var(--accent-text);cursor:pointer;font-size:.84rem}
+
+/* Project discussions and meeting recurrence */
+.project-notes{max-width:860px}
+.project-notes .task-notes{padding:8px 16px 12px}
+.project-notes .note{border-bottom:1px solid var(--border)}
+.project-notes .focused-note{background:var(--well);border-radius:8px;box-shadow:inset 3px 0 var(--accent);padding-inline:9px}
+.project-notes .note p{font-size:.94rem}
+.meeting-repeat-editor,.meeting-repeat-editor [data-repeat-options]{display:grid;gap:7px}
+.meeting-repeat-editor [data-repeat-options]{background:var(--well);border:1px solid var(--border);border-radius:9px;padding:9px 11px}
+.meeting-repeat-editor [hidden]{display:none}
+.meeting-repeat-hint{color:var(--accent-text);font-size:.86rem;font-weight:650}
+.meeting-repeat-tag,.calendar-repeat{color:var(--accent-text);font-size:.78rem;font-weight:650;display:inline-flex;align-items:center;gap:4px}
+.meeting-repeat-tag .ico,.calendar-repeat .ico{width:13px;height:13px;flex:none}
+.meeting-record-actions{flex-wrap:wrap}
+@media(max-width:860px){
+  .focus-grid{grid-template-columns:minmax(0,1fr)}
+}
+@media(max-width:550px){
+  .focus-lead{display:grid;grid-template-columns:auto minmax(0,1fr);gap:10px;padding:13px}
+  .focus-lead-icon{width:36px;height:36px}
+  .focus-lead-icon .ico{width:19px;height:19px}
+  .focus-lead-action.btn{grid-column:2;justify-self:start}
+}
+.focus-lead-signals{display:flex;flex-wrap:wrap;gap:5px 11px;color:#c1dcee;margin-top:6px}
+.focus-lead-signals>span{display:inline-flex;align-items:center;gap:4px;font-size:.78rem}
+.focus-lead-signals .ico{width:13px;height:13px}
+.focus-lead-signals .task-deadline-label{color:#c1dcee}
+.focus-lead-signals .task-deadline-label.late{color:#ffc1b8}
+.focus-lead-signals .task-deadline-label.near{color:#ffe0a0}
+
+/* Calculated workflow schedule */
+.workflow-schedule{
+  display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(0,1.3fr) auto;
+  gap:10px 16px;align-items:center;margin:12px 0 5px;padding:12px 15px;
+  background:linear-gradient(108deg,color-mix(in srgb,var(--accent) 11%,var(--surface)),var(--surface) 52%);
+}
+.workflow-schedule-cell{display:flex;align-items:center;gap:9px;min-width:0}
+.workflow-schedule-cell>div{display:grid;gap:2px;min-width:0}
+.workflow-schedule-cell small{color:var(--subtle);font-size:.76rem;font-weight:650}
+.workflow-schedule-cell strong{color:var(--text);font-size:.96rem;line-height:1.25;overflow-wrap:anywhere}
+.workflow-schedule-cell:nth-child(3) strong{color:var(--accent-text)}
+.workflow-schedule-edit{justify-self:end}
+.workflow-schedule-details{grid-column:1/-1;border-top:1px solid var(--border);padding-top:8px}
+.workflow-schedule-details summary{cursor:pointer;color:var(--accent-text);font-size:.8rem}
+.workflow-schedule-details p{font-size:.85rem;max-width:76ch;color:var(--subtle);margin-top:6px}
+.duration-field{max-width:220px}
+.builder-inspector .duration-field{min-width:115px}
+.task-duration-badge{font-size:.76rem;font-weight:650;display:inline-flex;align-items:center;gap:4px;color:var(--text)}
+.task-duration-badge .ico{width:13px;height:13px;color:var(--accent-text)}
+.task-planned-range{color:var(--subtle);font-size:.74rem}
+.task-table table{min-width:530px}
+.task-table th:nth-child(1){width:39%}
+.task-table th:nth-child(2){width:15%}
+.task-table th:nth-child(3){width:15%}
+.task-table th:nth-child(4){width:12%}
+.task-table th:nth-child(5){width:19%}
+@media(max-width:680px){
+  .workflow-schedule{grid-template-columns:minmax(0,1fr) auto;padding:10px 12px;gap:9px}
+  .workflow-schedule-cell:first-child{grid-column:1;grid-row:1}
+  .workflow-schedule-cell:nth-child(2),.workflow-schedule-cell:nth-child(3){grid-column:1/-1}
+  .workflow-schedule-edit{grid-column:2;grid-row:1}
+}
