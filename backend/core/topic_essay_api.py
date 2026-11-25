@@ -1,11 +1,13 @@
 """Explicit publication of a reviewed Nextcloud Markdown revision."""
 from difflib import SequenceMatcher
 from pathlib import PurePosixPath
+from urllib.parse import urlencode
+from xml.etree import ElementTree
 
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured, ValidationError
 from django.db import transaction
-from django.http import JsonResponse
+from django.http import HttpResponse, HttpResponseRedirect, JsonResponse
 from django.utils import timezone
 from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_GET, require_http_methods
@@ -17,7 +19,7 @@ from .content_api import _voter_key
 from .canonical_models import CanonicalFile
 from .canonical_projects import acl_object, decode, object_for
 from .models import ResearchProject, TopicEssayPublication, TopicEssayReaction
-from .platform_access import can_edit, can_manage, downloads_allowed
+from .platform_access import can_edit, can_manage, can_view, downloads_allowed
 from .topic_essay_sources import ESSAYS, SLOTS, SOURCE_FILES, SOURCE_PATHS, is_topic_essay_source, slot_label
 from .topic_essay_render import render_essay
 from .topic_essay_versions import record_publication
@@ -243,6 +245,38 @@ def _comparison(before, after):
     ]
 
 
+def _open_version_source(project, user, path):
+    path = clean_path(path)
+    canonical = CanonicalFile.objects.filter(project=project, path=path).first()
+    if canonical:
+        obj = object_for(canonical) if not canonical.deleted else None
+        if not obj or not can_view(user, acl_object(obj)) or not downloads_allowed(obj):
+            raise PermissionError('essay_file_access_required')
+
+    try:
+        identity = nextcloud_bridge.ensure_user(user)
+        full_path = f'{cloud.project_mountpoint(project)}/{path}'
+        with cloud._request(
+            'PROPFIND', cloud._dav_url(identity, full_path), auth=cloud._auth(identity),
+            expected={207, 403, 404}, headers={'Depth': '0', 'Content-Type': 'application/xml'},
+            data=b'<d:propfind xmlns:d="DAV:" xmlns:oc="http://owncloud.org/ns">'
+                 b'<d:prop><d:resourcetype/><oc:fileid/></d:prop></d:propfind>',
+        ) as response:
+            if response.status_code == 403:
+                raise PermissionError('essay_file_access_required')
+            if response.status_code == 207:
+                root = ElementTree.fromstring(response.content)
+                file_id = root.findtext('.//{http://owncloud.org/ns}fileid', '').strip()
+                if file_id.isascii() and file_id.isdecimal() and root.find('.//{DAV:}collection') is None:
+                    query = urlencode({'next': f'/index.php/f/{file_id}'})
+                    return HttpResponseRedirect(f'/api/platform/nextcloud/sso/?{query}')
+    except (cloud.CloudError, ImproperlyConfigured, ElementTree.ParseError):
+        return HttpResponse('Nextcloud is temporarily unavailable. Try opening the source again.',
+                            content_type='text/plain', status=503)
+    return HttpResponse('This version’s source file was not found in Nextcloud.',
+                        content_type='text/plain', status=404)
+
+
 @never_cache
 @require_http_methods(['GET', 'POST'])
 def project_topic_essay_versions(request, project_id, depth):
@@ -285,6 +319,9 @@ def project_topic_essay_versions(request, project_id, depth):
             return JsonResponse({'ok': True, 'number': restored.number})
 
         number, before, after = (request.GET.get(key) for key in ('number', 'from', 'to'))
+        open_source = request.GET.get('open') == 'source'
+        if open_source and number is None:
+            raise ValueError('invalid_essay_version')
         publication = TopicEssayPublication.objects.filter(project=project, depth=depth).first()
         if not publication:
             if any(value is not None for value in (number, before, after)):
@@ -300,9 +337,12 @@ def project_topic_essay_versions(request, project_id, depth):
                 return JsonResponse({'ok': False, 'error': 'topic_essay_version_not_found'}, status=404)
             return JsonResponse({'ok': True, 'groups': _comparison(pair[before], pair[after])})
         if number is not None:
-            item = versions.filter(number=int(number)).first()
+            selected = versions.filter(number=int(number))
+            item = selected.only('source_path').first() if open_source else selected.first()
             if not item:
                 return JsonResponse({'ok': False, 'error': 'topic_essay_version_not_found'}, status=404)
+            if open_source:
+                return _open_version_source(project, request.user, item.source_path)
             return JsonResponse({'ok': True, 'number': item.number, 'markdown': item.markdown})
 
         items = list(versions.defer('markdown', 'source_etag'))

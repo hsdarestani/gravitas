@@ -218,6 +218,50 @@ class TopicEssayPublicationTests(TestCase):
         self.assertIn('Original argument', self.client.get(PUBLIC_URL).json()['essays']['overview']['html'])
         self.assertEqual(self.client.get(HISTORY_URL, {'from': 1, 'to': 3}).json()['groups'], [])
 
+    def test_open_version_source_uses_that_versions_path_and_the_callers_dav_identity(self):
+        old_path = '05_Deliverables/earlier source.md'
+        self.client.force_login(self.owner)
+        with patch('core.topic_essay_api._source_markdown', side_effect=['# First', '# Second']):
+            first = self.publish(path=old_path).json()['slots']['overview']['version']
+            self.assertEqual(self.publish(path=SOURCE_PATH, version=first, etag='"v2"').status_code, 200)
+
+        access = {'number': 1, 'open': 'source'}
+        identity = SimpleNamespace(username='editor')
+        dav = MagicMock(status_code=207, content=(
+            b'<d:multistatus xmlns:d="DAV:" xmlns:oc="http://owncloud.org/ns">'
+            b'<d:response><d:propstat><d:prop><d:resourcetype/><oc:fileid>724</oc:fileid></d:prop>'
+            b'<d:status>HTTP/1.1 200 OK</d:status></d:propstat></d:response></d:multistatus>'
+        ))
+        dav.__enter__.return_value = dav
+        with (
+            patch('core.topic_essay_api.nextcloud_bridge.ensure_user', return_value=identity) as ensure,
+            patch('core.topic_essay_api.cloud._auth', return_value=('editor', 'unused')),
+            patch('core.topic_essay_api.cloud._request', return_value=dav) as lookup,
+        ):
+            self.client.logout()
+            self.assertEqual(self.client.get(HISTORY_URL, access).status_code, 403)
+            lookup.assert_not_called()
+
+            self.client.force_login(self.editor)
+            self.assertEqual(self.client.get(HISTORY_URL, {'number': 1}).json()['markdown'], '# First')
+            lookup.assert_not_called()
+            result = self.client.get(HISTORY_URL, access)
+            self.assertEqual(result.status_code, 302)
+            self.assertEqual(result['Location'], '/api/platform/nextcloud/sso/?next=%2Findex.php%2Ff%2F724')
+            ensure.assert_called_once_with(self.editor)
+            self.assertEqual(lookup.call_args.args[0], 'PROPFIND')
+            self.assertTrue(lookup.call_args.args[1].endswith('/GRV-000813/05_Deliverables/earlier%20source.md'))
+            self.assertEqual(lookup.call_args.kwargs['headers']['Depth'], '0')
+            self.assertEqual(lookup.call_args.kwargs['auth'], ('editor', 'unused'))
+
+            dav.status_code = 403
+            self.assertEqual(self.client.get(HISTORY_URL, access).status_code, 403)
+            dav.status_code = 404
+            missing = self.client.get(HISTORY_URL, access)
+            self.assertEqual(missing.status_code, 404)
+            self.assertContains(missing, 'source file was not found in Nextcloud', status_code=404)
+            self.assertNotIn('Location', missing)
+
     @patch('core.topic_essay_api._source_markdown', return_value='Published essay Markdown')
     def test_restore_requires_edit_access_and_rebinding_requires_manage_access(self, source):
         self.client.force_login(self.owner)
