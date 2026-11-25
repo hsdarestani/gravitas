@@ -1,5 +1,6 @@
 'use strict';
 const assert=require('node:assert/strict');
+const {execFileSync}=require('node:child_process');
 const http=require('node:http');
 const path=require('node:path');
 const fs=require('node:fs');
@@ -156,4 +157,5 @@ async function assertSequentialVisibleNumbers(page,scenario){
       process.stdout.write('Expanded prelaunch browser QA: '+width+'px passed\n');
     }
   }finally{await browser.close();await new Promise(resolve=>server.close(resolve));}
+  execFileSync(process.execPath,[path.join(__dirname,'test-prelaunch-analytics-browser.cjs')],{stdio:'inherit'});
 })().catch(error=>{console.error(error);server.close();process.exitCode=1;});
