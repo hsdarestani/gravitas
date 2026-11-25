@@ -28,7 +28,7 @@ import {
   renderAdminUsers,
 } from './ws-admin.js?v=20261016-task1&patch=20261102labusage1';
 import { renderAdminContent, renderAdminContentEditor } from './ws-topic-admin.js?v=20261016-task1&patch=20261125essayversions1';
-import { renderAdminPrelaunchFeedback } from './ws-prelaunch-feedback.js?v=20261016-task1&patch=20261119sequential1';
+import { renderAdminPrelaunchFeedback } from './ws-prelaunch-feedback.js?v=20261016-task1&survey=20261125a';
 import { renderCoreLinks } from './ws-core-links.js?v=20261016-task1';
 import { renderResearchProject } from './ws-project.js?v=20261016-task1&patch=20261110qa1';
 
@@ -62,7 +62,7 @@ const ADMIN_INDEX = [
   ['Users', '/workspace/core/admin/users', 'team', 'Accounts, roles and permissions'],
   ['Topics', '/workspace/core/admin/content', 'topic', 'Write and publish site topics'],
   ['Moderation', '/workspace/core/admin/moderation', 'moderation', 'Review public comments'],
-  ['Prelaunch Feedback', '/workspace/core/admin/feedback', 'activity', 'Survey responses and CSV export'],
+  ['Pre-launch Survey', '/workspace/core/admin/feedback', 'activity', 'Survey analytics and CSV export'],
   ['Newsletter', '/workspace/core/admin/newsletter', 'mail', 'Subscribers and campaigns'],
   ['Support Tickets', '/workspace/core/admin/tickets', 'support', 'Reply to member requests'],
   ['Lab Studio', '/workspace/core/admin/labs', 'lab', 'Configure Lab code, components and Pulsar guidance'],

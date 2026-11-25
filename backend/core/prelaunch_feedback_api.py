@@ -3,10 +3,14 @@ import csv
 import io
 import json
 from collections import Counter
+from datetime import date, datetime, time, timedelta, timezone
 
 from django.core.exceptions import ValidationError
 from django.core.validators import validate_email
+from django.db.models import Q
 from django.http import HttpResponse, JsonResponse
+from django.utils import timezone as django_timezone
+from django.views.decorators.cache import never_cache
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_http_methods
 
@@ -211,78 +215,257 @@ def _safe_csv(value):
     return value
 
 
+# Analytics uses the stored answer contract, including branches and the original
+# form. Both forms used the same survey_version, so only stored legacy scores
+# establish membership of the historical cohort.
+LEGACY_RATINGS = {
+    'overall_rating': RATINGS['overall_rating'],
+    'usability': RATINGS['usability'],
+    **{'section:' + section: (1, 10) for section in SECTIONS},
+}
+CURRENT_RATINGS = {key: scale for key, scale in RATINGS.items() if key not in LEGACY_RATINGS}
+CATEGORIES = {'persona': PERSONAS, **CHOICES}
+COHORT_FILTERS = ('persona', 'video_watched', 'community_visited')
+GATES = {
+    'persona_other': ('persona', ('other',)),
+    'broken_where': ('anything_broken', ('yes',)),
+    **{key: ('video_watched', ('all', 'part')) for key in (
+        'video_content_quality', 'video_visuals', 'video_audio', 'video_pace', 'video_feedback'
+    )},
+    'video_stop_reason': ('video_watched', ('part',)),
+    **{key: ('community_visited', ('yes',)) for key in (
+        'community_purpose', 'forum_usability', 'forum_participation', 'forum_motivation'
+    )},
+}
+RATING_SCALES = {**CURRENT_RATINGS, **LEGACY_RATINGS}
+OPTIONS = {
+    **CATEGORIES,
+    **{key: tuple(range(low, high + 1)) for key, (low, high) in RATING_SCALES.items()},
+}
+QUESTION_KEYS = (*OPTIONS, *TEXT_FIELDS, 'contact_email', 'name')
+CURRENT_QUESTIONS = (*CATEGORIES, *CURRENT_RATINGS, *TEXT_FIELDS)
+
+
+def _text_value(value):
+    return value.strip() if isinstance(value, str) else ''
+
+
+def _answer(answers, key):
+    if key.startswith('section:'):
+        sections = answers.get('section_ratings')
+        return sections.get(key[8:]) if isinstance(sections, dict) else None
+    return answers.get(key)
+
+
+def _cohort(params):
+    bounds = []
+    for key in ('from', 'to'):
+        value = params.get(key)
+        try:
+            parsed = date.fromisoformat(value) if value else None
+            if parsed and parsed.isoformat() != value:
+                raise ValueError
+            bounds.append(parsed)
+        except ValueError:
+            raise ValueError('Enter dates in YYYY-MM-DD format.') from None
+    start, end = bounds
+    if start and end and start > end:
+        raise ValueError('The end date must be on or after the start date.')
+
+    filtered = PrelaunchFeedback.objects.filter(survey_version=SURVEY_VERSION)
+    if start:
+        filtered = filtered.filter(created_at__gte=datetime.combine(start, time.min, timezone.utc))
+    if end:
+        filtered = filtered.filter(created_at__lte=datetime.combine(end, time.max, timezone.utc))
+    for key in COHORT_FILTERS:
+        value = params.get(key)
+        if not value:
+            continue
+        if value == 'unspecified':
+            filtered = filtered.filter(
+                ~Q(answers__has_key=key) | Q(**{f'answers__{key}': None}) | Q(**{f'answers__{key}': ''})
+            )
+        elif value in CATEGORIES[key]:
+            filtered = filtered.filter(**{f'answers__{key}': value})
+        else:
+            raise ValueError('Choose a valid survey filter.')
+    return filtered.order_by('-created_at', '-id'), start, end
+
+
+def _csv_response(rows):
+    buffer = io.StringIO()
+    writer = csv.writer(buffer)
+    writer.writerow(['id', 'name', 'created_at', 'updated_at'] + EXPORT_FIELDS + [
+        'rating_' + section for section in SECTIONS
+    ])
+    for submission in rows:
+        answers = submission.answers or {}
+        values = [
+            submission.pk, submission.name, submission.created_at.isoformat(),
+            submission.updated_at.isoformat(),
+        ] + [answers.get(field) for field in EXPORT_FIELDS] + [
+            _answer(answers, 'section:' + section) for section in SECTIONS
+        ]
+        writer.writerow([_safe_csv(value) for value in values])
+    response = HttpResponse(buffer.getvalue(), content_type='text/csv; charset=utf-8')
+    response['Content-Disposition'] = 'attachment; filename="graviquest-prelaunch-feedback.csv"'
+    return response
+
+
+def _participation(daily, start, end):
+    if not daily:
+        return []
+    start, end = start or min(daily), end or max(daily)
+    days = (end - start).days + 1
+    # Use daily counts for short ranges and group by whole weeks for longer
+    # ranges. Keep the final partial interval and all intervals with zero.
+    step = 1 if days <= 28 else 7 * ((days + 195) // 196)
+    counts = Counter()
+    for day, count in daily.items():
+        counts[(day - start).days // step] += count
+    return [
+        {
+            'from': (start + timedelta(days=offset)).isoformat(),
+            'to': (start + timedelta(days=min(offset + step, days) - 1)).isoformat(),
+            'count': counts[index],
+        }
+        for index, offset in enumerate(range(0, days, step))
+    ]
+
+
+def _report(rows, start, end, page, per_page):
+    daily = Counter()
+    eligible = Counter()
+    distributions = {key: Counter() for key in OPTIONS}
+    answered = Counter()
+    submissions = []
+    total = 0
+
+    for item in rows:
+        total += 1
+        daily[item.created_at.astimezone(timezone.utc).date()] += 1
+        if (page - 1) * per_page < total <= page * per_page:
+            submissions.append({'id': str(item.pk), **_serialize(item)})
+
+        answers = item.answers or {}
+        legacy_scores = {key: _answer(answers, key) for key in LEGACY_RATINGS}
+        legacy = any(type(value) is int and value in OPTIONS[key] for key, value in legacy_scores.items())
+        for key in QUESTION_KEYS:
+            value = item.name if key == 'name' else _answer(answers, key)
+            if key in RATING_SCALES:
+                valid = type(value) is int and value in OPTIONS[key]
+            elif key in CATEGORIES:
+                valid = isinstance(value, str) and value in OPTIONS[key]
+            else:
+                valid = bool(_text_value(value))
+
+            # A genuine saved answer proves applicability, even for a legacy
+            # video comment saved before its follow-up question existed.
+            if key in LEGACY_RATINGS and not legacy:
+                continue
+            if key in GATES and not valid:
+                parent, choices = GATES[key]
+                if answers.get(parent) not in choices:
+                    continue
+            eligible[key] += 1
+            if valid:
+                answered[key] += 1
+                if key in distributions:
+                    distributions[key][value] += 1
+
+    questions = {}
+    for key in QUESTION_KEYS:
+        question = {
+            'answered': answered[key],
+            'unanswered': eligible[key] - answered[key],
+            'outside_base': total - eligible[key],
+            'eligible': eligible[key],
+        }
+        if key in OPTIONS:
+            question['options'] = [
+                {'value': value, 'count': distributions[key][value]} for value in OPTIONS[key]
+            ]
+        if key in RATING_SCALES:
+            question['average'] = (
+                round(sum(value * count for value, count in distributions[key].items()) / answered[key], 2)
+                if answered[key] else None
+            )
+        questions[key] = question
+
+    today = django_timezone.now().astimezone(timezone.utc).date()
+    return {
+        'total': total,
+        'answered_slots': sum(answered[key] for key in CURRENT_QUESTIONS),
+        'eligible_slots': sum(eligible[key] for key in CURRENT_QUESTIONS),
+        'last_7_days': sum(count for day, count in daily.items() if 0 <= (today - day).days < 7),
+        'last_30_days': sum(count for day, count in daily.items() if 0 <= (today - day).days < 30),
+        'trend': _participation(daily, start, end),
+        'questions': questions,
+        'responses': submissions,
+    }
+
+
+def _text_report(rows, field, query, page, per_page):
+    total = 0
+    results = []
+    fields = (field,) if field else TEXT_FIELDS
+    needle = query.strip().casefold()
+    for item in rows:
+        answers = item.answers or {}
+        comments = {
+            key: value for key in fields
+            if (value := _text_value(answers.get(key))) and needle in value.casefold()
+        }
+        if not comments:
+            continue
+        total += 1
+        if (page - 1) * per_page < total <= page * per_page:
+            results.append({
+                'id': str(item.pk), 'created_at': item.created_at.isoformat(),
+                'persona': answers.get('persona'), 'comments': comments,
+            })
+    return {'total': total, 'responses': results}
+
+
+@never_cache
 @require_http_methods(['GET'])
 def admin_prelaunch_feedback(request):
     if not _core_admin(request):
         return _deny(request)
-    base = PrelaunchFeedback.objects.filter(survey_version=SURVEY_VERSION).order_by('-created_at', '-id')
-    if request.GET.get('format') == 'csv':
-        buffer = io.StringIO()
-        writer = csv.writer(buffer)
-        fields = ['id', 'name', 'created_at', 'updated_at'] + EXPORT_FIELDS + [
-            'rating_' + section for section in SECTIONS
-        ]
-        writer.writerow(fields)
-        for submission in base.iterator(chunk_size=200):
-            answers = submission.answers or {}
-            values = [
-                str(submission.pk), submission.name, submission.created_at.isoformat(),
-                submission.updated_at.isoformat()
-            ] + [answers.get(field, '') for field in EXPORT_FIELDS] + [
-                (answers.get('section_ratings') or {}).get(section, '')
-                for section in SECTIONS
-            ]
-            writer.writerow([_safe_csv(value) for value in values])
-        response = HttpResponse(buffer.getvalue(), content_type='text/csv; charset=utf-8')
-        response['Content-Disposition'] = 'attachment; filename="graviquest-prelaunch-feedback.csv"'
-        response['Cache-Control'] = 'no-store'
-        return response
+    try:
+        filtered, start, end = _cohort(request.GET)
+        text_field = request.GET.get('question', '')
+        query = request.GET.get('q', '')
+        if request.GET.get('view') == 'text':
+            if text_field and text_field not in TEXT_FIELDS:
+                raise ValueError('Choose a valid text question.')
+            if len(query) > 200:
+                raise ValueError('Search terms can contain up to 200 characters.')
+    except ValueError as exc:
+        return JsonResponse({'ok': False, 'error': str(exc)}, status=400)
 
-    persona = str(request.GET.get('persona', '')).lower()
-    if persona in PERSONAS:
-        filtered = base.filter(answers__persona=persona)
-    elif persona == 'unspecified':
-        filtered = base.exclude(answers__has_key='persona')
-    else:
-        filtered = base
+    rows = filtered.iterator(chunk_size=200)
+    if request.GET.get('format') == 'csv':
+        return _csv_response(rows)
 
     try:
-        page = max(1, min(10000, int(request.GET.get('page', '1'))))
-    except (TypeError, ValueError):
+        page = max(1, int(request.GET.get('page', '1')))
+    except ValueError:
         page = 1
     per_page = 50
-    rows = list(filtered[(page - 1) * per_page:page * per_page])
-
-    # Prelaunch cohorts are intentionally small. Aggregate from the original
-    # unfiltered group so navigating pages/filters never changes headline metrics.
-    all_answers = list(base.values_list('answers', flat=True))
-    counts = Counter((a or {}).get('persona') or 'unspecified' for a in all_answers)
-    keys = list(RATINGS) + ['section:' + s for s in SECTIONS]
-    metrics = {}
-    metric_counts = {}
-    for key in keys:
-        values = []
-        for answer in all_answers:
-            answer = answer or {}
-            value = (answer.get('section_ratings') or {}).get(key[8:]) if key.startswith('section:') else answer.get(key)
-            if type(value) is int:
-                values.append(value)
-        metrics[key] = round(sum(values) / len(values), 2) if values else None
-        metric_counts[key] = len(values)
-
-    response = JsonResponse({
-        'ok': True,
-        'total': len(all_answers),
-        'filtered_total': filtered.count(),
-        'page': page,
-        'per_page': per_page,
-        'persona_counts': dict(counts),
-        'averages': metrics,
-        'metric_counts': metric_counts,
-        'responses': [
-            {'id': str(item.pk), **_serialize(item)}
-            for item in rows
-        ],
-    })
-    response['Cache-Control'] = 'no-store'
-    return response
+    if request.GET.get('view') == 'text':
+        report = _text_report(rows, text_field, query, page, per_page)
+    else:
+        report = _report(rows, start, end, page, per_page)
+        # Keep the previous view usable while cached Workspace assets refresh.
+        questions = report['questions']
+        report.update({
+            'filtered_total': report['total'],
+            'persona_counts': {
+                **{option['value']: option['count'] for option in questions['persona']['options']},
+                'unspecified': questions['persona']['unanswered'],
+            },
+            'averages': {key: questions[key]['average'] for key in RATING_SCALES},
+            'metric_counts': {key: questions[key]['answered'] for key in RATING_SCALES},
+        })
+    return JsonResponse({'ok': True, 'page': page, 'per_page': per_page, **report})
