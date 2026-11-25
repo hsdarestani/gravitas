@@ -12,6 +12,7 @@ from django.db import connection, connections
 from django.test import Client, TestCase, TransactionTestCase, override_settings, skipUnlessDBFeature
 from django.utils import timezone
 
+from .canonical_models import CanonicalProject
 from .cloud import CloudError
 from .topic_essay_sources import SOURCE_PATHS
 from .models import ProjectMembership, PublicPageSnapshot, ResearchProject, TopicEssayPublication, TopicEssayVersion, Workspace
@@ -156,12 +157,18 @@ class TopicEssayPublicationTests(TestCase):
         )
         self.assertEqual(self.client.get(PUBLIC_URL).json(), before)
 
+    @patch('core.canonical_middleware.refresh_project',
+           side_effect=AssertionError('Essay requests must not crawl the project in Nextcloud'))
     @patch('core.topic_essay_api._source_markdown')
-    def test_versions_compare_restore_and_deduplicate_per_slot(self, source):
+    def test_versions_compare_restore_and_deduplicate_per_slot(self, source, _refresh):
+        CanonicalProject.objects.create(project=self.project, enabled=True)
         original = '# Essay\n\nOriginal argument\n\nStart\n\nKeep A\nKeep B\nKeep C\n\nEnd\n\nRemoved appendix\n'
         revised = original.replace('Original argument', 'Revised argument').replace('Removed appendix\n', '')
         revised = revised.replace('Keep A', 'New paragraph\nKeep A')
         self.client.force_login(self.owner)
+        state = self.client.get(EDITOR_URL, {'path': ''})
+        self.assertEqual(state.status_code, 200)
+        self.assertFalse(state.json()['slots']['overview']['occupied'])
         source.return_value = original
         first = self.publish(change_note='First edition').json()['slots']['overview']['version']
         source.return_value = revised

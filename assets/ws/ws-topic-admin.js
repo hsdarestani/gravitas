@@ -22,7 +22,7 @@
 import * as P from './ws-platform.js?v=20261016-task1&patch=20261027reliability1';
 import * as K from './ws-admin-kit.js?v=20261016-task1';
 import { renderNoteMarkdown } from './ws-notes-markdown.js?v=20261016-task1';
-import { essayVersionHistory } from './ws-essay-versions.js?v=20261016-task1&patch=20261125essayversions1';
+import { essayVersionHistory } from './ws-essay-versions.js?v=20261016-task1&patch=20261125essayversions2';
 
 const { el } = K;
 const ADMIN = '/workspace/core/admin';
@@ -57,7 +57,7 @@ function mountTopic01EssayPicker(host) {
     const path = selected?.path;
     await refreshPublished();
     if (path) await loadFile(path);
-  });
+  }, () => refreshPublished().catch(() => {}));
   const publish = K.button('Publish selected Markdown', async () => {
     const depth = slotSelect.value;
     const option = essayState?.slots?.[depth];
@@ -140,7 +140,16 @@ function mountTopic01EssayPicker(host) {
   }
   async function refreshPublished() {
     const id = projectId;
-    const state = await P.call(endpoint('topic-essays/?path='));
+    let state;
+    try {
+      state = await P.call(endpoint('topic-essays/?path='));
+    } catch (error) {
+      if (id === projectId) {
+        published.textContent = '';
+        versions.levelsUnavailable(error);
+      }
+      throw error;
+    }
     if (id !== projectId) return;
     published.textContent = 'Current live slots: ' +
       Object.values(state.slots || {}).map((slot) =>
@@ -218,13 +227,7 @@ function mountTopic01EssayPicker(host) {
     published.textContent = '';
     versions.setProject(projectId);
     if (!projectId) return;
-    K.setStatus(status, 'Checking Topic 01 research project access…');
-    try {
-      await refreshPublished(); // The backend accepts only the configured Topic 01 project.
-      await browse(defaultFolder);
-    } catch (error) {
-      K.setStatus(status, `This project cannot manage Topic 01 essays (${error.message || 'access denied'}). Choose the configured research project with edit access.`, 'bad');
-    }
+    await Promise.allSettled([refreshPublished(), browse(defaultFolder)]);
   }
 
   projectSelect.addEventListener('change', loadProject);
@@ -241,6 +244,7 @@ function mountTopic01EssayPicker(host) {
   slotSelect.addEventListener('change', refreshPublish);
   reload.disabled = true;
   changeNote.disabled = true;
+  host.prepend(versions.panel);
   host.append(
     K.heading('Markdown source & publication'),
     message,
@@ -259,7 +263,6 @@ function mountTopic01EssayPicker(host) {
     K.field('Publication note (optional)', changeNote),
     K.cardActions([publish, reload]),
     status,
-    versions.panel,
   );
   P.call('/platform/projects/').then(({ projects }) => {
     const visible = (Array.isArray(projects) ? projects : []).filter((item) => item.permissions?.can_edit);
