@@ -22,6 +22,7 @@
 import * as P from './ws-platform.js?v=20261016-task1&patch=20261027reliability1';
 import * as K from './ws-admin-kit.js?v=20261016-task1';
 import { renderNoteMarkdown } from './ws-notes-markdown.js?v=20261016-task1';
+import { essayVersionHistory } from './ws-essay-versions.js?v=20261016-task1&patch=20261125essayversions1';
 
 const { el } = K;
 const ADMIN = '/workspace/core/admin';
@@ -50,6 +51,13 @@ function mountTopic01EssayPicker(host) {
   preview.style.overflow = 'auto';
   preview.style.padding = '16px';
   preview.textContent = 'Select a file to preview its saved Markdown.';
+  const changeNote = K.input('');
+  changeNote.maxLength = 1000;
+  const versions = essayVersionHistory(async () => {
+    const path = selected?.path;
+    await refreshPublished();
+    if (path) await loadFile(path);
+  });
   const publish = K.button('Publish selected Markdown', async () => {
     const depth = slotSelect.value;
     const option = essayState?.slots?.[depth];
@@ -61,14 +69,16 @@ function mountTopic01EssayPicker(host) {
     refreshPublish();
     K.setStatus(status, 'Publishing the selected saved revision…');
     try {
-      await P.call(endpoint('topic-essays/'), {
+      const result = await P.call(endpoint('topic-essays/'), {
         method: 'POST',
-        body: { path: selected.path, depth, etag: selected.etag, version: option.version || '' },
+        body: { path: selected.path, depth, etag: selected.etag, version: option.version || '', change_note: changeNote.value },
       });
+      changeNote.value = '';
       const publishedPath = selected.path;
       await refreshPublished();
       await loadFile(publishedPath, true);
-      K.setStatus(status, `Published successfully: ${target}.`, 'ok');
+      K.setStatus(status, result.created_version ? `Published successfully: ${target}.`
+        : `The Markdown for ${target} matches the live version.`, 'ok');
     } catch (error) {
       const reason = error.message === 'essay_source_changed'
         ? 'The file changed in Nextcloud. Re-select it and review its latest revision.'
@@ -109,6 +119,7 @@ function mountTopic01EssayPicker(host) {
     folderInput.disabled = busy;
     fileSelect.disabled = busy;
     slotSelect.disabled = busy;
+    changeNote.disabled = busy || !selected;
     browseButton.disabled = busy;
     upButton.disabled = busy;
     reload.disabled = busy || !selected;
@@ -128,11 +139,14 @@ function mountTopic01EssayPicker(host) {
     ).join(' · ');
   }
   async function refreshPublished() {
+    const id = projectId;
     const state = await P.call(endpoint('topic-essays/?path='));
+    if (id !== projectId) return;
     published.textContent = 'Current live slots: ' +
       Object.values(state.slots || {}).map((slot) =>
         `${slot.label} (${slot.occupied ? 'published' : 'not published'})`
       ).join(' · ');
+    await versions.setProject(id, state.slots);
   }
   async function browse(path) {
     if (!projectId || busy) return;
@@ -202,6 +216,7 @@ function mountTopic01EssayPicker(host) {
     fileSelect.replaceChildren(option('', 'Select a .md file'));
     folderList.replaceChildren();
     published.textContent = '';
+    versions.setProject(projectId);
     if (!projectId) return;
     K.setStatus(status, 'Checking Topic 01 research project access…');
     try {
@@ -225,6 +240,7 @@ function mountTopic01EssayPicker(host) {
   });
   slotSelect.addEventListener('change', refreshPublish);
   reload.disabled = true;
+  changeNote.disabled = true;
   host.append(
     K.heading('Markdown source & publication'),
     message,
@@ -240,8 +256,10 @@ function mountTopic01EssayPicker(host) {
     fileInfo,
     K.heading('Source preview — not yet published'),
     preview,
+    K.field('Publication note (optional)', changeNote),
     K.cardActions([publish, reload]),
     status,
+    versions.panel,
   );
   P.call('/platform/projects/').then(({ projects }) => {
     const visible = (Array.isArray(projects) ? projects : []).filter((item) => item.permissions?.can_edit);

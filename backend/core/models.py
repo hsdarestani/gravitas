@@ -973,6 +973,28 @@ class TopicEssayPublication(models.Model):
     published_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True)
 
 
+class TopicEssayVersion(models.Model):
+    """A permanent snapshot of one publication in an essay's reading level."""
+
+    publication = models.ForeignKey(TopicEssayPublication, on_delete=models.PROTECT, related_name='versions')
+    number = models.PositiveIntegerField()
+    project = models.ForeignKey(ResearchProject, on_delete=models.SET_NULL, null=True)
+    source_path = models.CharField(max_length=800)
+    source_etag = models.CharField(max_length=255)
+    markdown = models.TextField()
+    published_at = models.DateTimeField()
+    published_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True)
+    publisher_name = models.CharField(max_length=150, blank=True)
+    change_note = models.CharField(max_length=1000, blank=True)
+    restored_from = models.PositiveIntegerField(null=True)
+
+    class Meta:
+        ordering = ['-number']
+        constraints = [
+            models.UniqueConstraint(fields=['publication', 'number'], name='unique_topic_essay_version'),
+        ]
+
+
 class TopicEssayReaction(models.Model):
     """One reader's answer to "Was this essay useful to you?" on Topic 01.
 

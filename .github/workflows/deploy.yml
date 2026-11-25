@@ -147,6 +147,11 @@ jobs:
             INITIAL_TOPIC_01_ESSAY_IMPORT=true
           fi
           echo "INITIAL_TOPIC_01_ESSAY_IMPORT=$INITIAL_TOPIC_01_ESSAY_IMPORT" >> "$GITHUB_ENV"
+          INITIAL_TOPIC_01_ESSAY_VERSIONS=false
+          if ! git cat-file -e "$BASE:backend/core/migrations/0113_topic_essay_versions.py" 2>/dev/null; then
+            INITIAL_TOPIC_01_ESSAY_VERSIONS=true
+          fi
+          echo "INITIAL_TOPIC_01_ESSAY_VERSIONS=$INITIAL_TOPIC_01_ESSAY_VERSIONS" >> "$GITHUB_ENV"
           echo "STATIC_ONLY=$STATIC_ONLY" >> "$GITHUB_ENV"
           echo "CODE_ONLY=$CODE_ONLY" >> "$GITHUB_ENV"
           echo "Release scope=$RELEASE_SCOPE static=$STATIC_ONLY hot_reload=$CODE_ONLY"
@@ -811,9 +816,10 @@ jobs:
             "$DEPLOY_USER@$HOST:$BACKEND_PATH/lab-sources/science-universe/"
 
           ssh -i ~/.ssh/gravitas_deploy -p "$DEPLOY_PORT" "$DEPLOY_USER@$HOST" \
-            bash -s -- "$BACKEND_PATH" <<'REMOTE'
+            bash -s -- "$BACKEND_PATH" "$DEPLOY_PATH" <<'REMOTE'
           set -euo pipefail
           BACKEND_PATH="$1"
+          ESSAY_VERIFY="$2/ops/verify_topic_essay_release.py"
 
           sudo chown -R gravitas:gravitas "$BACKEND_PATH"
           if [ ! -x "$BACKEND_PATH/.venv/bin/python" ]; then
@@ -827,7 +833,29 @@ jobs:
 
           cd "$BACKEND_PATH"
           sudo -u gravitas env "${DJANGO_ENV[@]}" "$BACKEND_PATH/.venv/bin/django-admin" makemigrations core --check --dry-run
+          ESSAY_BACKEND_PAUSED=false
+          ESSAY_MIGRATIONS="$(sudo -u gravitas env "${DJANGO_ENV[@]}" \
+            "$BACKEND_PATH/.venv/bin/django-admin" showmigrations core)"
+          if grep -Fq '[ ] 0113_topic_essay_versions' <<< "$ESSAY_MIGRATIONS"; then
+            # The matched backup has already been rehearsed. Drain workers
+            # running the previous publisher before seeding v1, so no writes
+            # can land between the backfill and activation of the new code.
+            if sudo systemctl is-active --quiet gravitas-backend.service; then
+              sudo systemctl stop gravitas-backend.service
+              trap 'sudo systemctl start gravitas-backend.service' EXIT
+              ESSAY_BACKEND_PAUSED=true
+            fi
+            ESSAY_BASELINE="$(sudo -u gravitas env "${DJANGO_ENV[@]}" \
+              "$BACKEND_PATH/.venv/bin/python" "$ESSAY_VERIFY" baseline)"
+          fi
           sudo -u gravitas env "${DJANGO_ENV[@]}" "$BACKEND_PATH/.venv/bin/django-admin" migrate --noinput
+          if [ -n "${ESSAY_BASELINE:-}" ]; then
+            sudo -u gravitas env "${DJANGO_ENV[@]}" "$BACKEND_PATH/.venv/bin/python" "$ESSAY_VERIFY" verify "$ESSAY_BASELINE"
+            if [ "$ESSAY_BACKEND_PAUSED" = true ]; then
+              sudo systemctl start gravitas-backend.service
+              trap - EXIT
+            fi
+          fi
           sudo -u gravitas env "${DJANGO_ENV[@]}" "$BACKEND_PATH/.venv/bin/django-admin" collectstatic --noinput
           sudo -u gravitas env "${DJANGO_ENV[@]}" "$BACKEND_PATH/.venv/bin/django-admin" check --deploy
           sudo -u gravitas bash -c '
@@ -1003,6 +1031,22 @@ jobs:
           test -n "$(sudo find /var/backups/gravitas -maxdepth 1 -type f -name 'db-*.dump' -print -quit)"
           test ! -e /var/www/gravitas/backend
           echo infrastructure-and-backend-checks-passed
+          REMOTE
+
+      - name: Check retained Nextcloud essay revisions
+        if: env.INITIAL_TOPIC_01_ESSAY_VERSIONS == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          HOST="${{ secrets.DEPLOY_HOST }}"
+          ssh -i ~/.ssh/gravitas_deploy -p "$DEPLOY_PORT" "$DEPLOY_USER@$HOST" \
+            sudo -u gravitas bash -s -- "$BACKEND_PATH" "$DEPLOY_PATH" <<'REMOTE'
+          set -euo pipefail
+          set -a
+          . /etc/gravitas/backend.env
+          set +a
+          export PYTHONPATH="$1" DJANGO_SETTINGS_MODULE=gravitas_backend.settings
+          "$1/.venv/bin/python" "$2/ops/verify_topic_essay_release.py" nextcloud
           REMOTE
 
       - name: Verify production

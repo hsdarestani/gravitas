@@ -1,4 +1,5 @@
 """Explicit publication of a reviewed Nextcloud Markdown revision."""
+from difflib import SequenceMatcher
 from pathlib import PurePosixPath
 
 from django.conf import settings
@@ -19,9 +20,11 @@ from .models import ResearchProject, TopicEssayPublication, TopicEssayReaction
 from .platform_access import can_edit, can_manage, downloads_allowed
 from .topic_essay_sources import ESSAYS, SLOTS, SOURCE_FILES, SOURCE_PATHS, is_topic_essay_source, slot_label
 from .topic_essay_render import render_essay
+from .topic_essay_versions import record_publication
 
 TOPIC_01_PAGE = '/topic-answer-that-looked-right'
 MAX_SOURCE_BYTES = 1024 * 1024
+MAX_CHANGE_NOTE = 1000
 
 
 def published_essays():
@@ -115,6 +118,36 @@ def _state(project, user, path):
     }
 
 
+def _lock_editor_project(project_id, user):
+    project = ResearchProject.objects.select_for_update().filter(pk=project_id, archived=False).first()
+    if not project or not can_edit(user, project):
+        raise PermissionError('project_access_required')
+    return project
+
+
+def _has_binding(publication, project, path):
+    return bool(publication and (publication.project_id, publication.source_path) == (project.pk, path))
+
+
+def _source_used_elsewhere(project, depth, path):
+    return TopicEssayPublication.objects.filter(project=project, source_path=path).exclude(depth=depth).exists()
+
+
+def _publication_token(publication):
+    return publication.published_at.isoformat() if publication else ''
+
+
+def _essay_conflict(error):
+    return JsonResponse({'ok': False, 'error': error}, status=409)
+
+
+def _change_note(data):
+    note = data.get('change_note', '')
+    if not isinstance(note, str) or len(note) > MAX_CHANGE_NOTE or '\x00' in note:
+        raise ValueError('invalid_essay_change_note')
+    return note.strip()
+
+
 @never_cache
 @require_http_methods(['GET', 'POST'])
 def project_topic_essays(request, project_id):
@@ -129,6 +162,7 @@ def project_topic_essays(request, project_id):
         path = clean_path(data.get('path'))
         etag = data.get('etag')
         version = data.get('version')
+        change_note = _change_note(data)
         if (depth not in TopicEssayPublication.Depth.values
                 or (is_topic_essay_source(project, path) and path != SOURCE_PATHS[depth])
                 or len(path) > 800 or path == 'project.md' or '//' in path
@@ -139,42 +173,150 @@ def project_topic_essays(request, project_id):
             raise ValueError('invalid_essay_publication')
 
         binding = TopicEssayPublication.objects.filter(depth=depth).first()
-        if (not binding or (binding.project_id, binding.source_path) != (project.pk, path)) and not can_manage(request.user, project):
+        if not _has_binding(binding, project, path) and not can_manage(request.user, project):
             raise PermissionError('essay_binding_requires_project_manager')
         markdown = _source_markdown(project, request.user, path, etag)
         if markdown is None:
             return JsonResponse({'ok': False, 'error': 'essay_source_changed'}, status=409)
 
         with transaction.atomic():
-            project = ResearchProject.objects.select_for_update().filter(pk=project.pk, archived=False).first()
-            if not project or not can_edit(request.user, project):
-                raise PermissionError('project_access_required')
-            current = published_essays()
-            binding = current.get(depth)
-            already_published = binding and (binding.project_id, binding.source_path, binding.source_etag, binding.markdown) == (
-                project.pk, path, etag, markdown
-            )
-            if not already_published and (binding.published_at.isoformat() if binding else '') != version:
-                return JsonResponse({'ok': False, 'error': 'essay_publication_changed'}, status=409)
-            other = next((item for key, item in current.items() if key != depth), None)
-            if other and (other.project_id, other.source_path) == (project.pk, path):
-                return JsonResponse({'ok': False, 'error': 'essay_file_already_linked'}, status=409)
-            if not binding or (binding.project_id, binding.source_path) != (project.pk, path):
-                if not can_manage(request.user, project):
-                    raise PermissionError('essay_binding_requires_project_manager')
-            if not already_published:
-                TopicEssayPublication.objects.update_or_create(depth=depth, defaults={
-                    'project': project, 'source_path': path, 'source_etag': etag, 'markdown': markdown,
-                    'published_at': timezone.now(), 'published_by': request.user,
-                })
-        return JsonResponse(_state(project, request.user, path))
+            project = _lock_editor_project(project.pk, request.user)
+            binding = TopicEssayPublication.objects.filter(depth=depth).first()
+            same_source = _has_binding(binding, project, path)
+            same_markdown = binding and binding.project_id == project.pk and binding.markdown == markdown
+            if not (same_source and same_markdown) and _publication_token(binding) != version:
+                return _essay_conflict('essay_publication_changed')
+            if _source_used_elsewhere(project, depth, path):
+                return _essay_conflict('essay_file_already_linked')
+            if not same_source and not can_manage(request.user, project):
+                raise PermissionError('essay_binding_requires_project_manager')
+            if not same_markdown:
+                record_publication(binding, depth=depth, project=project, path=path, etag=etag,
+                                   markdown=markdown, publisher=request.user, change_note=change_note)
+            elif not same_source:
+                # A manager can rebind an identical file. Keep the history of
+                # the Markdown intact while invalidating other open previews.
+                binding.source_path = path
+                binding.source_etag = etag
+                binding.published_at = timezone.now()
+                binding.published_by = request.user
+                binding.save(update_fields=['source_path', 'source_etag', 'published_at', 'published_by'])
+            elif binding.source_etag != etag:
+                binding.source_etag = etag
+                binding.save(update_fields=['source_etag'])
+        return JsonResponse({**_state(project, request.user, path), 'created_version': not same_markdown})
     except PermissionError as exc:
         return JsonResponse({'ok': False, 'error': str(exc)}, status=403)
     except (ValueError, ValidationError) as exc:
-        error = str(exc) if str(exc) in {'essay_file_too_large', 'essay_markdown_required'} else 'invalid_essay_publication'
+        error = str(exc) if str(exc) in {'essay_file_too_large', 'essay_markdown_required', 'invalid_essay_change_note'} else 'invalid_essay_publication'
         return JsonResponse({'ok': False, 'error': error}, status=400)
     except (cloud.CloudError, ImproperlyConfigured):
         return JsonResponse({'ok': False, 'error': 'essay_source_unavailable'}, status=503)
+
+
+def _version_metadata(version, publication, manager, current_number):
+    return {
+        'number': version.number,
+        'published_at': version.published_at.isoformat(),
+        'publisher': version.publisher_name,
+        'source_path': version.source_path,
+        'change_note': version.change_note,
+        'restored_from': version.restored_from,
+        'can_restore': version.number != current_number and (
+            manager or version.source_path == publication.source_path
+        ),
+    }
+
+
+def _comparison(before, after):
+    old_lines = before.markdown.splitlines(keepends=True)
+    new_lines = after.markdown.splitlines(keepends=True)
+    matcher = SequenceMatcher(None, old_lines, new_lines)
+    return [
+        {'changes': [
+            {'type': kind, 'old_line': old_start + 1, 'new_line': new_start + 1,
+             'old': ''.join(old_lines[old_start:old_end]),
+             'new': ''.join(new_lines[new_start:new_end]) if kind != 'equal' else ''}
+            for kind, old_start, old_end, new_start, new_end in group
+        ]}
+        for group in matcher.get_grouped_opcodes()
+    ]
+
+
+@never_cache
+@require_http_methods(['GET', 'POST'])
+def project_topic_essay_versions(request, project_id, depth):
+    if project_id != settings.TOPIC_01_RESEARCH_PROJECT_ID or depth not in SLOTS:
+        return JsonResponse({'ok': False, 'error': 'topic_essay_version_not_found'}, status=404)
+    try:
+        project = _project(request, project_id, edit=True)
+        if not downloads_allowed(project):
+            raise PermissionError('downloads_restricted')
+        if request.method == 'POST':
+            data = body(request)
+            number = data.get('number')
+            token = data.get('version')
+            if (data.get('confirm') is not True or type(number) is not int or not 0 < number <= 2147483647
+                    or not isinstance(token, str) or not token or len(token) > 40):
+                raise ValueError('invalid_essay_restore')
+            change_note = _change_note(data)
+            with transaction.atomic():
+                project = _lock_editor_project(project_id, request.user)
+                if not downloads_allowed(project):
+                    raise PermissionError('downloads_restricted')
+                publication = TopicEssayPublication.objects.filter(project=project, depth=depth).first()
+                if not publication or _publication_token(publication) != token:
+                    return _essay_conflict('essay_publication_changed')
+                versions = publication.versions.filter(project=project)
+                source = versions.filter(number=number).first()
+                if not source:
+                    return JsonResponse({'ok': False, 'error': 'topic_essay_version_not_found'}, status=404)
+                if number == versions.values_list('number', flat=True).first():
+                    return _essay_conflict('essay_version_is_current')
+                if source.source_path != publication.source_path and not can_manage(request.user, project):
+                    raise PermissionError('essay_binding_requires_project_manager')
+                if _source_used_elsewhere(project, depth, source.source_path):
+                    return _essay_conflict('essay_file_already_linked')
+                restored = record_publication(
+                    publication, depth=depth, project=project, path=source.source_path,
+                    etag=source.source_etag, markdown=source.markdown, publisher=request.user,
+                    change_note=change_note, restored_from=number,
+                )
+            return JsonResponse({'ok': True, 'number': restored.number})
+
+        number, before, after = (request.GET.get(key) for key in ('number', 'from', 'to'))
+        publication = TopicEssayPublication.objects.filter(project=project, depth=depth).first()
+        if not publication:
+            if any(value is not None for value in (number, before, after)):
+                return JsonResponse({'ok': False, 'error': 'topic_essay_version_not_found'}, status=404)
+            return JsonResponse({'ok': True, 'versions': [], 'version': '', 'current': None})
+        versions = publication.versions.filter(project=project)
+        if before is not None or after is not None:
+            if number is not None:
+                raise ValueError('invalid_essay_version')
+            before, after = int(before or ''), int(after or '')
+            pair = {row.number: row for row in versions.filter(number__in=[before, after])}
+            if before not in pair or after not in pair:
+                return JsonResponse({'ok': False, 'error': 'topic_essay_version_not_found'}, status=404)
+            return JsonResponse({'ok': True, 'groups': _comparison(pair[before], pair[after])})
+        if number is not None:
+            item = versions.filter(number=int(number)).first()
+            if not item:
+                return JsonResponse({'ok': False, 'error': 'topic_essay_version_not_found'}, status=404)
+            return JsonResponse({'ok': True, 'number': item.number, 'markdown': item.markdown})
+
+        items = list(versions.defer('markdown', 'source_etag'))
+        current = items[0].number if items else None
+        manager = can_manage(request.user, project)
+        return JsonResponse({
+            'ok': True, 'version': _publication_token(publication), 'current': current,
+            'versions': [_version_metadata(item, publication, manager, current) for item in items],
+        })
+    except PermissionError as exc:
+        return JsonResponse({'ok': False, 'error': str(exc)}, status=403)
+    except ValueError as exc:
+        error = str(exc) if str(exc) in {'invalid_essay_restore', 'invalid_essay_change_note'} else 'invalid_essay_version'
+        return JsonResponse({'ok': False, 'error': error}, status=400)
 
 
 def _reaction_json(request, essay):
