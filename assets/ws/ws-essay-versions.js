@@ -32,7 +32,9 @@ export function essayVersionHistory(onRestore, retryLevels) {
 
   function markdown(text) {
     const block = el('pre', 'v-input adm-code', text);
+    block.style.height = 'auto';
     block.style.maxHeight = '28rem';
+    block.style.padding = '8px 10px';
     block.style.overflow = 'auto';
     block.style.whiteSpace = 'pre-wrap';
     block.style.overflowWrap = 'anywhere';
@@ -139,7 +141,10 @@ export function essayVersionHistory(onRestore, retryLevels) {
         item.number === data.current ? K.badge('Live', 'ok') : null,
         item.restored_from ? K.badge(`Restored from version ${item.restored_from}`) : null,
       ],
-      actions: [K.button('View Markdown', () => read(`?number=${item.number}`, ({ markdown: text }) => showVersion(item, text)), { tiny: true })],
+      actions: [
+        K.button('View Markdown', () => read(`?number=${item.number}`, ({ markdown: text }) => showVersion(item, text)), { tiny: true }),
+        K.anchor('Open in Nextcloud', `/api${endpoint()}?number=${item.number}&open=source`, { tiny: true }),
+      ],
     })));
     history.replaceChildren(list);
     if (items.length < 2) return;

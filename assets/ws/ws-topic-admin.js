@@ -22,7 +22,7 @@
 import * as P from './ws-platform.js?v=20261016-task1&patch=20261027reliability1';
 import * as K from './ws-admin-kit.js?v=20261016-task1';
 import { renderNoteMarkdown } from './ws-notes-markdown.js?v=20261016-task1';
-import { essayVersionHistory } from './ws-essay-versions.js?v=20261016-task1&patch=20261125essayversions2';
+import { essayVersionHistory } from './ws-essay-versions.js?v=20261016-task1&patch=20261125essaysource1';
 
 const { el } = K;
 const ADMIN = '/workspace/core/admin';
