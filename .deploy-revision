@@ -8,3 +8,8 @@ release: Science Universe PR #357 guarded publication
 requested: 2026-11-13
 required safety commit: cbe9a88912867f5625e9c9cd482469e873721753
 reason: rerun cancelled post-merge production deploy with corrected nested API version check and rehearsal of native checkpoint
+
+release: Essay Version History timeout fix (PR #404)
+requested: 2026-11-25
+required fix commit: 43b9c06bd2449585f1fa254724ca89af204e94ff
+reason: retrigger production deployment after the original push failed to start a workflow
