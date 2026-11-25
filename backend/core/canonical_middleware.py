@@ -269,6 +269,15 @@ class CanonicalProjectMiddleware:
             return None
         # Do not query every project for unrelated auth/LMS/notification reads.
         relevant = any(token in request.path for token in ('projects/', 'resources/', 'mindmaps/', 'work-reports', 'notes/', 'pages/', 'tasks/', 'task-board/', 'assistant/', 'pulsar/', 'platform/share/', 'platform/folders/'))
+        if request.path.startswith('/api/workspace-v2/ideas/') and request.method == 'PATCH':
+            from .models import WorkspaceStudioIdea
+            idea_id = view_kwargs.get('idea_id')
+            project_id = WorkspaceStudioIdea.objects.filter(pk=idea_id).values_list('project_id', flat=True).first()
+            # Scope native journaling without passing an extra argument to the view.
+            project_scope = {project_id} if project_id else set()
+            relevant = True
+        else:
+            project_scope = set()
         if not relevant:
             return None
         # Workflow history lives in Django. The workflow transactions queue
@@ -341,7 +350,7 @@ class CanonicalProjectMiddleware:
             response = deferred_task_patch(request, view_func, view_args, view_kwargs)
             if response is not None:
                 return response
-        project_ids = project_scope_for(request, view_kwargs)
+        project_ids = project_scope | project_scope_for(request, view_kwargs)
         if not project_ids and request.method in ('GET', 'HEAD', 'OPTIONS'):
             # A global list is a database snapshot, not an implicit full
             # Nextcloud crawl.

@@ -50,6 +50,24 @@ export const workspaceApi = {
   detail: id => request(taskUrl(id) + 'details/'),
   create: payload => request(studio + 'tasks/', 'POST', payload),
   patch: (item, payload) => request(taskUrl(item.id), 'PATCH', {...payload, expected_updated_at:item.updatedAt}),
+  project: (flow,action,fields={}) => request(studio + 'projects/' + (flow ? Number(flow.id)+'/' : ''), flow?'PATCH':'POST',
+    {action,revision:flow?.revision,...fields}),
+  projectNote: (flow,body,parent) => request(studio+`projects/${Number(flow.id)}/notes/`, 'POST', {
+    body,parent_id:parent?Number(parent):null,
+  }),
+  idea: (id,action,fields={}) => request(studio+'ideas/'+(id?Number(id)+'/':''),id?'PATCH':'POST',{action,...fields}),
+  result: (id,action,fields) => request(studio+`results/${Number(id)}/`,'PATCH',{action,...fields}),
+  profile: (id,fields) => request(studio+(id?'members/'+Number(id)+'/':'profile/'),'PATCH',fields),
+  template: fields => request(studio+'templates/','POST',fields),
+  meetingSeries: (id,end_date) => request(studio+'meeting-series/'+Number(id)+'/','PATCH',{end_date}),
+  notebook: fields => request(studio + 'notebook/', 'PATCH', fields),
+  preferences: showroom => request(studio + 'preferences/', 'PATCH', {showroom}),
+  canvasVersion: (flow,action,fields) => request(studio+`projects/${Number(flow.id)}/canvas/`, 'PATCH', {
+    revision:flow.canvasRevision,action,...fields,
+  }),
+  review: (flow,id,findings) => request(studio+`projects/${Number(flow.id)}/review/`,'POST',{
+    revision:flow.canvasRevision,id,findings,
+  }),
   canvas: (flow,canvas) => request(studio+`projects/${Number(flow.id)}/canvas/`, 'PATCH', {
     revision:flow.canvasRevision, canvas,
   }),
@@ -69,6 +87,6 @@ export const workspaceApi = {
   },
   workflow: (id, payload) => request(taskUrl(id) + 'workflow/', 'POST', payload),
   workflowTemplates: () => request('/api/platform/task-workflow-templates/'),
-  meeting: (id, payload) => request(studio+'meetings/'+(id?Number(id)+'/':''), id?'PATCH':'POST', payload),
+  meeting: (id, payload) => request(studio+'meetings/'+(id?encodeURIComponent(id)+'/':''), id?'PATCH':'POST', payload),
   markRead: ids => request('/api/task-notifications/in-app/', 'PATCH', {ids:ids.map(Number)}),
 };

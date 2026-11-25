@@ -1,4 +1,5 @@
 import {initializeProjectRecords} from './project-records.js';
+import {ideaArea} from './project-lifecycle.js';
 import {tidyWorkflow} from './workflow-layout.js';
 
 const statuses = {
@@ -29,12 +30,19 @@ export function workspaceData(payload) {
   areas.push({id:'core', title:payload.workspace.name, lead:'', icon:'briefcase'});
 
   const projects = payload.projects.map(row => initializeProjectRecords({
-    id:id(row.id), area:areas.some(area => area.id === areaId(row.process_id)) ? areaId(row.process_id) : 'core',
+    id:id(row.id), area:row.idea_id?ideaArea.id:areas.some(area => area.id === areaId(row.process_id)) ? areaId(row.process_id) : 'core',
     title:row.title, description:row.description, owner:id(row.owner_id),
-    state:row.archived ? 'done' : 'active', canEdit:row.can_edit,
-    edges:[], groups:row.canvas.groups, frames:row.canvas.frames, layoutArrows:row.canvas.arrows,
+    state:row.outcome || (row.archived ? 'done' : 'active'), canEdit:row.can_edit,
+    kpis:row.kpis||[], draftReport:row.draft_report, completions:row.completions||[],
+    revision:row.revision||0, workReport:row.work_report,
+    edges:row.canvas.handoffs||[], groups:row.canvas.groups, frames:row.canvas.frames, layoutArrows:row.canvas.arrows,
     canvasRevision:row.canvas_revision, positions:row.canvas.positions, scheduleStart:row.canvas.start_date,
-    loops:[], milestones:[], notes:[], updates:[],
+    loops:row.canvas.loops||[], projectNodes:row.canvas.nodes||[], scheduleEndTime:row.canvas.end_time,
+    canvasVersions:(row.canvas_versions||[]).map(version=>({...version,snapshot:{
+      nodes:[...Object.entries(version.canvas.positions).map(([id,point])=>({id,...point})),...(version.canvas.nodes||[])],
+      frames:version.canvas.frames,edges:version.canvas.handoffs||[],
+    }})),
+    milestones:[], notes:row.notes||[], updates:[], ideaId:id(row.idea_id), ideaSource:id(row.idea_source),
   }));
   if (payload.tasks.some(task => !task.project_id) || payload.can_create_task) {
     projects.push(initializeProjectRecords({
@@ -45,7 +53,7 @@ export function workspaceData(payload) {
   const projectsById = new Map(projects.map(project => [project.id, project]));
   const tasks = payload.tasks.map(row => ({
     id:id(row.id), project:projectId(row.project_id), title:row.title, description:row.description,
-    owners:[id(row.owner_id)], collaboratorIds:[], visibility:'workspace',
+    owners:[id(row.owner_id)], collaboratorIds:(row.contributor_ids||[]).map(id), visibility:'workspace',
     status:statuses[row.status], canonicalStatus:row.status, archived:row.status === 'archived',
     canEdit:row.can_edit, canComment:row.can_comment, icon:row.workflow_state ? 'flow' : 'circle',
     durationDays:row.duration_days ?? (row.planned_schedule ? Math.round((Date.parse(row.planned_schedule.end_date) -
@@ -91,21 +99,24 @@ export function workspaceData(payload) {
     const end = new Date(start.getTime() + row.duration_minutes * 60000);
     const completed = ['done', 'archived'].includes(row.status);
     return {id:id(row.id), date:dayFormat.format(start), time:timeFormat.format(start),
+      seriesId:row.seriesId, pinnedNote:row.pinnedNote, realId:id(row.real_id),
       end:dayFormat.format(start) === dayFormat.format(end) ? timeFormat.format(end) : '',
-      owner:id(row.owner.id), title:row.title, note:row.notes, agenda:[], refs:[],
-      followups:tasks.filter(task=>task.meetingId === id(row.id)).map(task=>'task:'+task.id),
+      owner:id(row.owner.id), title:row.title, note:row.notes, agenda:row.agenda||[], refs:row.refs||[],
+      followups:[...new Set([...(row.followups||[]),...tasks.filter(task=>task.meetingId === id(row.real_id||row.id)).map(task=>'task:'+task.id)])],
       completedAt:completed ? row.scheduled_for : null};
   });
   const objectives = payload.objectives.map(row => ({
-    id:id(row.id), title:row.title, subtitle:row.description, results:row.results.map(result => ({
+    id:'objective-'+row.id, title:row.title, subtitle:row.description, results:row.results.map(result => ({
       id:id(result.id), label:result.title, unit:result.unit, target:result.target == null ? null : Number(result.target),
     })),
   }));
   const results = Object.fromEntries(payload.objectives.flatMap(row => row.results).map(kr => [
-    id(kr.id), {baseline:kr.baseline == null ? null : Number(kr.baseline), links:[],
-      checkIns:[], current:kr.current == null ? null : Number(kr.current)},
+    id(kr.id), {baseline:kr.baseline == null ? null : Number(kr.baseline), links:kr.links||[],
+      checkIns:(kr.checkins||[]).map(entry=>({...entry,actor:id(entry.actor),value:Number(entry.value)})), current:kr.current == null ? null : Number(kr.current)},
   ]));
-  const owners = Object.fromEntries(payload.objectives.flatMap(row => row.results).map(kr => [id(kr.id), id(kr.owner_id)]));
+  const owners = Object.fromEntries(payload.objectives.flatMap(row => [
+    ['objective-'+row.id,id(row.owner_id)], ...row.results.map(kr=>[id(kr.id),id(kr.owner_id)]),
+  ]));
 
   const templates = payload.templates.map(entry=>{
     const tasks=entry.steps.map((title,index)=>({title,id:`${entry.id}-${index+1}`,description:'',icon:'circle',x:0,y:0}));
@@ -114,17 +125,22 @@ export function workspaceData(payload) {
   });
   const dailyLogs = {};
   const actor = id(payload.actor.id);
+  const confirmedReports = {};
   for (const row of payload.daily_reports) {
-    dailyLogs[actor] ||= {};
-    const report = dailyLogs[actor][row.date] ||= {blocks:[],updatedAt:row.at};
-    report.blocks.push({id:row.id,type:'text',text:row.text,author:actor,at:row.at});
+    (confirmedReports[row.date] ||= []).push(row);
+  }
+  for (const entry of payload.notebooks||[]) {
+    (dailyLogs[actor] ||= {})[entry.date] = entry;
   }
   return {
     actor:id(payload.actor.id), workspace:payload.workspace,
-    team:payload.members.map((person,index)=>({...person,id:id(person.id),color:colors[index % colors.length],
+    team:payload.members.map((person,index)=>({...person,id:id(person.id),color:person.color||colors[index % colors.length],
       role:['owner', 'admin'].includes(person.role) ? 'Admin' : 'Member'})),
     areas, projects, tasks, meetings, notifications, objectives, okrs:{owners, results},
-    log:[], ideas:[], dailyLogs, meetingSeries:[], calendarNotes:[], templates, showroomColors:{},
+    log:[], ideas:(payload.ideas||[]).map(row=>({
+      ...row,id:id(row.id),author:id(row.author),area:row.process_id?areaId(row.process_id):'',
+      draftProject:row.state==='brought'?null:id(row.project_id),project:row.state==='brought'?id(row.project_id):null,
+    })), dailyLogs, confirmedReports, meetingSeries:payload.meeting_series||[], calendarNotes:[], templates:[...templates,...(payload.saved_templates||[])], showroomColors:payload.showroom_colors||{},
     canCreateTask:payload.can_create_task,
   };
 }

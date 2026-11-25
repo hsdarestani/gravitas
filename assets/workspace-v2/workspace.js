@@ -142,7 +142,11 @@ const incoming = item => {
   return (flow?.edges||[]).filter(([,to])=>to===item.id).map(([from])=>workflowShape(flow,from)).filter(Boolean);
 };
 const waitingSteps = item => {
-  const unfinished = item.predecessorIds.filter(id => task(id)?.status !== 'done');
+  const flow=project(item.project);
+  const unfinished = [...new Set([
+    ...unmetWorkflowSteps(flow,item.id,task,node=>linkDetails(node).gate),
+    ...(item.predecessorIds||[]).filter(id=>task(id)?.status!=='done'),
+  ])];
   if (item.blockedByDependency && !unfinished.length) unfinished.push('restricted');
   if (item.canonicalStatus === 'blocked' && !unfinished.length) unfinished.push('blocked');
   return unfinished;
@@ -494,11 +498,11 @@ function saveKpi(form,fields,flow) {
   if (flow.kpis.some(other=>other!==entry&&other.label.toLowerCase()===label.toLowerCase())) return formError(form,'This metric already exists.');
   const direction=['min','max'].includes(fields.get('direction'))?fields.get('direction'):'';
   const measuredAt=result?(entry?.result===result&&entry.measuredAt||new Date().toISOString()):'';
-  if (entry) Object.assign(entry,{label,target,result,direction,measuredAt});
-  else flow.kpis.push({id:newId(),label,target,result,direction,measuredAt});
-  record('Saved KPI “'+label+'”',null,flow.id,{kind:'planning'});
-  dialog.close();render();announce('KPI saved.');
+  const updated={id:entry?.id||newId(),label,target,result,direction,measuredAt};
+  const kpis=entry?flow.kpis.map(item=>item===entry?updated:item):[...flow.kpis,updated];
+  return runWrite(()=>workspaceApi.project(flow,'kpis',{kpis}),()=>dialog.close(),form);
 }
+
 function reportDialog() {
   const flow=currentProject();
   if (flow?.owner!==ui.actor || flow.state!=='active') return;
@@ -509,20 +513,14 @@ function saveReport(form,fields,flow) {
   if (flow?.owner!==ui.actor || flow.state!=='active') return;
   const body=fields.get('body').trim();
   if (!body) return formError(form,'Write the closing report.');
-  flow.draftReport={author:ui.actor,body,updatedAt:new Date().toISOString()};
-  record('Saved a closing report',null,flow.id,{kind:'report'});
-  dialog.close();render();announce('Closing report saved.');
+  return runWrite(()=>workspaceApi.project(flow,'report',{body}),()=>dialog.close(),form);
 }
 function finishProject() {
   const flow=currentProject();
-  if (!flow || flow.state!=='active' || !(isAdmin()||flow.owner===ui.actor) || !reportReady(flow)) return;
-  flow.completions.push(completionRecord(flow,rawProjectTasks(flow.id),ui.actor,new Date().toISOString()));
-  freezeProjectSchedule(flow);
-  flow.state='done';
-  flow.draftReport=null;
-  record('Marked '+flow.title+' Done',null,flow.id);
-  render();announce(flow.title+' marked Done and moved to Archive.');
+  if (!canManageProject(flow)||!reportReady(flow)) return;
+  return runWrite(()=>workspaceApi.project(flow,'done'));
 }
+
 function failProjectDialog() {
   const flow=currentProject();
   if (!isActiveProject(flow)||!canManageProject(flow)) return;
@@ -535,24 +533,12 @@ function failProject(form,fields,flow) {
   if (!isActiveProject(flow)||!canManageProject(flow)) return;
   const body=fields.get('body').trim();
   if (!body) return formError(form,'Enter a failure note to close the project.');
-  const at=new Date().toISOString();
-  flow.completions.push(completionRecord(flow,rawProjectTasks(flow.id),ui.actor,at,'failed',{author:ui.actor,body,updatedAt:at}));
-  freezeProjectSchedule(flow);
-  flow.state='failed';
-  record('Closed '+flow.title+' as Failed',null,flow.id);
-  dialog.close();render();announce(flow.title+' marked Failed and moved to Archive.','danger');
-}
-function freezeProjectSchedule(flow) {
-  const {days,reviewDays,finish,missing,unresolvedGates,hasWork,invalid}=projectSchedules.get(flow.id);
-  flow.closedSchedule={days,reviewDays,finish,missing,unresolvedGates,hasWork,invalid};
+  return runWrite(()=>workspaceApi.project(flow,'failed',{body}),()=>dialog.close(),form);
 }
 function reopenProject() {
   const flow=currentProject();
-  if (!flow || isActiveProject(flow) || !canManageProject(flow)) return;
-  flow.state='active';
-  delete flow.closedSchedule;
-  record('Reopened '+flow.title,null,flow.id);
-  render();announce(flow.title+' reopened.');
+  if (!flow?.canEdit || isActiveProject(flow)) return;
+  return runWrite(()=>workspaceApi.project(flow,'reopen'));
 }
 
 function builderSelectionBar() {
@@ -693,7 +679,7 @@ const templates = () => [...(data.templates||[]).map(entry=>{
     loops:entry.loops.filter(loop=>ids.has(loop.from)&&ids.has(loop.to)),
     layoutArrows:entry.layoutArrows.filter(arrow=>shapes.has(arrow.from)&&shapes.has(arrow.to))};
 }).filter(entry=>entry.tasks.length)];
-const canManagePlan = flow => Boolean(flow && flow.state==='active' && (isAdmin()||flow.owner===ui.actor));
+const canManagePlan = flow => Boolean(flow?.canEdit && flow.state==='active' && (isAdmin()||flow.owner===ui.actor));
 function templateOverview(template) {
   const layout=templateFlowLayout(template);
   const {width,height,positions,nodeWidth,nodeHeight,phases,marks,parallel,edges,loops}=layout;
@@ -883,10 +869,7 @@ function saveTemplate(form,fields,flow) {
   const name=fields.get('name').trim();
   if (!name) return formError(form,'Enter a template name.');
   if (templates().some(item=>item.name.toLowerCase()===name.toLowerCase())) return formError(form,'A template with this name already exists.');
-  data.templates ||= [];
-  data.templates.push({id:newId(),name,description:fields.get('description').trim(),...captureTemplate(flow,projectTasks(flow.id).filter(item=>item.visibility!=='private'))});
-  record('Saved workflow template '+name,null,flow.id);
-  dialog.close();announce('Workflow template saved.');
+  return runWrite(()=>workspaceApi.template({project_id:Number(flow.id),name,description:fields.get('description').trim()}),()=>dialog.close(),form);
 }
 
 const decisionOutcomes = {
@@ -1177,11 +1160,7 @@ function saveOkrCheckIn(form,fields) {
   if (fields.get('value')===''||!Number.isFinite(value)||value<0) return formError(form,'Enter a valid non-negative value.');
   const baseline=fields.get('baseline')===''?null:Number(fields.get('baseline'));
   if (baseline!==null&&(!Number.isFinite(baseline)||baseline<0)) return formError(form,'Enter a valid non-negative baseline.');
-  const info=ensureKrData(id);
-  info.baseline=baseline;
-  info.checkIns.push({value,note:fields.get('note').trim(),actor:ui.actor,at:new Date().toISOString()});
-  record('Logged a check-in for '+resultById(id).label,null,null,{kind:'planning'});
-  dialog.close();render();announce('Check-in saved.','success');
+  return runWrite(()=>workspaceApi.result(id,'check_in',{value,baseline,note:fields.get('note').trim()}),()=>dialog.close(),form);
 }
 function okrOwnerDialog(id) {
   if (!isAdmin()||!objectiveById(id)&&!resultById(id)) return;
@@ -1208,21 +1187,12 @@ function saveOkrLink(form,fields) {
   if (!resultById(id)||!krEdit(id)) return;
   const flow=project(projectId);
   if (!flow||milestoneId&&!flow.milestones?.some(item=>item.id===milestoneId)) return formError(form,'Choose an available project or milestone.');
-  const links=ensureKrData(id).links;
-  if (links.some(item=>item.projectId===projectId&&item.milestoneId===milestoneId)) return formError(form,'This work is already linked.');
-  links.push({projectId,milestoneId});
-  record('Linked work to '+resultById(id).label,null,projectId,{kind:'planning'});
-  dialog.close();render();announce('Work linked.','success');
+  return runWrite(()=>workspaceApi.result(id,'link',{project_id:Number(projectId),milestone_id:milestoneId?Number(milestoneId):null}),()=>dialog.close(),form);
 }
 function removeOkrLink(value) {
   const [id,projectId,milestoneId]=value.split('|');
   if (!resultById(id)||!krEdit(id)) return;
-  const info=ensureKrData(id);
-  const links=info.links.filter(entry=>entry.projectId!==projectId||entry.milestoneId!==milestoneId);
-  if (links.length===info.links.length) return;
-  info.links=links;
-  record('Removed linked work from '+resultById(id).label,null,projectId,{kind:'planning'});
-  render();announce('Link removed.');
+  return runWrite(()=>workspaceApi.result(id,'unlink',{project_id:Number(projectId),milestone_id:milestoneId?Number(milestoneId):null}));
 }
 function openOkrMilestone(value) {
   const [id,milestone]=value.split('|');
@@ -1785,19 +1755,11 @@ function projectNotes(flow) {
 function saveProjectNote(fields,flow) {
   if (!flow||ui.page!=='area'||ui.view!=='project-notes'||!isActiveProject(flow)) return;
   const body=fields.get('body').trim(),parentId=fields.get('parentId');
-  const entries=flow.notes||=[];
-  const parent=parentId?entries.find(note=>note.id===parentId):null;
   if (!body||body.length>1500) return announce('Write a note up to 1,500 characters.');
-  if (parentId&&!parent) return announce('The original note is unavailable.');
-  const note={id:newId(),actor:ui.actor,at:new Date().toISOString(),body,parentId:parent?.id||null,mentions:mentionIds(body)};
-  entries.push(note);
-  noteDrafts.delete(noteDraftKey('project/'+flow.id,parentId));
-  const recipients=noteRecipients(note,flow.owner?[flow.owner]:[],parent?.actor);
-  for (const id of Object.keys(recipients)) if (recipients[id]==='owned-note') recipients[id]='project-note';
-  record((parent?'Replied to a project note on ':'Posted a project note on ')+flow.title,null,flow.id,
-    {kind:parent?'reply':'note',body,noteId:note.id,recipients});
-  ui.projectReply=null;ui.focusProjectNote=note.id;
-  render();focusProjectNote();announce(parent?'Reply posted.':'Project note posted.');
+  return runWrite(()=>workspaceApi.projectNote(flow,body,parentId),result=>{
+    noteDrafts.delete(noteDraftKey('project/'+flow.id,parentId));
+    ui.projectReply=null;ui.focusProjectNote=String(result.id);
+  });
 }
 function focusProjectNote() {
   const note=app.querySelector('.project-notes .focused-note');
@@ -1978,28 +1940,54 @@ function inbox() {
     </section>`;
 }
 const projectNotebook=()=>ui.page==='area'&&ui.view==='project-report'&&currentProject();
-const canEditNotebook=()=>false;
+const canEditNotebook=()=>ui.page==='daily'||Boolean(projectNotebook()&&canManagePlan(currentProject()));
 function currentLog(actor=ui.actor,date=ui.dailyDate) {
   if (arguments.length===0&&projectNotebook()) return currentProject().workReport;
   return data.dailyLogs[actor]?.[date];
 }
 function editLog(actor=ui.actor,date=ui.dailyDate) {
-  if (arguments.length===0&&projectNotebook()) return currentProject().workReport||={blocks:[],author:ui.actor};
+  if (arguments.length===0&&projectNotebook()) return currentProject().workReport||={blocks:[],author:ui.actor,revision:0};
   data.dailyLogs[actor] ||= {};
-  return data.dailyLogs[actor][date] ||= {blocks:[]};
+  return data.dailyLogs[actor][date] ||= {blocks:[],revision:0};
 }
 function logBlock(id) {
   return currentLog()?.blocks.find(block=>block.id===id);
 }
+const notebookPending=new Map();
 function saveLog(report=currentLog()) {
   report.blocks=uniqueDailyBlocks(report.blocks);
-  if (projectNotebook()&&report===currentLog()) report.lastEditor=ui.actor;
-  report.updatedAt=new Date().toISOString();
-  const saved=save();
+  const flow=projectNotebook(), day=ui.dailyDate;
+  const descriptor=flow?{project_id:Number(flow.id)}:{date:day};
+  const key=flow?'project:'+flow.id:day;
+  const prior=notebookPending.get(key);
+  if (prior?.timer) clearTimeout(prior.timer);
+  const pending=prior||{};
+  pending.timer=setTimeout(async()=>{
+    pending.timer=null;
+    const status=document.querySelector('#daily-save-status');
+    try {
+      await pending.inflight;
+      const blocks=report.blocks.map(({id,type,text,task,items})=>({id,type,text,task,items}));
+      pending.inflight=workspaceApi.notebook({...descriptor,revision:report.revision||0,blocks}).then(result=>{
+        report.revision=result.revision;
+        report.updatedAt=new Date().toISOString();
+      });
+      await pending.inflight;
+      if (currentLog()===report&&status) status.textContent='Saved';
+    } catch (error) {
+      if (currentLog()===report&&status) status.textContent='Unsaved';
+      announce(error.message,'danger');
+    } finally {
+      pending.inflight=null;
+      if (!pending.timer) notebookPending.delete(key);
+    }
+  },350);
+  notebookPending.set(key,pending);
   const status=document.querySelector('#daily-save-status');
-  if (status && report===currentLog()) status.textContent=saved?'Saved':'In this session';
-  return saved;
+  if (currentLog()===report&&status) status.textContent='Saving…';
+  return true;
 }
+
 function appendLogBlock(type, attributes={}) {
   if (!canEditNotebook()) return;
   const report=editLog();
@@ -2091,6 +2079,7 @@ function notebook(flow=null) {
           ${button('daily-image','Image','image','ghost')}${button('daily-task','Link task','link','ghost')}
           <input type="file" id="daily-image-input" accept="image/png,image/jpeg,image/webp,image/gif,image/avif" hidden>
         </div>`:''}
+        ${!flow?(data.confirmedReports[ui.dailyDate]||[]).map(entry=>dailyBlock({id:entry.id,type:'text',text:entry.text},false)).join(''):''}
         <div class="daily-blocks">${blocks.length ? blocks.map(({block,index})=>(editable?dailyDrop(index):'')+dailyBlock(block,editable)).join('')+ (editable?dailyDrop(report.blocks.length):'') : dailyDrop(report?.blocks.length||0)+
           `<div class="daily-blank">${symbol('journal')}<h3>${flow?'Project progress and evidence':'What did you work on?'}</h3>${editable?button('daily-block','Write a summary','plus','primary','text'):'<p>No report entries yet.</p>'}</div>`}</div>
       </section>
@@ -2801,6 +2790,7 @@ function editTaskDialog(item,startingStatus = 'backlog') {
       ${textField('title','Task name',item?.title)}
       ${areaField('description','Description',item?.description)}
       ${personTiles('owners','Owner',item?.owners || [ui.actor],true)}
+      ${personTiles('contributors','Contributors',item?.collaboratorIds || [])}
       `)}
     ${taskEditorSection('schedule',`${durationField(item?.durationDays,(item?.status||startingStatus)!=='idea')}
       <small class="dim">Planned dates follow the project start and dependencies.</small>
@@ -3151,19 +3141,7 @@ function recordPass(form,fields) {
   if (!canChange(item) || !loop || !visibleLoop(loop) || item.status!=='doing' || hasBlockers(item) || !checklistReady(item) || loop.count>=loop.target) return formError(form,'This pass can no longer be recorded.');
   if (!findings) return formError(form,'Write the review findings.');
   const flow=project(item.project);
-  if (loop.from!==loop.to && !reachable(flow,loop.to).has(loop.from)) return formError(form,'Restore the forward dependencies between the two tasks before recording this pass.');
-  const repeated=repeatedTasks(flow,loop);
-  if ([item,...repeated].some(needsSchedule)) return formError(form,'Set durations for the review steps before recording the pass.');
-  loop.count++;
-  const note=addNote(item,`Pass ${loop.count}/${loop.target}\n${findings}`);
-  for (const step of repeated) {
-    step.status=step.id===loop.to?'doing':'backlog';
-    delete step.completedAt;
-    [...step.checklist,...step.dod].forEach(entry=>entry.done=false);
-    for (const nested of flow.loops.filter(entry=>entry.from===step.id&&entry.id!==loop.id)) nested.count=0;
-  }
-  recordTask(`Recorded pass ${loop.count}/${loop.target} for ${item.title}${loop.from===loop.to?'':' and returned work to '+task(loop.to).title}`,item,{kind:'review',body:note.body,noteId:note.id,relatedTasks:[loop.to],recipients:noteRecipients(note,item.owners)});
-  dialog.close(); showTask(loop.to); announce('Review pass recorded.');
+  return runWrite(()=>workspaceApi.review(flow,loop.id,findings),result=>{dialog.close();showTask(String(result.task_id));},form);
 }
 function reopenTask(item) {
   changeStatus(item,'backlog');
@@ -3237,12 +3215,8 @@ function saveCanvasVersion(form,fields,flow) {
   if (!canEdit(flow?.id)) return;
   const name=fields.get('name').trim();
   if (!name) return formError(form,'Enter a version name.');
-  flow.canvasVersions ||= [];
-  const entry={id:newId(),name,actor:ui.actor,at:new Date().toISOString(),snapshot:captureCanvasVersion(flow,canvasVersionTasks(flow))};
-  flow.canvasVersions.unshift(entry);
-  record('Saved a canvas version',null,flow.id,{},true);
-  showCanvasVersions(entry.id);
-  announce('Canvas version saved.');
+  return runWrite(()=>workspaceApi.canvasVersion(flow,'version',{name}),result=>showCanvasVersions(result.id),form);
+
 }
 function confirmCanvasRestore(id) {
   const flow=currentProject();
@@ -3255,17 +3229,7 @@ function confirmCanvasRestore(id) {
 function applyCanvasRestore(form,fields,flow) {
   const version=flow?.canvasVersions?.find(entry=>entry.id===fields.get('id'));
   if (!canEdit(flow?.id)||!version) return;
-  const items=canvasVersionTasks(flow);
-  const next=restoreCanvasVersion(flow,version.snapshot,items);
-  if (!next) return formError(form,'This version conflicts with a dependency or review loop on the current canvas.');
-  canvasSnapshot(flow);
-  flow.canvasVersions.unshift({id:newId(),name:'Before restoring '+version.name,actor:ui.actor,
-    at:new Date().toISOString(),snapshot:captureCanvasVersion(flow,items)});
-  Object.assign(flow,next.shape);
-  for (const {id,x,y} of next.nodes) Object.assign(linkedNode(flow,id)||taskRecord(id),{x,y});
-  resetBuilder();
-  record('Restored a canvas version',null,flow.id,{},true);
-  dialog.close();render();announce('Canvas layout restored.');
+  return runWrite(()=>workspaceApi.canvasVersion(flow,'restore',{version_id:version.id}),()=>dialog.close(),form);
 }
 
 function canvasSnapshot(flow) {
@@ -3411,6 +3375,10 @@ function connectShapes(flow,from,to) {
   }
   const result=connectEdges(flow,endpointMembers(flow,from),endpointMembers(flow,to));
   if (result.error) return announce(result.error,'danger');
+  if (linkedNode(flow,from)||linkedNode(flow,to)) {
+    flow.edges=result.edges;
+    return persistCanvas(flow,()=>{ui.linkStart=null;});
+  }
   const edges=result.edges.filter(([a,b])=>!flow.edges.some(([prior,next])=>prior===a&&next===b));
   runWrite(()=>workspaceApi.dependencies(edges.map(([a,b])=>({from:a,to:b,action:'add'}))),()=>{
     ui.linkStart=null;
@@ -3603,8 +3571,8 @@ function saveWorkflowSchedule(form,fields) {
   if (!isScheduleDate(startDate)||!/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(endTime)) return formError(form,'Set a valid project start date and finish time.');
   if (flow.scheduleStart!==startDate&&reviewSchedule(form,[flow.id,startDate,endTime],()=>scheduleImpactMarkup(flow,
     workspaceSchedules(data,{projectId:flow.id,startDate})))) return;
-  if (endTime !== '23:59') return formError(form,'The current preview uses end-of-day handoffs.');
-  flow.scheduleStart=startDate;
+
+  flow.scheduleStart=startDate;flow.scheduleEndTime=endTime;
   persistCanvas(flow,()=>dialog.close(),form);
 }
 function reviewSchedule(form,values,content) {
@@ -3646,6 +3614,7 @@ function saveTask(form,fields) {
   if (!definition) return editorError(form,'checklist','Enter the Definition of Done.');
   const changes={
     title,description:fields.get('description').trim(),owner_id:Number(owners[0]),
+    contributor_ids:fields.getAll('contributors').map(Number),
     priority:priorityByImportance(Number(fields.get('importance'))),
     definition_of_done:definition, duration_days:duration ? Number(duration) : null,
     checklist:fields.getAll('checklist').map(text=>text.trim()).filter(Boolean),
@@ -3700,25 +3669,18 @@ function saveWorkflow(form,fields) {
       names.add(name);kpis.push({label,target,id:newId(),result:''});
     }
   }
-  const changes={title,description:fields.get('description').trim(),owner};
-  const flow=draft || initializeProjectRecords({id:idFor('workflow',data.projects),area:areaId,edges:[],groups:[],loops:[]});
-  Object.assign(flow,changes);
-  if (!draft) {
-    flow.kpis=kpis;flow.scheduleStart=scheduleStart;
-    data.projects.push(flow);
-    if (template) {
-      const created=materializeTemplate(template,flow,newId,Number(templateDuration)||1);
-      data.tasks.push(...created);
-      for (const item of created.filter(entry=>entry.owners.length)) recordTask('Assigned '+item.title,item,{kind:'create',recipients:recipientsFor(item.owners,'assigned')});
-    }
-  }
-  record((draft?'Updated project ':'Created project ')+flow.title+(owner?' · Owner '+ownerName(owner):'')+(kpis.length?` · ${kpis.length} kickoff ${kpis.length===1?'KPI':'KPIs'}`:''),null,flow.id);
-  dialog.close();
-  if (draft&&ui.page==='admin') render();
-  else openProject(flow.id,null,'',!draft&&!template);
-  if (!draft&&!template) document.querySelector('[data-action="first-circle"]')?.focus({preventScroll:true});
-  announce(draft?'Project updated.':'Project created.');
+  if (!owner) return editorError(form,'details','Choose a project owner.');
+  const changes={
+    title,description:fields.get('description').trim(),owner_id:Number(owner),
+    process_id:areaId.startsWith('area-')?Number(areaId.slice(5)):null,
+    start_date:scheduleStart,kpis,template:template?.id,duration:Number(templateDuration)||1,
+  };
+  return runWrite(()=>workspaceApi.project(draft,draft?'edit':'create',changes),result=>{
+    dialog.close();
+    openProject(String(result.id),null,'',!draft&&!template);
+  },form);
 }
+
 function saveGroup(form,fields,flow) {
   const title=fields.get('title').trim();
   const members=fields.getAll('members');
@@ -3741,6 +3703,11 @@ function saveDependency(form,fields,flow) {
   if (!edge && (!from.length || !to.length)) return formError(form,'Choose both endpoints or an existing dependency to remove.');
   const changes=edge ? [{from:edge[0],to:edge[1],action:'remove'}]
     : from.flatMap(a=>to.map(b=>({from:a,to:b,action:'add'})));
+  if (changes.every(change=>linkedNode(flow,change.from)||linkedNode(flow,change.to))) {
+    if (edge) flow.edges=flow.edges.filter(item=>item!==edge);
+    else flow.edges=[...flow.edges,...changes.map(change=>[change.from,change.to])];
+    return persistCanvas(flow,()=>{ui.linkStart=null;dialog.close();},form);
+  }
   return runWrite(()=>workspaceApi.dependencies(changes),()=>{ui.linkStart=null;dialog.close();},form);
 }
 function saveLoop(form,fields,flow) {
@@ -3756,23 +3723,19 @@ function saveLoop(form,fields,flow) {
   const loop={ id:existing?.id||idFor('loop',flow.loops),from,to,target,count,optional };
   if (existing) Object.assign(existing,loop);
   else flow.loops.push(loop);
-  record('Saved review loop for '+task(from).title,task(from));
-  dialog.close(); render(); announce('Review loop saved.');
+  return persistCanvas(flow,()=>dialog.close(),form);
 }
 function savePerson(form,fields) {
   if (!isAdmin()) return;
   const member=person(fields.get('id'));
-  const previousRole=member?.role;
   const name=fields.get('name').trim(), handle=fields.get('handle').trim().toLowerCase();
   const role=fields.get('role'), roleTitle=fields.get('roleTitle').trim(), color=fields.get('color');
   if (!name||!/^[a-z0-9-]+$/.test(handle)) return formError(form,'Enter a name and a handle using letters, digits or hyphens.');
   if (!['Admin','Member'].includes(role)) return formError(form,'Choose an available access level.');
   if (data.team.some(item=>item!==member&&item.handle===handle)) return formError(form,'That mention handle is already in use.');
   if (member?.id===ui.actor&&role!=='Admin') return formError(form,'Switch to another admin before changing your own admin role.');
-  if (member) Object.assign(member,{name,handle,role,roleTitle,color});
-  else data.team.push({id:idFor('person',data.team),name,handle,role,roleTitle,color});
-  record((member?'Updated teammate ':'Added teammate ')+name+(previousRole&&previousRole!==role?' · Access changed from '+previousRole+' to '+role:''),null,null,{kind:'management'});
-  dialog.close(); render(); announce('Teammate saved.');
+  if (!member) return formError(form,'Choose an existing member.');
+  return runWrite(()=>workspaceApi.profile(member.id,{name,handle,roleTitle,color,role:role.toLowerCase()}),()=>dialog.close(),form);
 }
 function saveArea(form,fields) {
   if (!isAdmin()) return;
@@ -3887,8 +3850,7 @@ async function saveProfile(form,fields) {
   submit.disabled=true;
   try {
     const photo=file?.size?await profilePhoto(file):member.photo;
-    Object.assign(member,{name,pronouns,gender,color,photo});
-    save();render();announce('Profile saved.');
+    await runWrite(()=>workspaceApi.profile(null,{name,pronouns,gender,color,photo}),null,form);
   } catch (error) {
     if (form.isConnected) formError(form,error.message||'The photo could not be opened.');
   } finally { submit.disabled=false; }
@@ -4026,7 +3988,7 @@ async function exportWorkspaceReport(value,trigger) {
 }
 
 function meetingChecklist(meeting) {
-  const editable=meetingOwnerCanEdit(meeting);
+  const editable=Boolean(!meeting.completedAt&&data.canCreateTask);
   const complete=meeting.agenda.filter(entry=>entry.done).length;
   return `<div class="detail-line"><h3>${symbol('checklist')} Agenda</h3><small class="dim mono">${complete}/${meeting.agenda.length}</small></div>
     ${meeting.agenda.length?`<div class="check-progress"><span style="width:${100*complete/meeting.agenda.length}%"></span></div>
@@ -4040,10 +4002,9 @@ function meetingChecklist(meeting) {
 }
 function addMeetingCheck(form,fields) {
   const meeting=meetingRecord(fields.get('id')),text=fields.get('label').trim();
-  if (!meetingOwnerCanEdit(meeting)||!text) return;
+  if (!meeting||meeting.completedAt||!text) return;
   if (meeting.agenda.some(entry=>entry.text.toLowerCase()===text.toLowerCase())) return announce('This item is already on the agenda.');
-  meeting.agenda.push({text,done:false});storeMeeting(meeting);save();render();
-  document.querySelector('#meeting-quick-check [name=label]')?.focus({preventScroll:true});
+  return runWrite(()=>workspaceApi.meeting(meeting.id,{agenda_action:'add',agenda_text:text}),null,form);
 }
 
 const calendar=createCalendar();
@@ -4149,10 +4110,7 @@ function saveProjectNode(form,fields,flow) {
   Object.assign(node,{targetProjectId:target.id,milestoneId});
   if (!prior) {flow.projectNodes ||= [];flow.projectNodes.push(node);}
   resetBuilder();ui.builderSelection.add(node.id);
-  record((prior?'Updated linked project ':'Linked project ')+target.title,null,flow.id,{},true);
-  dialog.close();render();
-  document.querySelector(`.node[data-value="${node.id}"]`)?.focus({preventScroll:true});
-  announce(prior?'Project link updated.':'Project node added.');
+  return persistCanvas(flow,()=>dialog.close(),form);
 }
 function openLinkedProject(id) {
   const flow=data.projects.find(item=>linkedNode(item,id));
@@ -4184,7 +4142,7 @@ function returnToLinkedNode() {
 const handlers = {
   ...calendar.handlers,
   'calendar-project':id=>openProject(id,null,'updates'),
-  'profile-remove-photo':()=>{const member=currentActor(); delete member.photo;save();render();announce('Profile photo removed.');},
+  'profile-remove-photo':()=>runWrite(()=>workspaceApi.profile(null,{photo:null})),
   'preview-report':previewWorkspaceReport,
   'report-reference':openReportReference,
   'export-report':exportWorkspaceReport,
@@ -4192,11 +4150,8 @@ const handlers = {
   'showroom-reset':()=>{resetShowroom();render();},
   'showroom-reset-colors':()=>{
     const prefix=ui.showroom.color+':';
-    for (const key of Object.keys(data.showroomColors)) if (key.startsWith(prefix)) delete data.showroomColors[key];
-    save();
-    const pop=document.querySelector('.showroom-palette');
-    render();
-    if (pop?.open) document.querySelector('.showroom-palette').open=true;
+    const colors=Object.fromEntries(Object.entries(data.showroomColors).filter(([key])=>!key.startsWith(prefix)));
+    runWrite(()=>workspaceApi.preferences(colors));
   },
   'open-idea':openIdea,
   'edit-idea':editIdeaDialog,
@@ -4374,9 +4329,8 @@ const handlers = {
     if (!canManagePlan(flow)) return;
     const entry=flow.kpis.find(item=>item.id===id);
     if (!entry) return;
-    flow.kpis=flow.kpis.filter(item=>item!==entry);
-    record('Removed KPI “'+entry.label+'”',null,flow.id,{kind:'planning'});
-    dialog.close();render();
+    const kpis=flow.kpis.filter(item=>item!==entry);
+    runWrite(()=>workspaceApi.project(flow,'kpis',{kpis}),()=>dialog.close());
   },
   'write-report':reportDialog,
   'complete-project':finishProject,
@@ -4632,7 +4586,7 @@ const handlers = {
       return;
     }
     flow.loops=flow.loops.filter(loop=>loop.id!==id);
-    record('Removed a review loop');render();showLoops(flow);
+    persistCanvas(flow,()=>showLoops(currentProject()));
   },
   'loop-info':id=>showLoopInfo(task(ui.task)?project(task(ui.task).project):currentProject(),id),
   'move-task':()=>{if (canEdit(ui.project)) moveTaskDialog(currentProject());},
@@ -4771,7 +4725,8 @@ document.addEventListener('change',event=>{
     document.querySelector('[data-showroom="'+field.dataset.showroom+'"]')?.focus({preventScroll:true});return;
   }
   if (field.dataset.showroomSwatch) {
-    data.showroomColors[ui.showroom.color+':'+field.dataset.showroomSwatch]=field.value;save();refreshShowroom();return;
+    const colors={...data.showroomColors,[ui.showroom.color+':'+field.dataset.showroomSwatch]:field.value};
+    runWrite(()=>workspaceApi.preferences(colors));return;
   }
   if (field.dataset.meetingCheck) {
     const item=meetingRecord(field.dataset.meetingCheck);
@@ -4795,6 +4750,12 @@ document.addEventListener('change',event=>{
     const file=field.files?.[0];
     field.value='';
     attachDailyImage(file);
+  }
+  if (field.dataset.meetingCheck) {
+    const meeting=meetingRecord(field.dataset.meetingCheck),index=Number(field.dataset.index);
+    const entry=meeting?.agenda[index];
+    if(entry) runWrite(()=>workspaceApi.meeting(meeting.id,{agenda_action:'check',agenda_index:index,agenda_text:entry.text}));
+    return;
   }
   if (field.hasAttribute('data-daily-check')) {
     const block=logBlock(field.dataset.block);
@@ -5150,15 +5111,9 @@ function saveIdea(form,fields) {
   if (item&&(!isActiveProject(flow)||item.state==='brought'||!canManageProject(flow))) return;
   const title=fields.get('title').trim(),body=fields.get('body').trim();
   if (!title) return formError(form,'Enter an idea name.');
-  const entry=item||{id:newId(),author:ui.actor,state:'draft',notes:[]};
-  Object.assign(entry,{title,body});
-  if (!item) data.ideas.unshift(entry);
-  const draft=flow||attachIdeaWorkflow(data,entry,initializeProjectRecords);
-  Object.assign(draft,{title,description:body});
-  draft.scheduleStart ||= today();
-  record((item?'Updated idea ':'Drafted idea ')+title,null,draft.id,{idea:entry.id,kind:'idea'});
-  openProject(draft.id,null,'',!item);
-  announce('Idea saved.');
+  return runWrite(()=>workspaceApi.idea(item?.id,item?'edit':'create',{title,body}),result=>{
+    dialog.close();openProject(String(result.project_id),null,'',!item);
+  },form);
 }
 function referIdea(id) {
   const item=ideaRecord(id),flow=project(item?.draftProject);
@@ -5172,10 +5127,7 @@ function sendIdea(form,fields) {
   const item=ideaRecord(fields.get('id')),flow=project(item?.draftProject),group=area(fields.get('area'));
   if (!isActiveProject(flow)||flow.area!==ideaArea.id||item.state!=='draft'||!canManageProject(flow)) return;
   if (!group||group.id===ideaArea.id||!person(group.lead)) return formError(form,'Choose a destination with a work area owner.');
-  Object.assign(item,{state:'sent',area:group.id});
-  record('Sent idea “'+item.title+'” to '+group.title,null,flow.id,{idea:item.id,kind:'idea',recipients:recipientsFor([group.lead],'idea-referral')});
-  dialog.close();render();
-  announce('Sent to '+group.title+' for review.','success');
+  return runWrite(()=>workspaceApi.idea(item.id,'refer',{process_id:Number(group.id.slice(5))}),()=>dialog.close(),form);
 }
 function ideaPromotion(id) {
   const item=ideaRecord(id),flow=project(item?.draftProject),group=area(item?.area);
@@ -5196,12 +5148,9 @@ function bringIdea(form,fields) {
   if (!ready) return;
   const {item,flow,group}=ready,title=fields.get('title').trim();
   if (!title||data.projects.some(project=>project.area===group.id&&project.title.toLowerCase()===title.toLowerCase())) return formError(form,'Choose a unique project name in '+group.title+'.');
-  Object.assign(flow,{title,area:group.id,owner:group.lead,ideaSource:item.id});
-  delete flow.ideaId;
-  Object.assign(item,{state:'brought',project:flow.id});
-  record('Promoted idea “'+item.title+'” to '+group.title,null,flow.id,{idea:item.id,kind:'idea',recipients:recipientsFor([item.author,group.lead],'idea-accepted')});
-  openProject(flow.id,null,'flow');
-  announce('Project moved to '+group.title+'.','success');
+  return runWrite(()=>workspaceApi.idea(item.id,'promote',{title}),result=>{
+    dialog.close();openProject(String(result.project_id),null,'flow');
+  },form);
 }
 function meetingWhen(item) {
   return [item.date?asDate(item.date,true):'Unscheduled',item.time||'',item.end?'– '+item.end:''].filter(Boolean).join(' ');
@@ -5265,11 +5214,7 @@ function meetingsPanel(archived=false) {
 function toggleMeetingPin(id) {
   const meeting=meetingRecord(id);
   if (!isAdmin()||!meeting?.note?.trim()) return;
-  meeting.pinnedNote=!meeting.pinnedNote;
-  storeMeeting(meeting);
-  record((meeting.pinnedNote?'Pinned':'Unpinned')+' a meeting note',null,null,{kind:'meeting',meeting:id});
-  render();focusControl('pin-meeting-note',id);
-  announce(meeting.pinnedNote?'Note pinned on '+asDate(meeting.date)+'.':'Meeting note unpinned.','success');
+  return runWrite(()=>workspaceApi.meeting(id,{pinned:!meeting.pinnedNote}));
 }
 function toggleMeetingDone(id) {
   const meeting=meetingRecord(id);
@@ -5290,7 +5235,7 @@ function taskMeetingDialog(id) {
   formDialog('Add to meeting','task-meeting-form',`<input type="hidden" name="task" value="${esc(id)}">
     <div class="reference-tile">${taskContext(item)}</div>
     ${selectField('meeting','Meeting',meetings.map(entry=>option(entry.id,entry.title+' · '+meetingWhen(entry))).join(''))}
-    ${selectField('section','Add to',option('followups','Follow-ups'))}`,'Add task');
+    ${selectField('section','Add to',option('refs','Discussion')+option('followups','Follow-ups'))}`,'Add task');
 }
 function saveTaskMeeting(form,fields) {
   const item=task(fields.get('task')),meeting=meetingRecord(fields.get('meeting')),section=fields.get('section');
@@ -5350,29 +5295,11 @@ function saveMeeting(form,fields) {
   const repeatEnd=weekly?fields.get('repeatEnd')||'':'';
   if (repeatEnd&&(!isScheduleDate(repeatEnd)||repeatEnd<date)) return formError(form,'Choose a repeat end date on or after the first meeting.');
   if (end&&end<=time) return formError(form,'End time must be after start time on the same day.');
-  const completed=new Set(item?.agenda.filter(entry=>entry.done).map(entry=>entry.text));
-  const agenda=[...new Set(fields.getAll('agenda').map(text=>text.trim()).filter(Boolean))].map(text=>({text,done:completed.has(text)}));
-  const entry=item||{id:newId()};
-  const keepHidden=(key)=>[...(item?.[key]||[]).filter(ref=>!taskRefVisible(ref)),...fields.getAll(key).filter(taskRefVisible)];
-  const note=fields.get('note').trim();
-  if (note&&note!==item?.note) {
-    Object.assign(entry,{reportAuthor:ui.actor,reportUpdatedAt:new Date().toISOString()});
-    delete entry.pinnedNote;
-  }
-  if (!note) { delete entry.reportAuthor;delete entry.reportUpdatedAt;delete entry.pinnedNote; }
-  Object.assign(entry,{title,date,time,end,owner:owner.id,agenda,note,refs:keepHidden('refs'),followups:keepHidden('followups')});
-  if (weekly) {
-    const series={id:newId(),start:date,endDate:repeatEnd,title,time,end,owner:owner.id,
-      agenda:agenda.map(check=>check.text),refs:[...entry.refs]};
-    data.meetingSeries.push(series);
-    const first=seriesOccurrence(series,date);
-    if (!item) entry.id=first.id;
-    else series.firstId=entry.id;
-    entry.seriesId=series.id;
-  }
-  storeMeeting(entry);
-  record((weekly?'Scheduled weekly meeting ':item?'Updated meeting ':'Scheduled meeting ')+title,null,null,{meeting:entry.id,kind:'meeting'});
-  openMeeting(entry.id);announce('Meeting saved.');
+  const agenda=fields.getAll('agenda').map(text=>text.trim()).filter(Boolean);
+  return runWrite(()=>workspaceApi.meeting(item?.id,{
+    title,date,time,end,owner_id:Number(owner.id),agenda,notes:fields.get('note').trim(),
+    refs:fields.getAll('refs'),followups:fields.getAll('followups'),repeat:weekly?'weekly':'',repeat_end:repeatEnd,
+  }),result=>{dialog.close();openMeeting(result.studio_id||String(result.meeting.id));},form);
 }
 function updateRepeatFields(form) {
   const options=form.querySelector('[data-repeat-options]');
@@ -5397,19 +5324,18 @@ function saveRepeatWindow(form,fields) {
   if (!series||(!isAdmin()&&series.owner!==ui.actor)) return;
   const date=fields.get('date');
   if (date&&(!isScheduleDate(date)||date<series.start)) return formError(form,'Choose a date on or after the first meeting.');
-  series.endDate=date;
-  record('Updated the weekly repeat for '+series.title,null,null,{kind:'meeting'});
-  dialog.close();render();announce('Weekly repeat updated.');
+  return runWrite(()=>workspaceApi.meetingSeries(series.id,date),()=>dialog.close(),form);
 }
 function meetingToDaily(id) {
   const item=meetingRecord(id);
   if (!item) return;
   const current=currentLog(ui.actor,item.date);
-  const used=new Set(current?.blocks.filter(block=>block.type==='meeting'&&block.meeting===id).map(block=>block.task));
+  const used=new Set(current?.blocks.filter(block=>block.task).map(block=>block.task));
   const targets=item.followups.map(ref=>task(ref.slice(5))).filter(task=>task&&!used.has(task.id));
   if (!targets.length) return announce('These follow-ups are already in your daily log.');
+  Object.assign(ui,{page:'daily',dailyDate:item.date,task:null});
   const report=editLog(ui.actor,item.date);
-  report.blocks.push(...targets.map(task=>({id:newId(),type:'meeting',task:task.id,meeting:id,addedAt:new Date().toISOString()})));
+  report.blocks.push(...targets.map(task=>({id:newId(),type:'task',task:task.id,addedAt:new Date().toISOString()})));
   saveLog(report);
   announce('Added '+targets.length+' follow-up '+(targets.length===1?'task':'tasks')+' to your '+asDate(item.date)+' log.','success');
   Object.assign(ui,{page:'daily',dailyDate:item.date,task:null});render();
@@ -5485,21 +5411,19 @@ let adminUI;
 
 
 const unsupportedActions = new Set([
-  'identity', 'switch-person', 'new-area', 'edit-area', 'new-person', 'edit-person',
-  'new-workflow', 'admin-new-project', 'project-settings', 'save-template',
-  'edit-preset', 'edit-kpi', 'edit-report', 'complete-project', 'fail-project', 'reopen-project',
-  'project-note-reply', 'project-note-cancel', 'new-milestone', 'edit-milestone', 'toggle-milestone', 'project-update', 'resolve-decision',
-  'okr-check-in', 'okr-edit-owner', 'okr-link', 'okr-unlink', 'edit-profile', 'new-idea', 'edit-idea', 'refer-idea', 'bring-idea',
-  'meeting-series-window', 'pin-meeting-note', 'meeting-to-daily', 'daily-image',
+  'identity', 'switch-person', 'new-area', 'edit-area', 'new-person',
+  'edit-preset',
+  'new-milestone', 'edit-milestone', 'toggle-milestone', 'project-update', 'resolve-decision',
+  'okr-edit-owner',
+  'daily-image',
   'undo-canvas',
-  'loops', 'edit-loop', 'remove-loop', 'edit-project-node', 'canvas-versions', 'restore-canvas-version',
+
   'move-task',
 ]);
 function markUnsupported(root) {
   for (const control of root.querySelectorAll('[data-action]')) {
     if (unsupportedActions.has(control.dataset.action)||
-        control.dataset.action==='builder-tool'&&(control.dataset.value==='project'||
-          control.dataset.value==='frame'&&ui.project==='unassigned')) {
+        control.dataset.action==='builder-tool'&&['project','frame'].includes(control.dataset.value)&&ui.project==='unassigned') {
       control.dataset.studioPending='true';
       control.setAttribute('aria-disabled','true');
     }
@@ -5698,6 +5622,22 @@ function readInbox(ids, open) {
 
 const studioForms = new Map(Object.entries({
   'task-form': saveTask,
+  'workflow-form': saveWorkflow,
+  'project-note-form': (_form,fields,_item,flow)=>saveProjectNote(fields,flow),
+  'okr-check-in-form': saveOkrCheckIn,
+  'okr-link-form': saveOkrLink,
+  'idea-form': saveIdea,
+  'refer-idea-form': sendIdea,
+  'bring-idea-form': bringIdea,
+  'idea-note-form': (form,fields)=>runWrite(()=>workspaceApi.idea(fields.get('id'),'note',{body:fields.get('body').trim()}),null,form),
+  'kpi-form': (form,fields,_item,flow)=>saveKpi(form,fields,flow),
+  'report-form': (form,fields,_item,flow)=>saveReport(form,fields,flow),
+  'failure-form': (form,fields,_item,flow)=>failProject(form,fields,flow),
+  'linked-project-form': (form,fields,_item,flow)=>saveProjectNode(form,fields,flow),
+  'canvas-version-form': (form,fields,_item,flow)=>saveCanvasVersion(form,fields,flow),
+  'canvas-restore-form': (form,fields,_item,flow)=>applyCanvasRestore(form,fields,flow),
+  'loop-form': (form,fields,_item,flow)=>saveLoop(form,fields,flow),
+  'pass-form': recordPass,
   'task-schedule-form': saveTaskSchedule,
   'dependency-form': (form,fields,_item,flow)=>saveDependency(form,fields,flow),
   'frame-form': (form,fields,_item,flow)=>saveFrame(form,fields,flow),
@@ -5724,17 +5664,12 @@ const studioForms = new Map(Object.entries({
     if (!reason) return formError(form,'Explain what is blocking this task.');
     runWrite(()=>workspaceApi.patch(item,{status:'blocked',blocked_reason:reason}),()=>dialog.close(),form);
   },
-  'meeting-form': (form,fields)=>{
-    const current=meetingRecord(fields.get('id'));
-    if (fields.get('repeat') || fields.getAll('agenda').some(text=>text.trim()) || fields.getAll('refs').length ||
-        fields.getAll('followups').some(ref=>!current?.followups.includes(ref))) {
-      return formError(form,'Recurring sessions, agendas, and discussion links are unavailable in this preview.');
-    }
-    runWrite(()=>workspaceApi.meeting(current?.id,{
-      title:fields.get('title'),date:fields.get('date'),time:fields.get('time'),end:fields.get('end'),
-      notes:fields.get('note'),owner_id:Number(fields.get('owner')),
-    }),result=>{dialog.close();openMeeting(String(result.meeting.id));},form);
-  },
+  'meeting-form': saveMeeting,
+  'meeting-series-form': saveRepeatWindow,
+  'meeting-quick-check': addMeetingCheck,
+  'profile-form': saveProfile,
+  'person-form': savePerson,
+  'template-form': (form,fields,_item,flow)=>saveTemplate(form,fields,flow),
   'task-attachment-form': (form,fields,item)=>runWrite(()=>workspaceApi.upload(item.id,fields.get('file')),null,form),
   'workflow-install-form': (form,fields,item)=>runWrite(()=>workspaceApi.workflow(item.id,{
     action:'install',workflow:{template:fields.get('template')},
@@ -5755,9 +5690,13 @@ const studioForms = new Map(Object.entries({
     iteration:Number(fields.get('iteration')), feedback:fields.get('feedback'),
   }),()=>dialog.close(),form),
   'task-meeting-form': (form,fields)=>{
-    const item=task(fields.get('task'));
-    if (!item || !canChange(item)) return formError(form,'Choose a task you can edit.');
-    runWrite(()=>workspaceApi.patch(item,{meeting_id:Number(fields.get('meeting'))}),()=>dialog.close(),form);
+    const item=task(fields.get('task')),meeting=meetingRecord(fields.get('meeting')),key=fields.get('section')==='refs'?'refs':'followups';
+    if (!item || !meeting || !meetingOwnerCanEdit(meeting)) return formError(form,'Choose a meeting you can edit.');
+    const references=[...new Set([...(meeting[key]||[]),'task:'+item.id])];
+    runWrite(()=>workspaceApi.meeting(meeting.id,{
+      title:meeting.title,date:meeting.date,time:meeting.time,end:meeting.end,owner_id:Number(meeting.owner),
+      notes:meeting.note,agenda:meeting.agenda.map(entry=>entry.text),refs:meeting.refs,followups:meeting.followups,[key]:references,
+    }),()=>dialog.close(),form);
   },
   'canvas-task-form': (form,fields,_item,flow)=>{
     if (!flow || !ui.placement) return formError(form,'Choose a position.');
@@ -5787,6 +5726,7 @@ Object.assign(handlers,{
   'remove-selection':removeStudioSelection,
   'use-reviewed-template':id=>{
     if (dialog.dataset.templatePreview!==id) return;
+    if (id.startsWith('saved-')&&isAdmin()) return newFlowDialog('core',null,id);
     const candidates=activeTasks().filter(item=>item.canEdit&&!item.workflowState&&!item.parentId&&item.status!=='done');
     if (!candidates.length) return showDialog('Use template','<p>No editable tasks are available.</p>');
     formDialog('Use template','template-attach-form',`<input type="hidden" name="template" value="${esc(id)}">`+
@@ -5851,7 +5791,10 @@ function persistCanvas(flow, complete, form) {
     return announce('Select a project to save canvas changes.','danger');
   }
   const positions=Object.fromEntries(rawProjectTasks(flow.id).map(item=>[item.id,{x:Math.round(item.x),y:Math.round(item.y)}]));
-  const canvas={positions, frames:flow.frames, groups:flow.groups, arrows:flow.layoutArrows, start_date:flow.scheduleStart||''};
+  const nodes=projectNodes(flow).map(({id,targetProjectId,milestoneId,x,y})=>({id,targetProjectId,milestoneId:milestoneId||'',x,y}));
+  const handoffs=flow.edges.filter(([from,to])=>linkedNode(flow,from)||linkedNode(flow,to));
+  const canvas={positions, frames:flow.frames, groups:flow.groups, arrows:flow.layoutArrows, start_date:flow.scheduleStart||'',
+    end_time:projectCutoff(flow), nodes, handoffs, loops:flow.loops};
   return runWrite(async()=>{
     try {
       return await workspaceApi.canvas(flow,canvas);
@@ -5870,9 +5813,16 @@ function removeStudioSelection() {
   if (selected.every(id=>kind(id)==='dependency')) {
     const model=graphParts(flow,canvasItems(flow));
     const edges=selected.flatMap(id=>model.visEdges.get(id.slice(11))?.edges || []);
+    if (edges.every(edge=>edge.some(id=>linkedNode(flow,id)))) {
+      flow.edges=flow.edges.filter(edge=>!edges.some(([from,to])=>edge[0]===from&&edge[1]===to));
+      return persistCanvas(flow,resetBuilder);
+    }
+    if (edges.some(edge=>edge.some(id=>linkedNode(flow,id)))) return announce('Select task or project arrows separately.');
     return runWrite(()=>workspaceApi.dependencies(edges.map(([from,to])=>({from,to,action:'remove'}))),resetBuilder);
   }
-  if (selected.every(id=>['frame','group','layout'].includes(kind(id)))) {
+  if (selected.every(id=>['frame','group','layout'].includes(kind(id))||linkedNode(flow,id))) {
+    flow.projectNodes=projectNodes(flow).filter(node=>!selected.includes(node.id));
+    flow.edges=flow.edges.filter(([from,to])=>!selected.includes(from)&&!selected.includes(to));
     flow.frames=flow.frames.filter(frame=>!selected.includes(frameKey(frame.id)));
     flow.groups=flow.groups.filter(group=>!selected.includes(groupKey(group.id)));
     flow.layoutArrows=flow.layoutArrows.filter(arrow=>!selected.includes('layout:'+arrow.id)&&

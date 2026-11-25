@@ -263,6 +263,7 @@ class OperatingTask(models.Model):
     status = models.CharField(max_length=16, choices=WorkStatus.choices, default=WorkStatus.ACTIVE)
     due_date = models.DateField(blank=True, null=True)
     definition_of_done = models.TextField()
+    studio_contributors = models.ManyToManyField(settings.AUTH_USER_MODEL, blank=True, related_name='studio_contributions')
     studio_duration_days = models.PositiveSmallIntegerField(blank=True, null=True)
     dependency = models.ForeignKey('self', on_delete=models.SET_NULL, related_name='dependants', blank=True, null=True)
     parent = models.ForeignKey('self', on_delete=models.PROTECT, related_name='subtasks', blank=True, null=True)

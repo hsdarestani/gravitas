@@ -86,10 +86,26 @@ from core.workspace_studio_api import (
 )
 from core.workspace_pages_api import workspace_page_detail, workspace_pages
 
+from core.workspace_studio_projects import (
+    studio_idea, studio_meeting_series, studio_notebook, studio_preferences, studio_project, studio_project_note, studio_result, studio_review, studio_profile, studio_template,
+)
+
 urlpatterns = [
     path('workspace-v2', studio_shell),
     path('workspace-v2/', studio_shell),
     path('api/workspace-v2/state/', studio_state),
+    path('api/workspace-v2/projects/', studio_project),
+    path('api/workspace-v2/projects/<int:project_id>/', studio_project),
+    path('api/workspace-v2/notebook/', studio_notebook),
+    path('api/workspace-v2/projects/<int:project_id>/notes/', studio_project_note),
+    path('api/workspace-v2/projects/<int:project_id>/review/', studio_review),
+    path('api/workspace-v2/ideas/', studio_idea),
+    path('api/workspace-v2/ideas/<int:idea_id>/', studio_idea),
+    path('api/workspace-v2/results/<int:result_id>/', studio_result),
+    path('api/workspace-v2/preferences/', studio_preferences),
+    path('api/workspace-v2/profile/', studio_profile),
+    path('api/workspace-v2/members/<int:user_id>/', studio_profile),
+    path('api/workspace-v2/templates/', studio_template),
     path('api/workspace-v2/csrf/', studio_csrf),
     path('api/workspace-v2/tasks/', studio_task),
     path('api/workspace-v2/tasks/<int:task_id>/', studio_task),
@@ -98,7 +114,8 @@ urlpatterns = [
     path('api/workspace-v2/tasks/<int:task_id>/<slug:kind>/<int:item_id>/', studio_task_content),
     path('api/workspace-v2/dependencies/', studio_dependency),
     path('api/workspace-v2/meetings/', studio_meeting),
-    path('api/workspace-v2/meetings/<int:meeting_id>/', studio_meeting),
+    path('api/workspace-v2/meetings/<str:meeting_id>/', studio_meeting),
+    path('api/workspace-v2/meeting-series/<int:series_id>/', studio_meeting_series),
     path('api/workspace-v2/projects/<int:project_id>/canvas/', studio_project_canvas),
     path('api/forum/config/', forum.forum_config),
     path('api/forum/moderation/classify/', forum_moderation_classify),

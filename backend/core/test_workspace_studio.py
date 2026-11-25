@@ -191,3 +191,92 @@ class WorkspaceStudioTests(TestCase):
         self.assertEqual(archived.status_code, 200, archived.content)
         self.assertEqual(OperatingMeeting.objects.get(pk=ident).status, WorkStatus.DONE)
         self.assertEqual(self.client.get('/api/operating/meetings/').json()['meetings'][0]['id'], ident)
+
+    def patch_studio(self, suffix, payload):
+        return self.client.patch(STUDIO + suffix, payload, content_type='application/json')
+
+    def test_project_lifecycle_requires_owner_report_and_preserves_project_identity(self):
+        result = self.post('projects/', {
+            'action':'create','title':'Studio lifecycle','owner_id':self.admin.pk,
+            'start_date':'2026-11-30','kpis':[{'id':'one','label':'Coverage','target':'100%'}],
+        })
+        self.assertEqual(result.status_code, 201, result.content)
+        project_id = result.json()['id']
+        route = f'projects/{project_id}/'
+        self.assertEqual(self.patch_studio(route, {'action':'done','revision':0}).status_code, 409)
+        self.assertEqual(self.patch_studio(route, {'action':'report','revision':0,'body':'Accepted'}).status_code, 200)
+        self.assertEqual(self.patch_studio(route, {'action':'done','revision':1}).status_code, 200)
+        archived = next(row for row in self.state()['projects'] if row['id']==project_id)
+        self.assertTrue(archived['archived'])
+        self.assertEqual(archived['completions'][0]['body'],'Accepted')
+        self.assertEqual(self.patch_studio(route, {'action':'reopen','revision':2}).status_code, 200)
+        self.assertFalse(ResearchProject.objects.get(pk=project_id).archived)
+
+    def test_idea_promotion_reuses_the_draft_project_and_work_area(self):
+        from .operating_models import OperatingProcess
+
+        process = OperatingProcess.objects.filter(workspace=self.workspace).first()
+        if process is None:
+            process = OperatingProcess.objects.create(workspace=self.workspace,key='technology',name='Technology',owner=self.admin)
+        else:
+            process.owner = self.admin
+            process.save(update_fields=['owner'])
+        response = self.post('ideas/', {'action':'create','title':'Idea draft','body':'An experiment'})
+        self.assertEqual(response.status_code, 201, response.content)
+        ids = response.json()
+        route = f"ideas/{ids['id']}/"
+        self.assertEqual(self.patch_studio(route, {'action':'refer','process_id':process.pk}).status_code, 200)
+        response = self.patch_studio(route, {'action':'promote','title':'Experiment'})
+        self.assertEqual(response.status_code, 200, response.content)
+        self.assertEqual(response.json()['project_id'], ids['project_id'])
+        data = self.state()
+        self.assertEqual(data['ideas'][0]['state'],'brought')
+        self.assertEqual(next(p['process_id'] for p in data['projects'] if p['id']==ids['project_id']), process.pk)
+
+    def test_notebook_preferences_project_notes_and_contributors_persist(self):
+        body = {'date':'2026-11-30','revision':0,'blocks':[{'id':'entry','type':'text','text':'Private text'}]}
+        self.assertEqual(self.patch_studio('notebook/',body).status_code, 200)
+        self.assertEqual(self.patch_studio('notebook/',body).status_code, 409)
+        preferences = {'showroom':{'signal:focus':'#987654'}}
+        self.assertEqual(self.patch_studio('preferences/',preferences).status_code, 200)
+        note = self.post(f'projects/{self.project.pk}/notes/', {'body':'Canonically attached note'})
+        self.assertEqual(note.status_code, 201, note.content)
+        task = self.task('Contributed')
+        self.assertEqual(self.patch(task,{'contributor_ids':[self.member.pk]}).status_code, 200)
+        state = self.state()
+        self.assertEqual(state['notebooks'][0]['blocks'],body['blocks'])
+        self.assertEqual(state['projects'][0]['notes'][0]['body'],'Canonically attached note')
+        self.assertEqual(state['tasks'][0]['contributor_ids'],[self.member.pk])
+        self.assertEqual(state['showroom_colors'],preferences['showroom'])
+        self.client.force_login(self.member)
+        self.assertFalse(self.state()['notebooks'])
+
+    def test_named_canvas_restore_saves_backup_and_checks_revision(self):
+        route = f'projects/{self.project.pk}/canvas/'
+        geometry = {'positions':{},'frames':[],'groups':[],'arrows':[],'start_date':''}
+        self.assertEqual(self.patch_studio(route,{'revision':0,'canvas':geometry}).status_code,200)
+        snapshot = self.patch_studio(route,{'revision':1,'action':'version','name':'Baseline'}).json()
+        moved = {**geometry,'frames':[{'id':'frame','title':'Plan','x':0,'y':0,'width':30,'height':50}]}
+        self.assertEqual(self.patch_studio(route,{'revision':1,'canvas':moved}).status_code,200)
+        restore = {'revision':2,'action':'restore','version_id':snapshot['id']}
+        self.assertEqual(self.patch_studio(route,restore).status_code,200)
+        self.assertEqual(self.patch_studio(route,restore).status_code,409)
+        data = self.state()['projects'][0]
+        self.assertFalse(data['canvas']['frames'])
+        self.assertEqual(len(data['canvas_versions']),2)
+
+    def test_weekly_meeting_creates_one_canonical_session_when_edited(self):
+        response = self.post('meetings/',{
+            'title':'Weekly planning','date':'2026-11-30','time':'09:00','end':'10:00',
+            'owner_id':self.admin.pk,'repeat':'weekly','agenda':['Review open work'],
+        })
+        self.assertEqual(response.status_code,201,response.content)
+        series = self.state()['meeting_series'][0]
+        key = f"weekly:{series['id']}:2026-12-07"
+        route = f'meetings/{key}/'
+        response = self.patch_studio(route,{'agenda_action':'check','agenda_index':0,'agenda_text':'Review open work'})
+        self.assertEqual(response.status_code,200,response.content)
+        self.assertEqual(self.patch_studio(route,{'agenda_action':'add','agenda_text':'Next'}).status_code,200)
+        matching = [row for row in self.state()['meetings'] if row['id']==key]
+        self.assertEqual(len(matching),1)
+        self.assertTrue(matching[0]['agenda'][0]['done'])
