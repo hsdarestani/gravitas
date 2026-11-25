@@ -293,6 +293,11 @@ class CanonicalProjectMiddleware:
                     r'/api/platform/projects/\d+/tools/selection/', request.path,
                 )):
             return None
+        # Essay publication and restore only write Django snapshots. The
+        # publisher reads its selected file over DAV with the editor's own
+        # credentials and If-Match. History and restore need no DAV at all.
+        if re.fullmatch(r'/api/platform/projects/\d+/topic-essays/(?:[A-Za-z0-9_-]+/versions/)?', request.path):
+            return None
         # Core task reads use persisted confirmed state. Never hold a SQL
         # lock while a read-only task popup waits for remote Nextcloud I/O.
         if _committed_task_snapshot_read(request):

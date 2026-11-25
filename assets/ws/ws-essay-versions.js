@@ -7,14 +7,19 @@ const { el } = K;
 const versionLabel = (number) => `Version ${number}`;
 const changeLabels = { insert: 'Added', delete: 'Removed', replace: 'Changed', equal: 'Context' };
 
-export function essayVersionHistory(onRestore) {
+export function essayVersionHistory(onRestore, retryLevels) {
   const panel = el('section', 'adm-list');
   const slot = K.select([], '');
   const status = K.status();
   const history = el('div');
   const result = el('div');
-  panel.append(K.heading('Version History'), K.field('Essay / reading level', slot), status, history, result);
-  panel.hidden = true;
+  const picker = K.field('Essay / reading level', slot);
+  let retryAction = retryLevels;
+  const retry = K.cardActions([K.button('Retry version history', () => retryAction(), { tiny: true })]);
+  panel.append(K.heading('Version History'), picker, status, retry, history, result);
+  picker.hidden = true;
+  retry.hidden = true;
+  K.setStatus(status, 'Select the Topic 01 research project to load version history.');
 
   let projectId;
   let request = 0;
@@ -156,7 +161,11 @@ export function essayVersionHistory(onRestore) {
     active = null;
     history.replaceChildren();
     result.replaceChildren();
-    if (!slot.value) return;
+    retry.hidden = true;
+    if (!slot.value) {
+      K.setStatus(status, projectId ? 'Loading essay levels…' : 'Select the Topic 01 research project to load version history.');
+      return;
+    }
     K.setStatus(status, 'Loading version history…');
     try {
       const data = await P.call(endpoint());
@@ -165,13 +174,25 @@ export function essayVersionHistory(onRestore) {
       showHistory(data);
       K.setStatus(status, '');
     } catch (error) {
-      if (pending === request) K.setStatus(status, error.message || 'Version history is unavailable.', 'bad');
+      if (pending === request) {
+        retryAction = load;
+        retry.hidden = false;
+        K.setStatus(status, error.message || 'Version history is unavailable.', 'bad');
+      }
     }
   }
 
   slot.addEventListener('change', load);
   return {
     panel,
+    levelsUnavailable(error) {
+      retryAction = retryLevels;
+      retry.hidden = false;
+      const denied = error.status === 403 || error.status === 404;
+      K.setStatus(status, denied
+        ? 'Choose the Topic 01 research project with edit access.'
+        : error.message || 'Essay levels could not be loaded.', 'bad');
+    },
     async setProject(id, slots = {}) {
       const existing = id === projectId ? slot.value : '';
       projectId = id;
@@ -183,7 +204,7 @@ export function essayVersionHistory(onRestore) {
         return node;
       }));
       slot.value = selected;
-      panel.hidden = !options.length;
+      picker.hidden = !options.length;
       await load();
     },
   };
