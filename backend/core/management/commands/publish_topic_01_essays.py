@@ -3,7 +3,6 @@ from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
-from django.utils import timezone
 
 from core import cloud
 from core.canonical_models import CanonicalFile
@@ -11,6 +10,7 @@ from core.models import ResearchProject, TopicEssayPublication
 from core.platform_access import downloads_allowed
 from core.topic_essay_api import read_essay_markdown
 from core.topic_essay_sources import SOURCE_PATHS
+from core.topic_essay_versions import record_publication
 
 # Only the two essays that existed before the reading levels. A level file is
 # published by an editor after review, never by a deploy, and a deploy must
@@ -42,7 +42,7 @@ class Command(BaseCommand):
                     raise ValueError('invalid source')
             except (cloud.CloudError, ImproperlyConfigured, ValueError) as exc:
                 raise CommandError(f'The approved source for {slot} could not be read from Nextcloud.') from exc
-            candidates[slot] = {'project': project, 'source_path': path, 'source_etag': etag, 'markdown': markdown}
+            candidates[slot] = {'path': path, 'etag': etag, 'markdown': markdown}
 
         with transaction.atomic():
             locked = ResearchProject.objects.select_for_update().get(pk=project.pk)
@@ -52,10 +52,9 @@ class Command(BaseCommand):
             for slot, source in candidates.items():
                 # The normal publisher locks the same project. An editor who
                 # published while this command was reading the source wins.
-                if TopicEssayPublication.objects.filter(project=project, source_path=source['source_path']).exists():
+                if (TopicEssayPublication.objects.filter(depth=slot).exists()
+                        or TopicEssayPublication.objects.filter(project=locked, source_path=source['path']).exists()):
                     continue
-                _, created = TopicEssayPublication.objects.get_or_create(
-                    depth=slot, defaults={**source, 'published_at': timezone.now()},
-                )
-                count += created
+                record_publication(None, depth=slot, project=locked, **source)
+                count += 1
         self.stdout.write(f'Published {count} previously unbound Topic 01 essays.')
