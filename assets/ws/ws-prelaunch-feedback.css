@@ -1,5 +1,6 @@
 /* Survey reporting uses Platform Admin surfaces and the shared brand ramp. */
 .gq-feedback {
+  container: survey / inline-size;
   --survey-category-0: var(--g-accent);
   --survey-category-1: var(--g-text-muted);
   --survey-category-2: color-mix(in srgb, var(--g-accent) 46%, var(--g-surface-sunken));
@@ -26,8 +27,18 @@
 }
 
 .gq-feedback__stats .wc-tile__label { white-space: normal; }
-.gq-feedback__stats { grid-template-columns: repeat(auto-fit, minmax(min(100%, 10rem), 1fr)); }
-.gq-feedback__overview { grid-template-columns: repeat(auto-fit, minmax(min(100%, 23rem), 1fr)); }
+.gq-feedback__stats,
+.gq-feedback__overview { grid-template-columns: minmax(0, 1fr); }
+
+@container survey (min-width: 17rem) {
+  .gq-feedback__stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@container survey (min-width: 40rem) {
+  .gq-feedback__stats { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .gq-feedback__overview { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
 .gq-feedback__questions { grid-template-columns: repeat(auto-fit, minmax(min(100%, 17rem), 1fr)); }
 
 .gq-feedback__dashboard[aria-busy="true"] { opacity: .55; }

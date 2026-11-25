@@ -563,7 +563,7 @@ function labelRole(value) {
 function adminTitle(page) {
   return {
     users: 'Users & Access', user: 'Account', content: 'Topics', 'content-editor': 'Topic', moderation: 'Moderation',
-    newsletter: 'Newsletter', feedback: 'Prelaunch Feedback', tickets: 'Support Tickets', labs: 'Interactive Lab',
+    newsletter: 'Newsletter', feedback: 'Pre-launch Survey', tickets: 'Support Tickets', labs: 'Interactive Lab',
     lms: 'LMS Admin', 'course-editor': 'Course', research: 'Research Admin', 'research-project': 'Project', links: 'Cross-layer Links', activity: 'Activity', deck: 'Nextcloud Deck', nextcloud: 'Nextcloud Mirror',
   }[page] || 'Admin';
 }

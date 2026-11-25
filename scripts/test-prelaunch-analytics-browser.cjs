@@ -42,6 +42,10 @@ async function testDashboard(browser, base, session, width, colorScheme) {
     const dashboard = page.locator('.gq-feedback__dashboard').first();
     const cohort = page.locator('.gq-feedback__stats .wc-tile__value').first();
     await page.waitForFunction(() => document.querySelector('.gq-feedback__stats .wc-tile__value')?.textContent === '3');
+    const tileRows = await page.locator('.gq-feedback__stats .wc-tile')
+      .evaluateAll(tiles => new Set(tiles.map(tile => tile.offsetTop)).size);
+    assert.notEqual(tileRows, 3, 'Survey tiles should wrap into balanced rows');
+    if (width === 1363) assert.equal(tileRows, 1, 'All four tiles fit the desktop dashboard');
     assert.equal(await page.locator('.gq-feedback__coverage-item').count(), 10);
     assert.equal(await page.locator('.gq-feedback__donut').count(), 1);
     assert.match(await page.locator('[data-question="persona"]').innerText(), /Working Scientist\s+2 · 100%/);
