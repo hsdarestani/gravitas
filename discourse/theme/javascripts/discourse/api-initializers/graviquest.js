@@ -130,7 +130,11 @@ export default apiInitializer((api) => {
     // Readers' category data has no topic_id, only the description thread's
     // topic_url ("/t/about-the-…-category/9").
     const topic = context?.topic;
-    const url = topic?.category?.topic_url;
+    const category = topic?.category;
+    if (category?.read_restricted || category?.slug === "uncategorized") {
+      value.push("gq-nonpublic-room");
+    }
+    const url = category?.topic_url;
     if (topic?.id && url && url.split("/").pop() === String(topic.id)) {
       value.push("gq-room-about");
     }

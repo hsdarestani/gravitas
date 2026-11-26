@@ -1,36 +1,11 @@
 # frozen_string_literal: true
+# Explicit initial seed only. The normal theme deployment must not overwrite
+# live category metadata, permissions, threads, or activity.
+unless ENV["GQ_SEED_ROOMS"] == "1"
+  puts "Skipping room seed: live rooms are managed in Discourse admin."
+  exit 0
+end
 
-# The Forum's rooms and the team's threads in them, made to match
-# backend/core/forum_rooms.json.
-#
-# Run with the container's Rails runner, from the theme release directory that
-# .github/workflows/forum-theme.yml uploads (GQ_THEME_RELEASE). It runs before
-# the theme is applied, so the theme never lists a room that does not exist.
-# Safe to repeat: each step compares first and changes only what differs.
-#
-# Why (2026-11-18). The Forum had grown ten rooms, a weekly question card, a
-# poll, a chip row and a table, and a visitor could not tell where to go. The
-# owner asked for the minimum: three rooms with the team's threads in them.
-# The Topic room holds three threads (its videos, its essays, its
-# discussion). Members read, reply and like, held for review. Only admins
-# open rooms and threads (2026-11-22, the owner).
-#
-# Permissions. A room it creates is readable by everyone, members reply in
-# it, and only admins open threads (2026-11-22; it gave everyone full access
-# before). Listed rooms that already exist keep theirs. Since 2026-11-19 rooms
-# that are not in the list are made admin-only (see the end of this file).
-#
-# What it does:
-# - creates each missing room, and keeps each room's name in step;
-# - writes each room's description into its "About the … category" post,
-#   which is where Discourse keeps a category's description;
-# - posts each of the team's threads once, as the system account, and keeps
-#   its title and text in step (never a member's post);
-# - for a thread marked existing, keeps it in its room and its title in step,
-#   and leaves its text alone;
-# - makes the rooms the default menu for visitors;
-# - names the system account GraviQuest;
-# - makes every room that is not in the list admin-only.
 require "json"
 
 release = Pathname.new(ENV.fetch("GQ_THEME_RELEASE"))
@@ -151,37 +126,6 @@ if PluginStore.get("graviquest", reset_key).blank?
 else
   puts "Likes and views were reset on #{PluginStore.get('graviquest', reset_key)}; not again"
 end
-
-# Rooms that are not in the list are admin-only (2026-11-19, the owner: "make
-# the old rooms private, so nobody sees them; moderators see only the three
-# rooms"). Until then they were only unlisted, and their threads still showed
-# on profiles, in search filters and at their URLs. Admins keep full access,
-# so nothing is lost and a room can be listed again by adding it to
-# forum_rooms.json. Moderators are not admins, so they see the three rooms
-# only. A room's own sub-rooms stay as they are, and Uncategorized, which
-# Discourse does not let anyone restrict, is skipped. Safe to repeat: a room
-# that is already admin-only is not touched.
-listed = rooms.map(&:id)
-admins = Group::AUTO_GROUPS[:admins]
-admin_only = [[admins, CategoryGroup.permission_types[:full]]]
-closed = Category.transaction do
-  Category
-    .where.not(id: listed)
-    .where.not(id: SiteSetting.uncategorized_category_id)
-    .where("parent_category_id IS NULL OR parent_category_id NOT IN (?)", listed)
-    .to_a
-    .filter_map { |category|
-      next if category.read_restricted && category.category_groups.pluck(:group_id, :permission_type) == admin_only
-      category.set_permissions(admins: :full)
-      # Discourse checks each room against its parent as it is saved, so a
-      # sub-room closed before its parent (or a parent before its sub-room)
-      # fails half way. Every room in this set ends admin-only, which is
-      # consistent, so they are saved without that check, in one transaction.
-      category.save!(validate: false)
-      category.slug
-    }
-end
-puts "Rooms made admin-only: #{closed.any? ? closed.join(', ') : 'none'}"
 
 # Each thread in a room shows one line of its opening post, as the approved
 # prototype does (2026-11-18). Discourse sends excerpts only for pinned threads

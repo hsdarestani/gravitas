@@ -1,5 +1,5 @@
 {
-  "_comment": "The Forum's rooms, in the order the Forum lists them, and the team's threads in each. The one list: ops/discourse/rooms.rb makes the rooms and threads on Discourse (run by .github/workflows/forum-theme.yml before every theme release), core/forum.py limits the public feed to these rooms, and core/test_forum_rooms.py fails if the theme (components/graviquest/forum-home.gjs) lists different rooms. Slugs and thread keys are permanent; names, descriptions, titles and bodies may change. These are the team's threads; members may start their own, which a moderator reads first. A thread marked existing was posted earlier (by bootstrap.rb); rooms.rb only keeps it in its room and its title in step, and never rewrites its text.",
+  "_comment": "Initial seed only. Discourse Category management is authoritative for live rooms, names, descriptions, visibility, and order. Existing content keys remain stable for published links. A theme release must not synchronize or restrict live categories.",
   "rooms": [
     {
       "slug": "about-the-forum",
