@@ -123,9 +123,12 @@ task_data = {'title': 'Staging canonical task', 'definition_of_done': 'Evidence 
 native_ok = False
 phase = 'owner_identity'
 try:
-    owner_cloud = cloud.ensure_identity(owner, 50 * 1024 * 1024)
+    quota = 512 * 1024 * 1024
+    owner_cloud = cloud.ensure_identity(owner, quota)
+    cloud.set_quota(owner_cloud, quota)
     phase = 'research_identity'
-    other_cloud = cloud.ensure_identity(researcher, 50 * 1024 * 1024)
+    other_cloud = cloud.ensure_identity(researcher, quota)
+    cloud.set_quota(other_cloud, quota)
     first_bytes = b'Workspace V2 native Nextcloud staging QA\n'
     path = f'Staging-QA-{run}/evidence.txt'
     phase = 'owner_upload'
@@ -177,7 +180,7 @@ child = owner_client.call('POST', studio + 'projects/', 201,
 nested = owner_client.call('POST', studio + 'tasks/', 201,
                             json={**task_data, 'title': 'Nested handoff task',
                                   'client_create_id': str(uuid.uuid4())}).json()['id']
-node = 'nested-staging-child'
+node = 'project-link-staging-child'
 canvas = {'positions': {}, 'frames': [], 'groups': [], 'arrows': [], 'start_date': project_data['start_date'],
           'nodes': [{'id': node, 'targetProjectId': str(child), 'milestoneId': '', 'x': 190, 'y': 160}],
           'handoffs': [[node, str(nested)]],
