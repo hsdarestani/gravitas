@@ -107,6 +107,7 @@ server {
     location = /workspace-v2 { proxy_pass http://127.0.0.1:18000; }
     location = /workspace-v2/ { proxy_pass http://127.0.0.1:18000; }
     location = /api/auth/signup/ { return 403; }
+    location = /api/oidc/.well-known/openid-configuration { proxy_pass http://127.0.0.1:18000; }
     location /api/ { proxy_pass http://127.0.0.1:18000; }
     location /django-static/ { proxy_pass http://127.0.0.1:18000; }
     location /assets/ { try_files $uri =404; }
@@ -134,6 +135,10 @@ install_site
 check() {
   curl --noproxy '*' -fsS --max-time 8 --resolve "$domain:443:127.0.0.1" "https://$domain$1"
 }
+for attempt in {1..15}; do
+  if check /api/health/ >/dev/null 2>&1; then break; fi
+  sleep 1
+done
 check /api/health/ | python3 -c 'import json,sys; d=json.load(sys.stdin); assert (d["status"],d["database"]) == ("ok","ok")'
 check /nextcloud/status.php | python3 -c 'import json,sys; assert json.load(sys.stdin)["installed"]'
 check /login >/dev/null
@@ -145,14 +150,27 @@ occ() {
 }
 discovery="https://$domain/api/oidc/.well-known/openid-configuration"
 check /api/oidc/.well-known/openid-configuration | python3 -c 'import json,sys; assert json.load(sys.stdin)["issuer"] == "https://staging.graviquest.com/api/oidc"'
-if ! occ app:list --enabled | grep -q 'user_oidc:'; then occ app:install user_oidc >/dev/null; fi
+if ! occ app:list --enabled | grep -E '^[[:space:]]*-[[:space:]]+user_oidc:' >/dev/null; then occ app:install user_oidc >/dev/null; fi
 secret=$(sed -n 's/^GQ_STAGING_OIDC_CLIENT_SECRET=//p' "$config/application.env")
 test -n "$secret"
-provider=$(occ user_oidc:provider gravitas-staging \
+if ! occ user_oidc:provider gravitas-staging \
   --clientid=gravitas-nextcloud-staging --clientsecret="$secret" --discoveryuri="$discovery" \
   --scope='openid email profile' --unique-uid=0 --check-bearer=0 \
-  --mapping-uid=nextcloud_uid --mapping-display-name=name --mapping-email=email --output=json 2>/dev/null)
-provider_id=$(python3 -c 'import json,sys; print(json.load(sys.stdin)["id"])' <<< "$provider")
+  --mapping-uid=nextcloud_uid --mapping-display-name=name --mapping-email=email --output=json >/dev/null 2>&1; then
+  echo 'staging_nextcloud_oidc_create_provider=failed' >&2
+  exit 1
+fi
+provider_id=$(occ user_oidc:providers --output=json | python3 -c '
+import json, sys
+for row in sys.stdin:
+    try:
+        item = json.loads(row)
+    except json.JSONDecodeError:
+        continue
+    if item.get("identifier") == "gravitas-staging":
+        print(item["id"])
+        break
+')
 [[ "$provider_id" =~ ^[1-9][0-9]*$ ]]
 occ config:system:set user_oidc auto_provision --type=boolean --value=true >/dev/null
 occ config:system:set user_oidc soft_auto_provision --type=boolean --value=true >/dev/null
