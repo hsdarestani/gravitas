@@ -206,13 +206,9 @@ def newsletter_subscribe(request):
         subscriber.source = source
         subscriber.save(update_fields=['source', 'updated_at'])
 
-    try:
-        _send_newsletter_confirmation(email)
-    except Exception:
-        return JsonResponse({'ok': False, 'error': 'email_delivery_failed'}, status=502)
-
+    # Collection-only phase: keep the request unconfirmed and do not send mail.
     return JsonResponse(
-        {'ok': True, 'created': created, 'pending_confirmation': True},
+        {'ok': True, 'created': created, 'saved': True, 'pending_confirmation': False},
         status=201 if created else 200,
     )
 
@@ -293,7 +289,7 @@ def auth_signup(request):
     from core.workspace_api import provision_personal_workspace
     provision_personal_workspace(user)
 
-    newsletter_pending = False
+    newsletter_saved = False
     if wants_newsletter:
         subscriber, _ = NewsletterSubscriber.objects.get_or_create(
             email=email,
@@ -303,18 +299,16 @@ def auth_signup(request):
             if subscriber.source != 'account-signup':
                 subscriber.source = 'account-signup'
                 subscriber.save(update_fields=['source', 'updated_at'])
-            try:
-                _send_newsletter_confirmation(email)
-                newsletter_pending = True
-            except Exception:
-                newsletter_pending = False
+        # Store the opt-in without a separate newsletter confirmation email.
+        newsletter_saved = True
 
     return JsonResponse(
         {
             'ok': True,
             'user': _user_json(user),
             'pending_confirmation': True,
-            'newsletter_pending': newsletter_pending,
+            'newsletter_pending': False,
+            'newsletter_saved': newsletter_saved,
         },
         status=201,
     )
