@@ -4,9 +4,7 @@ on:
   push:
     branches: [ops/workspace-staging-host-preflight]
     paths:
-      - '.github/workflows/workspace-staging-bootstrap.yml'
       - 'ops/workspace-staging/bootstrap.sh'
-      - 'ops/workspace-staging/ingress.sh'
 
 permissions:
   contents: read
@@ -27,7 +25,6 @@ jobs:
       - name: Validate the isolated staging bootstrap
         run: |
           bash -n ops/workspace-staging/bootstrap.sh
-          bash -n ops/workspace-staging/ingress.sh
       - name: Install the pinned Workspace revision and verify staged loopback services
         shell: bash
         env:
@@ -55,4 +52,3 @@ jobs:
             command='sudo -n bash -s'
           fi
           ssh "${opts[@]}" "$login@$SSH_HOST" "$command" < ops/workspace-staging/bootstrap.sh
-          ssh "${opts[@]}" "$login@$SSH_HOST" "$command" < ops/workspace-staging/ingress.sh

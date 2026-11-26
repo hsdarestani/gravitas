@@ -107,6 +107,7 @@ server {
     location = /workspace-v2 { proxy_pass http://127.0.0.1:18000; }
     location = /workspace-v2/ { proxy_pass http://127.0.0.1:18000; }
     location = /api/auth/signup/ { return 403; }
+    location = /api/forum/resume/ { return 302 /workspace-v2; }
     location = /api/oidc/.well-known/openid-configuration { proxy_pass http://127.0.0.1:18000; }
     location /api/ { proxy_pass http://127.0.0.1:18000; }
     location /django-static/ { proxy_pass http://127.0.0.1:18000; }
