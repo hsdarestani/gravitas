@@ -398,7 +398,8 @@ class ForumPublicDataTests(TestCase):
                                           {'id': 10, 'post_number': 4}]}}
         get.side_effect = [upstream(data), upstream(self.categories),
                            upstream({**data, 'post_stream': {'posts': [{**opening, 'hidden': True},
-                                                                       {'id': 10, 'post_number': 4}]}})]
+                                                                       {'id': 10, 'post_number': 4}]}}),
+                           upstream(self.categories)]
         result = self.client.get('/api/forum/discussions/published/').json()
         self.assertEqual(result['discussion']['reply_count'], 0)
         self.assertEqual(result['discussion']['view_count'], 9)
