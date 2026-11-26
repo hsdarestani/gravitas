@@ -58,4 +58,4 @@ jobs:
           export QA_CANONICAL_PROJECT="$result"
           export QA_CHROME=$(command -v google-chrome)
           export QA_PLAYWRIGHT_MODULE="$RUNNER_TEMP/workspace-browser/node_modules/playwright-core"
-          node ops/workspace-staging/browser.cjs
+          QA_OIDC_ONLY=1 node ops/workspace-staging/browser.cjs
