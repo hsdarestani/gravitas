@@ -1,0 +1,59 @@
+name: Provision named Workspace staging owner
+on:
+  push:
+    branches: [ops/workspace-staging-host-preflight]
+    paths:
+      - '.github/workflows/workspace-staging-team.yml'
+      - 'ops/workspace-staging/team-owner.sh'
+permissions:
+  contents: read
+concurrency:
+  group: gravitas-workspace-staging-team
+  cancel-in-progress: false
+jobs:
+  team-owner:
+    if: github.repository == 'hsdarestani/gravitas'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    environment:
+      name: workspace-staging
+      url: https://staging.graviquest.com/workspace-v2
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Provision the staging-only Core owner when enrollment secrets are present
+        shell: bash
+        env:
+          SSH_HOST: ${{ secrets.DEPLOY_HOST }}
+          SSH_USER: ${{ secrets.DEPLOY_USER }}
+          SSH_PORT: ${{ secrets.DEPLOY_PORT }}
+          SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          TEAM_EMAIL: ${{ secrets.WORKSPACE_STAGING_OWNER_EMAIL }}
+          TEAM_PASSWORD: ${{ secrets.WORKSPACE_STAGING_OWNER_PASSWORD }}
+        run: |
+          set -euo pipefail
+          bash -n ops/workspace-staging/team-owner.sh
+          if [ -z "$TEAM_EMAIL" ] || [ -z "$TEAM_PASSWORD" ]; then
+            echo 'stage_team_owner=pending_environment_secrets'
+            exit 0
+          fi
+          test -n "$SSH_HOST" && test -n "$SSH_KEY"
+          port="${SSH_PORT:-22}"
+          login="${SSH_USER:-deploy}"
+          umask 077
+          credentials=$(mktemp -d)
+          trap 'rm -rf "$credentials"' EXIT
+          printf '%s\n' "$SSH_KEY" > "$credentials/key"
+          ssh-keyscan -T 5 -p "$port" -H "$SSH_HOST" > "$credentials/known_hosts" 2>/dev/null
+          opts=(-i "$credentials/key" -p "$port" -o UserKnownHostsFile="$credentials/known_hosts" -o StrictHostKeyChecking=yes -o BatchMode=yes -o IdentitiesOnly=yes -o ConnectTimeout=10)
+          if ! ssh "${opts[@]}" "$login@$SSH_HOST" true 2>/dev/null; then login=root; fi
+          if [ "$login" = root ]; then command='bash -s'; else command='sudo -n bash -s'; fi
+          encoded_email=$(printf '%s' "$TEAM_EMAIL" | base64 -w0)
+          encoded_password=$(printf '%s' "$TEAM_PASSWORD" | base64 -w0)
+          printf '::add-mask::%s\n' "$encoded_email" "$encoded_password"
+          unset TEAM_EMAIL TEAM_PASSWORD SSH_KEY
+          {
+            printf 'TEAM_EMAIL_B64=%q\nTEAM_PASSWORD_B64=%q\n' "$encoded_email" "$encoded_password"
+            cat ops/workspace-staging/team-owner.sh
+          } | ssh "${opts[@]}" "$login@$SSH_HOST" "$command"
