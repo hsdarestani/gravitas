@@ -313,6 +313,8 @@ class WorkspaceStudioTests(TestCase):
         self.assertEqual(row['links'][0]['projectId'], str(project_id))
 
     def test_studio_private_task_shares_with_only_selected_members(self):
+        from .operating_models import TaskInAppNotification
+
         third = get_user_model().objects.create_user('studio-third@example.test')
         WorkspaceMembership.objects.create(workspace=self.workspace, user=third)
         created = self.post('tasks/', {
@@ -321,8 +323,12 @@ class WorkspaceStudioTests(TestCase):
         })
         self.assertEqual(created.status_code, 201, created.content)
         task = OperatingTask.objects.get(pk=created.json()['id'])
+        TaskInAppNotification.objects.create(recipient=third, task=task, event_key='prior-private-task',
+                                             event_type='task.updated', title='Private QA notification')
         self.client.force_login(third)
-        self.assertNotIn(task.pk, {row['id'] for row in self.state()['tasks']})
+        state = self.state()
+        self.assertNotIn(task.pk, {row['id'] for row in state['tasks']})
+        self.assertEqual(state['notifications'], [])
         self.assertEqual(self.client.get(STUDIO + f'tasks/{task.pk}/details/').status_code, 404)
         self.client.force_login(self.member)
         row = next(row for row in self.state()['tasks'] if row['id'] == task.pk)

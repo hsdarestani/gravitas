@@ -225,7 +225,10 @@ def studio_state(request, workspace):
         layer=ActivityEvent.Layer.CORE, object_type='operating_task', object_id__in=activity_tasks,
     ).order_by('-created_at', '-pk')[:600]
     notification_response = task_in_app_notifications(request)
-    notifications = json.loads(notification_response.content)['notifications']
+    notifications = [
+        item for item in json.loads(notification_response.content)['notifications']
+        if item['task_id'] is None or item['task_id'] in visible_ids
+    ]
     return JsonResponse({
         'ok': True,
         'workspace': {'id': workspace.pk, 'name': workspace.name},
