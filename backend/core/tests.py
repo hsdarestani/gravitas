@@ -16,6 +16,37 @@ from .models import (
 )
 
 
+class NewsletterCollectionTests(TestCase):
+    @patch('core.views._send_newsletter_confirmation')
+    def test_subscribe_saves_without_sending_and_deduplicates(self, send_confirmation):
+        from .models import NewsletterSubscriber
+        url = '/api/newsletter/subscribe/'
+        first = self.client.post(url, json.dumps({'email': 'Reader@Example.com'}), content_type='application/json')
+        second = self.client.post(url, json.dumps({'email': 'reader@example.com'}), content_type='application/json')
+        self.assertEqual(first.status_code, 201)
+        self.assertEqual(second.status_code, 200)
+        self.assertTrue(first.json()['saved'])
+        self.assertFalse(first.json()['pending_confirmation'])
+        self.assertEqual(NewsletterSubscriber.objects.filter(email='reader@example.com').count(), 1)
+        self.assertFalse(NewsletterSubscriber.objects.get(email='reader@example.com').is_active)
+        send_confirmation.assert_not_called()
+
+    @patch('core.views._send_newsletter_confirmation')
+    @patch('core.views.send_account_verification')
+    def test_account_signup_only_sends_account_verification(self, send_account, send_newsletter):
+        from .models import NewsletterSubscriber
+        response = self.client.post('/api/auth/signup/', json.dumps({
+            'name': 'Newsletter Reader', 'email': 'account-reader@example.com',
+            'password': 'A-secure-password-456!', 'newsletter': True,
+        }), content_type='application/json')
+        self.assertEqual(response.status_code, 201)
+        self.assertTrue(response.json()['newsletter_saved'])
+        self.assertFalse(response.json()['newsletter_pending'])
+        self.assertFalse(NewsletterSubscriber.objects.get(email='account-reader@example.com').is_active)
+        send_account.assert_called_once()
+        send_newsletter.assert_not_called()
+
+
 class WorkspaceApiTests(TestCase):
     def setUp(self):
         user_model = get_user_model()
