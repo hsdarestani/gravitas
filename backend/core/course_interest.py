@@ -5,6 +5,11 @@ still pick a course, say how interested they are and leave an email; the team
 uses the tally to decide what to build first and writes to the confirmed
 addresses when a course opens.
 
+Since 2026-11-26 the form sends no email at all, at the owner's request: it
+stores the address and the page thanks the visitor. The double opt-in below
+is how it worked until then; its confirm route is kept for links already in
+inboxes, and `_send_confirmation` is no longer called.
+
 Why a confirmation email, when the newsletter already has one and this could
 simply reuse it: the two lists mean different things. The newsletter is a
 standing subscription; this is one message about one course, and somebody who
@@ -90,19 +95,12 @@ def course_interest(request):
     if not created and row.level != level:
         row.level = level
         row.save(update_fields=['level', 'updated_at'])
+    # Since 2026-11-26 nothing is mailed here (owner's decision): the address
+    # is kept, and the reply says it was received. The confirm view below
+    # stays only so links already sent out keep working.
     if row.confirmed:
         return JsonResponse({'ok': True, 'already_confirmed': True})
-
-    now = timezone.now()
-    if row.confirmation_sent_at and now - row.confirmation_sent_at < RESEND_AFTER:
-        return JsonResponse({'ok': True, 'pending_confirmation': True})
-    try:
-        _send_confirmation(row)
-    except Exception:
-        return JsonResponse({'ok': False, 'error': 'email_delivery_failed'}, status=502)
-    row.confirmation_sent_at = now
-    row.save(update_fields=['confirmation_sent_at', 'updated_at'])
-    return JsonResponse({'ok': True, 'pending_confirmation': True}, status=201 if created else 200)
+    return JsonResponse({'ok': True, 'received': True}, status=201 if created else 200)
 
 
 @require_GET

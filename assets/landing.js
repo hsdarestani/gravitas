@@ -29,12 +29,10 @@
 //
 // Only the email is asked. Until 2026-11-18 four chips also asked how keen the
 // visitor was; the owner took them off, so no level is sent and the server
-// stores its default. The email goes to /api/learn/interest/, which holds the
-// address unconfirmed and
-// mails a link; until that link is followed nobody writes to it, which is why
-// the success line asks the visitor to check their inbox rather than saying
-// they are on the list. The link comes back here with ?interest=1 or
-// ?interest=0, and the note says which.
+// stores its default. The email goes to /api/learn/interest/, which keeps the
+// address. Since 2026-11-26 nothing is mailed back (owner's decision), so the
+// success line simply thanks the visitor. Confirmation links sent before then
+// still come back here with ?interest=1 or ?interest=0, and the note says which.
 //
 // The POST needs Django's CSRF cookie, fetched first from /api/auth/csrf/, the
 // same way production-bridge-core.js does for sign-in.
@@ -97,7 +95,7 @@
       })
       .then(function (data) {
         if (data.already_confirmed) say('You\u2019re already on the list. We\u2019ll write once it opens.');
-        else say('Almost there: check your inbox and confirm your email.');
+        else say('Got it, thanks. We’ll let you know when it opens.');
         input.value = '';
       })
       .catch(function (err) {

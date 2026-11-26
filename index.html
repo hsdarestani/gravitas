@@ -345,9 +345,9 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
      /learn under it. Beside the card a visitor can
      and leave an email (the keenness chips left on 2026-11-18; only the
      email is asked now); landing.js posts it to /api/learn/interest/, which
-     holds it unconfirmed and mails a confirmation link (course_interest.py).
-     The link lands back here with ?interest=1, or ?interest=0 when it has
-     expired. The course slug must be in course_interest.COURSES. -->
+     keeps it (course_interest.py). Since 2026-11-26 nothing is mailed back;
+     the note just thanks the visitor. Links sent before then still land here
+     with ?interest=1 or ?interest=0. The slug must be in course_interest.COURSES. -->
 <section class="g-section g-section--deep lp-chap lp-gridded" id="learn" aria-labelledby="ch-learn">
   <div class="g-container">
     <header class="lp-chap__head rv">
@@ -371,7 +371,7 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
           <input class="g-input" id="lp-wish-email" name="email" type="email" autocomplete="email" placeholder="you@example.com" required>
           <button class="g-btn g-btn--secondary" type="submit">Notify Me</button>
         </div>
-        <p class="lp-wish__note" data-wish-note role="status" aria-live="polite">One email when it opens, once you confirm your address. Nothing else.</p>
+        <p class="lp-wish__note" data-wish-note role="status" aria-live="polite">One email when it opens. Nothing else.</p>
       </form>
     </article>
     <div class="lp-chap__act rv">
@@ -458,7 +458,7 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
 </footer>
 <script src="assets/site.js?v=20261119-forum1"></script>
 <script src="assets/hero.js?v=20261109-stars2"></script>
-<script src="assets/landing.js?v=20261118-soon3" defer></script>
+<script src="assets/landing.js?v=20261126-soon4" defer></script>
 <script src="assets/topic-01-live.js?v=20261126-tq23" defer></script>
 <script src="assets/topic-01-essay.js?v=20261123-tq16" defer></script>
 <script src="assets/topic-rail.js?v=20261123-reel9" defer></script>
