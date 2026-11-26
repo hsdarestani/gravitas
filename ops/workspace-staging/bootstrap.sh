@@ -58,7 +58,10 @@ fi
 install -d -m 0755 "$base" "$base/releases" "$release"
 install -d -m 0750 -o root -g "$identity" "$state"
 install -d -m 0755 "$config/postgres-init"
-if [ ! -d "$state/postgres" ]; then install -d -m 0700 "$state/postgres"; fi
+if [ ! -d "$state/postgres" ]; then install -d -m 0755 "$state/postgres"; fi
+# PostgreSQL 18 stores its private PGDATA below the mounted directory.
+# The container user needs to traverse the mount root to access 18/docker.
+chmod 0755 "$state/postgres"
 if [ ! -d "$state/nextcloud" ]; then install -d -m 0755 "$state/nextcloud"; fi
 for path in core-uploads topic-media lms-media; do
   install -d -m 0700 -o "$identity" -g "$identity" "$state/$path"
@@ -188,7 +191,16 @@ wait_port() {
   done
   return 1
 }
-wait_port pg_isready -q -h 127.0.0.1 -p 15432
+if ! wait_port pg_isready -q -h 127.0.0.1 -p 15432; then
+  docker inspect --format 'staging_db_state={{.State.Status}} restart_count={{.RestartCount}} exit_code={{.State.ExitCode}}' "$service-postgres"
+  docker logs --tail 80 "$service-postgres" 2>&1 | python3 -c '
+import sys
+logs = sys.stdin.read().lower()
+for marker in ("permission denied", "operation not permitted", "not a database cluster", "initdb: error", "fatal:", "ready to accept connections"):
+    print(f"{marker}: {logs.count(marker)}")
+'
+  exit 1
+fi
 
 db_proof=$(docker exec "$service-postgres" psql -XqAt -v ON_ERROR_STOP=1 -U postgres -d postgres -c "
 SELECT CASE WHEN
