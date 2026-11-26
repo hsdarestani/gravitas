@@ -116,6 +116,12 @@ server {
     location = /nextcloud { return 308 /nextcloud/; }
     location = /.well-known/carddav { return 301 /nextcloud/remote.php/dav; }
     location = /.well-known/caldav { return 301 /nextcloud/remote.php/dav; }
+    # Public clean callback URLs need the front controller on the upstream URI
+    # so Nextcloud's cookie-establishment retry preserves the full path.
+    location = /nextcloud/apps/user_oidc/code {
+        proxy_pass http://127.0.0.1:18081/index.php/apps/user_oidc/code;
+        proxy_http_version 1.1;
+    }
     location /nextcloud/ {
         proxy_pass http://127.0.0.1:18081/;
         proxy_http_version 1.1;

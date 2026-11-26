@@ -52,11 +52,15 @@ model = get_user_model()
 
 try:
     validate_email(email)
-    if len(email) > 150 or email.endswith('@example.test') or len(password) < 16 or len(password) > 128:
-        raise ValidationError('Invalid staging owner credentials')
-    validate_password(password, user=model(username=email, email=email))
 except ValidationError:
-    raise SystemExit('stage_team_owner=invalid_email_or_password') from None
+    raise SystemExit('stage_team_owner=invalid_email_format') from None
+if len(email) > model._meta.get_field('username').max_length or email.endswith('@example.test'):
+    raise SystemExit('stage_team_owner=email_unavailable')
+try:
+    validate_password(password, user=model(username=email, email=email))
+except ValidationError as exc:
+    reasons = ','.join(sorted({reason.code or 'password_policy' for reason in exc.error_list}))
+    raise SystemExit('stage_team_owner=password_invalid reasons=' + reasons) from None
 
 with transaction.atomic():
     match = model.objects.select_for_update().filter(Q(username__iexact=email) | Q(email__iexact=email)).first()
