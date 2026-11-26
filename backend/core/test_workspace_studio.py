@@ -466,8 +466,59 @@ class WorkspaceStudioTests(TestCase):
         self.assertEqual(self.patch_studio(route, {'action':'reopen','revision':2}).status_code, 200)
         self.assertFalse(ResearchProject.objects.get(pk=project_id).archived)
 
+    @override_settings(WORKSPACE_STUDIO_AUTO_TEAM_FOLDERS=True)
+    def test_new_project_team_folder_is_queued_and_retried_before_native_access(self):
+        from datetime import timedelta
+        from unittest.mock import patch
+
+        from django.utils import timezone
+
+        from .canonical_models import CanonicalProject
+        from .cloud import CloudError
+        from .models import WorkspaceStudioProject
+        from .studio_storage import provision_next_team_folder
+
+        with patch('core.studio_storage.adopt_project') as adopt:
+            response = self.post('projects/', {
+                'action': 'create', 'title': 'With native files', 'owner_id': self.admin.pk,
+                'start_date': '2026-11-30',
+            })
+            self.assertEqual(response.status_code, 201, response.content)
+            adopt.assert_not_called()
+            project_id = response.json()['id']
+            studio = WorkspaceStudioProject.objects.get(project_id=project_id)
+            folder = f'/api/platform/projects/{project_id}/structure/'
+            pending = self.client.get(folder)
+            self.assertEqual((pending.status_code, pending.json()['error']), (409, 'studio_project_storage_pending'))
+            pending_write = self.patch_studio(f'projects/{project_id}/', {
+                'action': 'report', 'revision': 0, 'body': 'Do not export a stale snapshot',
+            })
+            self.assertEqual((pending_write.status_code, pending_write.json()['error']),
+                             (409, 'studio_project_storage_pending'))
+
+            adopt.side_effect = CloudError('temporary')
+            self.assertEqual(provision_next_team_folder(), 'deferred')
+            self.assertEqual(provision_next_team_folder(), 'idle')
+            WorkspaceStudioProject.objects.filter(pk=studio.pk).update(
+                nextcloud_provision_at=timezone.now() - timedelta(seconds=1),
+            )
+
+            def enable(project, owner):
+                self.assertEqual((project.pk, owner.pk), (project_id, self.admin.pk))
+                CanonicalProject.objects.create(project=project, enabled=True)
+
+            adopt.side_effect = enable
+            self.assertEqual(provision_next_team_folder(), 'ready')
+            studio.refresh_from_db()
+            self.assertIsNone(studio.nextcloud_provision_at)
+            self.assertEqual(provision_next_team_folder(), 'idle')
+            with patch('core.canonical_api.listing', return_value=[]):
+                self.assertEqual(self.client.get(folder).status_code, 200)
+
+    @override_settings(WORKSPACE_STUDIO_AUTO_TEAM_FOLDERS=True)
     def test_idea_promotion_reuses_the_draft_project_and_work_area(self):
         from .operating_models import OperatingProcess
+        from .models import WorkspaceStudioProject
 
         process = OperatingProcess.objects.filter(workspace=self.workspace).first()
         if process is None:
@@ -478,11 +529,13 @@ class WorkspaceStudioTests(TestCase):
         response = self.post('ideas/', {'action':'create','title':'Idea draft','body':'An experiment'})
         self.assertEqual(response.status_code, 201, response.content)
         ids = response.json()
+        self.assertIsNone(WorkspaceStudioProject.objects.get(project_id=ids['project_id']).nextcloud_provision_at)
         route = f"ideas/{ids['id']}/"
         self.assertEqual(self.patch_studio(route, {'action':'refer','process_id':process.pk}).status_code, 200)
         response = self.patch_studio(route, {'action':'promote','title':'Experiment'})
         self.assertEqual(response.status_code, 200, response.content)
         self.assertEqual(response.json()['project_id'], ids['project_id'])
+        self.assertIsNotNone(WorkspaceStudioProject.objects.get(project_id=ids['project_id']).nextcloud_provision_at)
         data = self.state()
         self.assertEqual(data['ideas'][0]['state'],'brought')
         self.assertEqual(next(p['process_id'] for p in data['projects'] if p['id']==ids['project_id']), process.pk)

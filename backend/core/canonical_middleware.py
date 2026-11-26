@@ -16,6 +16,7 @@ from .canonical_projects import CanonicalConflict, refresh_project, refresh_task
 from .canonical_models import CanonicalProject
 from .platform_access import can_view
 from .canonical_journal import write_batch, commit_witness
+from .studio_storage import StudioStoragePending
 
 
 
@@ -264,6 +265,11 @@ class CanonicalProjectMiddleware:
     def __call__(self, request):
         return self.get_response(request)
 
+    def process_exception(self, request, exception):
+        if isinstance(exception, StudioStoragePending):
+            return JsonResponse({'ok': False, 'error': exception.code}, status=409)
+        return None
+
     def process_view(self, request, view_func, view_args, view_kwargs):
         if not request.path.startswith('/api/') or not request.user.is_authenticated:
             return None
@@ -347,7 +353,10 @@ class CanonicalProjectMiddleware:
         # between existing projects still uses the strict canonical boundary.
         if (request.method == 'PATCH' and
                 re.fullmatch(r'/api/(?:operating/task-board/\d+|platform/projects/\d+/tasks/\d+)/', request.path)):
-            response = deferred_task_patch(request, view_func, view_args, view_kwargs)
+            try:
+                response = deferred_task_patch(request, view_func, view_args, view_kwargs)
+            except StudioStoragePending as exc:
+                return self.process_exception(request, exc)
             if response is not None:
                 return response
         project_ids = project_scope | project_scope_for(request, view_kwargs)
@@ -392,6 +401,8 @@ class CanonicalProjectMiddleware:
                     return response
                 finally:
                     _pending.reset(token)
+        except StudioStoragePending as exc:
+            return self.process_exception(request, exc)
         except CanonicalConflict as exc:
             return JsonResponse({'ok': False, 'error': 'canonical_file_conflict', 'conflict': exc.detail}, status=409)
         except (cloud.CloudError, ImproperlyConfigured) as exc:

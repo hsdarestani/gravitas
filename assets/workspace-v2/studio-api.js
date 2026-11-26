@@ -16,6 +16,7 @@ const messages = {
   workflow_assigned_reviewer_required: 'This action is reserved for the assigned reviewer.',
   workflow_invalid_reviewers: 'Assign only teammates who can edit this task.',
   cloud_unavailable: 'Nextcloud storage is temporarily unavailable.',
+  studio_project_storage_pending: 'Nextcloud project files are being prepared. Try again shortly.',
   existing_account_required: 'Enter the email of an active GraviQuest account.',
   already_core_member: 'This person is already a Core member.',
   workflow_finish_steps: 'Finish the workflow steps before submitting QA.',

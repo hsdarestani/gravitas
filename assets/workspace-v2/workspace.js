@@ -5582,7 +5582,7 @@ function nextcloudFileLink(nativeFolder,fileId) {
   return '/api/platform/nextcloud/sso/?next='+encodeURIComponent(file.href);
 }
 
-async function projectFilesDialog(id,path='') {
+async function projectFilesDialog(id,path='',attempt=0) {
   const flow=project(id);
   if (!flow) return;
   const sequence=++fileBrowserRequest;
@@ -5610,6 +5610,14 @@ async function projectFilesDialog(id,path='') {
         aria-label="Choose a Nextcloud file" required><button type="submit" class="btn">Upload to Nextcloud</button></form>`:''}`,'file');
   } catch (error) {
     if (sequence!==fileBrowserRequest||!dialog.open||!dialog.querySelector('[data-file-status]')) return;
+    if (error.code==='studio_project_storage_pending'&&attempt<40) {
+      dialog.querySelector('[data-file-status]').textContent='Preparing this project’s Nextcloud Team Folder…';
+      setTimeout(()=>{
+        if (sequence===fileBrowserRequest&&dialog.open&&dialog.querySelector('[data-file-status]'))
+          projectFilesDialog(id,path,attempt+1);
+      },3000);
+      return;
+    }
     showDialog('Nextcloud project files',`<p role="alert">${esc(error.status===503?'Nextcloud storage is unavailable.':error.message)}</p>
       ${button('project-files-folder','Retry','loop','ghost',context)}`,'file');
   }

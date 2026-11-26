@@ -545,6 +545,7 @@ class WorkspaceStudioProject(models.Model):
     notebook = models.JSONField(default=dict)
     updates = models.JSONField(default=list)
     revision = models.PositiveIntegerField(default=0)
+    nextcloud_provision_at = models.DateTimeField(null=True, blank=True, db_index=True)
 
 
 class WorkspaceStudioPreferences(models.Model):

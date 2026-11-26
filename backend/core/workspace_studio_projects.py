@@ -20,6 +20,7 @@ from .platform_access import access_batch, can_edit, can_view, policy_for
 from .platform_api import _audit, ensure_project_folder_structure
 from .platform_models import ObjectPolicy, ResearchProjectProfile, WorkspaceProfile
 from .platform_runtime_v3 import _canonical_workspace, core_role
+from .studio_storage import queue_team_folder
 from .workspace_studio_api import _body, _projects_for_workspace, error, studio_access
 
 
@@ -277,6 +278,8 @@ def _create_project(request, workspace, data, private=False):
         transaction.set_rollback(True)
         return error('invalid_workflow_template', 400)
     _audit(project, user, 'studio_project_created', project)
+    if not private:
+        queue_team_folder(project.pk)
     return JsonResponse({'ok': True, 'id': project.pk}, status=201)
 
 
@@ -594,6 +597,8 @@ def studio_idea(request, workspace, idea_id=None):
         return error('invalid_idea_action', 400)
     entry.save()
     _audit(project, user, f'studio_idea_{action}', project)
+    if action == 'promote':
+        queue_team_folder(project.pk)
     return JsonResponse({'ok': True, 'id': entry.pk, 'project_id': entry.project_id})
 
 
