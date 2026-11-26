@@ -1,7 +1,10 @@
 """Project lifecycle for Studio over canonical ResearchProject records."""
 
+import json
 import re
 from datetime import date
+from functools import lru_cache
+from pathlib import Path
 
 from django.db import transaction
 from django.http import JsonResponse
@@ -18,6 +21,12 @@ from .platform_api import _audit, ensure_project_folder_structure
 from .platform_models import ObjectPolicy, ResearchProjectProfile, WorkspaceProfile
 from .platform_runtime_v3 import _canonical_workspace, core_role
 from .workspace_studio_api import _body, _projects_for_workspace, error, studio_access
+
+
+@lru_cache(maxsize=1)
+def project_template_catalog():
+    path = Path(__file__).with_name('workspace_studio_templates.json')
+    return {item['id']: item for item in json.loads(path.read_text(encoding='utf-8'))}
 
 
 def _text(value, limit, required=False):
@@ -77,6 +86,13 @@ def studio_project(request, workspace, project_id=None):
             return error('invalid_project_fields', 400)
         if data.get('owner_id') != project.owner_id:
             return error('project_owner_change_requires_native_transfer', 400)
+        if 'process_id' in data:
+            process_id = data['process_id']
+            if process_id is not None and (type(process_id) is not int or not OperatingProcess.objects.filter(
+                workspace=workspace, active=True, pk=process_id,
+            ).exists()):
+                return error('invalid_work_area', 400)
+            studio.process_id = process_id
         project.title = data['title'].strip()
         project.description = data.get('description', '').strip()
         project.save(update_fields=('title', 'description', 'updated_at'))
@@ -139,9 +155,10 @@ def studio_project(request, workspace, project_id=None):
                 if not _text(data.get('body'), 6000, True):
                     return error('closing_report_required', 400)
                 report = {'author': str(user.pk), 'body': data['body'].strip(), 'updatedAt': timezone.now().isoformat()}
+            tasks = project.operating_tasks.exclude(status=WorkStatus.ARCHIVED).values_list('pk', 'status')
             studio.completions.append({
                 **report, 'outcome': action, 'closedBy': str(user.pk), 'closedAt': timezone.now().isoformat(),
-                'kpis': studio.kpis, 'tasksAtClose': [], 'doneCount': None, 'totalCount': None,
+                'kpis': studio.kpis, 'tasksAtClose': [{'id': str(pk), 'done': status == WorkStatus.DONE} for pk, status in tasks],
             })
             studio.report = {}
             studio.outcome = action
@@ -266,7 +283,17 @@ def _create_project(request, workspace, data, private=False):
 @require_http_methods(['PATCH'])
 @studio_access
 def studio_preferences(request, workspace):
-    showroom = (_body(request) or {}).get('showroom')
+    data = _body(request) or {}
+    if set(data) == {'showroom_view'}:
+        view = data['showroom_view']
+        if not isinstance(view, dict) or set(view) != {'scope', 'size', 'color'}:
+            return error('invalid_showroom_preferences', 400)
+        if (view['scope'] not in ('mine', 'workspace') or view['size'] not in ('priority', 'importance', 'checklist')
+                or view['color'] not in ('signal', 'owner', 'area')):
+            return error('invalid_showroom_preferences', 400)
+        WorkspaceStudioPreferences.objects.update_or_create(user=request.user, defaults={'showroom_view': view})
+        return JsonResponse({'ok': True})
+    showroom = data.get('showroom')
     if not isinstance(showroom, dict) or len(showroom) > 300 or any(
         not re.fullmatch(r'(signal|owner|area):[a-zA-Z0-9-]{1,80}', key)
         or not isinstance(value, str) or not re.fullmatch(r'#[0-9a-fA-F]{6}', value)
@@ -714,7 +741,8 @@ def studio_template(request, workspace):
     candidates = list(OperatingTask.objects.filter(workspace=workspace,project=project).exclude(
         status=WorkStatus.ARCHIVED).select_related('project','workspace').order_by('board_order','pk'))
     with access_batch(user, candidates):
-        rows = [task for task in candidates if can_view(user, task)]
+        rows = [task for task in candidates if can_view(user, task)
+                and getattr(policy_for(task), 'visibility', None) not in ('private', 'specific')]
     if not 1 <= len(rows) <= 120:
         return error('invalid_workflow_template_size', 400)
     ids = {str(task.pk) for task in rows}
@@ -722,6 +750,9 @@ def studio_template(request, workspace):
     canvas = getattr(project, 'studio_layout', None)
     canvas = canvas.canvas if canvas else {}
     positions = canvas.get('positions', {})
+    groups = [group for group in canvas.get('groups', []) if set(group['members']) <= ids]
+    frames = canvas.get('frames', [])
+    shapes = ids | {f"frame:{frame['id']}" for frame in frames} | {f"group:{group['id']}" for group in groups}
     snapshot = {
         'tasks': [{'id':str(task.pk),'title':task.title,'description':task.description,'icon':'circle',
                    'durationDays':task.studio_duration_days,'dod':[task.definition_of_done],
@@ -730,9 +761,9 @@ def studio_template(request, workspace):
                    **positions.get(str(task.pk),{'x':100,'y':100})} for task in rows],
         'edges': [[str(source),str(target)] for target,sources in predecessors.items()
                   for source in sources if str(source) in ids],
-        'groups': [group for group in canvas.get('groups',[]) if set(group['members']) <= ids],
-        'frames': canvas.get('frames',[]),
-        'layoutArrows': [],
+        'groups': groups,
+        'frames': frames,
+        'layoutArrows': [arrow for arrow in canvas.get('arrows', []) if {arrow['from'], arrow['to']} <= shapes],
         'loops': [{**loop,'count':0} for loop in canvas.get('loops',[]) if {loop['from'],loop['to']} <= ids],
     }
     template, created = WorkspaceStudioTemplate.objects.get_or_create(
@@ -746,7 +777,6 @@ def studio_template(request, workspace):
 
 def _materialize_template(workspace, project, author, template, duration):
     from .operating_models import OperatingTaskPredecessor
-    import re
 
     if type(duration) is not int or not 1 <= duration <= 3650:
         return False
@@ -759,6 +789,8 @@ def _materialize_template(workspace, project, author, template, duration):
         if not stored:
             return False
         snapshot = stored.snapshot
+    elif template in project_template_catalog():
+        snapshot = project_template_catalog()[template]
     else:
         from .task_workflows import TEMPLATES
         definition = TEMPLATES.get(template)
@@ -769,9 +801,12 @@ def _materialize_template(workspace, project, author, template, duration):
                     'edges':[[str(i),str(i+1)] for i in range(len(steps)-1)],'frames':[],'groups':[],'loops':[]}
     by_id = {}
     for item in snapshot['tasks']:
+        importance = item.get('importance', 5)
+        priority = 'p0' if importance >= 9 else 'p1' if importance >= 7 else 'p2' if importance >= 4 else 'p3'
         task = OperatingTask.objects.create(
             workspace=workspace, project=project, owner_id=project.owner_id, title=item['title'],
-            description=item.get('description',''), definition_of_done='\n'.join(item.get('dod',[])),
+            description=item.get('description',''), priority=priority,
+            definition_of_done='\n'.join(item.get('dod') or item.get('checklist') or [item['title']]),
             status=WorkStatus.DRAFT if item.get('idea') else WorkStatus.READY, studio_duration_days=item.get('durationDays') or duration,
         )
         by_id[item['id']] = task
@@ -780,10 +815,14 @@ def _materialize_template(workspace, project, author, template, duration):
     for source,target in snapshot['edges']:
         OperatingTaskPredecessor.objects.create(task=by_id[target],predecessor=by_id[source])
     canvas = project.studio_layout
+    def remap(shape):
+        return str(by_id[shape].pk) if shape in by_id else shape
+
     canvas.canvas.update({
         'positions': {str(by_id[item['id']].pk):{'x':item['x'],'y':item['y']} for item in snapshot['tasks'] if 'x' in item},
         'frames':snapshot['frames'],
         'groups':[{**group,'members':[str(by_id[member].pk) for member in group['members']]} for group in snapshot['groups']],
+        'arrows': [{**arrow, 'from': remap(arrow['from']), 'to': remap(arrow['to'])} for arrow in snapshot.get('layoutArrows', [])],
         'loops':[{**loop,'from':str(by_id[loop['from']].pk),'to':str(by_id[loop['to']].pk)} for loop in snapshot['loops']],
     })
     canvas.save(update_fields=['canvas'])

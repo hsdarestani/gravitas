@@ -98,8 +98,8 @@ export function calendarUI({esc,symbol,option,button,iconButton,userName,formDia
   const typeIcon=entry=>symbol(entry.pinned?'pin':typeMeta[entry.kind][0]);
   function entryRow(entry,date) {
     if (entry.pinned) return `<article class="calendar-pinned-note">
-      <span class="calendar-pinned-label">${symbol('pin')} Pinned meeting note</span>
-      <button type="button" data-action="open-pinned-meeting" data-value="${esc(entry.id)}"><strong>${esc(entry.title)}</strong>
+      <span class="calendar-pinned-label">${symbol('pin')} ${entry.action==='open-pinned-meeting'?'Pinned meeting note':'Pinned day note'}</span>
+      <button type="button" data-action="${esc(entry.action)}" data-value="${esc(entry.id)}"><strong>${esc(entry.title)}</strong>
         <small>${esc(entry.context)}</small>${symbol('chevron')}</button>
       <p dir="auto">${esc(entry.text)}</p>
     </article>`;

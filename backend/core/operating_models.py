@@ -55,6 +55,7 @@ class OperatingProcess(models.Model):
     flow = models.JSONField(default=list, blank=True)
     cadence = models.JSONField(default=list, blank=True)
     kpis = models.JSONField(default=list, blank=True)
+    studio_task_presets = models.JSONField(default=list, blank=True)
     active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

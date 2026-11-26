@@ -18,7 +18,7 @@ import { downloadReport, httpLinkParts, reportPreview } from './report-export.js
 import { profilePhoto, validPhoto } from './member-profile.js';
 import { captureCanvasVersion, restoreCanvasVersion } from './canvas-versions.js';
 import { floatingDialog, blockerTooltips } from './workspace-interactions.js';
-import { canReadTask, canReadEvent, taskAccessFields } from './task-access.js';
+import { canReadTask, canReadEvent } from './task-access.js';
 import { weightedMosaic } from './showroom-layout.js';
 
 import { tidyWorkflow } from './workflow-layout.js';
@@ -799,7 +799,7 @@ const basePresets = [
 const taskPresets = areaId => [...basePresets,...(data.taskPresets||[])].filter(entry=>!areaId||entry.area===areaId);
 const canManagePresets = areaId => isAdmin()||Boolean(areaId&&area(areaId)?.lead===ui.actor);
 function presetLibrary() {
-  const managed=data.areas.some(group=>canManagePresets(group.id));
+  const managed=data.areas.some(group=>group.id.startsWith('area-')&&canManagePresets(group.id));
   return `<section class="panel preset-library" aria-labelledby="preset-library-title">
     <header class="panel-head"><h2 id="preset-library-title">Task presets</h2>${managed?button('edit-preset','New preset','plus','ghost'):''}</header>
     <div class="preset-grid">${taskPresets().map(entry=>`<article class="preset-card">
@@ -810,8 +810,8 @@ function presetLibrary() {
     </article>`).join('')}</div></section>`;
 }
 function editPreset(id='') {
-  const areas=data.areas.filter(group=>canManagePresets(group.id));
   const entry=data.taskPresets?.find(preset=>preset.id===id);
+  const areas=data.areas.filter(group=>group.id.startsWith('area-')&&canManagePresets(group.id)&&(!entry||entry.area===group.id));
   if (!areas.length||id&&!canManagePresets(entry?.area)) return;
   formDialog(entry?'Edit task preset':'New task preset','task-preset-form',
     `${entry?`<input type="hidden" name="id" value="${entry.id}">`:''}
@@ -829,12 +829,8 @@ function savePreset(form,fields) {
   if (!name||!title) return formError(form,'Enter a preset name and a suggested task name.');
   if (taskPresets(group.id).some(item=>item!==entry&&item.name.toLowerCase()===name.toLowerCase())) return formError(form,'This work area already has a preset with that name.');
   const labels=key=>fields.getAll(key).map(value=>value.trim()).filter(Boolean);
-  const values={name,title,area:group.id,checklist:labels('checklist'),dod:labels('dod')};
-  data.taskPresets ||= [];
-  if (entry) Object.assign(entry,values);
-  else data.taskPresets.push({id:newId(),...values});
-  record('Saved task preset '+name,null,null);
-  dialog.close();render();announce('Task preset saved.');
+  return runWrite(()=>workspaceApi.area(group.id,{action:'preset',preset_id:entry?.id,name,title,
+    checklist:labels('checklist'),dod:labels('dod')}),()=>dialog.close(),form);
 }
 function presetPicker(flow) {
   const presets=taskPresets(flow?.area);
@@ -1142,15 +1138,15 @@ function saveOkrCheckIn(form,fields) {
 function okrOwnerDialog(id) {
   if (!isAdmin()||!objectiveById(id)&&!resultById(id)) return;
   formDialog('Assign OKR owner','okr-owner-form',`<input type="hidden" name="id" value="${esc(id)}">
-    ${selectField('owner','Owner',option('','Unassigned',data.okrs.owners[id]||'')+data.team.map(member=>option(member.id,member.name,data.okrs.owners[id])).join(''))}`,'Save owner');
+    ${selectField('owner','Owner',data.team.map(member=>option(member.id,member.name,data.okrs.owners[id])).join(''))}`,'Save owner');
 }
-function saveOkrOwner(fields) {
+function saveOkrOwner(form,fields) {
   const id=fields.get('id'),owner=person(fields.get('owner'));
   if (!isAdmin()||!objectiveById(id)&&!resultById(id)) return;
-  const previous=data.okrs.owners[id]||'';
-  data.okrs.owners[id]=owner?.id||'';
-  if (previous!==data.okrs.owners[id]) record('Changed OKR owner for '+(objectiveById(id)?.title||resultById(id).label),null,null,{kind:'planning'});
-  dialog.close();render();announce('Owner saved.');
+  if (!owner) return formError(form,'Choose a team member.');
+  const objective=Boolean(objectiveById(id));
+  return runWrite(()=>workspaceApi.okrOwner(objective?'objective':'result',objective?id.slice('objective-'.length):id,
+    Number(owner.id)),()=>dialog.close(),form);
 }
 function okrLinkDialog(id) {
   if (!resultById(id)||!krEdit(id)) return;
@@ -2234,7 +2230,7 @@ function admin() {
           ${iconButton('edit-person',`Edit ${member.name}`,'edit',member.id)}</div>`).join('') :
         data.areas.map(group=>`<div class="person-line">${symbol(group.icon)}<div><strong>${esc(group.title)}</strong><small>Lead · ${esc(ownerName(group.lead))}</small></div>
           ${button('admin-area-projects',`${data.projects.filter(flow=>flow.area===group.id).length} projects`,'flow','ghost',group.id)}
-          ${iconButton('edit-area',`Edit ${group.title}`,'edit',group.id)}</div>`).join('')}
+          ${group.id.startsWith('area-')?iconButton('edit-area',`Edit ${group.title}`,'edit',group.id):''}</div>`).join('')}
       </section>`);
 }
 function viewPage() {
@@ -2785,7 +2781,7 @@ function editTaskDialog(item,startingStatus = 'backlog') {
       <span class="importance-ends"><small>Low</small><small>Critical</small></span></label>
       <div data-schedule-impact hidden></div>`)}
     ${taskEditorSection('checklist',checkEditor('checklist','Checklist',item?.checklist || [])+checkEditor('dod','Definition of Done',item?.dod || []))}
-    ${taskEditorSection('access','<p class="dim">Task access follows GraviQuest permissions.</p>')}`,
+    ${taskEditorSection('access',!item||item.canEditAccess?taskAccessSection(item):'<p class="dim">Task access follows GraviQuest permissions.</p>')}`,
     item?'Save changes':'Create task',{navigation,status:item?.status || startingStatus});
 }
 function taskAccessSection(item) {
@@ -2851,10 +2847,11 @@ function newFlowDialog(id,flow=null,templateId='') {
     <section class="editor-section" data-editor-section="details">
       ${textField('title','Project name',flow?.title)}
       ${flow?'':selectField('template','Workflow template',option('','Start empty',templateId)+templates().map(template=>option(template.id,template.name,templateId)).join(''))}
-      ${id?`<input type="hidden" name="area" value="${esc(id)}">`:selectField('area','Work area',data.areas.map(group=>option(group.id,group.title,chosenTemplate?.area)).join(''))}
+      ${id&&!flow?`<input type="hidden" name="area" value="${esc(id)}">`:selectField('area','Work area',data.areas.map(group=>option(group.id,group.title,flow?.area||chosenTemplate?.area)).join(''))}
       ${areaField('description','Description',flow?.description)}
       ${flow?'':`<label class="field">Project start date<input type="date" name="scheduleStart" value="${today()}" required></label>`}
-      ${personTiles('owner','Project owner',[flow?.owner ?? chosenTemplate?.owner ?? area(id)?.lead ?? ui.actor],true)}
+      ${flow?`<input type="hidden" name="owner" value="${esc(flow.owner)}"><p class="dim">Project owner · ${esc(ownerName(flow.owner))}</p>`:
+        personTiles('owner','Project owner',[chosenTemplate?.owner || area(id)?.lead || ui.actor],true)}
     </section>
     ${flow?'':`<section class="editor-section" data-editor-section="template-preview" hidden></section>
     <section class="editor-section" data-editor-section="kpis" hidden>
@@ -2999,6 +2996,9 @@ function moveTaskDialog(flow) {
     <label class="field">Vertical position<input type="number" name="y" required min="55" max="3900" value="${selected.y}"></label>`, 'Move task');
 }
 function personDialog(member) {
+  if (!member) return formDialog('Add teammate','add-member-form',
+    '<label class="field">GraviQuest account email<input name="email" type="email" autocomplete="off" required></label>'+
+    selectField('role','Access level',option('member','Member','member')+option('admin','Admin')),'Add teammate');
   formDialog(member?'Edit teammate':'Add teammate','person-form',`<input type="hidden" name="id" value="${member?.id || ''}">
     ${textField('name','Display name',member?.name,38)}${textField('handle','Mention handle',member?.handle,25)}
     <label class="field">Role title<input type="text" name="roleTitle" maxlength="60" value="${esc(member?.roleTitle)}" placeholder="e.g. Video Editor"></label>
@@ -3008,7 +3008,7 @@ function personDialog(member) {
 function areaDialog(group) {
   formDialog(group?'Edit work area':'Add work area','area-form',`<input type="hidden" name="id" value="${group?.id || ''}">
     ${textField('title','Work area name',group?.title,46)}
-    ${selectField('lead','Work area lead',data.team.map(member=>option(member.id,member.name,group?.lead)).join(''))}`,'Save work area');
+    ${selectField('lead','Work area lead',option('','Unassigned',group?.lead||'')+data.team.map(member=>option(member.id,member.name,group?.lead)).join(''))}`,'Save work area');
 }
 function identityDialog() {
   showDialog('Switch demo teammate',`<p class="dim" style="margin-bottom:9px">Try each person’s assignments and permissions in this browser.</p>
@@ -3229,12 +3229,17 @@ function canvasSnapshot(flow) {
 function undoCanvas() {
   const flow=currentProject(), snapshot=ui.canvasUndo.at(-1);
   if (!canEdit(flow?.id)||snapshot?.flow!==flow.id) return;
-  ui.canvasUndo.pop();
-  Object.assign(flow,snapshot.shape);
-  for (const {id,...state} of snapshot.nodes) { const item=taskRecord(id); if (item) Object.assign(item,state); }
-  ui.builderSelection.clear();
-  record('Undid a workflow edit',null,flow.id,{},true);
-  render();announce('Workflow edit undone.');
+  if (!snapshot.canvas||snapshot.revision!==flow.canvasRevision) {
+    ui.canvasUndo=[];
+    render();
+    return announce('The canvas changed elsewhere. Reopen the canvas to continue.','danger');
+  }
+  runWrite(()=>workspaceApi.canvas(flow,snapshot.canvas),()=>{
+    ui.canvasUndo.pop();
+    const previous=ui.canvasUndo.at(-1);
+    if (previous?.flow===flow.id) previous.revision=project(flow.id).canvasRevision;
+    resetBuilder();
+  });
 }
 function removeBuilderSelection() {
   const flow=currentProject();
@@ -3605,6 +3610,10 @@ function saveTask(form,fields) {
     definition_of_done:definition, duration_days:duration ? Number(duration) : null,
     checklist:fields.getAll('checklist').map(text=>text.trim()).filter(Boolean),
   };
+  if (fields.has('visibility')) {
+    changes.visibility=fields.get('visibility');
+    changes.allowed_members=changes.visibility==='private'?fields.getAll('allowedMembers').map(Number):[];
+  }
   const request=()=>item ? workspaceApi.patch(item,changes) : workspaceApi.create({...changes,
     project_id:flow.id==='unassigned'?null:Number(flow.id), status:canonicalStatus[status],
     client_create_id:form.dataset.createId ||= newId(),
@@ -3729,10 +3738,8 @@ function saveArea(form,fields) {
   const title=fields.get('title').trim(), lead=fields.get('lead');
   if (!title) return formError(form,'Enter a work area name.');
   if (data.areas.some(item=>item!==group&&item.title.toLowerCase()===title.toLowerCase())) return formError(form,'That work area already exists.');
-  if (group) Object.assign(group,{title,lead});
-  else data.areas.push({id:idFor('area',data.areas),title,lead,icon:'layout'});
-  record((group?'Updated work area ':'Added work area ')+title,null,null,{kind:'management'});
-  dialog.close(); render(); announce('Work area saved.');
+  if (group&&!group.id.startsWith('area-')) return formError(form,'Choose a work area to edit.');
+  return runWrite(()=>workspaceApi.area(group?.id,{action:'area',title,owner_id:lead?Number(lead):null}),()=>dialog.close(),form);
 }
 function periodFilter(scope) {
   return `<label class="period-control"><span class="sr-only">Filter by period</span><select data-period-filter="${scope}">${periodChoices.map(([id,label])=>option(id,label,ui.periods[scope]||'')).join('')}</select></label>`;
@@ -3772,7 +3779,7 @@ function calendarSource(scope,start,end) {
   if (!specific) for (const note of data.calendarNotes) {
     if (own?note.actor!==ui.actor:note.visibility!=='team') continue;
     entries.push({kind:'note',action:'calendar-note',id:note.id,title:note.text.trim().split('\n')[0].slice(0,95),
-      context:ownerName(note.actor)+(note.visibility==='personal'?' · Private':''),date:note.date,owners:[note.actor],pinned:note.pinned});
+      context:ownerName(note.actor)+(note.visibility==='personal'?' · Private':''),date:note.date,owners:[note.actor],pinned:note.pinned,text:note.text});
   }
   return {entries,areas:data.areas,team:data.team};
 }
@@ -4699,21 +4706,18 @@ document.addEventListener('change',event=>{
     field.form.querySelector('[data-private-members]').hidden=field.value!=='private';
   }
   if (field.dataset.showroom) {
-    ui.showroom[field.dataset.showroom]=field.value;
+    const setting=field.dataset.showroom;
+    ui.showroom[setting]=field.value;
+    if (['scope','size','color'].includes(setting)) {
+      const {scope,size,color}=ui.showroom;
+      runWrite(()=>workspaceApi.showroomView({scope,size,color}));
+    }
     ui.showroom.page=0;render();
     document.querySelector('[data-showroom="'+field.dataset.showroom+'"]')?.focus({preventScroll:true});return;
   }
   if (field.dataset.showroomSwatch) {
     const colors={...data.showroomColors,[ui.showroom.color+':'+field.dataset.showroomSwatch]:field.value};
     runWrite(()=>workspaceApi.preferences(colors));return;
-  }
-  if (field.dataset.meetingCheck) {
-    const item=meetingRecord(field.dataset.meetingCheck);
-    const entry=item?.agenda[Number(field.dataset.index)];
-    if (entry&&meetingOwnerCanEdit(item)) {
-      entry.done=field.checked;storeMeeting(item);save();render();document.getElementById(field.id)?.focus({preventScroll:true});
-    }
-    return;
   }
   if (['from','to','remove'].includes(field.name)&&field.form?.querySelector('[data-endpoint-preview]')) updateEndpoints(field.form,currentProject());
   const item=task(ui.task);
@@ -4733,7 +4737,7 @@ document.addEventListener('change',event=>{
   if (field.dataset.meetingCheck) {
     const meeting=meetingRecord(field.dataset.meetingCheck),index=Number(field.dataset.index);
     const entry=meeting?.agenda[index];
-    if(entry) runWrite(()=>workspaceApi.meeting(meeting.id,{agenda_action:'check',agenda_index:index,agenda_text:entry.text}));
+    if(entry) runWrite(()=>workspaceApi.meeting(meeting.id,{agenda_action:'check',agenda_index:index,agenda_text:entry.text,agenda_done:field.checked}));
     return;
   }
   if (field.hasAttribute('data-daily-check')) {
@@ -4776,8 +4780,7 @@ document.addEventListener('change',event=>{
     if (field.id==='admin-review-days') {
       const value=Number(field.value);
       if (!reviewIntervals.includes(value)) return;
-      data.adminReviewDays=value;
-      record('Set the project review window to '+value+' days',null,null,{kind:'management'});
+      return runWrite(()=>workspaceApi.reviewInterval(value));
     } else {
       const key=keys[field.id];
       if (!key) return;
@@ -4800,8 +4803,8 @@ document.addEventListener('submit',event=>{
   const flow=currentProject();
   const item=task(ui.task);
   if (studioForms.has(formId)) return studioForms.get(formId)(form,fields,item,flow);
-  if (formId!=='calendar-read-note') return formError(form,'This action is unavailable in the current preview.');
-  return calendar.submit(form,fields);
+  if (formId==='calendar-note-form'||formId==='calendar-read-note') return calendar.submit(form,fields);
+  return formError(form,'This action is unavailable in the current preview.');
 });
 const showroomDefaults={
   overdue:'#fa908c',attention:'#eac171',done:'#85d7a4',ready:'#7dbdeb',idea:'#b6a9da',closed:'#a3a5b6',unassigned:'#8a9cab'
@@ -5390,12 +5393,7 @@ let adminUI;
 
 
 const unsupportedActions = new Set([
-  'identity', 'switch-person', 'new-area', 'edit-area', 'new-person',
-  'edit-preset',
-  'okr-edit-owner',
-  'undo-canvas',
-
-  'move-task',
+  'identity', 'switch-person',
 ]);
 function markUnsupported(root) {
   for (const control of root.querySelectorAll('[data-action]')) {
@@ -5443,6 +5441,7 @@ function restoreStudioRoute() {
 }
 
 function setStudioState(payload) {
+  if (!stateLoaded) Object.assign(ui.showroom,payload.showroomView);
   for (const [key,pending] of notebookPending) {
     if (key.startsWith('project:')) {
       const flow=payload.projects.find(project=>project.id===key.slice(8));
@@ -5673,6 +5672,18 @@ function readInbox(ids, open) {
 
 const studioForms = new Map(Object.entries({
   'task-form': saveTask,
+  'add-member-form': (form,fields)=>runWrite(()=>workspaceApi.addMember(fields.get('email').trim(),fields.get('role')),()=>dialog.close(),form),
+  'area-form':saveArea,
+  'task-preset-form':savePreset,
+  'okr-owner-form':saveOkrOwner,
+  'move-form':(form,fields,_item,flow)=>{
+    const item=task(fields.get('id'));
+    const x=Number(fields.get('x')),y=Number(fields.get('y'));
+    if (!canEdit(flow?.id)||item?.project!==flow.id||!item.canEdit||!Number.isInteger(x)||!Number.isInteger(y))
+      return formError(form,'Choose a task and enter valid coordinates.');
+    Object.assign(item,{x,y});
+    return persistCanvas(flow,()=>dialog.close(),form);
+  },
   'native-file-form': async (form,fields)=>{
     const {id,path}=JSON.parse(fields.get('context'));
     const file=fields.get('file');
@@ -5805,7 +5816,8 @@ Object.assign(handlers,{
   'remove-selection':removeStudioSelection,
   'use-reviewed-template':id=>{
     if (dialog.dataset.templatePreview!==id) return;
-    if (id.startsWith('saved-')&&isAdmin()) return newFlowDialog('core',null,id);
+    if ((id.startsWith('saved-')||templates().some(entry=>entry.id===id&&entry.projectTemplate))&&isAdmin())
+      return newFlowDialog('',null,id);
     const candidates=activeTasks().filter(item=>item.canEdit&&!item.workflowState&&!item.parentId&&item.status!=='done');
     if (!candidates.length) return showDialog('Use template','<p>No editable tasks are available.</p>');
     formDialog('Use template','template-attach-form',`<input type="hidden" name="template" value="${esc(id)}">`+
@@ -5873,6 +5885,7 @@ function persistCanvas(flow, complete, form) {
   const positions=Object.fromEntries(rawProjectTasks(flow.id).map(item=>[item.id,{x:Math.round(item.x),y:Math.round(item.y)}]));
   const nodes=projectNodes(flow).map(({id,targetProjectId,milestoneId,x,y})=>({id,targetProjectId,milestoneId:milestoneId||'',x,y}));
   const handoffs=flow.edges.filter(([from,to])=>linkedNode(flow,from)||linkedNode(flow,to));
+  const previous=structuredClone(flow.savedCanvas);
   const canvas={positions, frames:flow.frames, groups:flow.groups, arrows:flow.layoutArrows, start_date:flow.scheduleStart||'',
     end_time:projectCutoff(flow), nodes, handoffs, loops:flow.loops};
   return runWrite(async()=>{
@@ -5882,7 +5895,14 @@ function persistCanvas(flow, complete, form) {
       try {setStudioState(workspaceData(await workspaceApi.load()));} catch {}
       throw error;
     }
-  },complete,form);
+  },result=>{
+    if (previous) {
+      if (ui.canvasUndo.at(-1)?.revision!==flow.canvasRevision) ui.canvasUndo=[];
+      ui.canvasUndo.push({flow:flow.id,revision:project(flow.id).canvasRevision,canvas:previous});
+      if (ui.canvasUndo.length>30) ui.canvasUndo.shift();
+    }
+    complete?.(result);
+  },form);
 }
 
 function removeStudioSelection() {

@@ -267,6 +267,72 @@ class WorkspaceStudioTests(TestCase):
         project = next(row for row in self.state()['projects'] if row['id'] == self.project.pk)
         self.assertEqual(project['updates'][0]['resolution']['outcome'], 'approved')
 
+    def test_work_area_presets_and_team_members_use_canonical_records(self):
+        created = self.post('areas/', {'action':'area','title':'Studio QA','owner_id':self.member.pk})
+        self.assertEqual(created.status_code, 201, created.content)
+        area_id = created.json()['id']
+        self.client.force_login(self.member)
+        saved = self.client.patch(STUDIO + f'areas/{area_id}/', {
+            'action':'preset','name':'Browser pass','title':'Check desktop','checklist':['Open page'],'dod':['Record evidence'],
+        }, content_type='application/json')
+        self.assertEqual(saved.status_code, 200, saved.content)
+        area = next(row for row in self.state()['areas'] if row['id'] == area_id)
+        self.assertEqual(area['studio_task_presets'][0]['dod'], ['Record evidence'])
+        self.assertEqual(self.post('members/', {'email':self.external.username,'role':'member'}).status_code, 403)
+        self.client.force_login(self.admin)
+        added = self.post('members/', {'email':self.external.username,'role':'member'})
+        self.assertEqual(added.status_code, 201, added.content)
+        self.assertEqual(self.post('members/', {'email':self.external.username,'role':'member'}).status_code, 409)
+        self.client.force_login(self.external)
+        self.assertEqual(self.state()['actor']['id'], self.external.pk)
+
+    def test_source_template_materializes_a_real_workflow_and_okr_links(self):
+        from .operating_models import KeyResult, StrategicObjective
+
+        state = self.state()
+        template = next(row for row in state['project_templates'] if row['id'] == 'gravitas-video')
+        self.assertEqual(len(template['tasks']), 28)
+        created = self.post('projects/', {'action':'create','title':'Video source template','owner_id':self.admin.pk,
+            'start_date':'2026-11-28','template':template['id'],'duration':2})
+        self.assertEqual(created.status_code, 201, created.content)
+        project_id = created.json()['id']
+        state = self.state()
+        project = next(item for item in state['projects'] if item['id'] == project_id)
+        self.assertEqual(OperatingTask.objects.filter(project_id=project_id).count(), 28)
+        self.assertEqual(len(project['canvas']['loops']), 5)
+        self.assertEqual(len(project['canvas']['frames']), 3)
+        objective = StrategicObjective.objects.create(workspace=self.workspace, title='Quality', owner=self.admin)
+        key_result = KeyResult.objects.create(objective=objective, title='Test coverage', owner=self.admin, target_value=10)
+        result_path = STUDIO + f'results/{key_result.pk}/'
+        for fields in ({'action':'check_in','value':5,'baseline':2,'note':'Five checks passed'},
+                       {'action':'link','project_id':project_id}):
+            response = self.client.patch(result_path, fields, content_type='application/json')
+            self.assertEqual(response.status_code, 200, response.content)
+        row = next(item for item in self.state()['objectives'] if item['id'] == objective.pk)['results'][0]
+        self.assertEqual(row['checkins'][0]['value'], '5.0000')
+        self.assertEqual(row['links'][0]['projectId'], str(project_id))
+
+    def test_studio_private_task_shares_with_only_selected_members(self):
+        third = get_user_model().objects.create_user('studio-third@example.test')
+        WorkspaceMembership.objects.create(workspace=self.workspace, user=third)
+        created = self.post('tasks/', {
+            'title':'Private QA','definition_of_done':'Reviewed','status':'ready',
+            'visibility':'private','allowed_members':[self.member.pk], 'client_create_id':str(uuid.uuid4()),
+        })
+        self.assertEqual(created.status_code, 201, created.content)
+        task = OperatingTask.objects.get(pk=created.json()['id'])
+        self.client.force_login(third)
+        self.assertNotIn(task.pk, {row['id'] for row in self.state()['tasks']})
+        self.assertEqual(self.client.get(STUDIO + f'tasks/{task.pk}/details/').status_code, 404)
+        self.client.force_login(self.member)
+        row = next(row for row in self.state()['tasks'] if row['id'] == task.pk)
+        self.assertTrue(row['private'])
+        self.assertFalse(row['can_edit'])
+        self.client.force_login(self.admin)
+        self.assertEqual(self.patch(task, {'visibility':'workspace'}).status_code, 200)
+        self.client.force_login(third)
+        self.assertIn(task.pk, {row['id'] for row in self.state()['tasks']})
+
     def test_calendar_notes_and_notebook_images_respect_ownership(self):
         day = '2026-11-25'
         note = self.post('calendar/notes/', {'date':day,'text':'Private note','visibility':'personal'})
@@ -373,6 +439,28 @@ class WorkspaceStudioTests(TestCase):
         data = self.state()['projects'][0]
         self.assertFalse(data['canvas']['frames'])
         self.assertEqual(len(data['canvas_versions']),2)
+
+    def test_nested_project_and_review_loop_gate_real_task_status(self):
+        child = ResearchProject.objects.create(workspace=self.project.workspace, owner=self.admin, title='Child project')
+        review = self.task('Review delivery', project=self.project, studio_duration_days=2)
+        node_id = 'project-link-review'
+        canvas = {'positions':{},'frames':[],'groups':[],'arrows':[],'start_date':'',
+                  'nodes':[{'id':node_id,'targetProjectId':str(child.pk),'milestoneId':'','x':190,'y':160}],
+                  'handoffs':[[node_id,str(review.pk)]],
+                  'loops':[{'id':'round','from':str(review.pk),'to':str(review.pk),'target':1,'count':0,'optional':False}]}
+        saved = self.patch_studio(f'projects/{self.project.pk}/canvas/', {'revision':0,'canvas':canvas})
+        self.assertEqual(saved.status_code, 200, saved.content)
+        blocked = self.patch(review, {'status':'active'})
+        self.assertEqual(blocked.json()['error'], 'project_handoff_incomplete')
+        child.archived = True
+        child.save(update_fields=['archived'])
+        self.assertEqual(self.patch(review, {'status':'active'}).status_code, 200)
+        review.refresh_from_db()
+        blocked = self.patch(review, {'status':'done'})
+        self.assertEqual(blocked.json()['error'], 'review_pass_required')
+        result = self.post(f'projects/{self.project.pk}/review/', {'revision':1,'id':'round','findings':'Resolved.'})
+        self.assertEqual(result.status_code, 200, result.content)
+        self.assertEqual(self.project.studio_layout.canvas['loops'][0]['count'], 1)
 
     def test_weekly_meeting_creates_one_canonical_session_when_edited(self):
         response = self.post('meetings/',{

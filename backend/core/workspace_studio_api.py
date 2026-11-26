@@ -20,8 +20,8 @@ from .operating_models import (
     OperatingMeeting, OperatingMilestone, OperatingProcess, OperatingTask, OperatingTaskPredecessor,
     StrategicObjective, WorkStatus,
 )
-from .platform_access import access_batch, can_comment, can_edit, can_view
-from .platform_models import WorkspaceProfile
+from .platform_access import INHERIT_VISIBILITY, access_batch, can_comment, can_edit, can_manage, can_view, content_type_for, policy_for
+from .platform_models import AccessGrant, ObjectPolicy, WorkspaceProfile
 from .platform_runtime_v3 import _canonical_workspace, core_role
 from .task_board_api import (
     _log, _readonly_task_workspace, _task_for, _validated_create_key, task_board, task_board_detail,
@@ -140,6 +140,12 @@ def studio_state(request, workspace):
             task['duration_days'] = row.studio_duration_days
             task['can_edit'] = board['can_edit'] and can_edit(user, row)
             task['can_comment'] = can_comment(user, row)
+            policy = policy_for(row)
+            visibility = policy.visibility if policy else INHERIT_VISIBILITY
+            task['private'] = visibility in (ObjectPolicy.Visibility.PRIVATE, ObjectPolicy.Visibility.SPECIFIC)
+            task['can_edit_access'] = (not row.workflow_position and can_manage(user, row)
+                                       and (visibility == INHERIT_VISIBILITY or 'studio_task_access' in row.source_metadata))
+            task['allowed_members'] = row.source_metadata.get('studio_task_access', {}).get('members', []) if task['can_edit_access'] else []
             task['predecessor_ids'] = []
             task['blocked_by_dependency'] = False
             if row.parent_id in visible_ids:
@@ -178,6 +184,9 @@ def studio_state(request, workspace):
         details = getattr(row, 'studio_project', None)
         if details:
             project.update(_project_json(row, details))
+            project['completions'] = [{
+                **entry, 'tasksAtClose': [task for task in entry.get('tasksAtClose', []) if task['id'] in ids_by_project[row.pk]],
+            } for entry in project['completions']]
             if details.notebook:
                 project['work_report'] = {
                     **details.notebook,
@@ -202,7 +211,7 @@ def studio_state(request, workspace):
     from .task_workflows import TEMPLATES
     from .work_report_models import DailyWorkReport
     reports = DailyWorkReport.objects.filter(user=user, status='confirmed').order_by('-report_date', 'created_at')[:100]
-    from .workspace_studio_projects import meeting_records
+    from .workspace_studio_projects import meeting_records, project_template_catalog
     from .workspace_studio_evidence import calendar_notes
     from .layer_models import ActivityEvent
     meetings, series = meeting_records(workspace, project_ids, visible_ids, {idea.pk for idea in ideas_by_project.values()})
@@ -224,6 +233,7 @@ def studio_state(request, workspace):
         'projects': projects, 'tasks': tasks,
         'templates': [{'id':key,'name':entry['label'],'steps':entry['steps']}
                       for key, entry in TEMPLATES.items() if entry['steps']],
+        'project_templates': [{**row, 'projectTemplate': True} for row in project_template_catalog().values()],
         'ideas': [{'id':idea.pk, 'title':idea.title, 'body':idea.body, 'author':idea.author_id, 'process_id':idea.process_id,
                    'project_id':idea.project_id, 'state':'brought' if idea.promoted_at else 'sent' if idea.referred_at else 'draft',
                    'notes':idea.notes} for idea in ideas_by_project.values()],
@@ -231,11 +241,13 @@ def studio_state(request, workspace):
                             for row in WorkspaceStudioTemplate.objects.filter(workspace=workspace,author=user).order_by('name')],
         'notebooks': [{'date': entry.date, 'blocks': entry.blocks, 'revision': entry.revision, 'updatedAt': entry.updated_at}
                       for entry in WorkspaceStudioNotebook.objects.filter(user=user).order_by('-date')[:730]],
-        'showroom_colors': (WorkspaceStudioPreferences.objects.filter(user=user)
-                            .values_list('showroom', flat=True).first() or {}),
+        'showroom_colors': preferences[user.pk].showroom if user.pk in preferences else {},
+        'showroom_view': preferences[user.pk].showroom_view if user.pk in preferences else {},
+        'admin_review_days': workspace.platform_profile.studio_review_days,
         'daily_reports': [{'id':r.pk, 'date':r.report_date, 'text':r.original_text,
                            'at':r.confirmed_at or r.updated_at} for r in reports],
-        'areas': list(OperatingProcess.objects.filter(workspace=workspace, active=True).values('id', 'key', 'name', 'owner_id')),
+        'areas': list(OperatingProcess.objects.filter(workspace=workspace, active=True)
+                      .values('id', 'key', 'name', 'owner_id', 'studio_task_presets')),
         'meetings': meetings, 'meeting_series': series,
         'calendar_notes': calendar_notes(workspace, user),
         'activity': [{'id': str(row.pk), 'actor': str(row.actor_id or ''), 'task': row.object_id,
@@ -313,19 +325,58 @@ def _task_project_edit(user, task):
     return not task.project_id or (not task.project.archived and can_view(user, task.project))
 
 
+def _task_project_read(user, task):
+    return not task.project_id or can_view(user, task.project)
+
+
+def _save_studio_task_access(task, user, mode, members):
+    metadata = task.source_metadata
+    tracked = metadata.get('studio_task_access', {})
+    grants = AccessGrant.objects.filter(content_type=content_type_for(task), object_id=task.pk)
+    selected = set(members) | set(task.studio_contributors.values_list('pk', flat=True)) | {user.pk}
+    selected.discard(task.owner_id)
+    kept = []
+    prior = grants.filter(pk__in=tracked.get('grants', [])).filter(role=AccessGrant.Role.VIEW, expires_at__isnull=True)
+    if mode == 'private':
+        prior.exclude(user_id__in=selected).delete()
+        kept = list(prior.filter(user_id__in=selected).values_list('pk', flat=True))
+        for member_id in selected:
+            grant, created = grants.get_or_create(user_id=member_id, defaults={
+                'content_type': content_type_for(task), 'object_id': task.pk, 'role': AccessGrant.Role.VIEW, 'granted_by': user,
+            })
+            if created:
+                kept.append(grant.pk)
+    else:
+        prior.delete()
+    visibility = ObjectPolicy.Visibility.PRIVATE if mode == 'private' else INHERIT_VISIBILITY
+    policy = policy_for(task, create=True, created_by=user, default_visibility=visibility)
+    if policy.visibility != visibility:
+        policy.visibility = visibility
+        policy.save(update_fields=['visibility', 'updated_at'])
+    task.source_metadata = {**metadata, 'studio_task_access': {'grants': kept, 'members': members if mode == 'private' else []}}
+    OperatingTask.objects.filter(pk=task.pk).update(source_metadata=task.source_metadata)
+
+
 @require_http_methods(['POST', 'PATCH'])
 @studio_access
 @transaction.atomic
 def studio_task(request, workspace, task_id=None):
     payload = _body(request)
     allowed = {'title', 'description', 'priority', 'status', 'definition_of_done', 'owner_id',
-               'duration_days', 'checklist', 'contributor_ids', 'meeting_id', 'expected_updated_at', 'project_id', 'client_create_id', 'blocked_reason'}
+               'duration_days', 'checklist', 'contributor_ids', 'meeting_id', 'expected_updated_at', 'project_id', 'client_create_id',
+               'blocked_reason', 'visibility', 'allowed_members'}
     if payload is None or set(payload) - allowed:
         return error('invalid_payload', 400)
     create = request.method == 'POST' and task_id is None
     if not create and (request.method != 'PATCH' or task_id is None):
         return error('method_not_allowed', 405)
     contributors = payload.pop('contributor_ids', None)
+    visibility = payload.pop('visibility', None)
+    allowed_members = payload.pop('allowed_members', [])
+    if (visibility not in (None, 'private', 'workspace') or not isinstance(allowed_members, list)
+            or len(allowed_members) > 100 or any(type(pk) is not int or pk < 1 for pk in allowed_members)
+            or allowed_members and visibility != 'private'):
+        return error('invalid_task_access', 400)
     if contributors is not None and (
         not isinstance(contributors, list) or len(contributors) > 100
         or any(type(pk) is not int or pk < 1 for pk in contributors)
@@ -362,7 +413,10 @@ def studio_task(request, workspace, task_id=None):
         if not key:
             return error('invalid_creation_request_id', 400)
         workspace = Workspace.objects.select_for_update().get(pk=workspace.pk)
-        signature = hashlib.sha256(json.dumps([payload, duration, titles, contributors], sort_keys=True).encode()).hexdigest()
+        create_fields = [payload, duration, titles, contributors]
+        if visibility is not None:
+            create_fields.extend([visibility, allowed_members])
+        signature = hashlib.sha256(json.dumps(create_fields, sort_keys=True).encode()).hexdigest()
         prior = OperatingTask.objects.filter(
             workspace=workspace, source_metadata__studio_create_key=key,
             source_metadata__studio_create_actor=user.pk,
@@ -381,6 +435,12 @@ def studio_task(request, workspace, task_id=None):
             return error('task_not_found', 404)
         if not can_edit(user, task):
             return error('permission_denied', 403)
+        if visibility is not None:
+            policy = policy_for(task)
+            if task.workflow_position or not can_manage(user, task) or (
+                policy and policy.visibility != INHERIT_VISIBILITY and 'studio_task_access' not in task.source_metadata
+            ):
+                return error('permission_denied', 403)
         if payload.get('expected_updated_at') != task.updated_at.isoformat():
             return error('task_changed_elsewhere', 409)
         if 'meeting_id' in payload:
@@ -407,6 +467,15 @@ def studio_task(request, workspace, task_id=None):
                 if any(loop['from']==str(task.pk) and not loop['optional'] and loop['count'] < loop['target']
                        for loop in canvas.get('loops', [])):
                     return error('review_pass_required', 409)
+    if visibility == 'private':
+        assigned = set(allowed_members) | set(contributors if contributors is not None else
+                                              task.studio_contributors.values_list('pk', flat=True) if task else [])
+        assigned_members = WorkspaceMembership.objects.filter(workspace=workspace, user_id__in=assigned,
+                                                             user__is_active=True).select_related('user')
+        task_project = task.project if task else project if project_id is not None else None
+        eligible = {row.user_id for row in assigned_members if not task_project or can_view(row.user, task_project)}
+        if eligible != assigned:
+            return error('invalid_task_access', 400)
     # Delegate the authoritative task write, including its V1 validation,
     # audit history, date tracking and canonical synchronization hooks.
     request._body = json.dumps(payload).encode()
@@ -426,8 +495,12 @@ def studio_task(request, workspace, task_id=None):
         }
     if changes:
         OperatingTask.objects.filter(pk=task_id).update(**changes)
+        if create:
+            task.source_metadata = changes['source_metadata']
     if contributors is not None:
         task.studio_contributors.set(set(contributors) - {task.owner_id})
+    if visibility is not None:
+        _save_studio_task_access(task, user, visibility, allowed_members)
     _sync_checklist(request, task, titles)
     return JsonResponse({'ok': True, 'id': task_id}, status=201 if create else 200)
 
@@ -505,7 +578,7 @@ def studio_task_details(request, workspace, task_id):
     from .task_workflow_api import task_workflow
 
     _, task = _task_for(request, task_id, counts=False)
-    if not task or not _task_project_edit(request.user, task):
+    if not task or not _task_project_read(request.user, task):
         return error('task_not_found', 404)
     workflow = None
     if task.workflow_state:
@@ -531,7 +604,8 @@ def studio_task_content(request, workspace, task_id, kind, item_id=None):
     from .task_workflow_api import task_workflow
 
     _, task = _task_for(request, task_id, counts=False)
-    if not task or not _task_project_edit(request.user, task):
+    scope = _task_project_read if request.method == 'GET' else _task_project_edit
+    if not task or not scope(request.user, task):
         return error('task_not_found', 404)
     if kind == 'workflow' and item_id is None:
         return task_workflow(request, task_id, studio=True)
@@ -668,7 +742,7 @@ def studio_meeting(request, workspace, meeting_id=None):
         return error('permission_denied', 403)
     payload = _body(request)
     if not payload or set(payload) - {'status','title','notes','date','time','end','owner_id','agenda','refs','followups',
-                                          'repeat','repeat_end','agenda_action','agenda_index','agenda_text','pinned'}:
+                                          'repeat','repeat_end','agenda_action','agenda_index','agenda_text','agenda_done','pinned'}:
         return error('invalid_meeting', 400)
     create = request.method == 'POST' and meeting_id is None
     meeting = None
@@ -688,12 +762,17 @@ def studio_meeting(request, workspace, meeting_id=None):
             if not isinstance(text,str) or not text.strip() or len(text)>160 or len(details.agenda)>=100 and payload['agenda_action']=='add':
                 return error('invalid_meeting_agenda',400)
             if payload['agenda_action']=='add':
+                if any(row['text'].casefold() == text.strip().casefold() for row in details.agenda):
+                    return error('meeting_agenda_duplicate', 409)
                 details.agenda.append({'text':text.strip(),'done':False})
             else:
                 index = payload.get('agenda_index')
                 if type(index) is not int or not 0<=index<len(details.agenda) or details.agenda[index]['text']!=text:
                     return error('meeting_agenda_changed',409)
-                details.agenda[index]['done'] = not details.agenda[index]['done']
+                done = payload.get('agenda_done', not details.agenda[index]['done'])
+                if type(done) is not bool:
+                    return error('invalid_meeting_agenda', 400)
+                details.agenda[index]['done'] = done
             details.save(update_fields=['agenda'])
             return JsonResponse({'ok':True})
         if 'pinned' in payload:

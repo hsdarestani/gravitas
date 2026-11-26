@@ -1,6 +1,6 @@
 export function canReadTask(item, member) {
   return Boolean(item && (item.visibility !== 'private' ||
-    Boolean(member && (item.accessOwner === member || item.owners.includes(member) ||
+    Boolean(member && (item.viewerId === member || item.accessOwner === member || item.owners.includes(member) ||
       item.collaboratorIds.includes(member) || item.allowedMembers?.includes(member)))));
 }
 

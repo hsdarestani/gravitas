@@ -2,48 +2,54 @@
 
 The parallel frontend uses Published Version 24, source revision `faad8dcbbd463ff45e847ed77a7c6b606d7c87f8`. Its entry point is `/workspace-v2`. The Studio is opt-in through `WORKSPACE_STUDIO_ENABLED=1` and uses the same authenticated Core membership and session as the existing Workspace.
 
-## Coverage
+## Coverage and evidence
 
-| Prototype surface | Integrated behavior | Remaining acceptance work |
+| Version 24 surface | Integration and local verification | Outstanding acceptance |
 | --- | --- | --- |
-| Shell, navigation, themes and search | Original HTML structure, styles, SVGs, fonts, responsive navigation and search. A hash route can reopen an authorized project or task. | Compare individual dialogs and edge cases across themes and viewport sizes. |
-| My Work, Focus, Tasks, personal calendar, Showroom and workload | Uses canonical task owners, dates, statuses, dependencies and permissions. Views share the same task IDs. | Verify planned workload against the team's scheduling conventions. Contributor assignments and saved Showroom preferences need integration. |
-| Inbox and Daily Log | Reads canonical task notifications, persists read state, and displays the member's confirmed work reports. | Wire notebook editing, imported activity, report media, calendar notes and pinning. |
-| Meetings, Calendar and Archive | Reads canonical meetings. Creates, edits and completes single meetings. Links task follow-ups through the existing task relation. Archive lists projects, meetings and tasks. | Weekly meeting series, collaborative agenda, pinning and discussion links. |
-| Work areas, projects, graph, OKRs and administration | Reads Core processes and accessible projects, canonical objective metrics, milestones, and team membership. | Project creation and lifecycle, ideas and promotion, project notes/reports/KPIs, OKR check-ins and links, and team/profile editing. |
-| Flowchart, Stages and Board | Reads canonical tasks and their dependencies. Updates task status. Saves layout, rectangles, visual arrows, parallel groups and a project planning start against the original project. | Nested project nodes, version history for canvas layouts, authoring project-level templates, and review loop controls. |
-| Task details and canonical workflows | Creates and edits tasks, checks items, shares threaded notes, uploads task attachments, blocks, archives and restores. Workflow templates attach to an existing task. QA uses canonical numbered iterations, revisions and final approval gates. | Validate native Nextcloud file previews and deliverable revisions. Expand role assignments and individual QA acceptance criteria. |
+| Shell, Focus, Showroom, Calendar, Workload and Search | Authenticated navigation and layout comparisons. Real task records drive Focus and workload. Showroom palette, scope, size and color persist per account. Team and personal day notes persist, with administrator pinning. | Verify the team's scheduling conventions and populated edge cases. |
+| Project lifecycle, ideas and project planning | Canonical project creation, owner-authored closing reports, failure, archive and reopening. Ideas retain their project ID through referral and promotion. Milestones, project updates, decisions, notes, KPIs and work reports persist. Integration tests cover canonical IDs and stale edits. | Confirm project owner transfer through the native management flow and verify referral notifications with real accounts. |
+| Notebook, reports and Inbox | Personal and project notebook blocks, checklist items, linked tasks, activity and image evidence persist. Tests cover private evidence and revision conflicts. Inbox uses existing task notifications and read state. | Verify image and PDF export with representative project evidence, plus notification delivery for project-level events. |
+| OKRs and work graph | Canonical objective and key result owners, numeric check-ins and project or milestone links. The graph reads live references. The source and isolated preview use different objective and task data. | Compare populated graph and roadmap states with the staging dataset. |
+| Workflow authoring and templates | Canonical project dependencies, canvas geometry and arrows, parallel groups, review loops, nested project handoffs and named canvas history. Templates from Version 24 instantiate new canonical tasks. Project-authored copies preserve accessible tasks and layout. | Exercise all nested scheduling combinations and template revision workflows. The original suggested demo people were omitted from the built-in library. |
+| Task editing and Workflow & QA | One accountable owner, multiple contributors, private tasks and explicit members, checklists, notes, prerequisites and revision checks. Assigned part reviewers and final approvers are enforced through both API paths. | Exercise a complete staged reviewer correction cycle with real team roles, including evidence revisions, notifications and cross-workspace verification. |
+| Meetings, team and profile | Weekly occurrences, collaborative agenda updates, task follow-ups, discussion references and pinned reports. Profile fields, work areas and presets persist. Administrators can add an existing active GraviQuest account to Core. | Exercise staging team identities and recurring series edits across timezone boundaries. New account provisioning requires the existing account flow. |
+| Native Nextcloud and task attachments | Existing project storage calls supply live folder listings, uploads and SSO links to individual files. Local integration tests verify task attachment bytes and denied downloads. | Verify DAV round-trips, file-ID links, Nextcloud ACLs and deliverable revision history in isolated staging with actual Nextcloud access. |
 
-V2 shows a project forecast from the selected layout start and task durations. Existing scheduled dates come from the canonical task and project schedule APIs. The forecast does not overwrite existing task deadlines. Project layout is presentation metadata linked to the canonical project, and permissions remain server-side.
+V2 calculates a project forecast from the canvas start and task durations. Existing committed deadlines come from the canonical task and project schedule APIs. Version history restores the canvas layout and records a backup using the current task permissions.
 
-## Review gate
+## Local review
 
-To reproduce the local authenticated preview, use Python 3.12 and Node.js 22 or later.
+Use Python 3.12 and Node.js 22 or later.
 
 ```sh
 python -m pip install -r backend/requirements.txt
 python scripts/workspace-studio-preview.py
 ```
 
-Open `http://127.0.0.1:4173/workspace-v2`. The script prints credentials for a local fixture account. Use the GraviQuest sign-in form, then reload the V2 tab. Both workspaces share the disposable database for the duration of the process.
+Open `http://127.0.0.1:4173/workspace-v2`. The script prints credentials for a local fixture account. Sign in through the GraviQuest form, then reload the V2 tab. Both workspaces share the disposable test database for that process.
 
-A team-accessible preview requires an isolated staging backend with real team authentication and a staging database. The repository's available deployment workflow targets production.
+Team staging requires a reachable staging origin, an isolated PostgreSQL database and project storage, and team sign-in. Both `/workspace-v2` and `/api/health/` on `staging.graviquest.com` returned HTTP 503 with an upstream connection failure before response headers. The available repository deployment job targets production. Staging infrastructure access is required to identify and restore the upstream and verify an authenticated team URL.
 
 ### QA record
 
-| Iteration | Evidence and findings | Corrections and review state |
-| --- | --- | --- |
-| QA 001 | Source baseline captures and first local integration pass. Task creation failed without a default priority. The browser QA panel failed when the existing API returned an empty approval object. | Defaulted missing create fields and normalized the approval state. Iteration superseded by QA 002. |
-| QA 002 | Authenticated local Chromium exercised persistent checklist edits, threaded notes and workflow installation. Focus and Flowchart were captured at six widths in both themes. API tests cover private and cross-scope access, CSRF, dependency cycles, stale edits and V1/V2 consistency. | Use the PR checks and screenshot package for automated evidence. Team-accessible staging and human verification are pending. |
+| Iteration | Evidence and outcome |
+| --- | --- |
+| QA 001 | Fixed missing task priority defaults and empty approval-state normalization after the first local integration pass. |
+| QA 002 | Authenticated Chromium verified checklist, threaded notes and workflow installation. Focus and Flowchart were captured at six widths in both themes. Integration tests covered private and cross-scope access, CSRF, dependency cycles, stale edits and V1/V2 consistency. |
+| QA 003 | Compared 34 screen and dialog cases against Version 24 in authenticated Chromium, including primary navigation, all nine project views, My Work tabs, and nine dialogs. Both themes ran at 360, 390, 768, 1024, 1440 and 1920 pixels. Captures compare responsive layouts using Version 24 demo data and a disposable canonical Studio fixture. Populated team records and exhaustive interaction comparisons remain open. The browser checks found a calendar note submit issue and a meeting agenda handler that shadowed the API write. Browser retests passed idea creation, notebook editing, milestone creation, calendar notes, weekly meetings and collaborative agendas after reload. |
 
-### Human QA checklist
+Project [212](https://graviquest.com/workspace/research/projects/212/tasks) contains Development task **#1167** with its four standard steps and a **Workspace V2 · Prototype parity and QA 003** milestone. The staging and human acceptance milestone submission timed out and lacks a verified saved record.
 
-- Compare Focus, Showroom, projects, task details, templates, calendars, navigation, admin and empty/error states at 360, 390, 768, 1024, 1440 and 1920 pixels in each theme.
-- Sign in as a Core owner, Core member and Research-only user. Verify denied URLs, workspace scope, private tasks, private prerequisites and attachment ACLs after identity changes.
-- Create and assign a task in V2, edit it in V1 and reload V2. Check status, stable ID, comments, checklist and audit history. Exercise two editors and repeat a create request.
-- Draw parallel stages and connect more than one prerequisite. Verify readiness, cycle rejection, dates and drag persistence. Check ordinary and archived work.
-- Submit QA 001, request corrections as a second user, submit QA 002, approve it, and use Final approval. Verify the task and QA history in V1.
-- Confirm production storage and notifications in staging with the team's approved test records. Resolve the remaining coverage rows before requesting Final Approval.
+### Human acceptance checklist
+
+- [ ] Confirm team authentication and session persistence on isolated staging as Core owner, Core member and Research-only user. Check direct links, private tasks, hidden dependencies and denied attachments.
+- [ ] Create a real project and a task. Edit the same task through V1 and V2 and verify the shared ID, history, permissions and concurrent edit handling. Exercise assignment, visibility, completion, failure and reopening.
+- [ ] Promote an idea, post a decision request, link a milestone to an OKR and record an OKR check-in. Reopen each record in a fresh session.
+- [ ] Create a template from a workflow, instantiate it, draw dependencies, parallel groups and nested project nodes, then save and restore a canvas version. Check review loops and calculated handoffs.
+- [ ] Submit QA, request changes as the assigned reviewer, submit a new numbered iteration, approve it, and confirm Final Approval eligibility as the assigned approver. Verify notifications and the canonical QA history.
+- [ ] Edit a notebook, attach an image and export the report. Create a meeting series, edit one agenda with two members, and verify discussion links and pins on the correct day.
+- [ ] Upload a permitted file to staging Nextcloud, open the exact file through SSO, verify preview, matching bytes and revision, and repeat with an account that lacks access.
+- [ ] Compare populated pages, menus, error states and interaction transitions at 360, 390, 768, 1024, 1440 and 1920 pixels in both themes. Review keyboard and touch flows on the team's devices.
 
 ## Release and rollback after approval
 

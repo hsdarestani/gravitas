@@ -181,15 +181,28 @@ def validate_links(project, workspace, canvas, rows, previous):
 
 def incomplete_project_handoff(task):
     from .models import WorkspaceStudioCanvas, ResearchProject
-    from .operating_models import OperatingMilestone, WorkStatus
+    from .operating_models import OperatingMilestone, OperatingTask, WorkStatus
 
     canvas = WorkspaceStudioCanvas.objects.filter(project_id=task.project_id).values_list('canvas', flat=True).first() or {}
     incoming = {}
     for source, target in canvas.get('handoffs', []):
         incoming.setdefault(target, []).append(source)
     nodes = {node['id']:node for node in canvas.get('nodes', [])}
-    for source in incoming.get(str(task.pk), []):
-        node = nodes[source]
+    pending = list(incoming.get(str(task.pk), []))
+    seen = set()
+    while pending:
+        source = pending.pop()
+        if source in seen:
+            continue
+        seen.add(source)
+        pending.extend(incoming.get(source, ()))
+        node = nodes.get(source)
+        if node is None:
+            if not source.isdecimal() or not OperatingTask.objects.filter(
+                pk=source, workspace_id=task.workspace_id, project_id=task.project_id, status=WorkStatus.DONE,
+            ).exists():
+                return True
+            continue
         project = ResearchProject.objects.filter(pk=node['targetProjectId']).select_related('studio_project').first()
         if not project:
             return True

@@ -550,6 +550,7 @@ class WorkspaceStudioProject(models.Model):
 class WorkspaceStudioPreferences(models.Model):
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     showroom = models.JSONField(default=dict)
+    showroom_view = models.JSONField(default=dict)
     profile = models.JSONField(default=dict)
 
 

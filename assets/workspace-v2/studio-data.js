@@ -37,6 +37,7 @@ export function workspaceData(payload) {
     revision:row.revision||0, workReport:row.work_report,
     edges:row.canvas.handoffs||[], groups:row.canvas.groups, frames:row.canvas.frames, layoutArrows:row.canvas.arrows,
     canvasRevision:row.canvas_revision, positions:row.canvas.positions, scheduleStart:row.canvas.start_date,
+    savedCanvas:row.canvas,
     loops:row.canvas.loops||[], projectNodes:row.canvas.nodes||[], scheduleEndTime:row.canvas.end_time,
     canvasVersions:(row.canvas_versions||[]).map(version=>({...version,snapshot:{
       nodes:[...Object.entries(version.canvas.positions).map(([id,point])=>({id,...point})),...(version.canvas.nodes||[])],
@@ -53,7 +54,8 @@ export function workspaceData(payload) {
   const projectsById = new Map(projects.map(project => [project.id, project]));
   const tasks = payload.tasks.map(row => ({
     id:id(row.id), project:projectId(row.project_id), title:row.title, description:row.description,
-    owners:[id(row.owner_id)], collaboratorIds:(row.contributor_ids||[]).map(id), visibility:'workspace',
+    owners:[id(row.owner_id)], collaboratorIds:(row.contributor_ids||[]).map(id), visibility:row.private?'private':'workspace',
+    allowedMembers:(row.allowed_members||[]).map(id), canEditAccess:row.can_edit_access, viewerId:id(payload.actor.id),
     status:statuses[row.status], canonicalStatus:row.status, archived:row.status === 'archived',
     canEdit:row.can_edit, canComment:row.can_comment, icon:row.workflow_state ? 'flow' : 'circle',
     durationDays:row.duration_days ?? (row.planned_schedule ? Math.round((Date.parse(row.planned_schedule.end_date) -
@@ -137,11 +139,13 @@ export function workspaceData(payload) {
     team:payload.members.map((person,index)=>({...person,id:id(person.id),color:person.color||colors[index % colors.length],
       role:['owner', 'admin'].includes(person.role) ? 'Admin' : 'Member'})),
     areas, projects, tasks, meetings, notifications, objectives, okrs:{owners, results},
+    taskPresets:payload.areas.flatMap(area=>(area.studio_task_presets||[]).map(preset=>({...preset,area:areaId(area.id)}))),
     log:payload.activity||[], ideas:(payload.ideas||[]).map(row=>({
       ...row,id:id(row.id),author:id(row.author),area:row.process_id?areaId(row.process_id):'',
       draftProject:row.state==='brought'?null:id(row.project_id),project:row.state==='brought'?id(row.project_id):null,
-    })), dailyLogs, confirmedReports, meetingSeries:payload.meeting_series||[], calendarNotes:payload.calendar_notes||[], templates:[...templates,...(payload.saved_templates||[])], showroomColors:payload.showroom_colors||{},
-    canCreateTask:payload.can_create_task,
+    })), dailyLogs, confirmedReports, meetingSeries:payload.meeting_series||[], calendarNotes:payload.calendar_notes||[],
+    templates:[...(payload.project_templates||[]),...templates,...(payload.saved_templates||[])], showroomColors:payload.showroom_colors||{},
+    canCreateTask:payload.can_create_task, showroomView:payload.showroom_view||{}, adminReviewDays:payload.admin_review_days,
   };
 }
 

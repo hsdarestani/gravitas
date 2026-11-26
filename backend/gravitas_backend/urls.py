@@ -90,6 +90,7 @@ from core.workspace_studio_projects import (
     studio_idea, studio_meeting_series, studio_milestone, studio_notebook, studio_preferences, studio_project, studio_project_note, studio_result, studio_review, studio_profile, studio_template,
 )
 from core.workspace_studio_evidence import studio_calendar_note, studio_notebook_image
+from core.workspace_studio_settings import studio_add_member, studio_area, studio_okr_owner, studio_review_interval
 
 urlpatterns = [
     path('workspace-v2', studio_shell),
@@ -110,7 +111,12 @@ urlpatterns = [
     path('api/workspace-v2/ideas/<int:idea_id>/', studio_idea),
     path('api/workspace-v2/results/<int:result_id>/', studio_result),
     path('api/workspace-v2/preferences/', studio_preferences),
+    path('api/workspace-v2/review-interval/', studio_review_interval),
     path('api/workspace-v2/profile/', studio_profile),
+    path('api/workspace-v2/areas/', studio_area),
+    path('api/workspace-v2/areas/<int:process_id>/', studio_area),
+    path('api/workspace-v2/okr-owner/<str:item_type>/<int:item_id>/', studio_okr_owner),
+    path('api/workspace-v2/members/', studio_add_member),
     path('api/workspace-v2/members/<int:user_id>/', studio_profile),
     path('api/workspace-v2/templates/', studio_template),
     path('api/workspace-v2/csrf/', studio_csrf),
