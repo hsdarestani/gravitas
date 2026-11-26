@@ -136,6 +136,7 @@ def studio_state(request, workspace):
             task['owner_id'] = row.owner_id
             task['contributor_ids'] = [person.pk for person in row.studio_contributors.all() if person.pk in members]
             task['meeting_id'] = row.meeting_id
+            task['milestone_id'] = row.milestone_id
             task['duration_days'] = row.studio_duration_days
             task['can_edit'] = board['can_edit'] and can_edit(user, row)
             task['can_comment'] = can_comment(user, row)
@@ -202,8 +203,18 @@ def studio_state(request, workspace):
     from .work_report_models import DailyWorkReport
     reports = DailyWorkReport.objects.filter(user=user, status='confirmed').order_by('-report_date', 'created_at')[:100]
     from .workspace_studio_projects import meeting_records
+    from .workspace_studio_evidence import calendar_notes
+    from .layer_models import ActivityEvent
     meetings, series = meeting_records(workspace, project_ids, visible_ids, {idea.pk for idea in ideas_by_project.values()})
-    milestones = OperatingMilestone.objects.filter(workspace=workspace, project_id__in=project_ids)
+    milestones = (OperatingMilestone.objects.filter(workspace=workspace, project_id__in=project_ids)
+                  .exclude(status=WorkStatus.ARCHIVED).select_related('workspace', 'project').prefetch_related('studio_linked_tasks'))
+    milestone_tasks = defaultdict(set)
+    for task in tasks:
+        milestone_tasks[(task['project_id'], task['milestone_id'])].add(task['id'])
+    activity_tasks = {str(task['id']): task for task in tasks}
+    activity = ActivityEvent.objects.filter(
+        layer=ActivityEvent.Layer.CORE, object_type='operating_task', object_id__in=activity_tasks,
+    ).order_by('-created_at', '-pk')[:600]
     notification_response = task_in_app_notifications(request)
     notifications = json.loads(notification_response.content)['notifications']
     return JsonResponse({
@@ -226,10 +237,19 @@ def studio_state(request, workspace):
                            'at':r.confirmed_at or r.updated_at} for r in reports],
         'areas': list(OperatingProcess.objects.filter(workspace=workspace, active=True).values('id', 'key', 'name', 'owner_id')),
         'meetings': meetings, 'meeting_series': series,
+        'calendar_notes': calendar_notes(workspace, user),
+        'activity': [{'id': str(row.pk), 'actor': str(row.actor_id or ''), 'task': row.object_id,
+                      'project': str(activity_tasks[row.object_id]['project_id'] or 'unassigned'),
+                      'at': row.created_at, 'kind': 'activity',
+                      'text': row.action.removeprefix('task.').replace('_', ' ').capitalize() + ' · ' + activity_tasks[row.object_id]['title']}
+                     for row in activity],
         'milestones': [
             {'id': row.pk, 'project_id': row.project_id, 'title': row.title,
-             'due_date': row.due_date, 'status': row.status, 'owner_id': row.owner_id}
-            for row in milestones
+             'due_date': row.due_date, 'status': row.status, 'owner_id': row.owner_id, 'updated_at': row.updated_at.isoformat(),
+             'task_ids': sorted(milestone_tasks[(row.project_id, row.pk)] | {
+                 task.pk for task in row.studio_linked_tasks.all() if task.pk in visible_ids and task.project_id == row.project_id
+             })}
+            for row in milestones if can_view(user, row)
         ],
         'objectives': [
             {'id': obj.pk, 'title': obj.title, 'description': obj.description, 'owner_id': obj.owner_id,
@@ -489,7 +509,7 @@ def studio_task_details(request, workspace, task_id):
         return error('task_not_found', 404)
     workflow = None
     if task.workflow_state:
-        response = task_workflow(request, task_id)
+        response = task_workflow(request, task_id, studio=True)
         if response.status_code == 200:
             workflow = json.loads(response.content)['workflow']
     return JsonResponse({
@@ -514,7 +534,7 @@ def studio_task_content(request, workspace, task_id, kind, item_id=None):
     if not task or not _task_project_edit(request.user, task):
         return error('task_not_found', 404)
     if kind == 'workflow' and item_id is None:
-        return task_workflow(request, task_id)
+        return task_workflow(request, task_id, studio=True)
     if kind == 'comments' and request.method == 'POST' and item_id is None:
         if not can_comment(request.user, task):
             return error('permission_denied', 403)

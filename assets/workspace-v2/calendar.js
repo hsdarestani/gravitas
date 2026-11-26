@@ -89,7 +89,7 @@ function eventsByDay(entries,start,end) {
 }
 const isMidSpan=(entry,date)=>entry.kind==='task'&&entry.startDate<date&&date<entry.date&&valid(entry.startDate);
 
-export function calendarUI({esc,symbol,option,button,iconButton,userName,formDialog,saveNote,removeNote,getNote,source,getScope,render,dialog,formError,isDateEditor}) {
+export function calendarUI({esc,symbol,option,button,iconButton,userName,formDialog,saveNote,removeNote,getNote,source,getScope,render,dialog,formError,isDateEditor,canPin}) {
   const filters=(state,scope,areas,team)=>`<div class="calendar-filters">
     ${scope==='team'?`<label><span class="sr-only">Work area</span><select data-calendar-filter="area">${option('','All work areas',state.area)}${areas.map(item=>option(item.id,item.title,state.area)).join('')}</select></label>
       <label><span class="sr-only">Owner</span><select data-calendar-filter="owner">${option('','All owners',state.owner)}${team.map(item=>option(item.id,item.name,state.owner)).join('')}</select></label>`:''}
@@ -215,13 +215,14 @@ export function calendarUI({esc,symbol,option,button,iconButton,userName,formDia
       <label class="field">Note<textarea name="text" dir="auto" rows="4" maxlength="2400" required placeholder="Add context for this day">${esc(entry?.text)}</textarea></label>
       <label class="field">Visibility<select name="visibility">${option('personal','Only me',entry?.visibility||(scope==='mine'?'personal':'team'))}
         ${option('team','Team calendar',entry?.visibility||(scope==='team'?'team':''))}</select></label>
+      ${canPin()?'<label class="calendar-done"><input type="checkbox" name="pinned" '+(entry?.pinned?'checked':'')+'> Pin to the team calendar</label>':''}
       ${entry?button('calendar-remove-note','Remove note','trash','ghost',entry.id):''}`,'Save note');
   }
   function submit(form,fields) {
     if (form.id==='calendar-read-note') return dialog.close();
     const date=fields.get('date'),text=fields.get('text').trim(),id=fields.get('id'),visibility=fields.get('visibility');
     if (!text||!valid(date)) return formError(form,'Write a note for this day.');
-    if (saveNote({id,date,text,visibility})) { dialog.close();render(); }
+    saveNote(form,{id,date,text,visibility,pinned:fields.has('pinned')&&visibility==='team'});
   }
   return {
     page,submit,change(field) {
@@ -248,7 +249,7 @@ export function calendarUI({esc,symbol,option,button,iconButton,userName,formDia
         state.dayView='all';render();focus('calendar-step',value);
       },
       'calendar-note':noteEditor,
-      'calendar-remove-note':id=>{if (removeNote(id)) {dialog.close();render();}}
+      'calendar-remove-note':removeNote
     }
   };
 }

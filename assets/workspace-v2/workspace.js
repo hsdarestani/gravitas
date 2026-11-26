@@ -29,7 +29,7 @@ import { asDate, dayAt, dayIndex, planLayout, timeZone, timing, today } from './
 import {findMeeting, meetingsInWindow, seriesOccurrence, weeklyDay} from './meeting-series.js';
 import { containsFrame, containsPoint, frameBox, frameHierarchy, frameKey, groupKey, resizeBox, shapeArrow, shapeId, shapeKind } from './workflow-frames.js';
 import { completionRecord, initializeProjectRecords, reportReady, upgradeProjectRecords } from './project-records.js';
-import { eventsForDay, getImage, markRead, noteRecipients, notifications, recipientsFor, removeImage, saveImage, threadNotes } from './journal.js';
+import { eventsForDay, markRead, noteRecipients, notifications, recipientsFor, threadNotes } from './journal.js';
 
 import { mountGravityGrid } from './gravity-header.js';
 import { captureTemplate, materializeTemplate, milestoneScheduleImpact, reachable, starterTemplate, workflowStages } from './planning.js';
@@ -325,6 +325,7 @@ function areaPage() {
   const actions = ui.editor?button('editor','Finish editing','check','primary'):
     (ui.linkReturns.at(-1)?.target===flow.id?button('return-linked-node','Back to '+(project(ui.linkReturns.at(-1).source)?.title||'source workflow'),'left','ghost'):'')+
     navigation + (idea&&isActiveProject(flow)?ideaActions(idea):'') +
+    (!idea&&isActiveProject(flow)&&flow.id!=='unassigned'?iconButton('project-files','Project files in Nextcloud','file',flow.id):'') +
     (!idea&&isActiveProject(flow)&&isAdmin()?iconButton('project-settings','Project settings','admin',flow.id):'') +
     (canEdit(flow.id)&&(hasCanvasItems||ui.view!=='flow')?button('editor',hasCanvasItems?'Edit workflow':'Build workflow','edit','primary'):'')+
     (canCreateTask(flow.id)?button('new-task','New task','plus',''):'');
@@ -898,18 +899,6 @@ function milestoneOkrPicker(flow,entry) {
     }))),[...linked])}
   </details>`;
 }
-function syncMilestoneOkrs(projectId,milestoneId,requested) {
-  const ids=new Set(requested.filter(resultById));
-  const linked=new Set(milestoneResults(projectId,milestoneId).map(({result})=>result.id));
-  for (const id of linked) {
-    if (ids.has(id)) continue;
-    const info=ensureKrData(id);
-    info.links=info.links.filter(link=>link.projectId!==projectId||link.milestoneId!==milestoneId);
-  }
-  for (const id of ids) {
-    if (!linked.has(id)) ensureKrData(id).links.push({projectId,milestoneId});
-  }
-}
 function openMilestoneResult(value) {
   const [objectiveId,resultId]=value.split('|');
   const item=objectiveById(objectiveId);
@@ -972,7 +961,7 @@ function milestoneDialog(id,flow=currentProject()) {
     `<input type="hidden" name="id" value="${esc(id)}"><input type="hidden" name="project-id" value="${esc(flow.id)}">`+
     textField('title','Milestone name',entry?.title)+
     `<label class="field">Deadline<input type="date" name="deadline" value="${esc(entry?.deadline)}" required></label>`+
-    selectField('owner','Milestone owner',option('','Unassigned',entry?entry.owner:flow.owner)+data.team.map(member=>option(member.id,member.name,entry?entry.owner:flow.owner)).join(''))+
+    selectField('owner','Milestone owner',data.team.map(member=>option(member.id,member.name,entry?entry.owner:flow.owner)).join(''))+
     (candidates.length?visualTaskChoices('milestone-task','Linked tasks',candidates,entry?.tasks):'')+
     milestoneOkrPicker(flow,entry)+'<div data-schedule-impact hidden></div>',entry?'Save milestone':'Add milestone');
 }
@@ -986,30 +975,23 @@ function saveMilestone(form,fields,flow) {
   if (!title || !deadline || !Number.isFinite(dayIndex(deadline))) return formError(form,'Enter a milestone name and deadline.');
   const items=projectTasks(flow.id);
   const requested=fields.getAll('milestone-task');
-  const tasks=[...(entry?.tasks||[]).filter(id=>taskRecord(id)&&!task(id)),...items.filter(item=>requested.includes(item.id)).map(item=>item.id)];
+  const tasks=items.filter(item=>requested.includes(item.id)).map(item=>item.id);
   const owner=person(fields.get('owner'))?.id || '';
+  if (!owner) return formError(form,'Choose a milestone owner.');
   const impact=milestoneScheduleImpact(items,tasks,deadline);
   if (entry && deadline!==entry.deadline && reviewSchedule(form,[id,deadline,...tasks],
     `<p>${displayDateChange(entry.deadline,deadline)}</p>`+
     impactRows('Linked tasks',impact.linked,impact.conflicts,item=>item.dueDate||item.startDate)+
     (impact.conflicts.length?'<p>Highlighted tasks are scheduled after this milestone.</p>':'<p>No linked task is scheduled after this milestone.</p>'))) return;
-  flow.milestones ||= [];
-  const changes={title,deadline,owner,tasks};
-  const milestoneId=entry?.id||newId();
-  if (entry) Object.assign(entry,changes);
-  else flow.milestones.push({id:milestoneId,...changes,completed:false});
-  syncMilestoneOkrs(flow.id,milestoneId,fields.getAll('milestone-okr'));
-  record((entry?'Updated milestone ':'Added milestone ')+title,null,flow.id,{kind:'planning'});
-  dialog.close();render();announce(entry?'Milestone updated.':'Milestone added.');
+  runWrite(()=>workspaceApi.milestone(flow,entry,{title,due_date:deadline,owner_id:Number(owner),task_ids:tasks.map(Number),
+    result_ids:fields.getAll('milestone-okr').filter(resultById).map(Number)}),()=>dialog.close(),form);
 }
 function toggleMilestone(id) {
   const flow=currentProject();
   if (!canManagePlan(flow)) return;
   const entry=(flow.milestones||[]).find(row=>row.id===id);
   if (!entry) return;
-  entry.completed=!entry.completed;
-  record((entry.completed?'Reached milestone ':'Reopened milestone ')+entry.title,null,flow.id,{kind:'planning'});
-  render();announce(entry.completed?'Milestone reached.':'Milestone reopened.',entry.completed?'success':'');
+  runWrite(()=>workspaceApi.milestone(flow,entry,{completed:!entry.completed}));
 }
 function postUpdateDialog() {
   const flow=currentProject();
@@ -1026,10 +1008,8 @@ function saveProjectUpdate(form,fields,flow) {
   const decider=person(fields.get('decider'))?.id || '';
   if (!body) return formError(form,'Write a short update.');
   if (decider&&!decision) return formError(form,'Describe the decision for the selected owner.');
-  flow.updates ||= [];
-  flow.updates.unshift({id:newId(),body,decision,decider,author:ui.actor,at:new Date().toISOString()});
-  record('Posted a project update',null,flow.id,{kind:'planning'});
-  dialog.close();render();announce('Project update posted.');
+  runWrite(()=>workspaceApi.project(flow,'post_update',{body,decision,decider_id:decider?Number(decider):null}),
+    ()=>dialog.close(),form);
 }
 const canResolveDecision = (flow,entry) => Boolean(flow?.state==='active'&&entry?.decision&&!entry.resolution&&
   (isAdmin()||flow.owner===ui.actor||entry.decider===ui.actor));
@@ -1048,10 +1028,7 @@ function resolveDecision(form,fields,flow) {
   if (!body) return formError(form,'Enter the decision before recording it.');
   const outcome=fields.get('outcome');
   if (!Object.hasOwn(decisionOutcomes,outcome)) return formError(form,'Choose a decision outcome.');
-  entry.resolution={body,by:ui.actor,outcome};
-  record('Recorded a project decision',null,flow.id,{kind:'planning'});
-  dialog.close();render();
-  announce(decisionOutcomes[outcome].label+'.',outcome==='approved'?'success':outcome==='rejected'?'danger':'');
+  runWrite(()=>workspaceApi.project(flow,'resolve_decision',{body,outcome,update_id:entry.id}),()=>dialog.close(),form);
 }
 
 function focusControl(action,value) {
@@ -1954,33 +1931,36 @@ function logBlock(id) {
   return currentLog()?.blocks.find(block=>block.id===id);
 }
 const notebookPending=new Map();
-function saveLog(report=currentLog()) {
+function saveLog(report=currentLog(),flow=projectNotebook(),day=ui.dailyDate) {
   report.blocks=uniqueDailyBlocks(report.blocks);
-  const flow=projectNotebook(), day=ui.dailyDate;
   const descriptor=flow?{project_id:Number(flow.id)}:{date:day};
   const key=flow?'project:'+flow.id:day;
   const prior=notebookPending.get(key);
   if (prior?.timer) clearTimeout(prior.timer);
   const pending=prior||{};
-  pending.timer=setTimeout(async()=>{
+  pending.report=report;
+  pending.timer=setTimeout(()=>{
     pending.timer=null;
-    const status=document.querySelector('#daily-save-status');
-    try {
-      await pending.inflight;
-      const blocks=report.blocks.map(({id,type,text,task,items})=>({id,type,text,task,items}));
-      pending.inflight=workspaceApi.notebook({...descriptor,revision:report.revision||0,blocks}).then(result=>{
-        report.revision=result.revision;
-        report.updatedAt=new Date().toISOString();
-      });
-      await pending.inflight;
-      if (currentLog()===report&&status) status.textContent='Saved';
-    } catch (error) {
+    const latest=(pending.inflight||Promise.resolve()).then(async()=>{
+      const blocks=report.blocks.map(({id,type,text,task,items,filename,caption,event})=>({id,type,text,task,items,filename,caption,event}));
+      const result=await workspaceApi.notebook({...descriptor,revision:report.revision||0,blocks});
+      report.revision=result.revision;
+      report.updatedAt=new Date().toISOString();
+      if (!pending.timer&&pending.inflight===latest&&currentLog()===report) {
+        const status=document.querySelector('#daily-save-status');
+        if (status) status.textContent='Saved';
+      }
+    }).catch(error=>{
+      const status=document.querySelector('#daily-save-status');
       if (currentLog()===report&&status) status.textContent='Unsaved';
       announce(error.message,'danger');
-    } finally {
-      pending.inflight=null;
-      if (!pending.timer) notebookPending.delete(key);
-    }
+    }).finally(()=>{
+      if (pending.inflight===latest) {
+        pending.inflight=null;
+        if (!pending.timer) notebookPending.delete(key);
+      }
+    });
+    pending.inflight=latest;
   },350);
   notebookPending.set(key,pending);
   const status=document.querySelector('#daily-save-status');
@@ -2127,6 +2107,12 @@ function dailyTaskDialog() {
     <div class="reference-picker">${choices.map(item=>`<div data-ref-search="${esc(item.title+' '+project(item.project)?.title+' '+item.owners.map(ownerName).join(' '))}">${taskLinkCard(item,'daily-link-task')}</div>`).join('')}</div></div>`);
   dialog.classList.add('workspace-picker-dialog');
 }
+async function getImage(id) {
+  const response=await fetch('/api/workspace-v2/notebook/images/'+encodeURIComponent(id)+'/',{cache:'no-store'});
+  if (!response.ok) return null;
+  return response.blob();
+}
+
 function hydrateDailyImages() {
   for (const image of app.querySelectorAll('[data-daily-image]')) {
     const fallback=image.parentElement.querySelector('.daily-image-fallback');
@@ -2139,20 +2125,20 @@ function hydrateDailyImages() {
       image.hidden=false;
       fallback.hidden=true;
     }).catch(()=>{
-      if (image.isConnected) fallback.querySelector('span').textContent='Image unavailable in this browser';
+      if (image.isConnected) fallback.querySelector('span').textContent='Image unavailable';
     });
   }
 }
 async function attachDailyImage(file) {
   if (!file||!canEditNotebook()) return;
-  const actor=ui.actor,date=ui.dailyDate,id=newId(),flow=projectNotebook();
-  try { await saveImage(id,file); }
+  const actor=ui.actor,date=ui.dailyDate,flow=projectNotebook();
+  let upload;
+  try { upload=await workspaceApi.notebookImage(file,flow?{project_id:Number(flow.id)}:{date}); }
   catch (error) { announce(error.message || 'The image could not be attached.'); return; }
-  if (flow&&!canManagePlan(flow)) {removeImage(id).catch(()=>{});return;}
   const report=flow?(flow.workReport||={blocks:[],author:actor}):editLog(actor,date);
-  report.blocks.push({id,type:'image',filename:file.name,caption:'',addedAt:new Date().toISOString()});
+  report.blocks.push({id:upload.id,type:'image',filename:upload.filename,caption:'',addedAt:new Date().toISOString()});
   if (flow) report.lastEditor=actor;
-  saveLog(report);
+  saveLog(report,flow,date);
   if (currentLog()===report) render();
   announce(flow?'Image added to the project report.':'Image added to '+asDate(date)+'.');
 }
@@ -3786,7 +3772,7 @@ function calendarSource(scope,start,end) {
   if (!specific) for (const note of data.calendarNotes) {
     if (own?note.actor!==ui.actor:note.visibility!=='team') continue;
     entries.push({kind:'note',action:'calendar-note',id:note.id,title:note.text.trim().split('\n')[0].slice(0,95),
-      context:ownerName(note.actor)+(note.visibility==='personal'?' · Private':''),date:note.date,owners:[note.actor]});
+      context:ownerName(note.actor)+(note.visibility==='personal'?' · Private':''),date:note.date,owners:[note.actor],pinned:note.pinned});
   }
   return {entries,areas:data.areas,team:data.team};
 }
@@ -3794,26 +3780,20 @@ function getCalendarNote(id) {
   const note=data.calendarNotes.find(entry=>entry.id===id&&(entry.visibility==='team'||entry.actor===ui.actor));
   return note?{...note,editable:note.actor===ui.actor}:undefined;
 }
-function saveCalendarNote({id,date,text,visibility}) {
-  if (!['personal','team'].includes(visibility)) return false;
-  if (id) {
-    const entry=data.calendarNotes.find(note=>note.id===id&&note.actor===ui.actor);
-    if (!entry) return false;
-    Object.assign(entry,{date,text,visibility});
-  } else data.calendarNotes.push({id:newId(),actor:ui.actor,date,text,visibility});
-  save();announce('Day note saved.');
-  return true;
+function saveCalendarNote(form,{id,...fields}) {
+  const entry=id?getCalendarNote(id):null;
+  if (id&&!entry?.editable) return;
+  runWrite(()=>workspaceApi.calendarNote(entry,entry?'PATCH':'POST',fields),()=>dialog.close(),form);
 }
 function removeCalendarNote(id) {
-  const index=data.calendarNotes.findIndex(note=>note.id===id&&note.actor===ui.actor);
-  if (index<0) return false;
-  data.calendarNotes.splice(index,1);save();announce('Day note removed.');
-  return true;
+  const entry=getCalendarNote(id);
+  if (!entry?.editable) return;
+  runWrite(()=>workspaceApi.calendarNote(entry,'DELETE'),()=>dialog.close());
 }
 function createCalendar() {
   return calendarUI({esc,symbol,option,button,iconButton,userName:ownerName,formDialog,render,dialog,formError,
     saveNote:saveCalendarNote,removeNote:removeCalendarNote,getNote:getCalendarNote,source:calendarSource,getScope:activeCalendar,
-    isDateEditor:scope=>scope!=='project'});
+    isDateEditor:scope=>scope!=='project',canPin:isAdmin});
 }
 
 function profilePage() {
@@ -4267,8 +4247,7 @@ const handlers = {
     if (!canEditNotebook()||!block) return;
     const index=report.blocks.indexOf(block);
     report.blocks.splice(index,1);
-    const saved=saveLog(report);render();
-    if (block.type==='image'&&saved) removeImage(id).catch(()=>{});
+    saveLog(report);render();
     app.querySelector('.daily-toolbar button')?.focus({preventScroll:true});
   },
   'inbox-open':id=>{
@@ -5413,9 +5392,7 @@ let adminUI;
 const unsupportedActions = new Set([
   'identity', 'switch-person', 'new-area', 'edit-area', 'new-person',
   'edit-preset',
-  'new-milestone', 'edit-milestone', 'toggle-milestone', 'project-update', 'resolve-decision',
   'okr-edit-owner',
-  'daily-image',
   'undo-canvas',
 
   'move-task',
@@ -5466,6 +5443,14 @@ function restoreStudioRoute() {
 }
 
 function setStudioState(payload) {
+  for (const [key,pending] of notebookPending) {
+    if (key.startsWith('project:')) {
+      const flow=payload.projects.find(project=>project.id===key.slice(8));
+      if (flow) flow.workReport=pending.report;
+    } else {
+      (payload.dailyLogs[payload.actor] ||= {})[key]=pending.report;
+    }
+  }
   for (const item of payload.tasks) {
     if (availableDetails.has(item.id)) Object.assign(item,availableDetails.get(item.id));
   }
@@ -5538,8 +5523,55 @@ function studioTaskBody(item,pending,ownRounds,editable) {
 function studioAttachments(item,editable) {
   return `<section class="detail-section"><h3>${symbol('file')} Attachments</h3>
     ${item.attachments.map(file=>`<p><a class="text-link" href="${esc(file.download_url)}">${esc(file.name)}</a></p>`).join('')||'<p>No attachments yet.</p>'}
+    ${item.project!=='unassigned'&&project(item.project)?.area!==ideaArea.id&&isActiveProject(project(item.project))
+      ?button('project-files','Browse Nextcloud project files','file','ghost',item.project):''}
     ${editable?`<form id="task-attachment-form" class="inline-check-form"><input type="file" name="file"
       aria-label="Choose a task attachment" required><button class="btn" type="submit">Upload</button></form>`:''}</section>`;
+}
+
+let fileBrowserRequest=0;
+function nextcloudFileLink(nativeFolder,fileId) {
+  const file=new URL(nativeFolder);
+  if (!['http:','https:'].includes(file.protocol)) return '';
+  if (fileId) {
+    if (!/^\d+$/.test(fileId)) return '';
+    const index=file.pathname.indexOf('/index.php/');
+    if (index<0) return '';
+    file.pathname=file.pathname.slice(0,index)+'/index.php/f/'+fileId;
+    file.search='';
+  }
+  return '/api/platform/nextcloud/sso/?next='+encodeURIComponent(file.href);
+}
+
+async function projectFilesDialog(id,path='') {
+  const flow=project(id);
+  if (!flow) return;
+  const sequence=++fileBrowserRequest;
+  const context=JSON.stringify({id,path});
+  showDialog('Nextcloud project files','<p class="dim" data-file-status>Loading files…</p>','file');
+  try {
+    const {items,native_url,can_edit}=await workspaceApi.projectFiles(id,path);
+    if (sequence!==fileBrowserRequest||!dialog.open||!dialog.querySelector('[data-file-status]')) return;
+    const folder=nextcloudFileLink(native_url);
+    const fileRow=item=>{
+      if (item.folder) return button('project-files-folder',item.name,'file','ghost',JSON.stringify({id,path:item.path}));
+      const link=item.file_id?nextcloudFileLink(native_url,item.file_id):'';
+      return link?`<a class="text-link" href="${esc(link)}" target="_blank" rel="noopener noreferrer">${esc(item.name)}</a>`:
+        `<span>${esc(item.name)}</span>`;
+    };
+    showDialog('Nextcloud project files',`<p class="dim">${esc(path||flow.title)}</p>
+      <div class="form-actions">
+      ${path?button('project-files-folder','Parent folder','left','ghost',JSON.stringify({id,path:path.split('/').slice(0,-1).join('/')})):''}
+      ${folder?`<a class="btn" href="${esc(folder)}" target="_blank" rel="noopener noreferrer">Open folder in Nextcloud</a>`:''}</div>
+      <ul class="checks">${items.map(item=>`<li>${fileRow(item)}</li>`).join('')||'<li>This folder is empty.</li>'}</ul>
+      ${can_edit?`<form id="native-file-form" class="inline-check-form"><p class="form-error" role="alert" hidden></p>
+        <input type="hidden" name="context" value="${esc(context)}"><input type="file" name="file"
+        aria-label="Choose a Nextcloud file" required><button type="submit" class="btn">Upload to Nextcloud</button></form>`:''}`,'file');
+  } catch (error) {
+    if (sequence!==fileBrowserRequest||!dialog.open||!dialog.querySelector('[data-file-status]')) return;
+    showDialog('Nextcloud project files',`<p role="alert">${esc(error.status===503?'Nextcloud storage is unavailable.':error.message)}</p>
+      ${button('project-files-folder','Retry','loop','ghost',context)}`,'file');
+  }
 }
 
 function studioWorkflow(item) {
@@ -5548,17 +5580,23 @@ function studioWorkflow(item) {
     ${item.canEdit&&!item.archived&&!item.parentId&&item.status!=='done'?button('install-workflow','Attach workflow','flow','primary',item.id):''}</section>`;
   const steps = workflow.steps.map(step=>`<li class="detail-line"><span>${esc(step.title)} · ${esc(step.status)}</span>
     ${step.can_edit&&step.status!=='done'&&!workflow.final_approval?button('workflow-step','Mark step done','check','ghost',step.id):''}</li>`).join('');
+  const finalReviewer=workflow.assigned_reviewers?.final;
+  const mayFinalize=workflow.can_edit&&(!finalReviewer||finalReviewer===workflow.viewer_id);
   return `<section class="detail-section"><h3>${esc(workflow.template)}</h3><ul class="checks">${steps}</ul>
+    ${workflow.can_assign_reviewers&&!workflow.final_approval&&!item.archived
+      ?button('workflow-reviewers','Assign reviewers','people','ghost'):''}
+    ${finalReviewer?`<p>Final approver · ${esc(ownerName(String(finalReviewer)))}</p>`:''}
     ${workflow.steps_done?workflow.parts.map(part=>studioQaPart(workflow,part)).join(''):'<p>Complete the workflow steps to open QA.</p>'}
     ${workflow.final_approval?`<p>Final approval by ${esc(workflow.final_approval.by.name)} · ${shortTime(workflow.final_approval.at)}</p>`:
-      workflow.can_edit&&workflow.steps_done&&workflow.parts.every(part=>part.iterations.at(-1)?.status==='approved')
+      mayFinalize&&workflow.steps_done&&workflow.parts.every(part=>part.iterations.at(-1)?.status==='approved')
         ?button('workflow-finalize','Final approval','check','primary'):''}</section>`;
 }
 
 const qaNumber = number => 'QA '+String(number).padStart(3,'0');
 function studioQaPart(workflow,part) {
   const iteration = part.iterations.at(-1);
-  const reviewer = workflow.can_edit && iteration.submitted?.by.id !== workflow.viewer_id;
+  const assigned = workflow.assigned_reviewers?.[part.id];
+  const reviewer = workflow.can_edit && (!assigned||assigned===workflow.viewer_id) && iteration.submitted?.by.id !== workflow.viewer_id;
   const stamp = record => record ? `${esc(record.by.name)} · ${shortTime(record.at)}` : '';
   const evidence = url => {
     try {
@@ -5569,6 +5607,7 @@ function studioQaPart(workflow,part) {
     return '—';
   };
   return `<section class="detail-section"><h3>${esc(part.label||part.name||'Review')}</h3>
+    ${assigned?`<p>Reviewer · ${esc(ownerName(String(assigned)))}</p>`:''}
     ${part.iterations.map(entry=>`<details ${entry===iteration?'open':''}><summary>${qaNumber(entry.number)} · ${esc(entry.status.replaceAll('_',' '))}</summary>
       <ul class="checks">${entry.items.map(check=>`<li>${check.done?'✓':'○'} ${esc(check.text)}</li>`).join('')}</ul>
       ${entry.preview?`<p>Preview ${evidence(entry.preview)}</p>`:''}
@@ -5581,6 +5620,18 @@ function studioQaPart(workflow,part) {
       (reviewer?button('workflow-request-changes','Request changes','loop','ghost',part.id)+
         button('workflow-approve','Approve QA','check','primary',part.id):''):''}
   </section>`;
+}
+
+function workflowReviewersDialog() {
+  const workflow=task(ui.task)?.workflow;
+  if (!workflow?.can_assign_reviewers) return;
+  const field=(key,label)=>{
+    const current=String(workflow.assigned_reviewers?.[key]||'');
+    const choices=option('','Any eligible reviewer',current)+data.team.map(member=>option(member.id,member.name,current)).join('');
+    return selectField('reviewer-'+key,label,choices);
+  };
+  formDialog('Assign reviewers','workflow-reviewers-form',
+    workflow.parts.map(part=>field(part.id,part.name)).join('')+field('final','Final approver'),'Save assignments');
 }
 
 function qaDialog(partId,action) {
@@ -5622,8 +5673,25 @@ function readInbox(ids, open) {
 
 const studioForms = new Map(Object.entries({
   'task-form': saveTask,
+  'native-file-form': async (form,fields)=>{
+    const {id,path}=JSON.parse(fields.get('context'));
+    const file=fields.get('file');
+    if (!file?.size || form.dataset.saving) return;
+    form.dataset.saving='true';
+    try {
+      await workspaceApi.projectUpload(id,path,file);
+      if (form.isConnected) projectFilesDialog(id,path);
+    } catch (error) {
+      if (form.isConnected) formError(form,error.message);
+    } finally {
+      delete form.dataset.saving;
+    }
+  },
   'workflow-form': saveWorkflow,
   'project-note-form': (_form,fields,_item,flow)=>saveProjectNote(fields,flow),
+  'milestone-form': (form,fields,_item,flow)=>saveMilestone(form,fields,flow),
+  'project-update-form': (form,fields,_item,flow)=>saveProjectUpdate(form,fields,flow),
+  'decision-form': (form,fields,_item,flow)=>resolveDecision(form,fields,flow),
   'okr-check-in-form': saveOkrCheckIn,
   'okr-link-form': saveOkrLink,
   'idea-form': saveIdea,
@@ -5633,6 +5701,12 @@ const studioForms = new Map(Object.entries({
   'kpi-form': (form,fields,_item,flow)=>saveKpi(form,fields,flow),
   'report-form': (form,fields,_item,flow)=>saveReport(form,fields,flow),
   'failure-form': (form,fields,_item,flow)=>failProject(form,fields,flow),
+  'workflow-reviewers-form': (form,fields,item)=>{
+    const reviewers=Object.fromEntries([...fields.entries()].filter(([,value])=>value)
+      .map(([name,value])=>[name.slice('reviewer-'.length),Number(value)]));
+    runWrite(()=>workspaceApi.workflow(item.id,{action:'assign_reviewers',revision:item.workflow.revision,reviewers}),
+      ()=>dialog.close(),form);
+  },
   'linked-project-form': (form,fields,_item,flow)=>saveProjectNode(form,fields,flow),
   'canvas-version-form': (form,fields,_item,flow)=>saveCanvasVersion(form,fields,flow),
   'canvas-restore-form': (form,fields,_item,flow)=>applyCanvasRestore(form,fields,flow),
@@ -5723,6 +5797,11 @@ const studioForms = new Map(Object.entries({
 
 Object.assign(handlers,{
   'retry-task-details':()=>loadTaskDetails(task(ui.task)),
+  'project-files':id=>projectFilesDialog(id),
+  'project-files-folder':value=>{
+    const {id,path}=JSON.parse(value);
+    projectFilesDialog(id,path);
+  },
   'remove-selection':removeStudioSelection,
   'use-reviewed-template':id=>{
     if (dialog.dataset.templatePreview!==id) return;
@@ -5733,6 +5812,7 @@ Object.assign(handlers,{
       selectField('task','Task',candidates.map(item=>option(item.id,item.title)).join('')), 'Attach workflow');
   },
   'install-workflow':installWorkflowDialog,
+  'workflow-reviewers':workflowReviewersDialog,
   'workflow-qa':part=>qaDialog(part,'edit'),
   'workflow-feedback':part=>qaDialog(part,'comment'),
   'workflow-request-changes':part=>qaDialog(part,'request_changes'),

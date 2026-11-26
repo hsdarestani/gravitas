@@ -1,6 +1,8 @@
 import uuid
+from tempfile import TemporaryDirectory
 
 from django.contrib.auth import get_user_model
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import Client, TestCase, override_settings
 
 from .models import ResearchProject, WorkspaceMembership
@@ -150,7 +152,8 @@ class WorkspaceStudioTests(TestCase):
         attached = self.post(suffix+'workflow/', {'action':'install','workflow':{'template':'development'}})
         self.assertEqual(attached.status_code, 200, attached.content)
         self.assertEqual(attached.json()['workflow']['parts'][0]['iterations'][0]['number'], 1)
-        self.assertEqual(self.client.get(f'/api/operating/tasks/{task.pk}/workflow/').json()['workflow'], attached.json()['workflow'])
+        canonical = self.client.get(f'/api/operating/tasks/{task.pk}/workflow/').json()['workflow']
+        self.assertEqual({key: attached.json()['workflow'][key] for key in canonical}, canonical)
         task.refresh_from_db()
         completed = self.patch(task, {'status':'done'})
         self.assertEqual(completed.status_code, 409, completed.content)
@@ -177,6 +180,112 @@ class WorkspaceStudioTests(TestCase):
         self.project.title = 'Renamed from the existing model'
         self.project.save()
         self.assertEqual(self.project.studio_layout.revision, 1)
+
+    def test_only_assigned_reviewer_can_approve_through_either_workspace(self):
+        task = self.task('Assigned QA reviewer')
+        suffix = f'tasks/{task.pk}/workflow/'
+        initial = self.post(suffix, {'action':'install','workflow':{'template':'development'}}).json()['workflow']
+        invalid = self.post(suffix, {'action':'assign_reviewers','revision':initial['revision'],'reviewers':{'1':self.external.pk}})
+        self.assertEqual(invalid.status_code, 400, invalid.content)
+        assignments = {'1':self.member.pk,'final':self.member.pk}
+        changed = self.post(suffix, {'action':'assign_reviewers','revision':initial['revision'],'reviewers':assignments})
+        self.assertEqual(changed.status_code, 200, changed.content)
+        workflow = changed.json()['workflow']
+        for step in workflow['steps']:
+            response = self.post(suffix, {'action':'complete_step','revision':workflow['revision'],'step':step['id']})
+            self.assertEqual(response.status_code, 200, response.content)
+            workflow = response.json()['workflow']
+        for part in workflow['parts']:
+            draft = part['iterations'][0]
+            response = self.post(suffix, {
+                'action':'submit','revision':workflow['revision'],'part':part['id'],'iteration':1,
+                'items':[{**row,'done':True} for row in draft['items']], 'preview':'https://example.test/preview',
+            })
+            self.assertEqual(response.status_code, 200, response.content)
+            workflow = response.json()['workflow']
+        approve = {'action':'approve','revision':workflow['revision'],'part':1,'iteration':1}
+        canonical = '/api/operating/' + suffix
+        self.assertEqual(self.client.post(canonical, approve, content_type='application/json').json()['error'],
+                         'workflow_assigned_reviewer_required')
+        self.client.force_login(self.member)
+        for part in workflow['parts']:
+            approved = self.post(suffix, {**approve,'revision':workflow['revision'],'part':part['id']})
+            self.assertEqual(approved.status_code, 200, approved.content)
+            workflow = approved.json()['workflow']
+        self.assertEqual(workflow['assigned_reviewers'], assignments)
+        final = {'action':'finalize','revision':workflow['revision']}
+        self.client.force_login(self.admin)
+        self.assertEqual(self.post(suffix, final).json()['error'], 'workflow_assigned_reviewer_required')
+        self.client.force_login(self.member)
+        self.assertEqual(self.post(suffix, final).status_code, 200)
+        task.refresh_from_db()
+        self.assertEqual(task.status, WorkStatus.DONE)
+
+    def test_studio_attachment_bytes_and_read_permission(self):
+        task = self.task('Attachment verification')
+        suffix = f'tasks/{task.pk}/attachments/'
+        blob = b'Workspace Studio attachment verification'
+        with TemporaryDirectory() as uploads, self.settings(CORE_UPLOAD_ROOT=uploads):
+            uploaded = self.client.post(STUDIO + suffix, {'file':SimpleUploadedFile('evidence.txt', blob)})
+            self.assertEqual(uploaded.status_code, 201, uploaded.content)
+            attachments = self.client.get(STUDIO + f'tasks/{task.pk}/details/').json()['attachments']
+            download_url = attachments[0]['download_url']
+            downloaded = self.client.get(download_url)
+            self.assertEqual(downloaded.status_code, 200)
+            self.assertEqual(b''.join(downloaded.streaming_content), blob)
+            policy = policy_for(task, create=True, created_by=self.admin)
+            policy.allow_download = False
+            policy.save(update_fields=['allow_download'])
+            self.assertEqual(self.client.get(download_url).status_code, 403)
+            self.client.force_login(self.external)
+            self.assertEqual(self.client.get(download_url).status_code, 403)
+
+    def test_milestone_records_and_project_decisions_persist(self):
+        task = self.task('Milestone evidence', project=self.project)
+        milestone_path = f'projects/{self.project.pk}/milestones/'
+        created = self.post(milestone_path, {
+            'title':'QA evidence','owner_id':self.admin.pk,'due_date':'2026-12-02','task_ids':[task.pk],
+        })
+        self.assertEqual(created.status_code, 201, created.content)
+        milestone_id = created.json()['id']
+        row = next(item for item in self.state()['milestones'] if item['id'] == milestone_id)
+        self.assertEqual(row['task_ids'], [task.pk])
+        reached = self.client.patch(STUDIO + milestone_path + f'{milestone_id}/', {
+            'completed':True,'expected_updated_at':row['updated_at'],
+        }, content_type='application/json')
+        self.assertEqual(reached.status_code, 200, reached.content)
+        self.assertEqual(next(item for item in self.state()['milestones'] if item['id'] == milestone_id)['status'], 'done')
+        project_path = STUDIO + f'projects/{self.project.pk}/'
+        update = self.client.patch(project_path, {'action':'post_update','revision':0,'body':'Passed',
+            'decision':'Accept evidence?','decider_id':self.admin.pk}, content_type='application/json')
+        self.assertEqual(update.status_code, 200, update.content)
+        project = next(row for row in self.state()['projects'] if row['id'] == self.project.pk)
+        entry = project['updates'][0]
+        resolved = self.client.patch(project_path, {'action':'resolve_decision','revision':project['revision'],
+            'update_id':entry['id'],'body':'Accepted','outcome':'approved'}, content_type='application/json')
+        self.assertEqual(resolved.status_code, 200, resolved.content)
+        project = next(row for row in self.state()['projects'] if row['id'] == self.project.pk)
+        self.assertEqual(project['updates'][0]['resolution']['outcome'], 'approved')
+
+    def test_calendar_notes_and_notebook_images_respect_ownership(self):
+        day = '2026-11-25'
+        note = self.post('calendar/notes/', {'date':day,'text':'Private note','visibility':'personal'})
+        self.assertEqual(note.status_code, 201, note.content)
+        image = b'\x89PNG\r\n\x1a\n'
+        uploaded = self.client.post(STUDIO+'notebook/images/', {'date':day,'file':SimpleUploadedFile('evidence.png',image)})
+        self.assertEqual(uploaded.status_code, 201, uploaded.content)
+        image_id = uploaded.json()['id']
+        saved = self.client.patch(STUDIO+'notebook/', {'date':day,'revision':0,
+            'blocks':[{'id':image_id,'type':'image','filename':'evidence.png','caption':'Evidence'}]},
+            content_type='application/json')
+        self.assertEqual(saved.status_code, 200, saved.content)
+        image_url = STUDIO+f'notebook/images/{image_id}/'
+        self.assertEqual(self.client.get(image_url).content, image)
+        self.client.force_login(self.member)
+        self.assertEqual(self.state()['calendar_notes'], [])
+        self.assertEqual(self.client.get(image_url).status_code, 404)
+        pinned = self.post('calendar/notes/', {'date':day,'text':'Pin','visibility':'team','pinned':True})
+        self.assertEqual(pinned.status_code, 403)
 
     def test_staff_only_scope_and_meeting_archive_use_the_same_record(self):
         from .operating_models import OperatingMeeting

@@ -13,6 +13,9 @@ const messages = {
   task_already_started: 'A task that has already started cannot gain an unfinished prerequisite.',
   workflow_approval_required: 'Use Final approval after all QA parts are approved.',
   workflow_reviewer_required: 'This action requires a reviewer other than the submitter.',
+  workflow_assigned_reviewer_required: 'This action is reserved for the assigned reviewer.',
+  workflow_invalid_reviewers: 'Assign only teammates who can edit this task.',
+  cloud_unavailable: 'Nextcloud storage is temporarily unavailable.',
   workflow_finish_steps: 'Finish the workflow steps before submitting QA.',
   workflow_preview_required: 'Add a preview or evidence URL before submitting.',
   workflow_changed: 'The workflow changed elsewhere. Reopen it and try again.',
@@ -55,12 +58,31 @@ export const workspaceApi = {
   projectNote: (flow,body,parent) => request(studio+`projects/${Number(flow.id)}/notes/`, 'POST', {
     body,parent_id:parent?Number(parent):null,
   }),
+  milestone: (flow,entry,fields) => request(studio+`projects/${Number(flow.id)}/milestones/`+(entry?`${Number(entry.id)}/`:''),
+    entry?'PATCH':'POST',{...fields,expected_updated_at:entry?.updatedAt}),
+  projectFiles: (id,path) => request(`/api/platform/projects/${Number(id)}/structure/?path=${encodeURIComponent(path)}`),
+  projectUpload: (id,path,file) => {
+    const body=new FormData();
+    body.set('action','upload');
+    body.set('path',[path,file.name].filter(Boolean).join('/'));
+    body.set('file',file);
+    return request(`/api/platform/projects/${Number(id)}/structure/?path=${encodeURIComponent(path)}`,'POST',body);
+  },
   idea: (id,action,fields={}) => request(studio+'ideas/'+(id?Number(id)+'/':''),id?'PATCH':'POST',{action,...fields}),
   result: (id,action,fields) => request(studio+`results/${Number(id)}/`,'PATCH',{action,...fields}),
   profile: (id,fields) => request(studio+(id?'members/'+Number(id)+'/':'profile/'),'PATCH',fields),
   template: fields => request(studio+'templates/','POST',fields),
   meetingSeries: (id,end_date) => request(studio+'meeting-series/'+Number(id)+'/','PATCH',{end_date}),
   notebook: fields => request(studio + 'notebook/', 'PATCH', fields),
+  notebookImage: (file,scope) => {
+    const body=new FormData();
+    body.set('file',file);
+    for (const [key,value] of Object.entries(scope)) body.set(key,value);
+    return request(studio+'notebook/images/','POST',body);
+  },
+  calendarNote: (note,method,fields={}) => request(studio+'calendar/notes/'+(note?Number(note.id)+'/':''),method,{
+    ...fields,expected_updated_at:note?.updatedAt,
+  }),
   preferences: showroom => request(studio + 'preferences/', 'PATCH', {showroom}),
   canvasVersion: (flow,action,fields) => request(studio+`projects/${Number(flow.id)}/canvas/`, 'PATCH', {
     revision:flow.canvasRevision,action,...fields,

@@ -161,6 +161,7 @@ class OperatingMilestone(models.Model):
     status = models.CharField(max_length=16, choices=WorkStatus.choices, default=WorkStatus.ACTIVE)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    studio_linked_tasks = models.ManyToManyField('OperatingTask', blank=True, related_name='studio_linked_milestones')
 
     @transaction.atomic
     def save(self, *args, **kwargs):
@@ -411,6 +412,7 @@ class OperatingTaskWorkflow(models.Model):
     creation_id = models.UUIDField(null=True, unique=True)
     creation_fingerprint = models.CharField(max_length=64, blank=True)
     final_approval = models.JSONField(default=dict, blank=True)
+    studio_reviewers = models.JSONField(default=dict, blank=True)
 
 
 class GoogleCalendarConnection(models.Model):

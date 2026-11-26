@@ -87,8 +87,9 @@ from core.workspace_studio_api import (
 from core.workspace_pages_api import workspace_page_detail, workspace_pages
 
 from core.workspace_studio_projects import (
-    studio_idea, studio_meeting_series, studio_notebook, studio_preferences, studio_project, studio_project_note, studio_result, studio_review, studio_profile, studio_template,
+    studio_idea, studio_meeting_series, studio_milestone, studio_notebook, studio_preferences, studio_project, studio_project_note, studio_result, studio_review, studio_profile, studio_template,
 )
+from core.workspace_studio_evidence import studio_calendar_note, studio_notebook_image
 
 urlpatterns = [
     path('workspace-v2', studio_shell),
@@ -98,6 +99,12 @@ urlpatterns = [
     path('api/workspace-v2/projects/<int:project_id>/', studio_project),
     path('api/workspace-v2/notebook/', studio_notebook),
     path('api/workspace-v2/projects/<int:project_id>/notes/', studio_project_note),
+    path('api/workspace-v2/calendar/notes/', studio_calendar_note),
+    path('api/workspace-v2/calendar/notes/<int:note_id>/', studio_calendar_note),
+    path('api/workspace-v2/notebook/images/', studio_notebook_image),
+    path('api/workspace-v2/notebook/images/<uuid:image_id>/', studio_notebook_image),
+    path('api/workspace-v2/projects/<int:project_id>/milestones/', studio_milestone),
+    path('api/workspace-v2/projects/<int:project_id>/milestones/<int:milestone_id>/', studio_milestone),
     path('api/workspace-v2/projects/<int:project_id>/review/', studio_review),
     path('api/workspace-v2/ideas/', studio_idea),
     path('api/workspace-v2/ideas/<int:idea_id>/', studio_idea),

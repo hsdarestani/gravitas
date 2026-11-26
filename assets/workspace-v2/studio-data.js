@@ -42,7 +42,7 @@ export function workspaceData(payload) {
       nodes:[...Object.entries(version.canvas.positions).map(([id,point])=>({id,...point})),...(version.canvas.nodes||[])],
       frames:version.canvas.frames,edges:version.canvas.handoffs||[],
     }})),
-    milestones:[], notes:row.notes||[], updates:[], ideaId:id(row.idea_id), ideaSource:id(row.idea_source),
+    milestones:[], notes:row.notes||[], updates:row.updates||[], ideaId:id(row.idea_id), ideaSource:id(row.idea_source),
   }));
   if (payload.tasks.some(task => !task.project_id) || payload.can_create_task) {
     projects.push(initializeProjectRecords({
@@ -86,7 +86,7 @@ export function workspaceData(payload) {
   for (const row of payload.milestones) {
     projectsById.get(id(row.project_id))?.milestones.push({
       id:id(row.id), title:row.title, deadline:row.due_date || '', completed:row.status === 'done',
-      owner:id(row.owner_id), taskIds:[], description:'',
+      owner:id(row.owner_id), tasks:(row.task_ids||[]).map(id), updatedAt:row.updated_at, description:'',
     });
   }
   const notifications = payload.notifications.map(row => ({
@@ -137,10 +137,10 @@ export function workspaceData(payload) {
     team:payload.members.map((person,index)=>({...person,id:id(person.id),color:person.color||colors[index % colors.length],
       role:['owner', 'admin'].includes(person.role) ? 'Admin' : 'Member'})),
     areas, projects, tasks, meetings, notifications, objectives, okrs:{owners, results},
-    log:[], ideas:(payload.ideas||[]).map(row=>({
+    log:payload.activity||[], ideas:(payload.ideas||[]).map(row=>({
       ...row,id:id(row.id),author:id(row.author),area:row.process_id?areaId(row.process_id):'',
       draftProject:row.state==='brought'?null:id(row.project_id),project:row.state==='brought'?id(row.project_id):null,
-    })), dailyLogs, confirmedReports, meetingSeries:payload.meeting_series||[], calendarNotes:[], templates:[...templates,...(payload.saved_templates||[])], showroomColors:payload.showroom_colors||{},
+    })), dailyLogs, confirmedReports, meetingSeries:payload.meeting_series||[], calendarNotes:payload.calendar_notes||[], templates:[...templates,...(payload.saved_templates||[])], showroomColors:payload.showroom_colors||{},
     canCreateTask:payload.can_create_task,
   };
 }

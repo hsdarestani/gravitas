@@ -44,6 +44,7 @@ def _project_json(project, studio):
     return {
         'outcome': studio.outcome or ('done' if project.archived else 'active'),
         'kpis': studio.kpis, 'draft_report': studio.report or None,
+        'updates': studio.updates,
         'completions': studio.completions, 'revision': studio.revision,
     }
 
@@ -63,7 +64,8 @@ def studio_project(request, workspace, project_id=None):
     if request.method != 'PATCH' or project_id is None:
         return error('invalid_project_action', 400)
     project = _projects_for_workspace(workspace).select_for_update(of=('self',)).filter(pk=project_id).first()
-    if not _project_scope(user, workspace, project):
+    own_decision = action == 'resolve_decision' and project and can_view(user, project)
+    if not own_decision and not _project_scope(user, workspace, project):
         return error('project_not_found', 404)
     studio, _ = WorkspaceStudioProject.objects.get_or_create(project=project)
     if type(data.get('revision')) is not int or data['revision'] != studio.revision:
@@ -90,6 +92,32 @@ def studio_project(request, workspace, project_id=None):
         if not _text(data.get('body'), 6000, True):
             return error('closing_report_required', 400)
         studio.report = {'author': str(user.pk), 'body': data['body'].strip(), 'updatedAt': timezone.now().isoformat()}
+    elif action == 'post_update' and not project.archived:
+        from uuid import uuid4
+
+        if not (admin or project.owner_id == user.pk):
+            return error('permission_denied', 403)
+        body, decision, decider = data.get('body'), data.get('decision', ''), data.get('decider_id')
+        if not _text(body, 500, True) or not _text(decision, 280) or len(studio.updates) >= 500:
+            return error('invalid_project_update', 400)
+        if decider is not None:
+            member = WorkspaceMembership.objects.filter(workspace=workspace, user_id=decider, user__is_active=True).select_related('user').first() if type(decider) is int else None
+            if not member or not decision.strip() or not can_view(member.user, project):
+                return error('invalid_decision_owner', 400)
+        studio.updates.insert(0, {
+            'id': str(uuid4()), 'body': body.strip(), 'decision': decision.strip(), 'decider': str(decider or ''),
+            'author': str(user.pk), 'at': timezone.now().isoformat(),
+        })
+    elif action == 'resolve_decision' and not project.archived:
+        entry = next((row for row in studio.updates if row['id'] == data.get('update_id')), None)
+        if not entry or not entry.get('decision') or entry.get('resolution'):
+            return error('project_decision_unavailable', 409)
+        if not (admin or user.pk == project.owner_id or entry['decider'] == str(user.pk)):
+            return error('permission_denied', 403)
+        outcome, body = data.get('outcome'), data.get('body')
+        if outcome not in ('recorded','approved','changes','rejected') or not _text(body, 500, True):
+            return error('invalid_project_decision', 400)
+        entry['resolution'] = {'body': body.strip(), 'by': str(user.pk), 'outcome': outcome, 'at': timezone.now().isoformat()}
     elif action in ('done', 'failed', 'reopen'):
         if not (admin or project.owner_id == user.pk):
             return error('permission_denied', 403)
@@ -125,6 +153,76 @@ def studio_project(request, workspace, project_id=None):
     studio.save()
     _audit(project, user, f'studio_project_{action}', project)
     return JsonResponse({'ok': True, 'id': project.pk, 'revision': studio.revision})
+
+
+@require_http_methods(['POST', 'PATCH'])
+@studio_access
+@transaction.atomic
+def studio_milestone(request, workspace, project_id, milestone_id=None):
+    from .models import WorkspaceStudioResultLink
+    from .operating_models import KeyResult, OperatingMilestone
+    from .research_task_api import _execution_initiative
+
+    user = request.user
+    project = _projects_for_workspace(workspace).select_for_update(of=('self',)).filter(pk=project_id, archived=False).first()
+    if not _project_scope(user, workspace, project):
+        return error('project_not_found', 404)
+    if user.pk != project.owner_id and core_role(user, workspace) not in ('owner', 'admin'):
+        return error('permission_denied', 403)
+    data = _body(request) or {}
+    item = None
+    if milestone_id is not None and request.method == 'PATCH':
+        item = OperatingMilestone.objects.select_for_update(of=('self',)).filter(
+            workspace=workspace, project=project, pk=milestone_id,
+        ).first()
+        if not item or not can_edit(user, item):
+            return error('milestone_not_found', 404)
+        if data.get('expected_updated_at') != item.updated_at.isoformat():
+            return error('milestone_changed_elsewhere', 409)
+    elif milestone_id is not None or request.method != 'POST':
+        return error('invalid_milestone_action', 400)
+    if 'completed' in data:
+        if not item or type(data['completed']) is not bool:
+            return error('invalid_milestone_action', 400)
+        item.status = WorkStatus.DONE if data['completed'] else WorkStatus.ACTIVE
+        item.save(update_fields=('status', 'updated_at'))
+    else:
+        title, owner_id = data.get('title'), data.get('owner_id')
+        task_ids, result_ids = data.get('task_ids', []), data.get('result_ids', [])
+        if not _text(title, 220, True) or type(owner_id) is not int:
+            return error('invalid_milestone_fields', 400)
+        if any(not isinstance(ids, list) or len(ids) > 200 or any(type(pk) is not int or pk < 1 for pk in ids)
+               for ids in (task_ids, result_ids)):
+            return error('invalid_milestone_links', 400)
+        try:
+            due = date.fromisoformat(data['due_date'])
+        except (KeyError, TypeError, ValueError):
+            return error('invalid_due_date', 400)
+        owner = WorkspaceMembership.objects.filter(workspace=workspace, user_id=owner_id, user__is_active=True).select_related('user').first()
+        if not owner or not can_view(owner.user, project):
+            return error('invalid_milestone_owner', 400)
+        tasks = list(OperatingTask.objects.filter(workspace=workspace, project=project, pk__in=task_ids)
+                     .exclude(status=WorkStatus.ARCHIVED).select_related('workspace', 'project'))
+        with access_batch(user, tasks):
+            if {task.pk for task in tasks if can_view(user, task)} != set(task_ids):
+                return error('invalid_milestone_links', 400)
+        results = list(KeyResult.objects.filter(objective__workspace=workspace, pk__in=result_ids))
+        if {result.pk for result in results} != set(result_ids):
+            return error('invalid_milestone_links', 400)
+        if item is None:
+            _, initiative = _execution_initiative(project, user)
+            item = OperatingMilestone(workspace=workspace, project=project, initiative=initiative)
+        item.title, item.due_date, item.owner_id = title.strip(), due, owner_id
+        item.save()
+        previous = list(item.studio_linked_tasks.select_related('project', 'workspace'))
+        with access_batch(user, previous):
+            keep = [task.pk for task in previous if not can_view(user, task)]
+        item.studio_linked_tasks.set([*task_ids, *keep])
+        WorkspaceStudioResultLink.objects.filter(project=project, milestone=item).exclude(result_id__in=result_ids).delete()
+        for result in results:
+            WorkspaceStudioResultLink.objects.get_or_create(project=project, milestone=item, result=result)
+    _audit(project, user, 'studio_milestone_saved', item)
+    return JsonResponse({'ok': True, 'id': item.pk}, status=201 if milestone_id is None else 200)
 
 
 def _create_project(request, workspace, data, private=False):
@@ -179,7 +277,7 @@ def studio_preferences(request, workspace):
     return JsonResponse({'ok': True})
 
 
-def _valid_blocks(blocks, task_ids):
+def _valid_blocks(blocks, task_ids, image_ids, event_ids):
     if not isinstance(blocks, list) or len(blocks) > 250:
         return False
     used = set()
@@ -194,6 +292,12 @@ def _valid_blocks(blocks, task_ids):
             valid = set(block) <= {'id', 'type', 'text'} and _text(block.get('text', ''), 120 if kind == 'heading' else 6000)
         elif kind == 'task':
             valid = set(block) == {'id', 'type', 'task'} and isinstance(block['task'], str) and block['task'] in task_ids
+        elif kind == 'image':
+            valid = key in image_ids and set(block) == {'id', 'type', 'filename', 'caption'} and (
+                _text(block['filename'], 180, True) and _text(block['caption'], 180)
+            )
+        elif kind == 'activity':
+            valid = set(block) == {'id', 'type', 'event'} and isinstance(block['event'], str) and block['event'] in event_ids
         elif kind == 'checklist':
             items = block.get('items')
             valid = set(block) == {'id', 'type', 'items'} and isinstance(items, list) and len(items) <= 100 and all(
@@ -211,6 +315,9 @@ def _valid_blocks(blocks, task_ids):
 @studio_access
 @transaction.atomic
 def studio_notebook(request, workspace):
+    from .layer_models import ActivityEvent
+    from .models import WorkspaceStudioNotebookImage
+
     data = _body(request) or {}
     blocks, revision, project_id = data.get('blocks'), data.get('revision'), data.get('project_id')
     if type(revision) is not int:
@@ -238,10 +345,33 @@ def studio_notebook(request, workspace):
                  else OperatingTask.objects.filter(workspace=workspace))
     with access_batch(user, tasks):
         visible = {str(task.pk) for task in tasks if can_view(user, task) and (not task.project_id or can_view(user, task.project))}
-    if not _valid_blocks(blocks, visible):
+    images = WorkspaceStudioNotebookImage.objects.filter(project_id=project_id)
+    previous = entry.notebook.get('blocks', []) if project_id else entry.blocks
+    if not project_id:
+        images = images.filter(author=user, date=day)
+    image_ids = {str(pk) for pk in images.values_list('pk', flat=True)}
+    event_values = set()
+    if isinstance(blocks, list):
+        event_values = {int(value) for block in blocks if isinstance(block, dict) and block.get('type') == 'activity'
+                        and isinstance(value := block.get('event'), str) and len(value) <= 16 and value.isdecimal()}
+    events = ActivityEvent.objects.filter(
+        layer=ActivityEvent.Layer.CORE, object_type='operating_task', object_id__in=visible, pk__in=event_values,
+    )
+    if not project_id:
+        events = events.filter(actor=user)
+    event_ids = {str(pk) for pk in events.values_list('pk', flat=True)}
+    if not _valid_blocks(blocks, visible, image_ids, event_ids):
         return error('invalid_notebook_block', 400)
+    incoming = {block['id'] for block in blocks}
+    for index, block in enumerate(previous):
+        if block['type'] == 'task' and block['task'] not in visible and block['id'] not in incoming:
+            blocks.insert(index, block)
+    removed_images = {block['id'] for block in previous if block['type'] == 'image' and block['id'] not in incoming}
+    if removed_images:
+        images.filter(pk__in=removed_images).delete()
     if project_id:
-        entry.notebook = {'blocks': blocks, 'revision': actual + 1, 'updatedAt': timezone.now().isoformat()}
+        entry.notebook = {'blocks': blocks, 'revision': actual + 1, 'updatedAt': timezone.now().isoformat(),
+                          'author': entry.notebook.get('author', str(user.pk)), 'lastEditor': str(user.pk)}
         entry.save(update_fields=['notebook'])
     else:
         entry.blocks = blocks
@@ -529,7 +659,8 @@ def studio_profile(request, workspace, user_id=None):
         access = data.get('role')
         if access not in (None, 'admin', 'member'):
             return error('invalid_member_role', 400)
-        if access and membership.role != access:
+        displayed_role = 'admin' if membership.role == 'owner' else membership.role
+        if access and displayed_role != access:
             if role != 'owner' or membership.role == 'owner' or target.pk == actor.pk:
                 return error('permission_denied', 403)
             membership.role = access

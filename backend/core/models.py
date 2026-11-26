@@ -1,3 +1,5 @@
+import uuid
+
 from django.conf import settings
 from django.db import models
 from django.db.models import Q
@@ -541,6 +543,7 @@ class WorkspaceStudioProject(models.Model):
     report = models.JSONField(default=dict)
     completions = models.JSONField(default=list)
     notebook = models.JSONField(default=dict)
+    updates = models.JSONField(default=list)
     revision = models.PositiveIntegerField(default=0)
 
 
@@ -594,6 +597,26 @@ class WorkspaceStudioResultLink(models.Model):
             models.UniqueConstraint(fields=('result', 'milestone'), condition=models.Q(milestone__isnull=False),
                                     name='studio_unique_result_milestone'),
         ]
+
+
+class WorkspaceStudioCalendarNote(models.Model):
+    workspace = models.ForeignKey(Workspace, on_delete=models.CASCADE)
+    author = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    date = models.DateField()
+    text = models.CharField(max_length=2400)
+    visibility = models.CharField(max_length=8)
+    pinned = models.BooleanField(default=False)
+    updated_at = models.DateTimeField(auto_now=True)
+
+
+class WorkspaceStudioNotebookImage(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    author = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    project = models.ForeignKey(ResearchProject, on_delete=models.CASCADE, null=True, blank=True)
+    date = models.DateField(null=True, blank=True)
+    filename = models.CharField(max_length=180)
+    mime_type = models.CharField(max_length=20)
+    content = models.BinaryField()
 
 
 class WorkspaceStudioTemplate(models.Model):
