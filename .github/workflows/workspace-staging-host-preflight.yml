@@ -1,0 +1,106 @@
+name: Workspace staging host preflight
+
+on:
+  push:
+    branches: [ops/workspace-staging-host-preflight]
+    paths: ['.github/workflows/workspace-staging-host-preflight.yml']
+
+permissions: {}
+
+jobs:
+  inspect:
+    if: github.repository == 'hsdarestani/gravitas'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      SSH_HOST: ${{ secrets.DEPLOY_HOST }}
+      SSH_USER: ${{ secrets.DEPLOY_USER }}
+      SSH_PORT: ${{ secrets.DEPLOY_PORT }}
+      SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+    steps:
+      - name: Inspect capacity and existing staging routes without changing the host
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$SSH_HOST" && test -n "$SSH_KEY"
+          port="${SSH_PORT:-22}"
+          login="${SSH_USER:-deploy}"
+          umask 077
+          credentials=$(mktemp -d)
+          trap 'rm -rf "$credentials"' EXIT
+          printf '%s\n' "$SSH_KEY" > "$credentials/key"
+          ssh-keyscan -T 5 -p "$port" -H "$SSH_HOST" > "$credentials/known_hosts" 2>/dev/null
+          opts=(-i "$credentials/key" -p "$port" -o UserKnownHostsFile="$credentials/known_hosts" -o StrictHostKeyChecking=yes -o BatchMode=yes -o IdentitiesOnly=yes -o ConnectTimeout=10)
+          if ! ssh "${opts[@]}" "$login@$SSH_HOST" true 2>/dev/null; then
+            login=root
+          fi
+          ssh "${opts[@]}" "$login@$SSH_HOST" 'bash -s' <<'REMOTE'
+          set -euo pipefail
+          admin=()
+          if [ "$(id -u)" -ne 0 ]; then
+            admin=(sudo -n)
+          fi
+
+          date -u +'%Y-%m-%dT%H:%M:%SZ'
+          printf 'logical_cpus=%s\n' "$(nproc)"
+          awk '{print "load_average_1_5_15="$1 "," $2 "," $3}' /proc/loadavg
+          awk '/^(MemTotal|MemAvailable|SwapTotal|SwapFree):/ {sub(/:/,"",$1); printf "%s_MiB=%.0f\n",$1,$2/1024}' /proc/meminfo
+          if [ -r /proc/pressure/memory ]; then
+            cut -d' ' -f1-4 /proc/pressure/memory
+          fi
+          for mount in /var/lib /var/lib/docker /var/lib/postgresql /opt; do
+            if [ -d "$mount" ]; then
+              df -P -BM "$mount" | awk -v label="$mount" 'NR==2 {print label,"size="$2,"used="$3,"available="$4,"use="$5}'
+            fi
+          done
+
+          for unit in nginx postgresql docker gravitas-backend gravitas-backend-staging gravitas-workspace-staging graviquest-objectstore; do
+            printf '%s %s\n' "$unit" "$(systemctl show -p LoadState -p ActiveState --value "$unit" | paste -sd,)"
+          done
+          listeners=$(ss -ltnH)
+          for port in 80 443 5432 8000 8001 8081 15432 18000 18081; do
+            count=$(awk -v p=":$port" '$4 ~ (p "$") { n++ } END {print n+0}' <<< "$listeners")
+            printf 'tcp_port_%s_listeners=%s\n' "$port" "$count"
+          done
+
+          if "${admin[@]}" docker info --format '{{.ContainersRunning}}' 2>/dev/null; then
+            for name in gravitas-nextcloud gravitas-nextcloud-db gravitas-nextcloud-redis gravitas-workspace-staging-nextcloud gravitas-workspace-staging-postgres; do
+              state=$("${admin[@]}" docker inspect --format '{{.State.Status}}' "$name" 2>/dev/null || true)
+              printf '%s=%s\n' "$name" "${state:-absent}"
+            done
+          fi
+
+          if pg_isready -q; then
+            echo 'host_postgres=accepting_connections'
+            if ! "${admin[@]}" runuser -u postgres -- env PGOPTIONS='-c default_transaction_read_only=on -c statement_timeout=3000' psql -XqAt -d postgres -v ON_ERROR_STOP=1 2>/dev/null <<'SQL'
+          SELECT 'postgres_version=' || current_setting('server_version_num');
+          SELECT 'legacy_staging_db=' || EXISTS(SELECT FROM pg_database WHERE datname='gravitas_staging_v2');
+          SELECT 'workspace_staging_db=' || EXISTS(SELECT FROM pg_database WHERE datname='gravitas_workspace_staging');
+          SELECT 'workspace_staging_role=' || EXISTS(SELECT FROM pg_roles WHERE rolname='gravitas_workspace_staging');
+          SQL
+            then
+              echo 'host_postgres_metadata=unavailable'
+            fi
+          else
+            echo 'host_postgres=unavailable'
+          fi
+
+          if nginx_config=$("${admin[@]}" nginx -T 2>/dev/null); then
+            for domain in staging.graviquest.com cloud-staging.graviquest.com staging.gravitasplus.com; do
+              awk -v name="$domain" '$1=="server_name" {for (i=2;i<=NF;i++) {gsub(/;/,"",$i); if ($i==name) count++}} END {print name "_nginx_server_names=" count+0}' <<< "$nginx_config"
+              if "${admin[@]}" test -f "/etc/letsencrypt/live/$domain/fullchain.pem"; then
+                printf '%s_letsencrypt_certificate=present\n' "$domain"
+              else
+                printf '%s_letsencrypt_certificate=absent\n' "$domain"
+              fi
+            done
+          else
+            echo 'nginx_config=unavailable'
+          fi
+
+          for host in staging.graviquest.com staging.gravitasplus.com; do
+            http=$(curl -s --noproxy '*' -o /dev/null -w '%{http_code}' --max-time 4 --resolve "$host:80:127.0.0.1" "http://$host/api/health/" || true)
+            https=$(curl -s --noproxy '*' -o /dev/null -w '%{http_code}' --max-time 4 --resolve "$host:443:127.0.0.1" "https://$host/api/health/" || true)
+            printf '%s_origin_health_http=%s https=%s\n' "$host" "$http" "$https"
+          done
+          REMOTE
