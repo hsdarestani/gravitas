@@ -180,7 +180,7 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
     <div class="cm-news rv">
       <p class="g-eyebrow" style="justify-content:center">Newsletter</p>
       <h2 id="ch-news">Join Our Newsletter</h2>
-      <p class="cm-news__lede">Leave your email and we’ll send a confirmation link.</p>
+      <p class="cm-news__lede">Leave your email to join our newsletter list.</p>
       <form class="g-inline-form" novalidate>
         <input class="g-input" id="cm-news-email" name="email" type="email" autocomplete="email" placeholder="you@example.com" aria-label="Email address" required>
         <button class="g-btn g-btn--secondary" type="submit">Subscribe</button>
@@ -208,7 +208,7 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
   }
   document.addEventListener("DOMContentLoaded",function(){
     if(v==="1"||v==="0"){var n=document.querySelector("#newsletter [data-form-note]");
-      if(n)n.textContent=v==="1"?"Confirmed. You are on the list.":"That link has expired. Leave your email again and we’ll send a fresh one.";
+      if(n)n.textContent=v==="1"?"Confirmed. You are on the list.":"That link has expired. Your email can still be registered below.";
       if(history.replaceState)history.replaceState({},"",location.pathname+"#newsletter");}
     if(location.hash==="#newsletter")settle();
     /* The footer link on this same page: no reload, so centre it here. */
