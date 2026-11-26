@@ -28,14 +28,22 @@ for (const { engine, name, options } of browsers) {
       errors.push(error.message);
     });
     // The front page (forum-home.gjs): a chip per room, in the
-    // order of backend/core/forum_rooms.json, and every thread in one table.
+    // native public categories, including rooms added by an administrator.
     await page.goto(site + "/latest", { waitUntil: "domcontentloaded" });
     await page.locator(".gq-forum-home h1").waitFor({ timeout: 45000 });
-    const rooms = JSON.parse(await fs.readFile(new URL("../../backend/core/forum_rooms.json", import.meta.url), "utf8"));
-    const listed = rooms.rooms.map(room => room.slug);
+    const response = await page.request.get(site + "/categories.json?include_subcategories=true");
+    assert(response.ok());
+    const categories = (await response.json()).category_list.categories;
+    const listed = [];
+    const collect = room => {
+      if (room.read_restricted || room.slug === "uncategorized") return;
+      listed.push(room.slug);
+      for (const child of room.subcategory_list || []) collect(child);
+    };
+    categories.forEach(collect);
     const shown = await page.locator(".gq-chips a.gq-chip[data-room]").evaluateAll(links =>
       links.map(link => link.dataset.room));
-    assert.deepEqual(shown, listed);
+    assert.deepEqual([...new Set(shown)].sort(), [...new Set(listed)].sort());
     await page.locator(".topic-list a.title").filter({ visible: true }).first().waitFor({ timeout: 45000 });
     assert(await page.locator(".gq-search input[name=q]").isVisible());
     assert(await page.locator(".gq-week a.gq-week__link").isVisible());

@@ -1942,14 +1942,6 @@ html body .user-menu ul.user-menu-button-profile > :is(li.presence-toggle,li.do-
    "Computabl…". Users, a directory of every account, goes with Groups. */
 html body .menu-panel .sidebar-section-link-wrapper:has([data-link-name="users"]){display:none}
 html body .menu-panel .sidebar-section[data-section-name="categories"] .sidebar-section-content{display:flex!important;flex-direction:column}
-html body .menu-panel [data-section-name="categories"] li:has(a[href^="/c/open-question/"]){order:1}
-html body .menu-panel [data-section-name="categories"] li:has(a[href^="/c/ai-in-research/"]){order:2}
-html body .menu-panel [data-section-name="categories"] li:has(a[href^="/c/discovery/"]){order:3}
-html body .menu-panel [data-section-name="categories"] li:has(a[href^="/c/computable-universe/"]){order:4}
-html body .menu-panel [data-section-name="categories"] li:has(a[href^="/c/corrections/"]){order:5}
-html body .menu-panel [data-section-name="categories"] li:has(a[href^="/c/propose-a-topic/"]){order:6}
-html body .menu-panel [data-section-name="categories"] li:has(a[href^="/c/lab-results/"]){order:7}
-html body .menu-panel [data-section-name="categories"] li:has(a[href^="/c/introductions/"]){order:8}
 html body .menu-panel [data-section-name="categories"] li:has([data-link-name="all-categories"]){order:20}
 
 /* A profile. Five tabs became four (badges are not shown on the forum), the
@@ -2140,11 +2132,7 @@ html body:is(.navigation-category,.navigation-topics) .topic-list td.posters img
 @media (max-width:640px){html body:is(.navigation-category,.navigation-topics) .topic-list :is(th,td).posters,html body:is(.navigation-category,.navigation-topics) .topic-list :is(th,td).views{display:none!important}}
 .mobile-view.mobile-view .topic-list :is(th,td).posters,.mobile-view.mobile-view .topic-list :is(th,td).views{display:none!important}
 
-/* Starting a thread: the room picker offers the Forum's three rooms, by their
-   Discourse names (backend/core/forum_rooms.json), not the rooms it no longer
-   lists. Starting from a room's page picks that room already. Only in the
-   composer: staff moving a thread still see every room. */
-html body #reply-control .category-chooser .select-kit-row:not(:is([data-name="About the Forum"],[data-name="About GraviQuest"],[data-name="AI in Research"])){display:none!important}
+/* The native composer offers categories according to Discourse permissions. */
 
 /* A thread: one column, posts then the reply box. The rail of counts and
    faces left in thread-details.gjs; the "More threads" list under the reply
@@ -2152,14 +2140,7 @@ html body #reply-control .category-chooser .select-kit-row:not(:is([data-name="A
 html body .more-topics__container,html body .suggested-topics{display:none!important}
 html body.archetype-regular .gq-thread-rail{display:none!important}
 
-/* The menu lists the same rooms as the front page, in its order, and no
-   others; "All rooms" leads to the front page. The forum-wide "Topics" list
-   (renamed "All threads" above) went with the front page's list. */
-html body .menu-panel [data-section-name="categories"] li{display:none!important}
-html body .menu-panel [data-section-name="categories"] li:has(a:is([href*="/about-the-forum/"],[href*="/about-graviquest/"],[href*="/ai-in-research/"],[data-link-name="all-categories"])){display:list-item!important}
-html body .menu-panel [data-section-name="categories"] li:has(a[href*="/about-the-forum/"]){order:1}
-html body .menu-panel [data-section-name="categories"] li:has(a[href*="/about-graviquest/"]){order:2}
-html body .menu-panel [data-section-name="categories"] li:has(a[href*="/ai-in-research/"]){order:3}
+/* The native room menu follows Discourse navigation preferences. */
 html body .sidebar-section-link-wrapper:has([data-link-name="everything"]){display:none!important}
 
 /* With the rail gone the thread is one column, centred like the rooms, and
@@ -2241,9 +2222,7 @@ html body .gq-footer .g-stack>span>span:not(.g-soon){font-size:.875rem}
 /* ---- Front page as forum.html (2026-11-18, second pass) ----------------------
    The owner preferred graviquest.com/forum.html's page: every thread in one
    table, filtered by room with chips, sorted Latest or Top, and searchable
-   (forum-home.gjs). The table is Discourse's list, shown again here. Threads
-   in rooms the Forum no longer lists stay at their URLs but are not listed. */
-html body .topic-list .topic-list-item:not(.category-about-the-forum):not(.category-about-graviquest):not(.category-ai-in-research){display:none!important}
+   (forum-home.gjs). The table is Discourse's list, shown again here. Private categories are controlled by native permissions. */
 /* ---- Forum list pages, redesigned (2026-11-19) -------------------------------
    One page, not two. All, Top and every room share the same head and the
    same week's card (forum-home.gjs), so the row of rooms never moves when
@@ -2915,3 +2894,6 @@ html body .nested-post__gutter > .nested-post__depth-line .nested-post__depth-li
    owner, 2026-11-22), but staff keep it: graviquest.js marks a staff
    session with html.gq-staff. */
 html:not(.gq-staff) body .post-info.edits{display:none!important}
+
+/* Keep the main public feed public even for staff; private rooms remain accessible through native administration. */
+html body.navigation-topics .topic-list .topic-list-item.gq-nonpublic-room{display:none!important}

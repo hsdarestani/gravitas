@@ -10,9 +10,7 @@ import base64
 import binascii
 import hashlib
 import hmac
-import json
 import re
-from pathlib import Path
 from urllib.parse import parse_qs, urlencode, urlsplit
 
 import requests
@@ -105,57 +103,46 @@ def _get(path, params=None):
 
 
 def _public_categories():
-    key = 'graviquest:forum:categories:v2:' + forum_url()
-    categories = cache.get(key)
-    if categories is None:
-        data = _get('/categories.json', {'include_subcategories': 'true'})
-        categories, seen = [], set()
-        pending = [(c, None) for c in reversed(data.get('category_list', {}).get('categories', []))]
-        # The maintained API embeds children in subcategory_list. Accept both
-        # nested and flat responses, inheriting the private parent boundary.
-        while pending:
-            category, parent = pending.pop()
-            if category.get('read_restricted') or category['id'] in seen:
-                continue
-            seen.add(category['id'])
-            if len(seen) > 1000:
-                raise ForumUnavailable()
-            category = {**category}
-            if parent is not None:
-                category.setdefault('parent_category_id', parent)
-            categories.append(category)
-            pending.extend((c, category['id']) for c in reversed(category.get('subcategory_list', [])))
-        cache.set(key, categories, 30)
-    return [c for c in categories if not c.get('read_restricted')]
+    # Anonymous native reads are authoritative. Do not cache permissions
+    # across requests: an administrator can make a category private at any time.
+    data = _get('/categories.json', {'include_subcategories': 'true'})
+    categories, seen = [], set()
+    pending = [(c, None) for c in reversed(data.get('category_list', {}).get('categories', []))]
+    while pending:
+        category, parent = pending.pop()
+        if category.get('read_restricted') or category['id'] in seen:
+            continue
+        seen.add(category['id'])
+        if len(seen) > 1000:
+            raise ForumUnavailable()
+        category = {**category}
+        if parent is not None:
+            category.setdefault('parent_category_id', parent)
+        categories.append(category)
+        pending.extend((c, category['id']) for c in reversed(category.get('subcategory_list', [])))
+    by_id = {c['id']: c for c in categories}
 
+    def public_ancestry(category):
+        visited = set()
+        while category:
+            if category.get('read_restricted') or category['id'] in visited:
+                return False
+            visited.add(category['id'])
+            parent_id = category.get('parent_category_id')
+            if not parent_id:
+                return True
+            category = by_id.get(parent_id)
+        return False
 
-ROOMS_FILE = Path(__file__).with_name('forum_rooms.json')
-
-
-def forum_rooms():
-    """The rooms the Forum lists, in its order (forum_rooms.json).
-
-    The same file builds the rooms on Discourse (ops/discourse/rooms.rb) and
-    tells the theme which to show, so the public feed here lists exactly what
-    the Forum's front page lists. GRAVITAS_FORUM_ROOM_SLUGS overrides it, and
-    None there means every public room (the behaviour before 2026-11-18).
-    """
-    if hasattr(settings, 'GRAVITAS_FORUM_ROOM_SLUGS'):
-        return settings.GRAVITAS_FORUM_ROOM_SLUGS
-    data = json.loads(ROOMS_FILE.read_text(encoding='utf-8'))
-    return [room['slug'] for room in data['rooms']]
+    return [c for c in categories if public_ancestry(c)]
 
 
 def _listed_categories():
-    """Public rooms the Forum lists, in forum_rooms.json's order. A published
-    discussion in a room the Forum no longer lists still opens by its link
-    (forum_discussion reads every public room); only the feed is limited."""
-    public = _public_categories()
-    slugs = forum_rooms()
-    if slugs is None:
-        return public
-    rank = {slug: index for index, slug in enumerate(slugs)}
-    return sorted((c for c in public if c.get('slug') in rank), key=lambda c: rank[c['slug']])
+    """List all public rooms managed in Discourse, excluding Uncategorized."""
+    return sorted(
+        (c for c in _public_categories() if c.get('slug') != 'uncategorized'),
+        key=lambda c: c.get('position') or 0,
+    )
 
 
 def _count(value, offset=0):

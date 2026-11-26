@@ -32,17 +32,26 @@
 // is filtering in place: the row stays put without any scroll correction.
 // Sort works in a room too (Discourse's /c/<room>/<id>/l/top).
 //
-// Which rooms, and in what order, is backend/core/forum_rooms.json; the slugs
-// below must match it (core/test_forum_rooms.py fails otherwise), and
-// ops/discourse/rooms.rb creates them on Discourse before every theme release.
-// Names are read from Discourse, never written here.
+// Public rooms and their order are managed in Discourse Category management.
+// Native category permissions remain authoritative; no theme release is needed.
 import Component from "@glimmer/component";
 import { action } from "@ember/object";
 import { on } from "@ember/modifier";
 import { service } from "@ember/service";
 import { modifier } from "ember-modifier";
 
-const ROOMS = ["about-the-forum", "about-graviquest", "ai-in-research"];
+function publicRoom(category, byId) {
+  const seen = new Set();
+  while (category) {
+    if (category.read_restricted || category.slug === "uncategorized" || seen.has(category.id)) {
+      return false;
+    }
+    seen.add(category.id);
+    if (!category.parent_category_id) return true;
+    category = byId.get(category.parent_category_id);
+  }
+  return false;
+}
 
 // A Topic's room links back to its published page (forum_rooms.json topic_url),
 // as the approved prototype's "Open the Topic" button does.
@@ -95,11 +104,12 @@ export default class GraviQuestForumHome extends Component {
   }
 
   get chips() {
-    const bySlug = new Map(this.site.categories.map((c) => [c.slug, c]));
-    const current = this.category?.slug;
-    return ROOMS.map((slug) => bySlug.get(slug))
-      .filter(Boolean)
-      .map((c) => ({ slug: c.slug, name: c.name, url: c.url, active: c.slug === current }));
+    const categories = this.site.categories || [];
+    const byId = new Map(categories.map((c) => [c.id, c]));
+    const current = this.category?.id;
+    return categories.filter((c) => publicRoom(c, byId))
+      .sort((a, b) => (a.position ?? 0) - (b.position ?? 0))
+      .map((c) => ({ slug: c.slug, name: c.name, url: c.url, active: c.id === current }));
   }
 
   get sort() {

@@ -125,7 +125,6 @@
       rooms.replaceChildren();
       if (layout !== 'table') rooms.append(el('h2', '', 'Rooms'));
       [{id:0, name:layout === 'table' ? 'All' : 'All rooms'}].concat(categories).forEach(function (c) {
-        if (c.id && !c.topic_count && c.id !== category) return;
         var numbered = layout === 'table' && /^Topic\s+(\d+)\s+\S\s+(.+)$/.exec(c.name);
         var b = el('button', layout === 'table' ? 'chip fm-step' : 'rd-room', numbered ? '' : c.name); b.type = 'button';
         if (numbered) { b.append(el('span', '', numbered[1]), numbered[2]); b.setAttribute('aria-label', c.name); }
