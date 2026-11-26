@@ -1,0 +1,54 @@
+name: Workspace staging storage and nested schedule acceptance
+
+on:
+  push:
+    branches: [ops/workspace-staging-host-preflight]
+    paths:
+      - '.github/workflows/workspace-staging-native-acceptance.yml'
+      - 'ops/workspace-staging/storage-and-scheduling.sh'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gravitas-workspace-staging
+  cancel-in-progress: false
+
+jobs:
+  acceptance:
+    if: github.repository == 'hsdarestani/gravitas'
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Validate the staging acceptance runner
+        run: bash -n ops/workspace-staging/storage-and-scheduling.sh
+      - name: Verify native Nextcloud revisions and nested scheduling on staging
+        shell: bash
+        env:
+          SSH_HOST: ${{ secrets.DEPLOY_HOST }}
+          SSH_USER: ${{ secrets.DEPLOY_USER }}
+          SSH_PORT: ${{ secrets.DEPLOY_PORT }}
+          SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          test -n "$SSH_HOST" && test -n "$SSH_KEY"
+          port="${SSH_PORT:-22}"
+          login="${SSH_USER:-deploy}"
+          umask 077
+          credentials=$(mktemp -d)
+          trap 'rm -rf "$credentials"' EXIT
+          printf '%s\n' "$SSH_KEY" > "$credentials/key"
+          ssh-keyscan -T 5 -p "$port" -H "$SSH_HOST" > "$credentials/known_hosts" 2>/dev/null
+          opts=(-i "$credentials/key" -p "$port" -o UserKnownHostsFile="$credentials/known_hosts" -o StrictHostKeyChecking=yes -o BatchMode=yes -o IdentitiesOnly=yes -o ConnectTimeout=10 -o ServerAliveInterval=15)
+          if ! ssh "${opts[@]}" "$login@$SSH_HOST" true 2>/dev/null; then
+            login=root
+          fi
+          if [ "$login" = root ]; then
+            command='bash -s'
+          else
+            command='sudo -n bash -s'
+          fi
+          ssh "${opts[@]}" "$login@$SSH_HOST" "$command" < ops/workspace-staging/storage-and-scheduling.sh
