@@ -358,8 +358,8 @@
               '<a class="g-btn g-btn--primary" href="/login">Go to sign in</a>' +
             '</div>' +
           '</div>';
-        setNote(form, data.newsletter_pending
-          ? 'Your account and newsletter both need email confirmation.'
+        setNote(form, data.newsletter_saved
+          ? 'Your newsletter email has been saved. Confirm your account email to sign in.'
           : 'Almost there. Confirm your email and your account is ready.');
       });
     } else if (isLogin) {
@@ -430,12 +430,12 @@
       var input = form.querySelector('input[type="email"]');
       var email = input && input.value.trim();
       if (!email) {
-        setNote(form, 'Add an email address and we will send a confirmation link.');
+        setNote(form, 'Add your email address.');
         if (input) input.focus();
         setBusy(form, false);
         return;
       }
-      setNote(form, 'Sending confirmation email…');
+      setNote(form, 'Saving your email…');
       job = fetch('/api/newsletter/subscribe/', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
@@ -448,7 +448,7 @@
       }).then(function (data) {
         setNote(form, data.already_confirmed
           ? 'This email is already confirmed and subscribed.'
-          : 'Check your inbox and click the confirmation link to finish subscribing.');
+          : (data.saved ? 'Thank you. Your email has been saved.' : 'Check your inbox and click the confirmation link to finish subscribing.'));
         if (!data.already_confirmed) form.reset();
       });
     }
