@@ -23,7 +23,7 @@ jobs:
           PYTHONPATH: backend
           DJANGO_SETTINGS_MODULE: gravitas_backend.test_settings
         run: |
-          python -m django test core.test_forum core.test_forum_moderation core.test_auth_account_flows core.test_auth_logout_flow core.test_email_verification core.test_oidc_sso --noinput
+          python -m django test core.test_forum core.test_forum_rooms core.test_forum_moderation core.test_auth_account_flows core.test_auth_logout_flow core.test_email_verification core.test_oidc_sso --noinput
           python -m django makemigrations core --check --dry-run
           python -m django check
           node --check assets/forum-live.js

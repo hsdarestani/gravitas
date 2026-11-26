@@ -2,7 +2,7 @@ name: Deploy and verify the GraviQuest Forum theme
 
 on:
   push:
-    branches: ['feat/discourse-*']
+    branches: ['main', 'feat/discourse-*']
     paths: ['discourse/theme/**', 'ops/discourse/**', 'backend/core/forum_rooms.json', '.github/workflows/forum-theme.yml']
   workflow_dispatch:
 
@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   theme:
-    if: github.repository == 'hsdarestani/gravitas' && (github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[deploy-forum-theme]'))
+    if: github.repository == 'hsdarestani/gravitas' && (github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main' || contains(github.event.head_commit.message, '[deploy-forum-theme]'))
     # Pinned (2026-11-18): on ubuntu-latest, now Ubuntu 26, installing the
     # browsers' system packages stalled for the whole 10-minute limit twice.
     runs-on: ubuntu-24.04
@@ -81,8 +81,8 @@ jobs:
             fi
           }
           trap rollback EXIT
-          # The rooms first: the theme lists them, and must never list one that
-          # does not exist yet (ops/discourse/rooms.rb, backend/core/forum_rooms.json).
+          # Room metadata and permissions are managed in native Discourse admin.
+          # The room seed is intentionally a no-op during routine theme deployments.
           ssh "${OPTS[@]}" "$TARGET" "sudo docker exec -u discourse -w /var/www/discourse -e GQ_THEME_RELEASE='$CONTAINER' graviquest bundle exec rails runner '$CONTAINER/rooms.rb'"
           run_theme apply
           mkdir -p "$RUNNER_TEMP/forum-theme-screenshots"
