@@ -121,6 +121,7 @@ body:has([data-topic-01-shell]) { --g-chrome-h: calc(var(--g-header-h) + 1px); }
   overflow-wrap: anywhere; line-height: 1.35;
 }
 .tq-toc__sub a:hover { color: var(--g-text); }
+.tq-toc__sub .is-disabled { display: block; padding: .25rem 6px .25rem 0; font-size: var(--g-fs-caption); color: var(--g-text-subtle); opacity: .7; line-height: 1.35; cursor: default; }
 @media (prefers-reduced-motion: reduce) { .tq-toc__link[aria-current] .tq-toc__icon::after { animation: none; } }
 
 /* ---- Before and Next, at the end of each section ------------------------- */
@@ -676,6 +677,10 @@ body:has([data-topic-01-shell]) { --g-chrome-h: calc(var(--g-header-h) + 1px); }
 .tq-pick__item.is-planned { border-style: dashed; background: transparent; }
 .tq-pick__item.is-planned .tq-pick__thumb { background: var(--g-surface-sunken); }
 .tq-pick__item.is-planned .tq-pick__text small { color: var(--g-text-subtle); }
+/* Planned videos cannot be picked (2026-11-26): no hover, no press, no pointer. */
+.tq-pick__item.is-planned { cursor: default; }
+.tq-pick__item.is-planned:hover { border-color: var(--g-hairline); color: var(--g-text-muted); }
+.tq-pick__item.is-planned:active { transform: none; }
 .tq-stage.is-soon .tq-stage__title { color: rgb(241 239 236 / .7); }
 
 /* ---- Follow and Save (production-bridge.js mounts them in .rl-slot) ----------

@@ -345,9 +345,12 @@
           return '<li><a href="' + esc(kid.href) + '"' + (on ? ' aria-current="location"' : '') + '><i class="tq-toc__num g-nums" aria-hidden="true">' + pad2(k + 1) + '</i><span>' + esc(kid.label) + '</span></a></li>';
         }).join('') + '</ol>'
         : '';
-      return '<li class="' + (sub.kicker ? 'tq-toc__parent' : '') + (sub.current ? ' is-current' : '') + '"><a href="' + esc(sub.href) + '"' + (sub.current ? ' aria-current="true"' : '') + '>' +
+      /* A disabled entry (a planned video) is listed but is not a link. */
+      var tag = sub.disabled ? 'span' : 'a';
+      return '<li class="' + (sub.kicker ? 'tq-toc__parent' : '') + (sub.current ? ' is-current' : '') + '"><' + tag +
+        (sub.disabled ? ' class="is-disabled" aria-disabled="true"' : ' href="' + esc(sub.href) + '"') + (sub.current ? ' aria-current="true"' : '') + '>' +
         (sub.kicker ? '<small class="tq-toc__k">' + esc(sub.kicker) + '</small>' : '') +
-        '<span>' + esc(sub.label) + '</span></a>' + children + '</li>';
+        '<span>' + esc(sub.label) + '</span></' + tag + '>' + children + '</li>';
     }).join('') + '</ol></div>';
   }
 
@@ -637,10 +640,17 @@
     return '<div class="tq-pick" role="list" aria-label="Videos in this Topic">' + list.map(function (video, index) {
       var thumb = safeUrl(video.poster_url);
       var planned = isPlanned(video);
-      return '<a class="tq-pick__item' + (planned ? ' is-planned' : '') + '" role="listitem" href="#video-' + (index + 1) + '" data-video="' + index + '">' +
+      /* A planned video is shown but cannot be picked (owner, 2026-11-26):
+         there is nothing to open until its content is published, so the card
+         is a plain element without href or data-video, and the click handler
+         never sees it. It becomes a link again once the video is playable. */
+      var open = planned
+        ? '<div class="tq-pick__item is-planned" role="listitem" aria-disabled="true">'
+        : '<a class="tq-pick__item" role="listitem" href="#video-' + (index + 1) + '" data-video="' + index + '">';
+      return open +
         '<span class="tq-pick__thumb">' + (thumb ? '<img src="' + esc(thumb) + '" alt="" loading="lazy" decoding="async">' : '<span class="tq-pick__blank" aria-hidden="true">' + (planned ? '<span class="soon-chip">Planned</span>' : pad2(index + 1)) + '</span>') +
         (video.duration ? '<span class="tq-pick__dur">' + esc(video.duration) + '</span>' : '') + '</span>' +
-        '<span class="tq-pick__text"><small>Video ' + (index + 1) + (planned ? ' &middot; Planned' : '') + '</small><b>' + esc(video.title) + '</b></span></a>';
+        '<span class="tq-pick__text"><small>Video ' + (index + 1) + (planned ? ' &middot; Planned' : '') + '</small><b>' + esc(video.title) + '</b></span>' + (planned ? '</div>' : '</a>');
     }).join('') + '</div>';
   }
 
@@ -719,7 +729,7 @@
       if (isPlanned(list[index])) talkHolder.hidden = true;
       else mountVideoTalk(talkHolder, list[index], index, seek);
       if (several && window.GQTopicToc) window.GQTopicToc.set('video', list.length, list.map(function (video, k) {
-        return { label: video.title + (isPlanned(video) ? ' · Planned' : ''), href: '#video-' + (k + 1), current: k === index };
+        return { label: video.title + (isPlanned(video) ? ' · Planned' : ''), href: '#video-' + (k + 1), current: k === index, disabled: isPlanned(video) };
       }));
       host.querySelectorAll('[data-video]').forEach(function (link) {
         if (Number(link.getAttribute('data-video')) === index) link.setAttribute('aria-current', 'true');
@@ -746,12 +756,20 @@
       var shareButton = event.target.closest('[data-share-video]');
       if (shareButton) share(shareButton, pageUrl('video-' + shareButton.getAttribute('data-share-video')), list[at].title);
     });
-    var linked = /^#video-(\d+)$/.exec(location.hash);
-    show(linked ? Math.min(list.length - 1, Math.max(0, Number(linked[1]) - 1)) : 0);
+    /* A shared or typed #video-2 that points at a planned video opens the
+       first one instead: planned videos cannot be opened at all. */
+    var firstOpen = Math.max(0, list.findIndex(function (video) { return !isPlanned(video); }));
+    function askedIndex(hash) {
+      var asked = /^#video-(\d+)$/.exec(hash);
+      if (!asked) return -1;
+      var index = Math.min(list.length - 1, Math.max(0, Number(asked[1]) - 1));
+      return isPlanned(list[index]) ? firstOpen : index;
+    }
+    var linked = askedIndex(location.hash);
+    show(linked >= 0 ? linked : firstOpen);
     /* The rail lists the videos as #video-1, #video-2. */
     window.addEventListener('hashchange', function () {
-      var asked = /^#video-(\d+)$/.exec(location.hash);
-      var index = asked ? Math.min(list.length - 1, Math.max(0, Number(asked[1]) - 1)) : -1;
+      var index = askedIndex(location.hash);
       if (index >= 0 && index !== at) show(index);
     });
   }
@@ -1137,8 +1155,12 @@
     set.setAttribute('aria-label', 'Videos in this Topic');
     list.forEach(function (video, index) {
       var row = document.createElement('li');
-      var link = document.createElement('a');
-      link.href = PAGE + '#video-' + (index + 1);
+      /* A planned video keeps its row but is not a link (owner, 2026-11-26):
+         a span is outside topic-rail.js's `.trail__set a`, so tapping it
+         neither previews it in the panel nor opens the Topic page. */
+      var link = document.createElement(isPlanned(video) ? 'span' : 'a');
+      if (isPlanned(video)) { link.className = 'trail__set-off'; link.setAttribute('aria-disabled', 'true'); }
+      else link.href = PAGE + '#video-' + (index + 1);
       /* The first row restores exactly what the panel opened with. A video
          without a runtime shows no tag. */
       link.dataset.title = video.title || item.title;

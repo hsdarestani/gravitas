@@ -26,7 +26,7 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
 <link rel="stylesheet" href="/assets/forum.css?v=20261118-fm11">
 <link rel="stylesheet" href="/assets/chat.css?v=20261119-public-guide2">
 <link rel="stylesheet" href="/assets/production-overrides.css?v=up-f706806e3a02-g1df6ff09-rl4">
-<link rel="stylesheet" href="/assets/community-layout.css?v=20261108-forum1">
+<link rel="stylesheet" href="/assets/community-layout.css?v=20261126-news1">
 <link rel="stylesheet" href="/assets/community-forum.css?v=20261108-forum1">
 <link rel="stylesheet" href="/assets/forum-live.css?v=20261110-forum3">  <link rel="canonical" href="https://graviquest.com/community">
 </head>
@@ -159,8 +159,52 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
   </div>
 </section>
 
+<!-- 03 · Newsletter ----------------------------------------------------------
+     Added 2026-11-26, when the footer's Newsletter entry stopped being a
+     "Soon" pill and became a link to #newsletter. It is chapter 01's layout
+     (the numbered list beside the sunken box) so it reads as part of this
+     page rather than a bolted-on banner. The form is a .g-inline-form, which
+     is the hook production-bridge-core.js uses for the newsletter: it posts
+     to /api/newsletter/subscribe/ and writes into the [data-form-note] beside
+     the form. The confirmation email's link comes back here with
+     ?newsletter=1 or ?newsletter=0 (views.newsletter_confirm), and the inline
+     script below says which. The button is secondary on purpose: the brand
+     book keeps the loud call to action for the community account, and the
+     newsletter is the quieter second one. -->
+<section class="g-section g-section--deep lp-chap lp-gridded" id="newsletter" aria-labelledby="ch-news">
+  <div class="g-container">
+    <header class="lp-chap__head rv">
+      <span class="lp-chap__n">03 &middot; Newsletter</span>
+      <h2 id="ch-news">One Letter a Week</h2>
+      <p class="g-lead">From us to you: what carried real weight in science, why it mattered, and where to stay sceptical. Picked by hand, never a pile of links.</p>
+    </header>
+    <div class="lp-comm">
+      <ol class="lp-do rv">
+        <li><span class="lp-layer__n">01</span><div><h3>What Carried Weight</h3><p>Two or three things from the week that actually moved something, read closely rather than rounded up.</p></div></li>
+        <li><span class="lp-layer__n">02</span><div><h3>Where to Stay Sceptical</h3><p>Where a claim outruns its source, and what would have to hold for it to stand.</p></div></li>
+        <li><span class="lp-layer__n">03</span><div><h3>What Members Corrected</h3><p>Where the community pushed back that week, and what changed because of it.</p></div></li>
+      </ol>
+      <div class="lp-short cm-news rv">
+        <h3>Join Our Newsletter</h3>
+        <p>Leave your email and we&rsquo;ll send a confirmation link. Once you confirm, the letter comes straight to your inbox.</p>
+        <form class="g-inline-form" novalidate>
+          <input class="g-input" id="cm-news-email" name="email" type="email" autocomplete="email" placeholder="you@example.com" aria-label="Email address" required>
+          <button class="g-btn g-btn--secondary" type="submit">Subscribe</button>
+        </form>
+        <p class="cm-news__note" data-form-note role="status" aria-live="polite">Around four minutes of reading, most weeks. Unsubscribe anytime.</p>
+      </div>
+    </div>
+  </div>
+</section>
+<script>
+(function(){var p=new URLSearchParams(location.search),v=p.get('newsletter');if(v!=='1'&&v!=='0')return;
+document.addEventListener('DOMContentLoaded',function(){var n=document.querySelector('#newsletter [data-form-note]');
+if(n)n.textContent=v==='1'?'Confirmed. The next letter comes straight to your inbox.':'That link has expired. Leave your email again and we’ll send a fresh one.';
+if(history.replaceState)history.replaceState({},'',location.pathname+'#newsletter');});})();
+</script>
+
 <!-- Join band ------------------------------------------------------------------ -->
-<section class="g-section g-section--deep lp-gridded" id="join"><div class="g-container"><div class="join rv">
+<section class="g-section lp-gridded" id="join"><div class="g-container"><div class="join rv">
     <div class="g-well" aria-hidden="true"></div>
     <div class="g-starfield" aria-hidden="true"></div>
     <div class="join__in">
@@ -186,7 +230,7 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
       <div><h5 class="g-footer__heading">Explore</h5>
         <div class="g-stack g-stack--xs g-stack--ic"><a href="/topics"><svg class="g-ic g-ic--sm" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><g transform="translate(2.282 2.283) scale(1.0407)" stroke-width="1.634"><rect x=".75" y=".75" width="17.2" height="17.2" rx="3.4" ry="3.4"/><path d="M.85,7.95c3.5,1.5,6,2.3,8.5,2.3s5-.8,8.5-2.3"/><path d="M7.95.85c1.5,3.5,2.3,6,2.3,8.5s-.8,5-2.3,8.5"/></g></svg><span>Topics</span></a><a href="/lab"><svg class="g-ic g-ic--sm" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><g transform="translate(4.844 0.9) scale(0.972826)" stroke-width="1.747"><path d="M4.7.75h5.2"/><path d="M5.9.75c0,8.29.39,6.94-4.03,13.95l-.79,1.25c-.89,1.41.12,3.2,1.8,3.2h9.04c1.68,0,2.69-1.79,1.8-3.2l-.79-1.25c-4.42-7.01-4.03-5.66-4.03-13.95"/><circle cx="7.3" cy="14.8" r="1.593" fill="currentColor" stroke="none"/></g></svg><span>Interactive Lab</span></a><a href="/learn"><svg class="g-ic g-ic--sm" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><g transform="translate(2.353 2.45) scale(0.962366)" stroke-width="1.766"><path d="M4.45,17.15c3-.8,3.2-5.8,5.6-7.2"/><path d="M10.05,9.95c2.4-1.4,2.6-6.4,5.6-7.2"/><circle cx="2.35" cy="17.55" r="1.6"/><circle cx="17.75" cy="2.35" r="1.6"/><circle cx="10.05" cy="9.95" r="1.611" fill="currentColor" stroke="none"/></g></svg><span>Learning Paths</span></a></div></div>
       <div><h5 class="g-footer__heading">Join in</h5>
-        <div class="g-stack g-stack--xs g-stack--ic"><a href="/community"><svg class="g-ic g-ic--sm" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><g transform="translate(2.252 1.167) scale(1.09681)" stroke-width="1.55"><circle cx="8.91" cy="2.5" r="1.75"/><circle cx="15.32" cy="13.6" r="1.75"/><circle cx="2.5" cy="13.6" r="1.75"/><circle cx="8.91" cy="9.9" r="1.413" fill="currentColor" stroke="none"/></g></svg><span>Community</span></a><span class="g-foot-soon" aria-disabled="true"><svg class="g-ic g-ic--sm" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><g transform="translate(2.332 4.76) scale(0.994444)" stroke-width="1.709"><path d="M1.98,2.26c2.88,5.22,5.41,7.83,7.77,7.83s4.89-2.61,7.77-7.83"/><path d="M18.39,3.84c.47,2.28.48,4.67,0,7.03-.29,1.44-1.47,2.53-2.92,2.73-3.8.51-7.66.51-11.46,0-1.45-.19-2.62-1.27-2.91-2.7-.47-2.28-.48-4.67,0-7.03.29-1.44,1.47-2.53,2.92-2.73,3.8-.51,7.66-.51,11.46,0,1.45.19,2.62,1.27,2.91,2.7Z"/><circle cx="9.75" cy="7.11" r="1.559" fill="currentColor" stroke="none"/></g></svg><span>Newsletter</span><span class="g-soon">Soon</span></span></div></div>
+        <div class="g-stack g-stack--xs g-stack--ic"><a href="/community"><svg class="g-ic g-ic--sm" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><g transform="translate(2.252 1.167) scale(1.09681)" stroke-width="1.55"><circle cx="8.91" cy="2.5" r="1.75"/><circle cx="15.32" cy="13.6" r="1.75"/><circle cx="2.5" cy="13.6" r="1.75"/><circle cx="8.91" cy="9.9" r="1.413" fill="currentColor" stroke="none"/></g></svg><span>Community</span></a><a href="/community#newsletter"><svg class="g-ic g-ic--sm" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><g transform="translate(2.332 4.76) scale(0.994444)" stroke-width="1.709"><path d="M1.98,2.26c2.88,5.22,5.41,7.83,7.77,7.83s4.89-2.61,7.77-7.83"/><path d="M18.39,3.84c.47,2.28.48,4.67,0,7.03-.29,1.44-1.47,2.53-2.92,2.73-3.8.51-7.66.51-11.46,0-1.45-.19-2.62-1.27-2.91-2.7-.47-2.28-.48-4.67,0-7.03.29-1.44,1.47-2.53,2.92-2.73,3.8-.51,7.66-.51,11.46,0,1.45.19,2.62,1.27,2.91,2.7Z"/><circle cx="9.75" cy="7.11" r="1.559" fill="currentColor" stroke="none"/></g></svg><span>Newsletter</span></a></div></div>
       <div><h5 class="g-footer__heading">Follow</h5><ul class="lp-social"><li><a class="lp-social__link" href="https://www.youtube.com/@GraviQuest" target="_blank" rel="noopener" aria-label="YouTube"><svg viewBox="0 0 24 24" shape-rendering="geometricPrecision" fill="none" stroke="currentColor" stroke-width="1.7"><g transform="translate(1.083 1.066) scale(0.9133)" stroke-width="1.861"><rect x="2.2" y="5.2" width="19.6" height="13.6" rx="4.2"/><path d="M10.3 9.4v5.2l4.5-2.6z" fill="currentColor" stroke="none"/></g></svg></a></li><li><a class="lp-social__link" href="https://www.linkedin.com/company/graviquest/" target="_blank" rel="noopener" aria-label="LinkedIn"><svg viewBox="0 0 24 24" shape-rendering="geometricPrecision" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><g transform="translate(0.207 -0.239) scale(0.9944)" stroke-width="1.709"><rect x="3" y="3" width="18" height="18" rx="4"/><path d="M7.6 10.6V17"/><circle cx="7.6" cy="7.5" r="1.05" fill="currentColor" stroke="none"/><path d="M11.4 17v-3.6a2.6 2.6 0 0 1 5.2 0V17"/><path d="M11.4 17v-6.4"/></g></svg></a></li><li><a class="lp-social__link" href="https://www.instagram.com/graviquest" target="_blank" rel="noopener" aria-label="Instagram"><svg viewBox="0 0 24 24" shape-rendering="geometricPrecision" fill="none" stroke="currentColor" stroke-width="1.7"><g transform="translate(-0.043 0.227) scale(0.9944)" stroke-width="1.709"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4.1"/><circle cx="17.1" cy="6.9" r="1.15" fill="currentColor" stroke="none"/></g></svg></a></li></ul></div>
     </div>
     <div class="g-footer__legal">

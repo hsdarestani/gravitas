@@ -228,12 +228,12 @@ def newsletter_confirm(request):
         email = str(data.get('email', '')).strip().lower()
         subscriber = NewsletterSubscriber.objects.get(email=email)
     except (signing.BadSignature, signing.SignatureExpired, NewsletterSubscriber.DoesNotExist):
-        return HttpResponseRedirect(f'{settings.PUBLIC_BASE_URL}/newsletter.html?confirmed=0')
+        return HttpResponseRedirect(f'{settings.PUBLIC_BASE_URL}/community?newsletter=0#newsletter')
 
     if not subscriber.is_active:
         subscriber.is_active = True
         subscriber.save(update_fields=['is_active', 'updated_at'])
-    return HttpResponseRedirect(f'{settings.PUBLIC_BASE_URL}/newsletter.html?confirmed=1')
+    return HttpResponseRedirect(f'{settings.PUBLIC_BASE_URL}/community?newsletter=1#newsletter')
 
 
 @ensure_csrf_cookie
