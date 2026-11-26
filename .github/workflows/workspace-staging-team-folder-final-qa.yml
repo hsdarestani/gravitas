@@ -1,0 +1,64 @@
+name: Verify staging team controls, live revisions and promoted project folders
+on:
+  push:
+    branches: [ops/workspace-staging-host-preflight]
+    paths:
+      - '.github/workflows/workspace-staging-team-folder-final-qa.yml'
+      - 'ops/workspace-staging/team-folder-final-qa.cjs'
+permissions:
+  contents: read
+concurrency:
+  group: gravitas-workspace-staging-browser
+  cancel-in-progress: false
+jobs:
+  browser:
+    if: github.repository == 'hsdarestani/gravitas'
+    runs-on: ubuntu-latest
+    timeout-minutes: 9
+    environment: workspace-staging
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Validate browser test and locate Chromium
+        run: |
+          bash -n ops/workspace-staging/browser-seed.sh
+          node --check ops/workspace-staging/team-folder-final-qa.cjs
+          command -v google-chrome >/dev/null
+          npm install --prefix "$RUNNER_TEMP/workspace-browser" --no-audit --no-fund playwright-core@1.57.0
+      - name: Verify team controls, responsive revision UI and automatic folder setup on promotion
+        shell: bash
+        env:
+          SSH_HOST: ${{ secrets.DEPLOY_HOST }}
+          SSH_USER: ${{ secrets.DEPLOY_USER }}
+          SSH_PORT: ${{ secrets.DEPLOY_PORT }}
+          SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          TEAM_EMAIL: ${{ secrets.WORKSPACE_STAGING_OWNER_EMAIL }}
+          TEAM_PASSWORD: ${{ secrets.WORKSPACE_STAGING_OWNER_PASSWORD }}
+        run: |
+          set -euo pipefail
+          test -n "$SSH_HOST" && test -n "$SSH_KEY"
+          port="${SSH_PORT:-22}"
+          login="${SSH_USER:-deploy}"
+          umask 077
+          credentials=$(mktemp -d)
+          trap 'rm -rf "$credentials"' EXIT
+          printf '%s\n' "$SSH_KEY" > "$credentials/key"
+          ssh-keyscan -T 5 -p "$port" -H "$SSH_HOST" > "$credentials/known_hosts" 2>/dev/null
+          opts=(-i "$credentials/key" -p "$port" -o UserKnownHostsFile="$credentials/known_hosts" -o StrictHostKeyChecking=yes -o BatchMode=yes -o IdentitiesOnly=yes -o ConnectTimeout=10)
+          if ! ssh "${opts[@]}" "$login@$SSH_HOST" true 2>/dev/null; then login=root; fi
+          if [ "$login" = root ]; then command='bash -s'; else command='sudo -n bash -s'; fi
+          export QA_OWNER_PASSWORD=$(openssl rand -hex 32)
+          export QA_MEMBER_PASSWORD=$(openssl rand -hex 32)
+          export QA_RESEARCH_PASSWORD=$(openssl rand -hex 32)
+          printf '::add-mask::%s\n' "$QA_OWNER_PASSWORD" "$QA_MEMBER_PASSWORD" "$QA_RESEARCH_PASSWORD"
+          result=$({
+            printf 'QA_OWNER_PASSWORD=%q\nQA_MEMBER_PASSWORD=%q\nQA_RESEARCH_PASSWORD=%q\n' "$QA_OWNER_PASSWORD" "$QA_MEMBER_PASSWORD" "$QA_RESEARCH_PASSWORD"
+            cat ops/workspace-staging/browser-seed.sh
+          } | ssh "${opts[@]}" "$login@$SSH_HOST" "$command")
+          [[ "$result" =~ ^[1-9][0-9]*$ ]]
+          export QA_CANONICAL_PROJECT="$result"
+          export QA_CHROME=$(command -v google-chrome)
+          export QA_PLAYWRIGHT_MODULE="$RUNNER_TEMP/workspace-browser/node_modules/playwright-core"
+          test -n "$TEAM_EMAIL" && test -n "$TEAM_PASSWORD"
+          node ops/workspace-staging/team-folder-final-qa.cjs
