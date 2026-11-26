@@ -143,9 +143,11 @@
 /* Contrast: the "Open now" status was 3.7:1 on its card */
 .path-card__status{color:var(--g-text-muted)}
 
-/* 03 · Newsletter (2026-11-26): the subscribe box sits in .lp-short, chapter
-   01's sunken box. The form is the brand's .g-inline-form, so it wraps the
-   button under the field on a narrow box by itself. */
-.cm-news .g-inline-form{margin-bottom:var(--g-space-xs)}
-.cm-news .g-inline-form .g-input{flex-basis:12rem}
+/* Newsletter (2026-11-26): one plain centred column, no box. The form is
+   the brand’s .g-inline-form, so the button wraps under the field on a phone. */
+.cm-news{max-width:34rem;margin-inline:auto;text-align:center}
+.cm-news h2{margin:0 0 var(--g-space-xs)}
+.cm-news__lede{margin:0 0 var(--g-space-lg);color:var(--g-text-muted)}
+.cm-news .g-inline-form{justify-content:center;margin-bottom:var(--g-space-xs)}
+.cm-news .g-inline-form .g-input{flex-basis:14rem}
 .cm-news__note{margin:0;font-size:var(--g-fs-caption);color:var(--g-text-subtle)}

@@ -26,7 +26,7 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
 <link rel="stylesheet" href="/assets/forum.css?v=20261118-fm11">
 <link rel="stylesheet" href="/assets/chat.css?v=20261119-public-guide2">
 <link rel="stylesheet" href="/assets/production-overrides.css?v=up-f706806e3a02-g1df6ff09-rl4">
-<link rel="stylesheet" href="/assets/community-layout.css?v=20261126-news1">
+<link rel="stylesheet" href="/assets/community-layout.css?v=20261126-news3">
 <link rel="stylesheet" href="/assets/community-forum.css?v=20261108-forum1">
 <link rel="stylesheet" href="/assets/forum-live.css?v=20261110-forum3">  <link rel="canonical" href="https://graviquest.com/community">
 </head>
@@ -159,48 +159,66 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
   </div>
 </section>
 
-<!-- 03 · Newsletter ----------------------------------------------------------
-     Added 2026-11-26, when the footer's Newsletter entry stopped being a
-     "Soon" pill and became a link to #newsletter. It is chapter 01's layout
-     (the numbered list beside the sunken box) so it reads as part of this
-     page rather than a bolted-on banner. The form is a .g-inline-form, which
-     is the hook production-bridge-core.js uses for the newsletter: it posts
-     to /api/newsletter/subscribe/ and writes into the [data-form-note] beside
-     the form. The confirmation email's link comes back here with
-     ?newsletter=1 or ?newsletter=0 (views.newsletter_confirm), and the inline
-     script below says which. The button is secondary on purpose: the brand
-     book keeps the loud call to action for the community account, and the
-     newsletter is the quieter second one. -->
-<section class="g-section g-section--deep lp-chap lp-gridded" id="newsletter" aria-labelledby="ch-news">
+<!-- Newsletter ---------------------------------------------------------------
+     Added 2026-11-26, when the footer’s Newsletter entry stopped being a
+     "Soon" pill and became a link to #newsletter. Kept deliberately plain at
+     the owner’s request: a heading, one line, the field and the button. The
+     copy says nothing about what the letter holds or how often it comes.
+     The form is a .g-inline-form, the hook production-bridge-core.js uses for
+     the newsletter: it posts to /api/newsletter/subscribe/ and writes into the
+     [data-form-note] beside it. The confirmation link comes back here with
+     ?newsletter=1 or ?newsletter=0 (views.newsletter_confirm) and the script
+     below says which. The button is secondary: the brand book keeps the loud
+     call to action for the account, the newsletter is the quieter one.
+
+     The script also centres the section when it is the target. A plain hash
+     jump landed too high, because the Forum list above fills in after the
+     jump (forum-live.js) and pushes the section down; so it re-centres while
+     the page is still settling, and stops the moment the reader scrolls. -->
+<section class="g-section g-section--deep lp-gridded" id="newsletter" aria-labelledby="ch-news">
   <div class="g-container">
-    <header class="lp-chap__head rv">
-      <span class="lp-chap__n">03 &middot; Newsletter</span>
-      <h2 id="ch-news">A Letter From Us to You</h2>
-      <p class="g-lead">What carried real weight in science, why it mattered, and where to stay sceptical. Picked by hand, never a pile of links.</p>
-    </header>
-    <div class="lp-comm">
-      <ol class="lp-do rv">
-        <li><span class="lp-layer__n">01</span><div><h3>What Carried Weight</h3><p>Two or three things that actually moved something, read closely rather than rounded up.</p></div></li>
-        <li><span class="lp-layer__n">02</span><div><h3>Where to Stay Sceptical</h3><p>Where a claim outruns its source, and what would have to hold for it to stand.</p></div></li>
-        <li><span class="lp-layer__n">03</span><div><h3>What Members Corrected</h3><p>Where the community pushed back, and what changed because of it.</p></div></li>
-      </ol>
-      <div class="lp-short cm-news rv">
-        <h3>Join Our Newsletter</h3>
-        <p>Leave your email and we&rsquo;ll send a confirmation link. Once you confirm, the letter comes straight to your inbox.</p>
-        <form class="g-inline-form" novalidate>
-          <input class="g-input" id="cm-news-email" name="email" type="email" autocomplete="email" placeholder="you@example.com" aria-label="Email address" required>
-          <button class="g-btn g-btn--secondary" type="submit">Subscribe</button>
-        </form>
-        <p class="cm-news__note" data-form-note role="status" aria-live="polite">Around four minutes of reading. Unsubscribe anytime.</p>
-      </div>
+    <div class="cm-news rv">
+      <p class="g-eyebrow" style="justify-content:center">Newsletter</p>
+      <h2 id="ch-news">Join Our Newsletter</h2>
+      <p class="cm-news__lede">Leave your email and we’ll send a confirmation link.</p>
+      <form class="g-inline-form" novalidate>
+        <input class="g-input" id="cm-news-email" name="email" type="email" autocomplete="email" placeholder="you@example.com" aria-label="Email address" required>
+        <button class="g-btn g-btn--secondary" type="submit">Subscribe</button>
+      </form>
+      <p class="cm-news__note" data-form-note role="status" aria-live="polite">Unsubscribe anytime.</p>
     </div>
   </div>
 </section>
 <script>
-(function(){var p=new URLSearchParams(location.search),v=p.get('newsletter');if(v!=='1'&&v!=='0')return;
-document.addEventListener('DOMContentLoaded',function(){var n=document.querySelector('#newsletter [data-form-note]');
-if(n)n.textContent=v==='1'?'Confirmed. The next letter comes straight to your inbox.':'That link has expired. Leave your email again and we’ll send a fresh one.';
-if(history.replaceState)history.replaceState({},'',location.pathname+'#newsletter');});})();
+(function(){
+  var p=new URLSearchParams(location.search),v=p.get("newsletter");
+  function section(){return document.getElementById("newsletter");}
+  /* Centred in the part of the window below the sticky header. Computed by
+     hand: scrollIntoView({block:"center"}) also applies the scroll-margin
+     site.css gives every :target, which left it about 70px low. */
+  function centre(smooth){var s=section();if(!s)return;var hd=document.querySelector(".g-header"),h=hd?hd.offsetHeight:0,r=s.getBoundingClientRect();
+    window.scrollTo({top:Math.max(0,scrollY+r.top-h-Math.max(0,(innerHeight-h-r.height)/2)),behavior:smooth?"smooth":"auto"});}
+  /* Re-centre while the layout settles; any reader input ends it. */
+  function settle(){
+    var stop=false,last=-1,end=Date.now()+3000;
+    function quit(){stop=true;}
+    ["wheel","touchstart","keydown","mousedown"].forEach(function(t){addEventListener(t,quit,{once:true,passive:true});});
+    (function tick(){if(stop||Date.now()>end)return;var h=document.documentElement.scrollHeight;
+      if(h!==last){last=h;centre(false);}requestAnimationFrame(tick);})();
+  }
+  document.addEventListener("DOMContentLoaded",function(){
+    if(v==="1"||v==="0"){var n=document.querySelector("#newsletter [data-form-note]");
+      if(n)n.textContent=v==="1"?"Confirmed. You are on the list.":"That link has expired. Leave your email again and we’ll send a fresh one.";
+      if(history.replaceState)history.replaceState({},"",location.pathname+"#newsletter");}
+    if(location.hash==="#newsletter")settle();
+    /* The footer link on this same page: no reload, so centre it here. */
+    document.addEventListener("click",function(e){
+      var a=e.target.closest&&e.target.closest("a[href$=\"#newsletter\"]");
+      if(!a||e.metaKey||e.ctrlKey||e.button!==0)return;
+      e.preventDefault();if(history.replaceState)history.replaceState({},"",location.pathname+"#newsletter");centre(true);
+    });
+  });
+})();
 </script>
 
 <!-- Join band ------------------------------------------------------------------ -->
