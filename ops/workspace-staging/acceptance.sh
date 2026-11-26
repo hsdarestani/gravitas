@@ -29,7 +29,8 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 
 from core import cloud
 from core.layer_models import CommunityProfile, ModuleGrant
-from core.models import WorkspaceMembership
+from core.models import ProjectMembership, WorkspaceMembership, WorkspaceStudioCanvas, WorkspaceStudioProject
+from core.operating_models import OperatingTask, TaskInAppNotification
 from core.platform_runtime_v3 import ensure_platform_workspaces
 
 domain = 'staging.graviquest.com'
@@ -121,8 +122,8 @@ assert owner_client.call('GET', v1_url).json()['task']['title'] == task_data['ti
 owner_client.call('PATCH', v1_url, json={'title': 'Staging canonical task edited from V1'})
 entry = next(row for row in owner_client.state()['tasks'] if row['id'] == task)
 assert entry['title'] == 'Staging canonical task edited from V1'
-
-from core.operating_models import OperatingTask, TaskInAppNotification
+ProjectMembership.objects.create(project_id=project, user=member, role=ProjectMembership.Role.EDITOR)
+member_client.call('GET', v1_url)
 
 
 def patch_task(**fields):
@@ -204,4 +205,39 @@ try:
 except cloud.CloudError:
     raise RuntimeError('Native Nextcloud storage acceptance failed') from None
 print('acceptance_native_nextcloud_upload_bytes_and_denial=pass', flush=True)
+
+child = owner_client.call('POST', studio + 'projects/', 201,
+                           json={**project_data, 'title': f'Staging nested project {run}'}).json()['id']
+nested = owner_client.call('POST', studio + 'tasks/', 201,
+                            json={**task_data, 'title': 'Nested handoff task',
+                                  'client_create_id': str(uuid.uuid4())}).json()['id']
+node = 'nested-staging-child'
+canvas = {'positions': {}, 'frames': [], 'groups': [], 'arrows': [], 'start_date': project_data['start_date'],
+          'nodes': [{'id': node, 'targetProjectId': str(child), 'milestoneId': '', 'x': 190, 'y': 160}],
+          'handoffs': [[node, str(nested)]],
+          'loops': [{'id': 'nested-review', 'from': str(nested), 'to': str(nested),
+                     'target': 1, 'count': 0, 'optional': False}]}
+canvas_url = studio + f'projects/{project}/canvas/'
+canvas_revision = WorkspaceStudioCanvas.objects.get(project_id=project).revision
+owner_client.call('PATCH', canvas_url, json={'revision': canvas_revision, 'canvas': canvas})
+
+
+def nested_status(status, expected=200):
+    updated = OperatingTask.objects.only('updated_at').get(pk=nested).updated_at.isoformat()
+    return owner_client.call('PATCH', studio + f'tasks/{nested}/', expected,
+                             json={'status': status, 'expected_updated_at': updated}).json()
+
+
+assert nested_status('active', 409)['error'] == 'project_handoff_incomplete'
+child_url = studio + f'projects/{child}/'
+child_revision = WorkspaceStudioProject.objects.get(project_id=child).revision
+owner_client.call('PATCH', child_url, json={'action': 'report', 'revision': child_revision,
+                                            'body': 'Nested staging work verified.'})
+owner_client.call('PATCH', child_url, json={'action': 'done', 'revision': child_revision + 1})
+nested_status('active')
+assert nested_status('done', 409)['error'] == 'review_pass_required'
+owner_client.call('POST', studio + f'projects/{project}/review/',
+                  json={'revision': canvas_revision + 1, 'id': 'nested-review', 'findings': 'Verified in staging.'})
+nested_status('done')
+print('acceptance_staging_nested_handoff_and_review_loop=pass', flush=True)
 PY
