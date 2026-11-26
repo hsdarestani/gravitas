@@ -77,6 +77,9 @@ export const workspaceApi = {
   addMember: (email,role) => request(studio+'members/','POST',{email,role}),
   profile: (id,fields) => request(studio+(id?'members/'+Number(id)+'/':'profile/'),'PATCH',fields),
   template: fields => request(studio+'templates/','POST',fields),
+  templateVersion: (id,number) => request(studio+`templates/${Number(id)}/revisions/${Number(number)}/`),
+  fileRevisions: (id,path,version) => request(`/api/platform/projects/${Number(id)}/file-revisions/?path=${encodeURIComponent(path)}`+
+    (version?'&revision_id='+Number(version):'')),
   meetingSeries: (id,end_date) => request(studio+'meeting-series/'+Number(id)+'/','PATCH',{end_date}),
   notebook: fields => request(studio + 'notebook/', 'PATCH', fields),
   notebookImage: (file,scope) => {

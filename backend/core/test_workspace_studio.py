@@ -203,13 +203,33 @@ class WorkspaceStudioTests(TestCase):
             })
             self.assertEqual(response.status_code, 200, response.content)
             workflow = response.json()['workflow']
+        self.client.force_login(self.member)
+        self.assertIn('task.qa_submit', [row['event_type'] for row in self.state()['notifications']])
+        self.client.force_login(self.admin)
         approve = {'action':'approve','revision':workflow['revision'],'part':1,'iteration':1}
         canonical = '/api/operating/' + suffix
         self.assertEqual(self.client.post(canonical, approve, content_type='application/json').json()['error'],
                          'workflow_assigned_reviewer_required')
         self.client.force_login(self.member)
+        response = self.post(suffix, {**approve, 'action':'request_changes', 'feedback':'Attach the corrected evidence.'})
+        self.assertEqual(response.status_code, 200, response.content)
+        workflow = response.json()['workflow']
+        original, correction = workflow['parts'][0]['iterations']
+        self.assertEqual(original['status'], 'changes_requested')
+        self.assertEqual(correction['number'], 2)
+        self.assertFalse(correction['items'][-1]['done'])
+        self.client.force_login(self.admin)
+        self.assertIn('task.qa_request_changes', [row['event_type'] for row in self.state()['notifications']])
+        response = self.post(suffix, {
+            'action':'submit', 'revision':workflow['revision'], 'part':1, 'iteration':2,
+            'items':[{**row,'done':True} for row in correction['items']], 'preview':'https://example.test/corrected',
+        })
+        self.assertEqual(response.status_code, 200, response.content)
+        workflow = response.json()['workflow']
+        self.client.force_login(self.member)
         for part in workflow['parts']:
-            approved = self.post(suffix, {**approve,'revision':workflow['revision'],'part':part['id']})
+            approved = self.post(suffix, {**approve,'revision':workflow['revision'],'part':part['id'],
+                                          'iteration':part['iterations'][-1]['number']})
             self.assertEqual(approved.status_code, 200, approved.content)
             workflow = approved.json()['workflow']
         self.assertEqual(workflow['assigned_reviewers'], assignments)
@@ -220,6 +240,59 @@ class WorkspaceStudioTests(TestCase):
         self.assertEqual(self.post(suffix, final).status_code, 200)
         task.refresh_from_db()
         self.assertEqual(task.status, WorkStatus.DONE)
+        canonical_state = self.client.get(canonical).json()['workflow']
+        self.assertEqual(canonical_state['parts'][0]['iterations'][-1]['preview'], 'https://example.test/corrected')
+        self.assertEqual(canonical_state['final_approval']['by']['id'], self.member.pk)
+
+    def test_contributor_notification_requires_a_visible_task_and_is_not_repeated(self):
+        from .operating_models import TaskInAppNotification
+
+        visible = self.task('Visible assignment')
+        hidden = self.task('Hidden assignment')
+        policy_for(hidden, create=True, created_by=self.admin, default_visibility=ObjectPolicy.Visibility.PRIVATE)
+        for task in (visible, hidden):
+            response = self.patch(task, {'contributor_ids':[self.member.pk]})
+            self.assertEqual(response.status_code, 200, response.content)
+            task.refresh_from_db()
+            self.assertEqual(self.patch(task, {'contributor_ids':[self.member.pk]}).status_code, 200)
+        notices = TaskInAppNotification.objects.filter(recipient=self.member, event_type='task.contributor_assigned')
+        self.assertEqual(list(notices.values_list('task_id', flat=True)), [visible.pk])
+        self.client.force_login(self.member)
+        self.assertIn(notices.get().pk, [row['id'] for row in self.state()['notifications']])
+
+    def test_template_revision_preserves_private_history_and_pinned_instantiation(self):
+        source = self.task('Original step', project=self.project)
+        draft = {'project_id':self.project.pk, 'name':'QA checklist', 'description':'First draft'}
+        original = self.post('templates/', draft)
+        self.assertEqual(original.status_code, 201, original.content)
+        entry = self.state()['saved_templates'][0]
+        self.assertEqual(entry['revision'], 1)
+
+        source.title = 'Updated step'
+        source.save(update_fields=['title'])
+        change = {**draft, 'template_id':entry['templateId'], 'expected_revision':1, 'description':'Updated draft'}
+        revised = self.post('templates/', change)
+        self.assertEqual(revised.status_code, 200, revised.content)
+        latest = self.state()['saved_templates'][0]
+        self.assertEqual(latest['revision'], 2)
+        self.assertEqual(self.post('templates/', change).status_code, 409)
+        self.assertEqual(self.post('templates/', {**change, 'expected_revision':2}).json()['id'], latest['id'])
+
+        version_url = STUDIO + f"templates/{latest['templateId']}/revisions/1/"
+        old_entry = self.client.get(version_url).json()['template']
+        self.assertEqual(old_entry['id'], original.json()['id'])
+        self.assertEqual(old_entry['tasks'][0]['title'], 'Original step')
+        self.assertEqual(old_entry['latestRevision'], 2)
+        result = self.post('projects/', {
+            'action':'create', 'title':'Pinned template project', 'owner_id':self.admin.pk, 'start_date':'2026-11-28',
+            'template':old_entry['id'], 'duration':2,
+        })
+        self.assertEqual(result.status_code, 201, result.content)
+        self.assertEqual(OperatingTask.objects.get(project_id=result.json()['id']).title, 'Original step')
+
+        self.client.force_login(self.member)
+        self.assertEqual(self.client.get(version_url).status_code, 404)
+        self.assertEqual(self.post('templates/', change).status_code, 404)
 
     def test_studio_attachment_bytes_and_read_permission(self):
         task = self.task('Attachment verification')

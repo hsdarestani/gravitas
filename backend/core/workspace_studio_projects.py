@@ -721,6 +721,30 @@ def studio_profile(request, workspace, user_id=None):
     return JsonResponse({'ok': True})
 
 
+def studio_template_data(template, version=None):
+    snapshot = version or template
+    number = version.number if version else template.revision
+    return {
+        **snapshot.snapshot, 'id': f'saved-{template.pk}-r{number}', 'templateId': template.pk,
+        'name': template.name, 'description': snapshot.description, 'revision': number,
+        'latestRevision': template.revision,
+    }
+
+
+@require_http_methods(['GET'])
+@studio_access
+def studio_template_version(request, workspace, template_id, number):
+    from .models import WorkspaceStudioTemplate
+
+    template = WorkspaceStudioTemplate.objects.filter(workspace=workspace, author=request.user, pk=template_id).first()
+    if not template:
+        return error('template_not_found', 404)
+    version = None if number == template.revision else template.past_revisions.filter(number=number).first()
+    if not version and number != template.revision:
+        return error('template_not_found', 404)
+    return JsonResponse({'ok': True, 'template': studio_template_data(template, version)})
+
+
 @require_http_methods(['POST'])
 @studio_access
 @transaction.atomic
@@ -730,8 +754,20 @@ def studio_template(request, workspace):
 
     data = _body(request) or {}
     user = request.user
-    if not _text(data.get('name'), 120, True) or not _text(data.get('description', ''), 1600):
+    template_id = data.get('template_id')
+    if (template_id is None and not _text(data.get('name'), 120, True)) or not _text(data.get('description', ''), 1600):
         return error('invalid_workflow_template', 400)
+    template = None
+    if template_id is not None:
+        if type(template_id) is not int or type(data.get('expected_revision')) is not int:
+            return error('invalid_workflow_template', 400)
+        template = WorkspaceStudioTemplate.objects.select_for_update().filter(
+            workspace=workspace, author=user, pk=template_id,
+        ).first()
+        if not template:
+            return error('template_not_found', 404)
+        if data['expected_revision'] != template.revision:
+            return error('template_revision_conflict', 409)
     project_id = data.get('project_id')
     if type(project_id) is not int:
         return error('invalid_project', 400)
@@ -766,13 +802,22 @@ def studio_template(request, workspace):
         'layoutArrows': [arrow for arrow in canvas.get('arrows', []) if {arrow['from'], arrow['to']} <= shapes],
         'loops': [{**loop,'count':0} for loop in canvas.get('loops',[]) if {loop['from'],loop['to']} <= ids],
     }
+    description = data.get('description', '').strip()
+    if template:
+        if template.snapshot != snapshot or template.description != description:
+            template.past_revisions.create(number=template.revision, description=template.description, snapshot=template.snapshot)
+            template.revision += 1
+            template.description = description
+            template.snapshot = snapshot
+            template.save(update_fields=['revision', 'description', 'snapshot'])
+        return JsonResponse({'ok': True, 'id': f'saved-{template.pk}-r{template.revision}'})
     template, created = WorkspaceStudioTemplate.objects.get_or_create(
         workspace=workspace, author=user, name=data['name'].strip(),
-        defaults={'description':data.get('description','').strip(),'snapshot':snapshot},
+        defaults={'description': description, 'snapshot': snapshot},
     )
     if not created:
         return error('template_name_exists', 409)
-    return JsonResponse({'ok':True,'id':f'saved-{template.pk}'}, status=201)
+    return JsonResponse({'ok': True, 'id': f'saved-{template.pk}-r1'}, status=201)
 
 
 def _materialize_template(workspace, project, author, template, duration):
@@ -782,13 +827,20 @@ def _materialize_template(workspace, project, author, template, duration):
         return False
     if not isinstance(template, str):
         return False
-    saved = re.fullmatch(r'saved-(\d+)',template)
+    saved = re.fullmatch(r'saved-(\d{1,18})(?:-r(\d{1,9}))?', template)
     if saved:
         from .models import WorkspaceStudioTemplate
         stored = WorkspaceStudioTemplate.objects.filter(pk=saved[1],workspace=workspace,author=author).first()
         if not stored:
             return False
-        snapshot = stored.snapshot
+        number = int(saved[2]) if saved[2] else stored.revision
+        if number == stored.revision:
+            snapshot = stored.snapshot
+        else:
+            version = stored.past_revisions.filter(number=number).first()
+            if not version:
+                return False
+            snapshot = version.snapshot
     elif template in project_template_catalog():
         snapshot = project_template_catalog()[template]
     else:

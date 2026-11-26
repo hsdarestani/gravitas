@@ -619,7 +619,9 @@ function stagesView(flow,items,filtered,{areaView=false}={}) {
   const byId=new Map([...filtered,...links].map(item=>[item.id,item]));
   const stages=workflowStages(flow,[...items,...links]);
   return `<div class="stages-view" role="tabpanel" aria-label="Stages">
-    ${!areaView&&(isAdmin()||flow.owner===ui.actor)&&items.length?`<div class="stages-actions">${button('save-template','Save as template','layout','ghost')}</div>`:''}
+    ${!areaView&&(isAdmin()||flow.owner===ui.actor)&&items.some(item=>item.visibility!=='private')?`<div class="stages-actions">
+      ${button('save-template','Save as template','layout','ghost')}
+      ${data.templates.some(entry=>entry.templateId)?button('revise-template','Save template revision','layout','ghost'):''}</div>`:''}
     ${byId.size?`<ol class="stage-rail">${stages.map((stage,index)=>{
       const rows=stage.ids.map(id=>byId.get(id)).filter(Boolean);
       if (!rows.length) return '';
@@ -680,6 +682,8 @@ const templates = () => [...(data.templates||[]).map(entry=>{
     loops:entry.loops.filter(loop=>ids.has(loop.from)&&ids.has(loop.to)),
     layoutArrows:entry.layoutArrows.filter(arrow=>shapes.has(arrow.from)&&shapes.has(arrow.to))};
 }).filter(entry=>entry.tasks.length)];
+let historicalTemplate;
+const templateById = id => templates().find(entry=>entry.id===id) || (historicalTemplate?.id===id ? historicalTemplate : undefined);
 const canManagePlan = flow => Boolean(flow?.canEdit && flow.state==='active' && (isAdmin()||flow.owner===ui.actor));
 function templateOverview(template) {
   const layout=templateFlowLayout(template);
@@ -740,7 +744,7 @@ function templateControl(action,value,trigger) {
     if (scale()<.72) sheet.style.zoom=1;
     viewport.scrollTo(Math.max(0,Number(value)*scale()-12),0);
   } else {
-    const entry=templates().find(template=>template.id===root.dataset.templateFlow);
+    const entry=templateById(root.dataset.templateFlow);
     const chosen=entry?.tasks.find(item=>item.id===value);
     if (!chosen) return;
     const details=root.querySelector('[data-template-detail]');
@@ -760,12 +764,30 @@ function templateControl(action,value,trigger) {
 }
 
 function previewTemplate(id) {
-  const entry=templates().find(template=>template.id===id);
+  const entry=templateById(id);
   if (!entry) return;
-  showDialog(entry.name,`${templateOverview(entry)}<div class="form-actions template-preview-actions">
+  const versions=entry.templateId?`<div class="form-actions template-preview-actions">
+    ${entry.revision>1?button('template-version','Earlier version','left','ghost',String(entry.revision-1)):''}
+    <span>Version ${entry.revision} of ${entry.latestRevision}</span>
+    ${entry.revision<entry.latestRevision?button('template-version','Later version','right','ghost',String(entry.revision+1)):''}</div>`:'';
+  showDialog(entry.name,`${versions}${templateOverview(entry)}<div class="form-actions template-preview-actions">
     ${button('close-dialog','Close','','ghost')}${isAdmin()?button('use-reviewed-template','Use template','plus','primary',id):''}</div>`,'flow');
   dialog.dataset.templatePreview=id;
   dialog.classList.add('template-preview-dialog');
+}
+
+async function previewTemplateVersion(number) {
+  const current=dialog.dataset.templatePreview;
+  const entry=templateById(current);
+  if (!entry?.templateId) return;
+  try {
+    const {template}=await workspaceApi.templateVersion(entry.templateId,number);
+    if (!dialog.open||dialog.dataset.templatePreview!==current) return;
+    historicalTemplate=template;
+    previewTemplate(template.id);
+  } catch (error) {
+    announce(error.message,'danger');
+  }
 }
 
 function templatesPage() {
@@ -776,6 +798,7 @@ function templatesPage() {
       return `<section class="panel template-card">
         <div class="template-map">${templateDiagram(template,stages)}</div><h2>${esc(template.name)}</h2>
         ${template.description?`<p>${esc(template.description)}</p>`:''}
+        ${template.revision?`<span class="dim">Version ${template.revision}</span>`:''}
         ${template.area?`<span class="template-scope">${symbol(area(template.area)?.icon)}${esc(area(template.area)?.title)} · ${esc(ownerName(template.owner))}</span>`:''}
         <div class="template-stats"><span>${template.tasks.length} ${template.tasks.length===1?'task':'tasks'}</span><span>${template.frames.length?`${template.frames.length} phases`:`${stageCount} ${stageCount===1?'stage':'stages'}`}</span></div>
         ${button('preview-template','Preview workflow','flow','template-preview-button',template.id)}
@@ -861,9 +884,21 @@ function saveTemplateDialog() {
     '<p class="dim">New projects get the task structure and checklists. Assign owners and set dates when you plan the new project.</p>',
     'Save template');
 }
+function reviseTemplateDialog() {
+  const flow=currentProject(), saved=templates().filter(entry=>entry.templateId);
+  if (!flow||!saved.length||!(isAdmin()||flow.owner===ui.actor)) return;
+  formDialog('Save template revision','template-form',
+    selectField('template','Template',saved.map(entry=>option(entry.id,entry.name+' · v'+entry.revision)).join(''))+
+    areaField('description','Revision description',flow.description),'Save revision');
+}
 function saveTemplate(form,fields,flow) {
   if (!flow || !(isAdmin()||flow.owner===ui.actor) || !projectTasks(flow.id).some(item=>item.visibility!=='private')) return;
-  const name=fields.get('name').trim();
+  const entry=templateById(fields.get('template'));
+  if (entry?.templateId) {
+    return runWrite(()=>workspaceApi.template({project_id:Number(flow.id),template_id:entry.templateId,
+      expected_revision:entry.revision,description:fields.get('description').trim()}),({id})=>previewTemplate(id),form);
+  }
+  const name=fields.get('name')?.trim();
   if (!name) return formError(form,'Enter a template name.');
   if (templates().some(item=>item.name.toLowerCase()===name.toLowerCase())) return formError(form,'A template with this name already exists.');
   return runWrite(()=>workspaceApi.template({project_id:Number(flow.id),name,description:fields.get('description').trim()}),()=>dialog.close(),form);
@@ -2825,7 +2860,7 @@ function setKickoffStep(form,step) {
   showEditorSection(form,step);
   const kpis=step==='kpis',review=step==='template-preview';
   const scheduled=form.querySelector('[data-template-duration]');
-  if (scheduled) scheduled.hidden=!kpis||!templates().find(entry=>entry.id===form.elements.template.value)?.tasks.some(item=>!item.idea&&!isDuration(item.durationDays));
+  if (scheduled) scheduled.hidden=!kpis||!templateById(form.elements.template.value)?.tasks.some(item=>!item.idea&&!isDuration(item.durationDays));
   form.querySelectorAll('[data-kickoff-step]').forEach(entry=>{
     if (entry.dataset.kickoffStep===step) entry.setAttribute('aria-current','step');
     else entry.removeAttribute('aria-current');
@@ -2838,7 +2873,9 @@ function setKickoffStep(form,step) {
 const canManageArea = id => isAdmin() && id!==ideaArea.id && Boolean(area(id));
 function newFlowDialog(id,flow=null,templateId='') {
   if (!isAdmin() || id&&!canManageArea(id) || flow&&!isActiveProject(flow)) return;
-  const chosenTemplate=flow?null:templates().find(entry=>entry.id===templateId);
+  const chosenTemplate=flow?null:templateById(templateId);
+  const choices=templates();
+  if (chosenTemplate&&!choices.some(entry=>entry.id===chosenTemplate.id)) choices.unshift(chosenTemplate);
   const navigation=flow?'':`<ol class="kickoff-steps" aria-label="Project setup">
     <li data-kickoff-step="details" aria-current="step">${symbol('briefcase')}<span>Project details</span></li>
     <li data-kickoff-step="kpis">${symbol('target')}<span>Kickoff KPIs</span></li></ol>`;
@@ -2846,7 +2883,8 @@ function newFlowDialog(id,flow=null,templateId='') {
     `<input type="hidden" name="id" value="${flow?.id || ''}">
     <section class="editor-section" data-editor-section="details">
       ${textField('title','Project name',flow?.title)}
-      ${flow?'':selectField('template','Workflow template',option('','Start empty',templateId)+templates().map(template=>option(template.id,template.name,templateId)).join(''))}
+      ${flow?'':selectField('template','Workflow template',option('','Start empty',templateId)+choices.map(template=>
+        option(template.id,template.name+(template.revision?' · v'+template.revision:''),templateId)).join(''))}
       ${id&&!flow?`<input type="hidden" name="area" value="${esc(id)}">`:selectField('area','Work area',data.areas.map(group=>option(group.id,group.title,flow?.area||chosenTemplate?.area)).join(''))}
       ${areaField('description','Description',flow?.description)}
       ${flow?'':`<label class="field">Project start date<input type="date" name="scheduleStart" value="${today()}" required></label>`}
@@ -2877,7 +2915,7 @@ function updateEditorPreview(form) {
       const group=area(fields.get('area'));
       const owner=person(fields.get('owner'));
       const metrics=(edited?.kpis || kickoffMetrics(fields)).filter(({label,target})=>label||target);
-      const template=templates().find(entry=>entry.id===fields.get('template'));
+      const template=templateById(fields.get('template'));
       box.innerHTML=`<div class="preview-context">${symbol(group?.icon || 'briefcase')}${esc(group?.title || 'Project')}</div>
         <h3>${esc(title || 'Untitled project')}</h3>
         ${fields.get('description').trim()?`<p class="preview-description">${esc(fields.get('description').trim())}</p>`:''}
@@ -3635,7 +3673,7 @@ function saveWorkflow(form,fields) {
     if (!draft) setKickoffStep(form,'details');
     return editorError(form,'details',error,form.elements.title);
   }
-  const template=draft?null:templates().find(entry=>entry.id===fields.get('template'));
+  const template=draft?null:templateById(fields.get('template'));
   if (!draft&&template&&form.dataset.reviewedTemplate!==template.id) {
     if (form.dataset.section==='template-preview') {
       form.dataset.reviewedTemplate=template.id;
@@ -4283,6 +4321,8 @@ const handlers = {
   ])),
   'use-reviewed-template':id=>{if (dialog.dataset.templatePreview===id) newFlowDialog('',null,id);},
   'save-template':saveTemplateDialog,
+  'revise-template':reviseTemplateDialog,
+  'template-version':previewTemplateVersion,
   'edit-preset':editPreset,
   'apply-preset':(_id,trigger)=>applyPreset(trigger.form),
   milestone:id=>milestoneDialog(id),
@@ -5555,8 +5595,10 @@ async function projectFilesDialog(id,path='') {
     const fileRow=item=>{
       if (item.folder) return button('project-files-folder',item.name,'file','ghost',JSON.stringify({id,path:item.path}));
       const link=item.file_id?nextcloudFileLink(native_url,item.file_id):'';
-      return link?`<a class="text-link" href="${esc(link)}" target="_blank" rel="noopener noreferrer">${esc(item.name)}</a>`:
+      const title=link?`<a class="text-link" href="${esc(link)}" target="_blank" rel="noopener noreferrer">${esc(item.name)}</a>`:
         `<span>${esc(item.name)}</span>`;
+      return title+(item.canonical?button('project-file-history','Version history','clock','ghost',
+        JSON.stringify({id,folder:path,path:item.path})):'');
     };
     showDialog('Nextcloud project files',`<p class="dim">${esc(path||flow.title)}</p>
       <div class="form-actions">
@@ -5570,6 +5612,26 @@ async function projectFilesDialog(id,path='') {
     if (sequence!==fileBrowserRequest||!dialog.open||!dialog.querySelector('[data-file-status]')) return;
     showDialog('Nextcloud project files',`<p role="alert">${esc(error.status===503?'Nextcloud storage is unavailable.':error.message)}</p>
       ${button('project-files-folder','Retry','loop','ghost',context)}`,'file');
+  }
+}
+
+async function projectFileHistory({id,folder,path,version}) {
+  const sequence=++fileBrowserRequest;
+  const back=version?button('project-file-history','Back to versions','left','ghost',JSON.stringify({id,folder,path})):
+    button('project-files-folder','Back to files','left','ghost',JSON.stringify({id,path:folder}));
+  showDialog('Project file versions','<p class="dim" data-file-status>Loading versions…</p>','file');
+  try {
+    const result=await workspaceApi.fileRevisions(id,path,version);
+    if (sequence!==fileBrowserRequest||!dialog.open||!dialog.querySelector('[data-file-status]')) return;
+    const content=version?`<p class="dim">Read-only snapshot · ${esc(shortTime(result.revision.created_at))}</p>
+      <textarea class="note-body" readonly rows="12" aria-label="Historical file content">${esc(result.revision.content)}</textarea>`:
+      `<ul class="checks">${result.revisions.map(entry=>`<li>${button('project-file-history',
+        shortTime(entry.created_at)+' · '+entry.source,'clock','ghost',JSON.stringify({id,folder,path,version:entry.id}))}</li>`).join('')||
+        '<li>No previous snapshots recorded.</li>'}</ul>`;
+    showDialog('Project file versions',`<p class="dim">${esc(path)}</p>${content}<div class="form-actions">${back}</div>`,'file');
+  } catch (error) {
+    if (sequence===fileBrowserRequest&&dialog.open&&dialog.querySelector('[data-file-status]'))
+      showDialog('Project file versions',`<p role="alert">${esc(error.message)}</p><div class="form-actions">${back}</div>`,'file');
   }
 }
 
@@ -5809,6 +5871,7 @@ const studioForms = new Map(Object.entries({
 Object.assign(handlers,{
   'retry-task-details':()=>loadTaskDetails(task(ui.task)),
   'project-files':id=>projectFilesDialog(id),
+  'project-file-history':value=>projectFileHistory(JSON.parse(value)),
   'project-files-folder':value=>{
     const {id,path}=JSON.parse(value);
     projectFilesDialog(id,path);

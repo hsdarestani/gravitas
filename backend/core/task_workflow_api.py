@@ -9,6 +9,7 @@ from .operating_models import OperatingTask, OperatingTaskWorkflow, WorkflowStat
 from .platform_access import can_comment, can_edit, can_view
 from .platform_runtime_v3 import core_role
 from .task_consolidation import canonical_id
+from .task_notifications import enqueue_studio_task_notice
 from .task_workflows import (
     MAX_ITEMS, MAX_TEXT, TEMPLATES, WorkflowRequestError, complete_task, finalize, install_workflow, steps_for,
     update_part, workflow_plan,
@@ -133,7 +134,25 @@ def task_workflow(request, task_id, project_id=None, *, studio=False):
         return workflow_error(error)
     workflow.revision += 1
     workflow.save(update_fields=['revision', 'parts', 'final_approval', 'studio_reviewers'])
+    _notify_assigned_workflow(task, workflow, user, payload)
     return _serialize(task, workflow, steps, user, edit, comment, studio)
+
+
+def _notify_assigned_workflow(task, workflow, user, payload):
+    action = payload.get('action')
+    if not workflow.studio_reviewers or action not in ('submit', 'request_changes', 'approve'):
+        return
+    reviewer = workflow.studio_reviewers.get(str(payload['part']))
+    if action == 'submit' and reviewer:
+        recipients, label = [reviewer], 'QA review requested'
+    elif action == 'request_changes' and reviewer:
+        part = next(row for row in workflow.parts if row['id'] == payload['part'])
+        recipients, label = [part['iterations'][-2]['submitted']['by']['id']], 'QA corrections requested'
+    elif action == 'approve' and all(row['iterations'][-1]['status'] == 'approved' for row in workflow.parts):
+        recipients, label = [workflow.studio_reviewers.get('final')], 'Final approval requested'
+    else:
+        return
+    enqueue_studio_task_notice(task, user, f'task.qa_{action}', workflow.revision, recipients, label)
 
 
 def _apply(task, workflow, steps, user, edit, comment, payload, studio):

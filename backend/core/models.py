@@ -626,10 +626,21 @@ class WorkspaceStudioTemplate(models.Model):
     name = models.CharField(max_length=120)
     description = models.TextField(blank=True)
     snapshot = models.JSONField()
+    revision = models.PositiveIntegerField(default=1)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         constraints = [models.UniqueConstraint(fields=('workspace','author','name'), name='studio_unique_template_name')]
+
+
+class WorkspaceStudioTemplateRevision(models.Model):
+    template = models.ForeignKey(WorkspaceStudioTemplate, on_delete=models.CASCADE, related_name='past_revisions')
+    number = models.PositiveIntegerField()
+    description = models.TextField(blank=True)
+    snapshot = models.JSONField()
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=('template', 'number'), name='studio_unique_template_revision')]
 
 
 class WorkspaceStudioMeetingSeries(models.Model):

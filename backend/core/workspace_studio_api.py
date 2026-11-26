@@ -28,7 +28,7 @@ from .task_board_api import (
 )
 from .task_consolidation import canonical_id
 from .task_dependencies import validate_dependency_graph
-from .task_notifications import task_in_app_notifications
+from .task_notifications import enqueue_studio_task_notice, task_in_app_notifications
 from .studio_canvas import incomplete_project_handoff, validate_canvas, validate_links, visible_canvas
 
 
@@ -211,7 +211,7 @@ def studio_state(request, workspace):
     from .task_workflows import TEMPLATES
     from .work_report_models import DailyWorkReport
     reports = DailyWorkReport.objects.filter(user=user, status='confirmed').order_by('-report_date', 'created_at')[:100]
-    from .workspace_studio_projects import meeting_records, project_template_catalog
+    from .workspace_studio_projects import meeting_records, project_template_catalog, studio_template_data
     from .workspace_studio_evidence import calendar_notes
     from .layer_models import ActivityEvent
     meetings, series = meeting_records(workspace, project_ids, visible_ids, {idea.pk for idea in ideas_by_project.values()})
@@ -240,7 +240,7 @@ def studio_state(request, workspace):
         'ideas': [{'id':idea.pk, 'title':idea.title, 'body':idea.body, 'author':idea.author_id, 'process_id':idea.process_id,
                    'project_id':idea.project_id, 'state':'brought' if idea.promoted_at else 'sent' if idea.referred_at else 'draft',
                    'notes':idea.notes} for idea in ideas_by_project.values()],
-        'saved_templates': [{'id':f'saved-{row.pk}','name':row.name,'description':row.description,**row.snapshot}
+        'saved_templates': [studio_template_data(row)
                             for row in WorkspaceStudioTemplate.objects.filter(workspace=workspace,author=user).order_by('name')],
         'notebooks': [{'date': entry.date, 'blocks': entry.blocks, 'revision': entry.revision, 'updatedAt': entry.updated_at}
                       for entry in WorkspaceStudioNotebook.objects.filter(user=user).order_by('-date')[:730]],
@@ -500,10 +500,18 @@ def studio_task(request, workspace, task_id=None):
         OperatingTask.objects.filter(pk=task_id).update(**changes)
         if create:
             task.source_metadata = changes['source_metadata']
+    added_contributors = set()
     if contributors is not None:
-        task.studio_contributors.set(set(contributors) - {task.owner_id})
+        selected_contributors = set(contributors) - {task.owner_id}
+        added_contributors = selected_contributors - set(task.studio_contributors.values_list('pk', flat=True))
+        task.studio_contributors.set(selected_contributors)
     if visibility is not None:
         _save_studio_task_access(task, user, visibility, allowed_members)
+    if added_contributors:
+        enqueue_studio_task_notice(
+            task, user, 'task.contributor_assigned', task.updated_at.isoformat(),
+            added_contributors, 'You were added as a contributor',
+        )
     _sync_checklist(request, task, titles)
     return JsonResponse({'ok': True, 'id': task_id}, status=201 if create else 200)
 

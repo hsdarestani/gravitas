@@ -5,6 +5,7 @@ on:
     paths:
       - 'assets/workspace-v2/**'
       - 'backend/**'
+      - 'tests/workspace-studio-schedule.test.mjs'
       - 'scripts/preview-server.mjs'
       - '.github/workflows/workspace-studio-validation.yml'
   workflow_dispatch:
@@ -45,10 +46,11 @@ jobs:
         run: |
           python -m django check
           python -m django makemigrations core --check --dry-run
-          python -m django test core.test_workspace_studio core.test_core_task_board core.test_task_workflows core.test_task_write_concurrency core.test_platform_v3_roles core.test_canonical_projects --noinput
+          python -m django test core.test_workspace_studio core.test_workspace_staging_settings core.test_core_task_board core.test_task_workflows core.test_task_write_concurrency core.test_platform_v3_roles core.test_canonical_projects --noinput
       - name: Check Workspace Studio and existing Workspace modules
         run: |
           for module in assets/workspace-v2/*.js assets/ws/*.js; do
             node --input-type=module --check < "$module"
           done
           node --check scripts/preview-server.mjs
+          node --test tests/workspace-studio-schedule.test.mjs
