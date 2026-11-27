@@ -1,0 +1,37 @@
+name: GraviQuest Platform CI
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: platform-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Backend, APIs, permissions and migrations
+        env:
+          PYTHONPATH: backend
+          DJANGO_SETTINGS_MODULE: gravitas_backend.test_settings
+        run: |
+          python3 -m venv "$RUNNER_TEMP/platform-tests"
+          "$RUNNER_TEMP/platform-tests/bin/pip" install --disable-pip-version-check -q -r backend/requirements.txt
+          "$RUNNER_TEMP/platform-tests/bin/python" -m django test core
+          "$RUNNER_TEMP/platform-tests/bin/python" -m django makemigrations core --check --dry-run
+          "$RUNNER_TEMP/platform-tests/bin/python" -m django check
+      - name: Frontend and release safeguards
+        run: |
+          for module in assets/ws/*.js; do node --input-type=module --check < "$module"; done
+          node --test tests/science-evidence.test.cjs tests/science-evidence-integration.test.cjs tests/science-universe-original.test.cjs tests/science-pulsar-scenarios.test.cjs
+          bash -n ops/staging/release.sh
+          bash -n ops/staging/ssh-command
+          python3 -m unittest discover -s ops/staging -p 'test_*.py'

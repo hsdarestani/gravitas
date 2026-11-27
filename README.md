@@ -1,7 +1,7 @@
 # GraviQuest — site architecture
 
-Open `index.html`. Static files, no build step, no dependencies. A GitHub Pages
-workflow is included in `.github/workflows/deploy.yml`.
+Open `index.html` to inspect the static frontend locally. For Django, shared staging,
+and release procedures, follow the [Development and Release Guide](docs/development-and-release-workflow.md).
 
 ```
 index.html                        Home

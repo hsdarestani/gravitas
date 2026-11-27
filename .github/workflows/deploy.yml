@@ -1,19 +1,21 @@
 name: Deploy Gravitas to Strato
 
 on:
-  push:
-    branches: [main]
-    # Read-only inspections must never trigger the checkpoint routine, which
-    # briefly pauses production services to take a consistent snapshot.
-    paths-ignore:
-      - 'ops/readonly_runtime_diagnostics.py'
-      - '.github/workflows/readonly-diagnostics.yml'
-      - '.github/workflows/backend-recover.yml'
-      - '.github/workflows/operational-acceptance.yml'
   workflow_dispatch:
+    inputs:
+      release_sha:
+        description: Current main commit accepted on staging
+        required: true
+      ci_run:
+        description: Successful GraviQuest Platform CI run for the release SHA
+        required: true
+      acceptance_run:
+        description: Staging Final Approval run for the release SHA
+        required: true
 
 permissions:
   contents: read
+  actions: read
   pull-requests: read
   statuses: write
 
@@ -27,11 +29,46 @@ env:
   BACKEND_PATH: /opt/gravitas-backend
 
 jobs:
+  authorize:
+    if: github.repository == 'hsdarestani/gravitas' && github.ref == 'refs/heads/main' && inputs.release_sha == github.sha
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Verify production protection and exact staging acceptance
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE: ${{ inputs.release_sha }}
+          CI_RUN: ${{ inputs.ci_run }}
+          ACCEPTANCE_RUN: ${{ inputs.acceptance_run }}
+        run: |
+          set -euo pipefail
+          [[ "$RELEASE" =~ ^[a-f0-9]{40}$ && "$CI_RUN" =~ ^[0-9]+$ && "$ACCEPTANCE_RUN" =~ ^[0-9]+$ ]]
+          test "$RELEASE" = "$(gh api "repos/$GITHUB_REPOSITORY/branches/main" --jq .commit.sha)"
+          gh api "repos/$GITHUB_REPOSITORY/environments/production" > protection.json
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$CI_RUN" > ci.json
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$ACCEPTANCE_RUN" > staging.json
+          python3 ops/staging/release_gate.py environment protection.json
+          python3 ops/staging/release_gate.py ci ci.json "$GITHUB_REPOSITORY" "$RELEASE"
+          python3 ops/staging/release_gate.py staging staging.json "$GITHUB_REPOSITORY"
+          gh run download "$ACCEPTANCE_RUN" --repo "$GITHUB_REPOSITORY" --name staging-acceptance --dir staging-proof
+          python3 ops/staging/release_gate.py acceptance staging-proof/staging-acceptance.json "$RELEASE" "$ACCEPTANCE_RUN"
+          printf 'Approved staging evidence for commit `%s`, CI %s and acceptance %s.\n'             "$RELEASE" "$CI_RUN" "$ACCEPTANCE_RUN" >> "$GITHUB_STEP_SUMMARY"
+
   deploy:
+    needs: authorize
+    environment:
+      name: production
+      url: https://graviquest.com
     runs-on: ubuntu-latest
     timeout-minutes: 25
 
     steps:
+      - name: Confirm main still matches the approved release after human review
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: test "$GITHUB_SHA" = "$(gh api "repos/$GITHUB_REPOSITORY/branches/main" --jq .commit.sha)"
       - name: Mark production deploy pending
         shell: bash
         env:
@@ -80,11 +117,11 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test -n "${{ secrets.DEPLOY_HOST }}" || { echo "Missing DEPLOY_HOST"; exit 1; }
-          test -n "${{ secrets.DEPLOY_SSH_KEY }}" || { echo "Missing DEPLOY_SSH_KEY"; exit 1; }
+          test -n "${{ secrets.PRODUCTION_DEPLOY_HOST }}" || { echo "Missing DEPLOY_HOST"; exit 1; }
+          test -n "${{ secrets.PRODUCTION_DEPLOY_SSH_KEY }}" || { echo "Missing DEPLOY_SSH_KEY"; exit 1; }
 
-          CONFIGURED_USER="${{ secrets.DEPLOY_USER }}"
-          DEPLOY_PORT="${{ secrets.DEPLOY_PORT }}"
+          CONFIGURED_USER="${{ secrets.PRODUCTION_DEPLOY_USER }}"
+          DEPLOY_PORT="${{ secrets.PRODUCTION_DEPLOY_PORT }}"
           [ -n "$CONFIGURED_USER" ] || CONFIGURED_USER="deploy"
           [ -n "$DEPLOY_PORT" ] || DEPLOY_PORT="22"
 
@@ -98,14 +135,14 @@ jobs:
           install -d -m 700 ~/.ssh
           printf 'Host *\n  ServerAliveInterval 15\n  ServerAliveCountMax 6\n' > ~/.ssh/config
           chmod 600 ~/.ssh/config
-          printf '%s\n' "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/gravitas_deploy
+          printf '%s\n' "${{ secrets.PRODUCTION_DEPLOY_SSH_KEY }}" > ~/.ssh/gravitas_deploy
           chmod 600 ~/.ssh/gravitas_deploy
           ssh-keygen -y -f ~/.ssh/gravitas_deploy >/dev/null
-          ssh-keyscan -p "$DEPLOY_PORT" -H "${{ secrets.DEPLOY_HOST }}" >> ~/.ssh/known_hosts
+          ssh-keyscan -p "$DEPLOY_PORT" -H "${{ secrets.PRODUCTION_DEPLOY_HOST }}" >> ~/.ssh/known_hosts
           chmod 600 ~/.ssh/known_hosts
 
           SSH_OPTS=(-i ~/.ssh/gravitas_deploy -p "$DEPLOY_PORT" -o BatchMode=yes -o ConnectTimeout=10)
-          HOST="${{ secrets.DEPLOY_HOST }}"
+          HOST="${{ secrets.PRODUCTION_DEPLOY_HOST }}"
 
           if ssh "${SSH_OPTS[@]}" "$CONFIGURED_USER@$HOST" true 2>/dev/null; then
             EFFECTIVE_USER="$CONFIGURED_USER"
@@ -123,7 +160,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          HOST="${{ secrets.DEPLOY_HOST }}"
+          HOST="${{ secrets.PRODUCTION_DEPLOY_HOST }}"
           BASE="$(ssh -i ~/.ssh/gravitas_deploy -p "$DEPLOY_PORT" "$DEPLOY_USER@$HOST" \
             'sudo cat /etc/gravitas/last-successful-deploy-sha 2>/dev/null || true')"
           RELEASE_SCOPE=stateful
@@ -170,7 +207,7 @@ jobs:
           TELEGRAM_USERNAME_B64="$(printf '%s' "$GRAVITAS_TELEGRAM_BOT_USERNAME" | base64 -w0)"
           GOOGLE_ID_B64="$(printf '%s' "$GOOGLE_OAUTH_CLIENT_ID" | base64 -w0)"
           GOOGLE_SECRET_B64="$(printf '%s' "$GOOGLE_OAUTH_CLIENT_SECRET" | base64 -w0)"
-          ssh -i ~/.ssh/gravitas_deploy -p "$DEPLOY_PORT" "$DEPLOY_USER@${{ secrets.DEPLOY_HOST }}" \
+          ssh -i ~/.ssh/gravitas_deploy -p "$DEPLOY_PORT" "$DEPLOY_USER@${{ secrets.PRODUCTION_DEPLOY_HOST }}" \
             bash -s -- "$DOMAIN" "$DEPLOY_PATH" "$DEPLOY_PORT" "$BACKEND_PATH" "$TELEGRAM_TOKEN_B64" "$TELEGRAM_USERNAME_B64" "$GOOGLE_ID_B64" "$GOOGLE_SECRET_B64" <<'REMOTE'
           set -euo pipefail
 
@@ -728,7 +765,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          OPERATIONS_HOST="${{ secrets.DEPLOY_HOST }}"
+          OPERATIONS_HOST="${{ secrets.PRODUCTION_DEPLOY_HOST }}"
           CHECKPOINT_SCRIPT="/var/tmp/gravitas-canonical-checkpoint-$GITHUB_SHA.py"
           scp -i ~/.ssh/gravitas_deploy -P "$DEPLOY_PORT" ops/canonical_checkpoint.py "$DEPLOY_USER@$OPERATIONS_HOST:$CHECKPOINT_SCRIPT"
           ssh -i ~/.ssh/gravitas_deploy -p "$DEPLOY_PORT" "$DEPLOY_USER@$OPERATIONS_HOST" bash -s -- "$CHECKPOINT_SCRIPT" <<'REMOTE'
@@ -775,7 +812,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          HOST="${{ secrets.DEPLOY_HOST }}"
+          HOST="${{ secrets.PRODUCTION_DEPLOY_HOST }}"
           STAGE="/var/tmp/gravitas-api-$GITHUB_SHA"
           ssh -i ~/.ssh/gravitas_deploy -p "$DEPLOY_PORT" "$DEPLOY_USER@$HOST" "mkdir -p '$STAGE'"
           rsync -az --exclude '.venv/' --exclude 'staticfiles/' --exclude '*.sqlite3*' \
@@ -794,14 +831,14 @@ jobs:
             --exclude 'backend/' \
             --exclude 'lab-sources/' \
             -e "ssh -i ~/.ssh/gravitas_deploy -p $DEPLOY_PORT" \
-            ./ "$DEPLOY_USER@${{ secrets.DEPLOY_HOST }}:$DEPLOY_PATH/"
+            ./ "$DEPLOY_USER@${{ secrets.PRODUCTION_DEPLOY_HOST }}:$DEPLOY_PATH/"
 
       - name: Deploy and start backend
         if: env.STATIC_ONLY != 'true' && env.CODE_ONLY != 'true'
         shell: bash
         run: |
           set -euo pipefail
-          HOST="${{ secrets.DEPLOY_HOST }}"
+          HOST="${{ secrets.PRODUCTION_DEPLOY_HOST }}"
           rsync -az --delete \
             --exclude '.venv/' \
             --exclude 'staticfiles/' \
@@ -941,7 +978,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          HOST="${{ secrets.DEPLOY_HOST }}"
+          HOST="${{ secrets.PRODUCTION_DEPLOY_HOST }}"
           ssh -i ~/.ssh/gravitas_deploy -p "$DEPLOY_PORT" "$DEPLOY_USER@$HOST" \
             sudo -u gravitas bash -s -- "$BACKEND_PATH" "$DEPLOY_PATH" <<'REMOTE'
           set -euo pipefail
@@ -956,7 +993,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          HOST="${{ secrets.DEPLOY_HOST }}"
+          HOST="${{ secrets.PRODUCTION_DEPLOY_HOST }}"
           ssh -i ~/.ssh/gravitas_deploy -p "$DEPLOY_PORT" "$DEPLOY_USER@$HOST" \
             sudo bash "$DEPLOY_PATH/ops/discourse/install-public-pulsar.sh" "$DEPLOY_PATH"
 
@@ -965,7 +1002,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          HOST="${{ secrets.DEPLOY_HOST }}"
+          HOST="${{ secrets.PRODUCTION_DEPLOY_HOST }}"
           ssh -i ~/.ssh/gravitas_deploy -p "$DEPLOY_PORT" "$DEPLOY_USER@$HOST" \
             sudo -u gravitas bash -s -- "$BACKEND_PATH" <<'REMOTE'
           set -euo pipefail
@@ -981,7 +1018,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          ssh -i ~/.ssh/gravitas_deploy -p "$DEPLOY_PORT" "$DEPLOY_USER@${{ secrets.DEPLOY_HOST }}" \
+          ssh -i ~/.ssh/gravitas_deploy -p "$DEPLOY_PORT" "$DEPLOY_USER@${{ secrets.PRODUCTION_DEPLOY_HOST }}" \
             'sudo bash /var/www/gravitas/ops/nextcloud/install-canonical.sh'
 
       - name: Apply selected idempotent operational delivery plan
@@ -989,7 +1026,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          ssh -i ~/.ssh/gravitas_deploy -p "$DEPLOY_PORT" "$DEPLOY_USER@${{ secrets.DEPLOY_HOST }}" \
+          ssh -i ~/.ssh/gravitas_deploy -p "$DEPLOY_PORT" "$DEPLOY_USER@${{ secrets.PRODUCTION_DEPLOY_HOST }}" \
             "sudo -u gravitas bash -c 'set -a; . /etc/gravitas/backend.env; set +a; export PYTHONPATH=/opt/gravitas-backend; exec /opt/gravitas-backend/.venv/bin/python /var/www/gravitas/ops/operational_delivery.py --plan /var/www/gravitas/ops/operational_delivery.json --source-root /var/www/gravitas'"
 
       - name: Ensure SSL and reload Nginx
@@ -997,7 +1034,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          ssh -i ~/.ssh/gravitas_deploy -p "$DEPLOY_PORT" "$DEPLOY_USER@${{ secrets.DEPLOY_HOST }}" \
+          ssh -i ~/.ssh/gravitas_deploy -p "$DEPLOY_PORT" "$DEPLOY_USER@${{ secrets.PRODUCTION_DEPLOY_HOST }}" \
             bash -s -- "$DOMAIN" <<'REMOTE'
           set -euo pipefail
           DOMAIN="$1"
@@ -1014,7 +1051,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          HOST="${{ secrets.DEPLOY_HOST }}"
+          HOST="${{ secrets.PRODUCTION_DEPLOY_HOST }}"
           ssh -i ~/.ssh/gravitas_deploy -p "$DEPLOY_PORT" "$DEPLOY_USER@$HOST" 'bash -s' <<'REMOTE'
           set -euo pipefail
           sudo systemctl is-active postgresql
@@ -1038,7 +1075,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          HOST="${{ secrets.DEPLOY_HOST }}"
+          HOST="${{ secrets.PRODUCTION_DEPLOY_HOST }}"
           ssh -i ~/.ssh/gravitas_deploy -p "$DEPLOY_PORT" "$DEPLOY_USER@$HOST" \
             sudo -u gravitas bash -s -- "$BACKEND_PATH" "$DEPLOY_PATH" <<'REMOTE'
           set -euo pipefail
@@ -1053,13 +1090,13 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          curl -fsS --retry 6 --retry-delay 3 -H "Host: $DOMAIN" "http://${{ secrets.DEPLOY_HOST }}/" >/dev/null
+          curl -fsS --retry 6 --retry-delay 3 -H "Host: $DOMAIN" "http://${{ secrets.PRODUCTION_DEPLOY_HOST }}/" >/dev/null
           curl -4 -fsSL --retry 6 --retry-delay 3 --connect-timeout 8 --max-time 20 "https://$DOMAIN/" >/dev/null
           curl -4 -fsSL --retry 6 --retry-delay 3 --connect-timeout 8 --max-time 20 "https://$DOMAIN/api/health/" | grep -q '"status": "ok"'
           echo "Production and API checks passed: https://$DOMAIN/"
           # Only after verified production: persist the exact deployed revision.
           ssh -i ~/.ssh/gravitas_deploy -p "$DEPLOY_PORT" \
-            "$DEPLOY_USER@${{ secrets.DEPLOY_HOST }}" \
+            "$DEPLOY_USER@${{ secrets.PRODUCTION_DEPLOY_HOST }}" \
             "printf '%s\\n' '$GITHUB_SHA' | sudo tee /etc/gravitas/last-successful-deploy-sha >/dev/null"
           echo "Verified deployed revision marker updated."
 
@@ -1067,7 +1104,7 @@ jobs:
         if: github.event_name == 'push'
         shell: bash
         env:
-          HOST: ${{ secrets.DEPLOY_HOST }}
+          HOST: ${{ secrets.PRODUCTION_DEPLOY_HOST }}
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
