@@ -10,6 +10,7 @@ from .settings import *  # noqa: F403
 
 
 GRAVIQUEST_STAGING = True
+RELEASE_CENTER_ENABLED = os.environ.get('GQ_STAGING_RELEASE_CENTER_ENABLED') == '1'
 STAGING_HOST = 'staging.graviquest.com'
 STAGING_ORIGIN = f'https://{STAGING_HOST}'
 STAGING_STATE = Path('/var/lib/gravitas-workspace-staging')

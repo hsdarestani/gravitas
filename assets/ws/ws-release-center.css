@@ -1,0 +1,27 @@
+.gq-release { max-inline-size: 1500px; margin: 0 auto; padding: clamp(1rem, 3vw, 2rem); }
+.gq-release-header, .gq-release-actions { display: flex; align-items: flex-end; gap: .75rem; flex-wrap: wrap; }
+.gq-release-header { justify-content: space-between; margin-block-end: 1rem; }
+.gq-release-header h1 { margin-block: 0 .35rem; }
+.gq-release-header p, .gq-release-panel p, .gq-release-status, .gq-release-notice { margin-block: .45rem; overflow-wrap: anywhere; }
+.gq-release-split, .gq-visual-layout { display: grid; gap: 1rem; margin-block-start: 1rem; min-inline-size: 0; }
+.gq-release-split { grid-template-columns: minmax(12rem, 1fr) minmax(0, 3fr); }
+.gq-visual-layout { grid-template-columns: minmax(0, 4fr) minmax(15rem, 1fr); }
+.gq-release-panel, .gq-visual-viewport { border: 1px solid currentColor; border-radius: .7rem; padding: 1rem; min-inline-size: 0; }
+.gq-visual-viewport { overflow: auto; padding: 0; }
+.gq-visual-viewport iframe { border: 0; display: block; height: min(70vh, 720px); background: var(--g-bg, #003049); }
+.gq-release-field { display: flex; flex-direction: column; gap: .35rem; margin: .45rem 0; font-weight: 600; }
+.gq-release-field input, .gq-release-field textarea, .gq-release-field select { color: inherit; font: inherit; background: transparent; border: 1px solid currentColor; border-radius: .35rem; padding: .5rem; min-inline-size: 0; }
+.gq-release-field option { color: #003049; background: #fff; }
+.gq-release-list ul { padding: 0; list-style: none; margin: 0; }
+.gq-release-list li { display: grid; gap: .25rem; margin-block-end: .75rem; justify-items: start; }
+.gq-release-list button { white-space: normal; text-align: start; overflow-wrap: anywhere; }
+.gq-release-compare { width: 100%; table-layout: fixed; border-collapse: collapse; margin: .75rem 0; }
+.gq-release-compare th, .gq-release-compare td { padding: .5rem; border-block-end: 1px solid currentColor; text-align: start; vertical-align: top; overflow-wrap: anywhere; }
+.gq-release-compare th:first-child { width: 24%; }
+.gq-release details { margin: .75rem 0; }
+[data-visual-preview] [data-visual-field]:hover, [data-visual-preview] [data-visual-selected] { outline: 2px solid #d9ad58; outline-offset: .15rem; cursor: crosshair; }
+[data-visual-spacing="compact"] { padding-block: 1.25rem; }
+[data-visual-spacing="roomy"] { padding-block: clamp(3rem, 8vw, 7rem); }
+@media (max-width: 740px) {
+  .gq-release-split, .gq-visual-layout { grid-template-columns: minmax(0, 1fr); }
+}

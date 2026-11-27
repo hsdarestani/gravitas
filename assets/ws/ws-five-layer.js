@@ -1,3 +1,4 @@
+import { renderReleaseCenter, renderVisualEditor } from './ws-release-center.js?v=20261016-task1';
 import { renderWorkReports } from './ws-work-reports.js?v=20261016-task1';
 import * as P from './ws-platform.js?v=20261016-task1&patch=20261027reliability1';
 import {
@@ -74,6 +75,10 @@ const ADMIN_INDEX = [
   // had their colours, and they keep them.
   ['Nextcloud Mirror', '/workspace/core/admin/nextcloud', 'storage', 'Files, Notes and Deck in sync', '3'],
   ['Deck', '/workspace/core/admin/deck', 'board', 'Core tasks as Nextcloud boards'],
+  ...(globalThis.location?.hostname === 'staging.graviquest.com' ? [
+    ['Release Center', '/workspace/core/releases', 'activity', 'Review and track staging changes'],
+    ['Visual Editor', '/workspace/core/visual-editor', 'topic', 'Prepare a page revision'],
+  ] : []),
   ['Core', '/workspace/core', 'space-core', 'Return to the Core workspace'],
 ];
 
@@ -114,6 +119,9 @@ function pathKind(path = location.pathname) {
     return { kind: 'research-project', id: match[1], tab };
   }
 
+  if (/^\/workspace\/core\/(releases|visual-editor)\/?$/.test(path)) {
+    return { kind: 'release-tools', page: path.includes('visual-editor') ? 'visual' : 'center' };
+  }
   if (path === '/workspace/core/admin' || path === '/workspace/core/admin/') return { kind: 'admin', page: 'overview' };
   if (path === '/workspace/core/admin/users' || path === '/workspace/core/admin/users/') return { kind: 'admin', page: 'users' };
   match = path.match(/^\/workspace\/core\/admin\/users\/(\d+)\/?$/);
@@ -521,6 +529,14 @@ export async function renderFiveLayer(hostNode, { go: navigate, renderNotesMirro
   if (route.kind === 'research-project') {
     setCrumbs([{ label: 'Research', path: '/workspace/research' }, { label: 'Projects', path: '/workspace/research/projects' }, { label: route.tab === 'overview' ? 'Project' : route.tab }]);
     await renderResearchProject(host, route.id, route.tab, ctx);
+    return true;
+  }
+
+  if (route.kind === 'release-tools') {
+    setCrumbs([{label:'Core', path:'/workspace/core'}, {label:'Platform Admin', path:'/workspace/core/admin'},
+      {label:route.page === 'visual' ? 'Visual Editor' : 'Release Center'}]);
+    if (route.page === 'visual') await renderVisualEditor(host);
+    else await renderReleaseCenter(host);
     return true;
   }
 

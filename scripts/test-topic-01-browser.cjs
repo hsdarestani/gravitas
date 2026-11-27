@@ -191,7 +191,7 @@ async function smoke() {
   assert.match(await noJsPage.locator("main h1").innerText(),/^Change one thing/);
   await noJs.close();
   const nav = await q.locator('a.back').getAttribute("href");
-  assert.equal(nav, "lab.html");
+  assert.equal(nav, "/lab");
   await q.emulateMedia({ reducedMotion: "reduce" });
   assert.ok(await q.locator("h1").isVisible());
   await context.close();
