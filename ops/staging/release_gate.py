@@ -15,7 +15,7 @@ def exact_sha(value):
     return value
 
 
-def approved_environment(data, branch_rules):
+def approved_environment(data, branch_rules, branch='main'):
     rules = data.get('protection_rules', [])
     reviewers = next((r for r in rules if r.get('type') == 'required_reviewers'), {})
     if not reviewers.get('reviewers') or reviewers.get('prevent_self_review') is not True:
@@ -24,8 +24,8 @@ def approved_environment(data, branch_rules):
     policies = branch_rules.get('branch_policies', [])
     if (policy.get('protected_branches') is not False or policy.get('custom_branch_policies') is not True
             or branch_rules.get('total_count') != 1 or len(policies) != 1
-            or policies[0].get('type') != 'branch' or policies[0].get('name') != 'main'):
-        raise ValueError('the GitHub environment must allow exactly the main branch and no tags')
+            or policies[0].get('type') != 'branch' or policies[0].get('name') != branch):
+        raise ValueError(f'the GitHub environment must allow exactly the {branch} branch and no tags')
     if data.get('can_admins_bypass') is True:
         raise ValueError('GitHub environment administrator bypass must be disabled')
 
@@ -56,7 +56,7 @@ def acceptance(data, revision, run_id):
 def main(cmd, first, *args):
     data = json.loads(Path(first).read_text())
     if cmd == 'environment':
-        approved_environment(data, json.loads(Path(args[0]).read_text()))
+        approved_environment(data, json.loads(Path(args[0]).read_text()), *args[1:])
     elif cmd == 'ci':
         verified_run(data, args[0], CI, exact_sha(args[1]))
     elif cmd == 'staging':

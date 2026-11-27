@@ -1,0 +1,91 @@
+name: GraviQuest Managed Staging
+on:
+  push:
+    branches: [ops/staging-release-control]
+    paths: [ops/staging/request.json]
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: gravitas-workspace-staging
+  cancel-in-progress: false
+jobs:
+  validate:
+    if: github.repository == 'hsdarestani/gravitas' && github.ref == 'refs/heads/ops/staging-release-control'
+    runs-on: ubuntu-latest
+    outputs:
+      operation: ${{ steps.check.outputs.operation }}
+      revision: ${{ steps.check.outputs.revision }}
+      expected: ${{ steps.check.outputs.expected }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - id: check
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          request=ops/staging/request.json
+          action=$(jq -er .operation "$request")
+          case "$action" in idle) exit 0 ;; inspect|deploy|rollback) ;; *) exit 2 ;; esac
+          revision=$(jq -er .revision "$request")
+          current=$(jq -er .expected_current_sha "$request")
+          ci=$(jq -er .ci_run "$request")
+          [[ "$revision" =~ ^[a-f0-9]{40}$ && "$current" =~ ^[a-f0-9]{40}$ && "$ci" =~ ^[1-9][0-9]{0,19}$ ]]
+          if [ "$action" = inspect ]; then test "$revision" = "$current"; fi
+          if [ "$action" != inspect ]; then test "$revision" != "$current"; fi
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$ci" > ci.json
+          python3 ops/staging/release_gate.py ci ci.json "$GITHUB_REPOSITORY" "$revision"
+          gh api "repos/$GITHUB_REPOSITORY/rules/branches/ops%2Fstaging-release-control" > rules.json
+          jq -e '(map(.type) | index("non_fast_forward") != null and index("deletion") != null) and any(.[]; .type == "pull_request" and .parameters.required_approving_review_count >= 1)' rules.json >/dev/null
+          gh api "repos/$GITHUB_REPOSITORY/environments/workspace-staging" > environment.json
+          gh api "repos/$GITHUB_REPOSITORY/environments/workspace-staging/deployment-branch-policies" > branches.json
+          python3 ops/staging/release_gate.py environment environment.json branches.json ops/staging-release-control
+          printf 'operation=%s\nrevision=%s\nexpected=%s\n' "$action" "$revision" "$current" >> "$GITHUB_OUTPUT"
+          printf 'Requested staging %s from `%s` to `%s`. Platform CI run `%s`.\n' "$action" "$current" "$revision" "$ci" >> "$GITHUB_STEP_SUMMARY"
+  staging:
+    needs: validate
+    if: needs.validate.outputs.operation != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 16
+    environment:
+      name: workspace-staging
+      url: https://staging.graviquest.com/
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Execute the verified stage-only server command
+        env:
+          OPERATION: ${{ needs.validate.outputs.operation }}
+          REVISION: ${{ needs.validate.outputs.revision }}
+          EXPECTED: ${{ needs.validate.outputs.expected }}
+          HOST: ${{ secrets.GQ_STAGING_SSH_HOST }}
+          SSH_PORT: ${{ vars.GQ_STAGING_SSH_PORT }}
+          PRIVATE_KEY: ${{ secrets.GQ_STAGING_SSH_KEY }}
+          KNOWN_HOSTS: ${{ secrets.GQ_STAGING_KNOWN_HOSTS }}
+        run: |
+          set -euo pipefail
+          [[ "$HOST" =~ ^[A-Za-z0-9][A-Za-z0-9.-]+$ && -n "$PRIVATE_KEY" && -n "$KNOWN_HOSTS" ]]
+          port=${SSH_PORT:-22}
+          [[ "$port" =~ ^[1-9][0-9]{0,4}$ && "$port" -le 65535 ]]
+          [[ "$REVISION" =~ ^[a-f0-9]{40}$ && "$EXPECTED" =~ ^[a-f0-9]{40}$ && "$GITHUB_RUN_ID" =~ ^[0-9]{1,20}$ ]]
+          case "$OPERATION" in inspect|deploy|rollback) ;; *) exit 2 ;; esac
+          umask 077
+          keydir=$(mktemp -d)
+          trap 'rm -rf -- "$keydir"' EXIT
+          printf '%s\n' "$PRIVATE_KEY" > "$keydir/key"
+          printf '%s\n' "$KNOWN_HOSTS" > "$keydir/known_hosts"
+          unset PRIVATE_KEY
+          ssh -F /dev/null -p "$port" -i "$keydir/key" -o IdentityAgent=none -o StrictHostKeyChecking=yes \
+            -o UserKnownHostsFile="$keydir/known_hosts" -o BatchMode=yes -o IdentitiesOnly=yes \
+            -o ConnectTimeout=10 "gq-stage-deploy@$HOST" \
+            "$OPERATION $REVISION $EXPECTED $GITHUB_RUN_ID ops/staging-release-control" | tee staging.log
+          grep -Fxq "staging_live_revision=$REVISION" staging.log
+      - name: Verify HTTPS, stage data services, and the owner session
+        env:
+          STAGE_OWNER_EMAIL: ${{ secrets.WORKSPACE_STAGING_OWNER_EMAIL }}
+          STAGE_OWNER_PASSWORD: ${{ secrets.WORKSPACE_STAGING_OWNER_PASSWORD }}
+          STAGE_EXPECTED_REVISION: ${{ needs.validate.outputs.revision }}
+        run: python3 ops/staging/smoke.py --owner --platform
