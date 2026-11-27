@@ -1,0 +1,33 @@
+name: GraviQuest Release Tools Live Browser QA
+on:
+  push:
+    branches: [ops/staging-parity-host-evidence]
+    paths:
+      - .github/workflows/staging-release-tools-browser.yml
+      - ops/staging/check-release-tools-browser.cjs
+permissions:
+  contents: read
+concurrency:
+  group: gravitas-workspace-staging
+  cancel-in-progress: false
+jobs:
+  browser:
+    if: github.repository == 'hsdarestani/gravitas' && github.actor == 'hsdarestani'
+    environment: workspace-staging
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Install the existing Workspace QA browser dependency
+        run: npm install --prefix "$RUNNER_TEMP/workspace-browser" --no-audit --no-fund playwright-core@1.57.0
+      - name: Verify staging-only browser behavior with the named owner
+        env:
+          STAGE_OWNER_EMAIL: ${{ secrets.WORKSPACE_STAGING_OWNER_EMAIL }}
+          STAGE_OWNER_PASSWORD: ${{ secrets.WORKSPACE_STAGING_OWNER_PASSWORD }}
+        run: |
+          set -euo pipefail
+          export QA_PLAYWRIGHT_MODULE="$RUNNER_TEMP/workspace-browser/node_modules/playwright-core"
+          export QA_CHROME="$(command -v google-chrome)"
+          node ops/staging/check-release-tools-browser.cjs
