@@ -1343,6 +1343,7 @@ export async function renderAdminCourseEditor(host, id, { go, authorMode = false
     const description = K.textarea(course?.description || '', 7);
     const accessType = K.select([['open', 'Open enrollment'], ['locked', 'Invite only'], ['paid', 'Paid']], course?.access_type || 'open');
     const status = K.select([['draft', 'Draft'], ['published', 'Published'], ['archived', 'Archived']], course?.status || 'draft');
+    status.disabled = authorMode;
     const price = K.input(course?.price || '', 'number');
     price.step = '0.01';
     const currency = K.input(course?.currency || 'EUR');
@@ -1918,7 +1919,9 @@ export async function renderAdminCourseEditor(host, id, { go, authorMode = false
         }
       });
       publishButton = action('Publish changes now', async () => {
-        if (!confirm('Publish these course changes now? Learners will see the new version immediately.')) return;
+        const archiving = status.value === 'archived';
+        if (!confirm(archiving ? 'Archive this course now? It will leave the public catalog.' :
+          'Publish these course changes now? Learners will see the new version immediately.')) return;
         publishButton.disabled = true;
         scheduleButton.disabled = true;
         save.disabled = true;
@@ -1927,7 +1930,7 @@ export async function renderAdminCourseEditor(host, id, { go, authorMode = false
           const payload = collectPayload();
           await P.lmsSaveCourseRevision(course.id, payload);
           await P.lmsPublishCourseRevision(course.id, { action: 'publish_now' });
-          setStatus(line, 'Changes published.', 'ok');
+          setStatus(line, archiving ? 'Course archived.' : 'Changes published.', 'ok');
           await reload();
         } catch (error) {
           setStatus(line, error?.data?.error || error?.message || 'Course changes were not published.', 'bad');

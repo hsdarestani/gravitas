@@ -1,0 +1,22 @@
+name: GraviQuest Staging Availability Monitor
+on:
+  schedule:
+    - cron: '41 */6 * * *'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  public-health:
+    if: github.repository == 'hsdarestani/gravitas' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Check HTTPS, the application, PostgreSQL, Nextcloud and public routes
+        run: |
+          python3 ops/staging/smoke.py
+          for path in site lab education topics robots.txt; do
+            curl --silent --show-error --fail --max-time 12 "https://staging.graviquest.com/$path" --output /dev/null
+          done

@@ -1,0 +1,161 @@
+name: Deploy GraviQuest to Staging
+on:
+  workflow_dispatch:
+    inputs:
+      operation:
+        description: Deploy, roll back, or record reviewed staging acceptance
+        required: true
+        type: choice
+        options: [deploy, rollback, accept]
+      source:
+        description: Select a branch, pull request number, or immutable commit
+        required: true
+        type: choice
+        options: [branch, pr, sha]
+      revision:
+        description: Branch, PR number, or 40-character commit SHA
+        required: true
+      expected_current_sha:
+        description: Exact SHA currently active on shared staging
+        required: true
+      ci_run:
+        description: Successful Platform CI run ID for the selected SHA
+        required: true
+      qa_reference:
+        description: Development task and numbered human QA record required for accept
+        required: false
+permissions:
+  contents: read
+  actions: read
+  pull-requests: read
+concurrency:
+  group: gravitas-workspace-staging
+  cancel-in-progress: false
+
+jobs:
+  select:
+    if: github.repository == 'hsdarestani/gravitas' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    outputs:
+      revision: ${{ steps.resolve.outputs.revision }}
+      ref: ${{ steps.resolve.outputs.ref }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - id: resolve
+        env:
+          GH_TOKEN: ${{ github.token }}
+          MODE: ${{ inputs.operation }}
+          KIND: ${{ inputs.source }}
+          SELECTOR: ${{ inputs.revision }}
+          EXPECTED: ${{ inputs.expected_current_sha }}
+          CI_RUN: ${{ inputs.ci_run }}
+          QA: ${{ inputs.qa_reference }}
+        run: |
+          set -euo pipefail
+          [[ "$EXPECTED" =~ ^[a-f0-9]{40}$ ]]
+          [[ "$CI_RUN" =~ ^[0-9]+$ ]]
+          ref="$SELECTOR"
+          case "$KIND" in
+            pr)
+              [[ "$SELECTOR" =~ ^[1-9][0-9]*$ ]]
+              gh api "repos/$GITHUB_REPOSITORY/pulls/$SELECTOR" > pr.json
+              jq -e --arg repo "$GITHUB_REPOSITORY" '.head.repo.full_name == $repo and .state == "open"' pr.json >/dev/null
+              selected=$(jq -er .head.sha pr.json)
+              ref="pr/$SELECTOR"
+              ;;
+            branch)
+              [[ "$SELECTOR" =~ ^[A-Za-z0-9][A-Za-z0-9._/-]{0,119}$ ]]
+              encoded=$(jq -nr --arg value "$SELECTOR" '$value | @uri')
+              selected=$(gh api "repos/$GITHUB_REPOSITORY/branches/$encoded" --jq .commit.sha)
+              ;;
+            sha)
+              [[ "$SELECTOR" =~ ^[0-9a-f]{40}$ ]]
+              selected=$(gh api "repos/$GITHUB_REPOSITORY/commits/$SELECTOR" --jq .sha)
+              test "$selected" = "$SELECTOR"
+              ;;
+            *) exit 2 ;;
+          esac
+          [[ "$selected" =~ ^[0-9a-f]{40}$ ]]
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$CI_RUN" > ci.json
+          python3 ops/staging/release_gate.py ci ci.json "$GITHUB_REPOSITORY" "$selected"
+          gh api "repos/$GITHUB_REPOSITORY/environments/workspace-staging" > staging-protection.json
+          gh api "repos/$GITHUB_REPOSITORY/environments/workspace-staging/deployment-branch-policies" > staging-branches.json
+          python3 ops/staging/release_gate.py environment staging-protection.json staging-branches.json
+          if [ "$MODE" = accept ]; then
+            test "$selected" = "$EXPECTED"
+            [[ "$QA" =~ ^[A-Za-z0-9][A-Za-z0-9._/-]{0,119}$ ]]
+            gh api "repos/$GITHUB_REPOSITORY/environments/staging-final-approval" > approval.json
+            gh api "repos/$GITHUB_REPOSITORY/environments/staging-final-approval/deployment-branch-policies" > approval-branches.json
+            python3 ops/staging/release_gate.py environment approval.json approval-branches.json
+          fi
+          printf 'revision=%s\nref=%s\n' "$selected" "$ref" >> "$GITHUB_OUTPUT"
+          printf 'Staging candidate %s at `%s`.\n' "$ref" "$selected" >> "$GITHUB_STEP_SUMMARY"
+  stage:
+    needs: select
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    environment:
+      name: workspace-staging
+      url: https://staging.graviquest.com/site
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Verified staging-only SSH command
+        env:
+          ACTION: ${{ inputs.operation }}
+          REVISION: ${{ needs.select.outputs.revision }}
+          EXPECTED: ${{ inputs.expected_current_sha }}
+          REF_LABEL: ${{ needs.select.outputs.ref }}
+          HOST: ${{ secrets.GQ_STAGING_SSH_HOST }}
+          SSH_PORT: ${{ vars.GQ_STAGING_SSH_PORT }}
+          PRIVATE_KEY: ${{ secrets.GQ_STAGING_SSH_KEY }}
+          KNOWN_HOSTS: ${{ secrets.GQ_STAGING_KNOWN_HOSTS }}
+        run: |
+          set -euo pipefail
+          test -n "$HOST" && test -n "$PRIVATE_KEY" && test -n "$KNOWN_HOSTS"
+          [[ "$HOST" =~ ^[A-Za-z0-9][A-Za-z0-9.-]*$ ]]
+          port="${SSH_PORT:-22}"
+          [[ "$port" =~ ^[1-9][0-9]{0,4}$ && "$port" -le 65535 ]]
+          [[ "$REVISION" =~ ^[a-f0-9]{40}$ && "$EXPECTED" =~ ^[a-f0-9]{40}$ ]]
+          [[ "$REF_LABEL" =~ ^[A-Za-z0-9][A-Za-z0-9._/-]{0,119}$ && "$GITHUB_RUN_ID" =~ ^[0-9]+$ ]]
+          case "$ACTION" in accept) ACTION=inspect ;; deploy|rollback) ;; *) exit 2 ;; esac
+          umask 077
+          keydir=$(mktemp -d)
+          trap 'rm -rf "$keydir"' EXIT
+          printf '%s\n' "$PRIVATE_KEY" > "$keydir/key"
+          printf '%s\n' "$KNOWN_HOSTS" > "$keydir/known_hosts"
+          unset PRIVATE_KEY
+          ssh -p "$port" -i "$keydir/key" -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$keydir/known_hosts" \
+            -o BatchMode=yes -o IdentitiesOnly=yes -o ConnectTimeout=10 \
+            "gq-stage-deploy@$HOST" "$ACTION $REVISION $EXPECTED $GITHUB_RUN_ID $REF_LABEL" | tee staging.log
+          grep -Fxq "staging_live_revision=$REVISION" staging.log
+      - name: Verify HTTPS, authentication and stale-revision protection
+        env:
+          STAGE_OWNER_EMAIL: ${{ secrets.WORKSPACE_STAGING_OWNER_EMAIL }}
+          STAGE_OWNER_PASSWORD: ${{ secrets.WORKSPACE_STAGING_OWNER_PASSWORD }}
+          STAGE_EXPECTED_REVISION: ${{ needs.select.outputs.revision }}
+        run: python3 ops/staging/smoke.py --owner --platform
+  approve:
+    if: inputs.operation == 'accept'
+    needs: [select, stage]
+    runs-on: ubuntu-latest
+    environment:
+      name: staging-final-approval
+      url: https://staging.graviquest.com/site
+    steps:
+      - name: Record human acceptance of the tested SHA
+        env:
+          REVISION: ${{ needs.select.outputs.revision }}
+          QA: ${{ inputs.qa_reference }}
+        run: |
+          jq -n --arg revision "$REVISION" --arg run "$GITHUB_RUN_ID" --arg qa "$QA" \
+            '{environment:"staging-final-approval",operation:"accept",status:"accepted",revision:$revision,run_id:$run,qa:$qa}' \
+            > staging-acceptance.json
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: staging-acceptance
+          path: staging-acceptance.json
+          if-no-files-found: error
