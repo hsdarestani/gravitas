@@ -75,7 +75,7 @@ const ADMIN_INDEX = [
   // had their colours, and they keep them.
   ['Nextcloud Mirror', '/workspace/core/admin/nextcloud', 'storage', 'Files, Notes and Deck in sync', '3'],
   ['Deck', '/workspace/core/admin/deck', 'board', 'Core tasks as Nextcloud boards'],
-  ...(location.hostname === 'staging.graviquest.com' ? [
+  ...(globalThis.location?.hostname === 'staging.graviquest.com' ? [
     ['Release Center', '/workspace/core/releases', 'activity', 'Review and track staging changes'],
     ['Visual Editor', '/workspace/core/visual-editor', 'topic', 'Prepare a page revision'],
   ] : []),
