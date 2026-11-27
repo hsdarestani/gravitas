@@ -18,6 +18,7 @@ class WorkspaceProfile(models.Model):
     description = models.TextField(blank=True)
     is_default = models.BooleanField(default=False)
     nextcloud_root = models.CharField(max_length=500, default='Gravitas')
+    studio_review_days = models.PositiveSmallIntegerField(default=14)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

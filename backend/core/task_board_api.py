@@ -1170,6 +1170,7 @@ def _comment_json(row):
         'origin_task_id': row.task_id,
         'author': _person(row.author),
         'body': row.body,
+        'parent_id': row.parent_id,
         'mentions': [_person(user) for user in mentions],
         'created_at': row.created_at.isoformat(),
         'updated_at': row.updated_at.isoformat(),
@@ -1210,7 +1211,14 @@ def task_comments(request, task_id):
             user__is_active=True,
         ).select_related('user')
     ]
-    row = OperatingTaskComment.objects.create(task=task, author=request.user, body=body)
+    parent = None
+    if (parent_id := payload.get('parent_id')) is not None:
+        if type(parent_id) is not int:
+            return _error('invalid_comment_parent')
+        parent = task.board_comments.filter(pk=parent_id).first()
+        if parent is None:
+            return _error('invalid_comment_parent')
+    row = OperatingTaskComment.objects.create(task=task, author=request.user, body=body, parent=parent)
     if mentioned_users:
         row.mentions.set(mentioned_users)
     mentioned_ids = [user.pk for user in mentioned_users if user.pk != request.user.pk]

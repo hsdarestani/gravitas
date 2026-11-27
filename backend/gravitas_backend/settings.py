@@ -327,3 +327,7 @@ GRAVITAS_CANONICAL_ADOPTION_ENABLED = os.environ.get('GRAVITAS_CANONICAL_ADOPTIO
 
 # Production Research Workspace project for the first public Topic.
 TOPIC_01_RESEARCH_PROJECT_ID = int(os.environ.get('TOPIC_01_RESEARCH_PROJECT_ID', '213'))
+
+# The parallel Studio remains opt-in on an isolated Core preview.
+WORKSPACE_STUDIO_ENABLED = os.environ.get('WORKSPACE_STUDIO_ENABLED') == '1'
+WORKSPACE_STUDIO_AUTO_TEAM_FOLDERS = False

@@ -285,6 +285,25 @@ def enqueue_task_event(task, action, actor=None, detail=None):
     )
 
 
+def enqueue_studio_task_notice(task, actor, event_type, event_id, recipients, label):
+    """Use the canonical inbox and delivery preferences for Studio task events."""
+    from .platform_access import can_view
+    from .platform_runtime_v3 import core_access
+
+    link = _task_url(task.pk)
+    title = f'{label}: {task.title}'
+    users = User.objects.filter(pk__in=set(recipients) - {actor.pk}, is_active=True)
+    return sum(
+        _enqueue_for_user(
+            user, task, f'studio:{task.pk}:{event_type}:{event_id}', event_type,
+            title, f'{title}\n\nOpen task: {link}', {'url': link}, actor=actor,
+        )
+        for user in users
+        if core_access(user, task.workspace) and can_view(user, task)
+        and (not task.project_id or can_view(user, task.project))
+    )
+
+
 def enqueue_task_mentions(task, actor, mentioned_users, *, comment_id, comment_preview=''):
     users = [user for user in mentioned_users if user and user.is_active and (not actor or user.pk != actor.pk)]
     if not users:

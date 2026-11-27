@@ -1,0 +1,281 @@
+[
+  {
+    "id": "review-release",
+    "name": "Review & release",
+    "description": "Prepare a deliverable, review it, and release the approved version.",
+    "tasks": [
+      {"id":"prepare","title":"Prepare deliverable","description":"Assemble the deliverable and its supporting material.","icon":"file","importance":7,"x":170,"y":239,"checklist":["Attach the review version"],"dod":[]},
+      {"id":"review","title":"Review deliverable","description":"Check the deliverable and record a decision.","icon":"check","importance":8,"x":400,"y":239,"checklist":["Record approval or required changes"],"dod":[]},
+      {"id":"release","title":"Release approved version","description":"Publish or hand off the approved deliverable.","icon":"send","importance":7,"x":630,"y":239,"checklist":["Verify the published version or handoff"],"dod":[]}
+    ],
+    "edges": [
+      ["prepare","review"],
+      ["review","release"]
+    ],
+    "groups": [],
+    "frames": [],
+    "layoutArrows": [],
+    "loops": []
+  },
+  {
+    "id": "gravitas-video",
+    "name": "Gravitas video production",
+    "description": "Pre-production, production and post-production with five optional revision routes.",
+    "tasks": [
+      {"id":"T0","title":"Scenario concept development","icon":"light","effort":3,"description":"Define the premise, key scenes and narrative direction.","importance":5,"checklist":["Define the premise, key scenes and narrative direction."],"dod":["Attach the deliverable or record the review decision."],"x":128,"y":194},
+      {"id":"T1","title":"Scenario development","icon":"file","effort":4,"description":"Write the scenario and note claims that need verification.","importance":5,"checklist":["Write the scenario and note claims that need verification."],"dod":["Attach the deliverable or record the review decision."],"x":267,"y":194},
+      {"id":"T2","title":"Scenario review","icon":"people","effort":3,"description":"Review the science and record the editorial decision.","importance":5,"checklist":["Review the science and record the editorial decision."],"dod":["Attach the deliverable or record the review decision."],"x":406,"y":194},
+      {"id":"T3","title":"Iterative AI script development","icon":"spark","effort":5,"description":"Revise the script using role-based AI prompts and human review.","importance":5,"checklist":["Revise the script using role-based AI prompts and human review."],"dod":["Attach the deliverable or record the review decision."],"x":545,"y":194},
+      {"id":"T4","title":"Script lock","icon":"lock","effort":1,"description":"Archive the final approved script.","importance":5,"checklist":["Archive the final approved script."],"dod":["Attach the deliverable or record the review decision."],"x":684,"y":194},
+      {"id":"T5","title":"Shot list development","icon":"list","effort":4,"description":"Break the script into shots with visual direction.","importance":5,"checklist":["Break the script into shots with visual direction."],"dod":["Attach the deliverable or record the review decision."],"x":823,"y":194},
+      {"id":"T6","title":"Visual style breakdown","icon":"image","effort":3,"description":"Set the color, lighting, composition and mood.","importance":5,"checklist":["Set the color, lighting, composition and mood."],"dod":["Attach the deliverable or record the review decision."],"x":962,"y":194},
+      {"id":"T7","title":"Character breakdown","icon":"user","effort":3,"description":"Specify character states, poses and expressions.","importance":5,"checklist":["Specify character states, poses and expressions."],"dod":["Attach the deliverable or record the review decision."],"x":1101,"y":194},
+      {"id":"T8","title":"Environment breakdown","icon":"image","effort":3,"description":"Specify locations, layout, lighting and atmosphere.","importance":5,"checklist":["Specify locations, layout, lighting and atmosphere."],"dod":["Attach the deliverable or record the review decision."],"x":1240,"y":194},
+      {"id":"T9","title":"Prompt system development","icon":"code","effort":4,"description":"Prepare global, character, environment, shot, camera and negative prompts.","importance":5,"checklist":["Prepare global, character, environment, shot, camera and negative prompts."],"dod":["Attach the deliverable or record the review decision."],"x":1379,"y":194},
+      {"id":"T10","title":"Production requirements planning","icon":"checklist","effort":3,"description":"List required assets, voices, sound, motion and tools.","importance":5,"checklist":["List required assets, voices, sound, motion and tools."],"dod":["Attach the deliverable or record the review decision."],"x":1518,"y":194},
+      {"id":"T11","title":"Character alignment","icon":"user","effort":5,"description":"Generate the character references and obtain the design review.","importance":5,"checklist":["Generate the character references and obtain the design review."],"dod":["Attach the deliverable or record the review decision."],"x":1657,"y":194},
+      {"id":"T12","title":"Environment generation","icon":"image","effort":4,"description":"Generate and approve environment references.","importance":5,"checklist":["Generate and approve environment references."],"dod":["Attach the deliverable or record the review decision."],"x":1796,"y":194},
+      {"id":"T13","title":"Asset generation","icon":"image","effort":3,"description":"Prepare props, scientific diagrams, graphics and UI assets.","importance":5,"checklist":["Prepare props, scientific diagrams, graphics and UI assets."],"dod":["Attach the deliverable or record the review decision."],"x":1935,"y":194},
+      {"id":"T14","title":"Asset consistency review","icon":"check","effort":4,"description":"Review style, lighting, scale and continuity across assets.","importance":5,"checklist":["Review style, lighting, scale and continuity across assets."],"dod":["Attach the deliverable or record the review decision."],"x":2074,"y":194},
+      {"id":"T15","title":"Shot generation","icon":"frames","effort":4,"description":"Generate multiple candidates for each shot.","importance":5,"checklist":["Generate multiple candidates for each shot."],"dod":["Attach the deliverable or record the review decision."],"x":2213,"y":194},
+      {"id":"T16","title":"Shot selection","icon":"image","effort":3,"description":"Select the best shot for each position in the cut.","importance":5,"checklist":["Select the best shot for each position in the cut."],"dod":["Attach the deliverable or record the review decision."],"x":2352,"y":194},
+      {"id":"T17","title":"Shot consistency control","icon":"check","effort":4,"description":"Check continuity and visual consistency across selected shots.","importance":5,"checklist":["Check continuity and visual consistency across selected shots."],"dod":["Attach the deliverable or record the review decision."],"x":2491,"y":194},
+      {"id":"T18","title":"Voice generation","icon":"mic","effort":5,"description":"Generate approved narration and character takes.","importance":5,"checklist":["Generate approved narration and character takes."],"dod":["Attach the deliverable or record the review decision."],"x":2630,"y":194},
+      {"id":"T19","title":"Editing & assembly","icon":"frames","effort":3,"description":"Assemble selected shots with narration.","importance":5,"checklist":["Assemble selected shots with narration."],"dod":["Attach the deliverable or record the review decision."],"x":2769,"y":194},
+      {"id":"T20","title":"Sound design","icon":"sound","effort":3,"description":"Add atmosphere, transitions and layered sound.","importance":5,"checklist":["Add atmosphere, transitions and layered sound."],"dod":["Attach the deliverable or record the review decision."],"x":2908,"y":194},
+      {"id":"T21","title":"Music","icon":"sound","effort":3,"description":"Select or generate music and synchronize it to the cut.","importance":5,"checklist":["Select or generate music and synchronize it to the cut."],"dod":["Attach the deliverable or record the review decision."],"x":2908,"y":306},
+      {"id":"T22","title":"Sound effects","icon":"sound","effort":3,"description":"Identify, place and review sound effects.","importance":5,"checklist":["Identify, place and review sound effects."],"dod":["Attach the deliverable or record the review decision."],"x":2908,"y":418},
+      {"id":"T23","title":"Motion & transitions","icon":"frames","effort":4,"description":"Refine camera movement, transitions and motion graphics.","importance":5,"checklist":["Refine camera movement, transitions and motion graphics."],"dod":["Attach the deliverable or record the review decision."],"x":3047,"y":194},
+      {"id":"T24","title":"Color & visual finishing","icon":"image","effort":3,"description":"Check color, exposure, contrast and brand alignment.","importance":5,"checklist":["Check color, exposure, contrast and brand alignment."],"dod":["Attach the deliverable or record the review decision."],"x":3186,"y":194},
+      {"id":"T25","title":"Subtitle & text integration","icon":"file","effort":2,"description":"Add captions, on-screen text and titles.","importance":5,"checklist":["Add captions, on-screen text and titles."],"dod":["Attach the deliverable or record the review decision."],"x":3325,"y":194},
+      {"id":"T26","title":"Final QA","icon":"check","effort":5,"description":"Record the scientific, visual, audio and technical review outcome.","importance":5,"checklist":["Record the scientific, visual, audio and technical review outcome."],"dod":["Attach the deliverable or record the review decision."],"x":3464,"y":194},
+      {"id":"T27","title":"Export & delivery","icon":"send","effort":1,"description":"Export the required formats and hand off the approved media.","importance":5,"checklist":["Export the required formats and hand off the approved media."],"dod":["Attach the deliverable or record the review decision."],"x":3603,"y":194}
+    ],
+    "edges": [
+      ["T0","T1"],
+      ["T1","T2"],
+      ["T2","T3"],
+      ["T3","T4"],
+      ["T5","T6"],
+      ["T6","T7"],
+      ["T7","T8"],
+      ["T4","T5"],
+      ["T4","T6"],
+      ["T4","T7"],
+      ["T4","T8"],
+      ["T5","T9"],
+      ["T6","T9"],
+      ["T7","T9"],
+      ["T8","T9"],
+      ["T9","T10"],
+      ["T10","T11"],
+      ["T11","T12"],
+      ["T12","T13"],
+      ["T11","T14"],
+      ["T12","T14"],
+      ["T13","T14"],
+      ["T14","T15"],
+      ["T14","T16"],
+      ["T14","T17"],
+      ["T15","T16"],
+      ["T16","T17"],
+      ["T15","T18"],
+      ["T16","T18"],
+      ["T17","T18"],
+      ["T18","T19"],
+      ["T19","T20"],
+      ["T20","T23"],
+      ["T19","T21"],
+      ["T21","T23"],
+      ["T19","T22"],
+      ["T22","T23"],
+      ["T23","T24"],
+      ["T24","T25"],
+      ["T25","T26"],
+      ["T26","T27"]
+    ],
+    "groups": [
+      {"id":"audio","title":"Parallel audio work","members":["T20","T21","T22"]}
+    ],
+    "frames": [
+      {"id":"phase-0","title":"Pre-production","x":70,"y":78,"width":1506,"height":180},
+      {"id":"phase-1","title":"Production","x":1599,"y":78,"width":1089,"height":180},
+      {"id":"phase-2","title":"Post-production","x":2711,"y":78,"width":950,"height":404}
+    ],
+    "layoutArrows": [],
+    "loops": [
+      {"id":"review-T2-T1","from":"T2","to":"T1","target":2,"optional":true,"count":0},
+      {"id":"review-T3-T2","from":"T3","to":"T2","target":2,"optional":true,"count":0},
+      {"id":"review-T14-T11","from":"T14","to":"T11","target":2,"optional":true,"count":0},
+      {"id":"review-T17-T15","from":"T17","to":"T15","target":2,"optional":true,"count":0},
+      {"id":"review-T26-T19","from":"T26","to":"T19","target":2,"optional":true,"count":0}
+    ]
+  },
+  {
+    "id": "graviquest-development",
+    "name": "GraviQuest development & release",
+    "description": "Branch, PR, CI and code review, followed by numbered QA, production verification and final approval.",
+    "tasks": [
+      {"id":"step-0","title":"Project scope and milestone","icon":"target","description":"Set the outcome, owner, milestone and acceptance criteria.","importance":5,"checklist":["Set the outcome, owner, milestone and acceptance criteria."],"dod":["Attach the deliverable or record the review decision."],"x":128,"y":194},
+      {"id":"step-1","title":"Define the development task","icon":"checklist","description":"Write the implementation brief, constraints and verification plan.","importance":5,"checklist":["Write the implementation brief, constraints and verification plan."],"dod":["Attach the deliverable or record the review decision."],"x":267,"y":194},
+      {"id":"step-2","title":"Create branch","icon":"code","description":"Create the working branch from the approved base.","importance":5,"checklist":["Create the working branch from the approved base."],"dod":["Attach the deliverable or record the review decision."],"x":406,"y":194},
+      {"id":"step-3","title":"Implement change","icon":"code","description":"Implement the change and record affected surfaces.","importance":5,"checklist":["Implement the change and record affected surfaces."],"dod":["Attach the deliverable or record the review decision."],"x":545,"y":194},
+      {"id":"step-4","title":"Commit and open pull request","icon":"link","description":"Link the pull request, screenshots or output, and verification notes.","importance":5,"checklist":["Link the pull request, screenshots or output, and verification notes."],"dod":["Attach the deliverable or record the review decision."],"x":684,"y":194},
+      {"id":"step-5","title":"Run CI tests","icon":"check","description":"Record required check results and resolve failures.","importance":5,"checklist":["Record required check results and resolve failures."],"dod":["Attach the deliverable or record the review decision."],"x":823,"y":194},
+      {"id":"step-6","title":"Code review","icon":"people","description":"Record reviewer approval and address requested changes.","importance":5,"checklist":["Record reviewer approval and address requested changes."],"dod":["Attach the deliverable or record the review decision."],"x":962,"y":194},
+      {"id":"step-7","title":"QA 001","icon":"checklist","description":"Attach the output link, QA checklist, result and reviewer comments.","importance":5,"checklist":["Attach the output link, QA checklist, result and reviewer comments."],"dod":["Attach the deliverable or record the review decision."],"x":1101,"y":194},
+      {"id":"step-8","title":"QA 002","icon":"checklist","description":"Retest fixes and attach the new checklist, output link and comments.","importance":5,"checklist":["Retest fixes and attach the new checklist, output link and comments."],"dod":["Attach the deliverable or record the review decision."],"x":1240,"y":194},
+      {"id":"step-9","title":"Merge to main","icon":"code","description":"Confirm required checks and QA evidence before merging.","importance":5,"checklist":["Confirm required checks and QA evidence before merging."],"dod":["Attach the deliverable or record the review decision."],"x":1379,"y":194},
+      {"id":"step-10","title":"Backup and rollback readiness","icon":"lock","description":"Record the rollback version and take a backup when needed.","importance":5,"checklist":["Record the rollback version and take a backup when needed."],"dod":["Attach the deliverable or record the review decision."],"x":1518,"y":194},
+      {"id":"step-11","title":"Deploy to production","icon":"send","description":"Deploy the approved revision and capture the release reference.","importance":5,"checklist":["Deploy the approved revision and capture the release reference."],"dod":["Attach the deliverable or record the review decision."],"x":1657,"y":194},
+      {"id":"step-12","title":"Production health and smoke checks","icon":"check","description":"Verify the live URL and user flow and log the result in the workspace.","importance":5,"checklist":["Verify the live URL and user flow and log the result in the workspace."],"dod":["Attach the deliverable or record the review decision."],"x":1796,"y":194},
+      {"id":"step-13","title":"Final approval","icon":"check","description":"Record the final decision with evidence from the live checks.","importance":5,"checklist":["Record the final decision with evidence from the live checks."],"dod":["Attach the deliverable or record the review decision."],"x":1935,"y":194},
+      {"id":"step-14","title":"Done and handoff","icon":"journal","description":"File the closing report with QA outcomes and production evidence.","importance":5,"checklist":["File the closing report with QA outcomes and production evidence."],"dod":["Attach the deliverable or record the review decision."],"x":2074,"y":194}
+    ],
+    "edges": [
+      ["step-0","step-1"],
+      ["step-1","step-2"],
+      ["step-2","step-3"],
+      ["step-3","step-4"],
+      ["step-4","step-5"],
+      ["step-5","step-6"],
+      ["step-6","step-7"],
+      ["step-7","step-8"],
+      ["step-8","step-9"],
+      ["step-9","step-10"],
+      ["step-10","step-11"],
+      ["step-11","step-12"],
+      ["step-12","step-13"],
+      ["step-13","step-14"]
+    ],
+    "groups": [],
+    "frames": [],
+    "layoutArrows": [],
+    "loops": [
+      {"id":"review-step-5-step-3","from":"step-5","to":"step-3","target":2,"optional":true,"count":0},
+      {"id":"review-step-7-step-3","from":"step-7","to":"step-3","target":2,"optional":true,"count":0},
+      {"id":"review-step-8-step-3","from":"step-8","to":"step-3","target":2,"optional":true,"count":0},
+      {"id":"review-step-12-step-3","from":"step-12","to":"step-3","target":2,"optional":true,"count":0}
+    ]
+  },
+  {
+    "id": "scientific-essay",
+    "name": "Research essay & source review",
+    "description": "Develop an evidence-led draft and keep claim verification visible.",
+    "tasks": [
+      {"id":"step-0","title":"Define research question","icon":"light","description":"Record the question, audience and initial evidence.","importance":5,"checklist":["Record the question, audience and initial evidence."],"dod":["Attach the deliverable or record the review decision."],"x":128,"y":194},
+      {"id":"step-1","title":"Build the source dossier","icon":"file","description":"Record sources, claims, uncertainties and gaps.","importance":5,"checklist":["Record sources, claims, uncertainties and gaps."],"dod":["Attach the deliverable or record the review decision."],"x":267,"y":194},
+      {"id":"step-2","title":"Write the draft","icon":"edit","description":"Attach the draft with a traceable reference for each claim.","importance":5,"checklist":["Attach the draft with a traceable reference for each claim."],"dod":["Attach the deliverable or record the review decision."],"x":406,"y":194},
+      {"id":"step-3","title":"Review science and clarity","icon":"check","description":"Flag unsupported claims and record editorial feedback.","importance":5,"checklist":["Flag unsupported claims and record editorial feedback."],"dod":["Attach the deliverable or record the review decision."],"x":545,"y":194},
+      {"id":"step-4","title":"Prepare illustrations and layout","icon":"image","description":"Attach accessible figures, captions and the page preview.","importance":5,"checklist":["Attach accessible figures, captions and the page preview."],"dod":["Attach the deliverable or record the review decision."],"x":684,"y":194},
+      {"id":"step-5","title":"Approve and publish","icon":"send","description":"Verify the published essay, figures and citations.","importance":5,"checklist":["Verify the published essay, figures and citations."],"dod":["Attach the deliverable or record the review decision."],"x":823,"y":194}
+    ],
+    "edges": [
+      ["step-0","step-1"],
+      ["step-1","step-2"],
+      ["step-2","step-3"],
+      ["step-3","step-4"],
+      ["step-4","step-5"]
+    ],
+    "groups": [],
+    "frames": [],
+    "layoutArrows": [],
+    "loops": [
+      {"id":"review-step-3-step-2","from":"step-3","to":"step-2","target":2,"optional":true,"count":0}
+    ]
+  },
+  {
+    "id": "web-design",
+    "name": "Website design & accessibility",
+    "description": "Prototype a visitor flow, build it, and check it across screens and input methods.",
+    "tasks": [
+      {"id":"step-0","title":"Define the visitor goal","icon":"target","description":"Record the intended audience and acceptance criteria.","importance":5,"checklist":["Record the intended audience and acceptance criteria."],"dod":["Attach the deliverable or record the review decision."],"x":128,"y":194},
+      {"id":"step-1","title":"Create a brand-aligned prototype","icon":"layout","description":"Attach desktop and mobile designs and key states.","importance":5,"checklist":["Attach desktop and mobile designs and key states."],"dod":["Attach the deliverable or record the review decision."],"x":267,"y":194},
+      {"id":"step-2","title":"Build the approved experience","icon":"code","description":"Attach preview and record integration constraints.","importance":5,"checklist":["Attach preview and record integration constraints."],"dod":["Attach the deliverable or record the review decision."],"x":406,"y":194},
+      {"id":"step-3","title":"Review accessibility and interactions","icon":"check","description":"Check keyboard flow, visible focus, labels, contrast and narrow layouts.","importance":5,"checklist":["Check keyboard flow, visible focus, labels, contrast and narrow layouts."],"dod":["Attach the deliverable or record the review decision."],"x":545,"y":194},
+      {"id":"step-4","title":"Publish and check live behavior","icon":"send","description":"Verify the deployed journey and capture the live link.","importance":5,"checklist":["Verify the deployed journey and capture the live link."],"dod":["Attach the deliverable or record the review decision."],"x":684,"y":194}
+    ],
+    "edges": [
+      ["step-0","step-1"],
+      ["step-1","step-2"],
+      ["step-2","step-3"],
+      ["step-3","step-4"]
+    ],
+    "groups": [],
+    "frames": [],
+    "layoutArrows": [],
+    "loops": [
+      {"id":"review-step-3-step-2","from":"step-3","to":"step-2","target":2,"optional":true,"count":0}
+    ]
+  },
+  {
+    "id": "pulsar-evaluation",
+    "name": "Pulsar evaluation & rollout",
+    "description": "Set answer criteria, run a benchmark, and review citations before rollout.",
+    "tasks": [
+      {"id":"step-0","title":"Write the evaluation rubric","icon":"target","description":"Specify context, evidence, uncertainty and failure criteria.","importance":5,"checklist":["Specify context, evidence, uncertainty and failure criteria."],"dod":["Attach the deliverable or record the review decision."],"x":128,"y":194},
+      {"id":"step-1","title":"Build the benchmark set","icon":"file","description":"Collect representative prompts, sources and edge cases.","importance":5,"checklist":["Collect representative prompts, sources and edge cases."],"dod":["Attach the deliverable or record the review decision."],"x":267,"y":194},
+      {"id":"step-2","title":"Run evaluations and trace failures","icon":"spark","description":"Save run results and provider diagnostics.","importance":5,"checklist":["Save run results and provider diagnostics."],"dod":["Attach the deliverable or record the review decision."],"x":406,"y":194},
+      {"id":"step-3","title":"Review citation integrity","icon":"check","description":"Sample cited sources and flag invented or irrelevant references.","importance":5,"checklist":["Sample cited sources and flag invented or irrelevant references."],"dod":["Attach the deliverable or record the review decision."],"x":545,"y":194},
+      {"id":"step-4","title":"Verify controlled rollout","icon":"send","description":"Record release controls and live checks.","importance":5,"checklist":["Record release controls and live checks."],"dod":["Attach the deliverable or record the review decision."],"x":684,"y":194}
+    ],
+    "edges": [
+      ["step-0","step-1"],
+      ["step-1","step-2"],
+      ["step-2","step-3"],
+      ["step-3","step-4"]
+    ],
+    "groups": [],
+    "frames": [],
+    "layoutArrows": [],
+    "loops": [
+      {"id":"review-step-3-step-2","from":"step-3","to":"step-2","target":2,"optional":true,"count":0}
+    ]
+  },
+  {
+    "id": "community-campaign",
+    "name": "Social & community launch",
+    "description": "Plan launch assets, review the science and verify the public handoff.",
+    "tasks": [
+      {"id":"step-0","title":"Set audience and goal","icon":"target","description":"Agree on audience, campaign objective and channel.","importance":5,"checklist":["Agree on audience, campaign objective and channel."],"dod":["Attach the deliverable or record the review decision."],"x":128,"y":194},
+      {"id":"step-1","title":"Produce the campaign assets","icon":"image","description":"Prepare brand-ready social assets with captions and alt text.","importance":5,"checklist":["Prepare brand-ready social assets with captions and alt text."],"dod":["Attach the deliverable or record the review decision."],"x":267,"y":194},
+      {"id":"step-2","title":"Review claims and discussion prompts","icon":"check","description":"Verify claims, sources and the discussion framing.","importance":5,"checklist":["Verify claims, sources and the discussion framing."],"dod":["Attach the deliverable or record the review decision."],"x":406,"y":194},
+      {"id":"step-3","title":"Verify channels and links","icon":"link","description":"Check the landing and community links before release.","importance":5,"checklist":["Check the landing and community links before release."],"dod":["Attach the deliverable or record the review decision."],"x":545,"y":194},
+      {"id":"step-4","title":"Publish and record early results","icon":"send","description":"Log the posts and early audience feedback.","importance":5,"checklist":["Log the posts and early audience feedback."],"dod":["Attach the deliverable or record the review decision."],"x":684,"y":194}
+    ],
+    "edges": [
+      ["step-0","step-1"],
+      ["step-1","step-2"],
+      ["step-2","step-3"],
+      ["step-3","step-4"]
+    ],
+    "groups": [],
+    "frames": [],
+    "layoutArrows": [],
+    "loops": [
+      {"id":"review-step-2-step-1","from":"step-2","to":"step-1","target":2,"optional":true,"count":0}
+    ]
+  },
+  {
+    "id": "pm-decision",
+    "name": "Cross-team decision & handoff",
+    "description": "Track evidence, stakeholders, the approval decision and handoff owners.",
+    "tasks": [
+      {"id":"step-0","title":"State the decision and its deadline","icon":"target","description":"Identify a driver, one approver, contributors and who needs the outcome.","importance":5,"checklist":["Identify a driver, one approver, contributors and who needs the outcome."],"dod":["Attach the deliverable or record the review decision."],"x":128,"y":194},
+      {"id":"step-1","title":"Evaluate options and trade-offs","icon":"file","description":"Link evidence and note operational or research implications.","importance":5,"checklist":["Link evidence and note operational or research implications."],"dod":["Attach the deliverable or record the review decision."],"x":267,"y":194},
+      {"id":"step-2","title":"Record stakeholder feedback","icon":"message","description":"Summarize the stakeholder feedback and remaining dissent.","importance":5,"checklist":["Summarize the stakeholder feedback and remaining dissent."],"dod":["Attach the deliverable or record the review decision."],"x":406,"y":194},
+      {"id":"step-3","title":"Approve and write the handoff","icon":"check","description":"Record the decision and assign next actions with dates.","importance":5,"checklist":["Record the decision and assign next actions with dates."],"dod":["Attach the deliverable or record the review decision."],"x":545,"y":194},
+      {"id":"step-4","title":"Check the handoff","icon":"journal","description":"Confirm next owners and record open risks.","importance":5,"checklist":["Confirm next owners and record open risks."],"dod":["Attach the deliverable or record the review decision."],"x":684,"y":194}
+    ],
+    "edges": [
+      ["step-0","step-1"],
+      ["step-1","step-2"],
+      ["step-2","step-3"],
+      ["step-3","step-4"]
+    ],
+    "groups": [],
+    "frames": [],
+    "layoutArrows": [],
+    "loops": []
+  }
+]
