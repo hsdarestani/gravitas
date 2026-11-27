@@ -50,15 +50,28 @@ find "$root/.staging-public" -maxdepth 1 -type f -name '*.html' -exec chmod 0644
 chmod 0755 "$root/.staging-public"
 chmod 0644 "$root/.staging-public/robots.txt"
 python3 "$tools/site_config.py" "$previous/nginx.conf" "$previous/expanded" "$root" "$root" --keep-workspace-routes
+python3 - "$previous/expanded" <<'PY_ROOT'
+from pathlib import Path
+import sys
+
+path = Path(sys.argv[1])
+config = path.read_text()
+before = '    location = / { return 302 /workspace-v2; }'
+after = '    location = / { try_files /.staging-public/index.html =404; }'
+if config.count(before) == 1 and after not in config:
+    path.write_text(config.replace(before, after, 1))
+elif config.count(after) != 1 or before in config:
+    raise SystemExit('Unexpected staging homepage route')
+PY_ROOT
 install -o root -g root -m 0644 "$previous/expanded" "$site"
 nginx -t
 systemctl reload nginx
 for attempt in {1..12}; do
-  if request "$domain" /site --fail --output /dev/null 2>/dev/null; then break; fi
+  if [ "$(request "$domain" / -o /dev/null -w '%{http_code}' 2>/dev/null)" = 200 ]; then break; fi
   sleep 1
 done
 
-for path in /site /lab /education /topics /topic-answer-that-looked-right /prelaunch-feedback /forum; do
+for path in / /site /lab /education /topics /topic-answer-that-looked-right /prelaunch-feedback /forum; do
   request "$domain" "$path" --fail --dump-header "$previous/response.headers" > "$previous/page.html"
   grep -Eiq '^x-robots-tag:.*noindex' "$previous/response.headers"
   grep -q 'aria-label="Environment"' "$previous/page.html"
@@ -67,11 +80,11 @@ request "$domain" /robots.txt --fail | grep -Fxq 'Disallow: /'
 for path in /workspace-v2 /workspace/core/team /login /nextcloud/status.php; do
   request "$domain" "$path" --fail --output /dev/null
 done
-test "$(request "$domain" / -o /dev/null -w '%{http_code}')" = 302
+cmp <(request "$domain" / --fail) <(request "$domain" /site --fail)
 test "$(request "$domain" /api/workspace-v2/state/ -o /dev/null -w '%{http_code}')" = 401
 test "$(request "$domain" /api/lms/courses/1/checkout/ -o /dev/null -w '%{http_code}')" = 503
 test "$backend" = "$(systemctl show "$service" -p WorkingDirectory --value)"
 health "$domain"
 health graviquest.com
 rm -f -- "$previous/response.headers" "$previous/page.html"
-printf 'Public staging routes verified. Workspace QA still serves %s. Previous staging vhost retained at %s.\n' "$revision" "$previous/nginx.conf"
+printf 'Public staging homepage and routes verified. Workspace QA still serves %s. Previous staging vhost retained at %s.\n' "$revision" "$previous/nginx.conf"
