@@ -7,7 +7,7 @@ from django.contrib.auth.password_validation import validate_password
 from django.contrib.auth.tokens import default_token_generator
 from django.core.exceptions import ValidationError
 from django.core.validators import validate_email
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from django.db.models import Q
 from django.http import JsonResponse
 from django.utils.encoding import force_bytes
@@ -233,13 +233,20 @@ def core_team(request):
     if role not in EDITABLE_ROLES:
         return _error('invalid_core_role', 400)
     password = str(payload.get('password') or '')
-    send_setup = bool(payload.get('send_setup', not password))
+    create_account = payload.get('create_account') is True
+    if create_account and settings.PUBLIC_BASE_URL != 'https://staging.graviquest.com':
+        return _error('staging_account_creation_only', 403)
+    if create_account and not password:
+        return _error('temporary_password_required', 400)
+    send_setup = not create_account and bool(payload.get('send_setup', not password))
 
     existing = User.objects.filter(Q(email__iexact=email) | Q(username__iexact=email)).first()
     created_user = False
     email_sent = False
     with transaction.atomic():
         if existing:
+            if create_account:
+                return _error('account_exists', 409)
             user = existing
             if name and user.first_name != name:
                 user.first_name = name
@@ -254,7 +261,13 @@ def core_team(request):
                 user.set_password(password)
             else:
                 user.set_unusable_password()
-            user.save()
+            try:
+                with transaction.atomic():
+                    user.save()
+            except IntegrityError:
+                if not create_account or not User.objects.filter(username__iexact=email).exists():
+                    raise
+                return _error('account_exists', 409)
             provision_personal_workspace(user)
             created_user = True
         membership, _ = WorkspaceMembership.objects.update_or_create(

@@ -81,9 +81,57 @@ from core.shared_service_access import (
     shared_with_me_layer_safe,
 )
 from core.sharing_consistency_api import sharing_v5
+from core.workspace_studio_api import (
+    studio_csrf, studio_dependency, studio_meeting, studio_project_canvas, studio_shell, studio_state, studio_task, studio_task_content, studio_task_details,
+)
 from core.workspace_pages_api import workspace_page_detail, workspace_pages
 
+from core.workspace_studio_projects import (
+    studio_idea, studio_meeting_series, studio_milestone, studio_notebook, studio_preferences, studio_project, studio_project_note, studio_result, studio_review, studio_profile, studio_template,
+    studio_template_version,
+)
+from core.workspace_studio_evidence import studio_calendar_note, studio_notebook_image
+from core.workspace_studio_settings import studio_add_member, studio_area, studio_okr_owner, studio_review_interval
+
 urlpatterns = [
+    path('workspace-v2', studio_shell),
+    path('workspace-v2/', studio_shell),
+    path('api/workspace-v2/state/', studio_state),
+    path('api/workspace-v2/projects/', studio_project),
+    path('api/workspace-v2/projects/<int:project_id>/', studio_project),
+    path('api/workspace-v2/notebook/', studio_notebook),
+    path('api/workspace-v2/projects/<int:project_id>/notes/', studio_project_note),
+    path('api/workspace-v2/calendar/notes/', studio_calendar_note),
+    path('api/workspace-v2/calendar/notes/<int:note_id>/', studio_calendar_note),
+    path('api/workspace-v2/notebook/images/', studio_notebook_image),
+    path('api/workspace-v2/notebook/images/<uuid:image_id>/', studio_notebook_image),
+    path('api/workspace-v2/projects/<int:project_id>/milestones/', studio_milestone),
+    path('api/workspace-v2/projects/<int:project_id>/milestones/<int:milestone_id>/', studio_milestone),
+    path('api/workspace-v2/projects/<int:project_id>/review/', studio_review),
+    path('api/workspace-v2/ideas/', studio_idea),
+    path('api/workspace-v2/ideas/<int:idea_id>/', studio_idea),
+    path('api/workspace-v2/results/<int:result_id>/', studio_result),
+    path('api/workspace-v2/preferences/', studio_preferences),
+    path('api/workspace-v2/review-interval/', studio_review_interval),
+    path('api/workspace-v2/profile/', studio_profile),
+    path('api/workspace-v2/areas/', studio_area),
+    path('api/workspace-v2/areas/<int:process_id>/', studio_area),
+    path('api/workspace-v2/okr-owner/<str:item_type>/<int:item_id>/', studio_okr_owner),
+    path('api/workspace-v2/members/', studio_add_member),
+    path('api/workspace-v2/members/<int:user_id>/', studio_profile),
+    path('api/workspace-v2/templates/', studio_template),
+    path('api/workspace-v2/templates/<int:template_id>/revisions/<int:number>/', studio_template_version),
+    path('api/workspace-v2/csrf/', studio_csrf),
+    path('api/workspace-v2/tasks/', studio_task),
+    path('api/workspace-v2/tasks/<int:task_id>/', studio_task),
+    path('api/workspace-v2/tasks/<int:task_id>/details/', studio_task_details),
+    path('api/workspace-v2/tasks/<int:task_id>/<slug:kind>/', studio_task_content),
+    path('api/workspace-v2/tasks/<int:task_id>/<slug:kind>/<int:item_id>/', studio_task_content),
+    path('api/workspace-v2/dependencies/', studio_dependency),
+    path('api/workspace-v2/meetings/', studio_meeting),
+    path('api/workspace-v2/meetings/<str:meeting_id>/', studio_meeting),
+    path('api/workspace-v2/meeting-series/<int:series_id>/', studio_meeting_series),
+    path('api/workspace-v2/projects/<int:project_id>/canvas/', studio_project_canvas),
     path('api/forum/config/', forum.forum_config),
     path('api/forum/moderation/classify/', forum_moderation_classify),
     path('api/forum/start/', forum.forum_start),

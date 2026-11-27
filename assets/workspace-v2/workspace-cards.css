@@ -1,0 +1,79 @@
+:root{
+  --good:#91dcb2;
+  --warning:#edc472;
+  --danger:#ffa19f
+}
+:root[data-theme="light"]{
+  --good:#246942;
+  --warning:#785408;
+  --danger:#a12939
+}
+.project-hero,.canvas-space{--good:#a1e1bc;--warning:#f1cc7d;--danger:#ffa19f}
+.status.late,.table-deadline.late,.workload-late,.impact-warning{color:var(--danger)}
+.status.attention,.status.blocked,.table-deadline.near{color:var(--warning)}
+.status.done,.table-deadline.complete{color:var(--good)}
+.milestone-diamond.attention{color:var(--warning)}
+.milestone-diamond.late,.milestone-row:has(.status.late) time{color:var(--danger)}
+.milestone-row:has(.status.attention) time{color:var(--warning)}
+.decision-box{border-left-color:var(--border-strong)}
+.decision-box.attention{border-left-color:var(--warning)}
+.decision-box.late{border-left-color:var(--danger)}
+.decision-box.done{border-left-color:var(--good)}
+.toast[data-tone="danger"]{color:var(--danger);border-color:var(--danger)}
+.toast[data-tone="success"]{color:var(--good);border-color:var(--good)}
+.canvas-space .node.late .node-signal{color:var(--danger);border-color:var(--danger)}
+.canvas-space .node.near .node-signal{color:var(--warning);border-color:var(--warning)}
+.canvas-space .node.late{--node-stroke:var(--danger)}
+.canvas-space .node.near:not(.orbit-blocked){--node-stroke:var(--warning)}
+.btn.primary.approval{background:var(--good);border-color:var(--good);color:var(--on-accent)}
+.tile-meter.complete>span{background:var(--good)}
+.planning-actions .mark-reached{color:var(--good)}
+
+/* Task signals and workflow previews */
+.cue-attention{--cue-ink:var(--warning)}
+.cue-overdue{--cue-ink:var(--danger)}
+.cue-done{--cue-ink:var(--good)}
+.cue-idea{--cue-ink:var(--subtle)}
+.card-date{display:inline-flex;align-items:center;gap:5px}
+.card-date .ico{width:13px;height:13px}
+.card-date.late{color:var(--danger)}
+.card-date.near{color:var(--warning)}
+.card-date.complete{color:var(--good)}
+.work-card-section{margin-top:21px}
+.work-card-section h2{display:flex;align-items:center;gap:6px;font-size:.96rem;font-weight:710;margin-bottom:8px}
+.work-card-section h2 .ico{width:15px;height:15px;color:var(--muted)}
+.work-card-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px}
+.work-card-grid .bento-flow{min-height:146px;gap:7px;border-radius:13px;padding:10px}
+.work-card-grid .bento-flow .tile-icon{width:27px;height:27px}
+.work-card-grid .bento-flow .bento-top{justify-content:flex-start}
+.work-card-grid .bento-flow .bento-bottom{justify-content:flex-start;gap:5px}
+.work-card-grid .bento-flow .mini-map>svg{height:83px}
+
+/* Task cards in Board and Stages share task cues and click targets. */
+.task-card{
+  min-height:111px;gap:8px;padding:11px;margin-bottom:8px;border-radius:11px;
+  box-shadow:var(--frame-shadow);transition:border-color .15s,background-color .15s
+}
+.task-card:hover{border-color:color-mix(in srgb,var(--cue-ink) 65%,var(--border))}
+.board-card-title>.ico{box-sizing:content-box;width:14px;height:14px;padding:6px;border-radius:7px;color:var(--cue-ink);background:color-mix(in srgb,var(--cue-ink) 14%,var(--well))}
+.task-card .card-date{font-size:.75rem}
+.task-card.cue-overdue{border-left:3px solid var(--danger)}
+.task-card.cue-attention{border-left:3px solid var(--warning)}
+.task-card.cue-done{border-left:3px solid var(--good)}
+.stage-task{padding:0;gap:0}
+.stage-task-open{
+  display:grid;gap:5px;text-align:left;background:transparent;border:0;border-radius:0;padding:9px 12px
+}
+.stage-task-open:hover{background:var(--hover)}
+.stage-task-open:focus-visible{outline-offset:-3px}
+.stage-task-open .stage-task-link:hover{text-decoration:none}
+.stage-task-open:is(.cue-overdue,.cue-attention,.cue-done) .tile-icon{
+  color:var(--cue-ink);border-color:color-mix(in srgb,var(--cue-ink) 33%,var(--border));
+  background:color-mix(in srgb,var(--cue-ink) 12%,var(--well))
+}
+.stage-task .stage-blockers{padding:0 12px 8px}
+
+@media(max-width:860px){.work-card-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:640px){.work-card-grid .bento-flow{grid-column:auto}}
+@media(max-width:365px){.work-card-grid{grid-template-columns:1fr}}
+@media(prefers-reduced-motion:reduce){.task-card{transition:none}}

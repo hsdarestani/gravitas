@@ -1,0 +1,56 @@
+name: Workspace Studio Validation
+
+on:
+  pull_request:
+    paths:
+      - 'assets/workspace-v2/**'
+      - 'backend/**'
+      - 'tests/workspace-studio-schedule.test.mjs'
+      - 'scripts/preview-server.mjs'
+      - '.github/workflows/workspace-studio-validation.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  integration:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: gravitas_test
+          POSTGRES_PASSWORD: local-ci-only
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      PYTHONPATH: backend
+      DJANGO_SETTINGS_MODULE: gravitas_backend.postgres_test_settings
+      TEST_POSTGRES_PASSWORD: local-ci-only
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: pip install -q -r backend/requirements.txt
+      - name: Validate migrations and canonical workspace behavior
+        run: |
+          python -m django check
+          python -m django makemigrations core --check --dry-run
+          python -m django test core.test_workspace_studio core.test_workspace_staging_settings core.test_core_task_board core.test_task_workflows core.test_task_write_concurrency core.test_platform_v3_roles core.test_canonical_projects --noinput
+      - name: Check Workspace Studio and existing Workspace modules
+        run: |
+          for module in assets/workspace-v2/*.js assets/ws/*.js; do
+            node --input-type=module --check < "$module"
+          done
+          node --check scripts/preview-server.mjs
+          node --test tests/workspace-studio-schedule.test.mjs

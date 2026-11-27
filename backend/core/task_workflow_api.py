@@ -5,9 +5,11 @@ from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
 
 from . import operating_api as base
-from .operating_models import OperatingTask, OperatingTaskWorkflow, WorkflowState, WorkStatus
+from .operating_models import OperatingTask, OperatingTaskWorkflow, WorkflowState, WorkflowTaskError, WorkStatus
 from .platform_access import can_comment, can_edit, can_view
+from .platform_runtime_v3 import core_role
 from .task_consolidation import canonical_id
+from .task_notifications import enqueue_studio_task_notice
 from .task_workflows import (
     MAX_ITEMS, MAX_TEXT, TEMPLATES, WorkflowRequestError, complete_task, finalize, install_workflow, steps_for,
     update_part, workflow_plan,
@@ -29,7 +31,7 @@ def workflow_templates(request):
     })
 
 
-def _serialize(task, workflow, steps, user, edit, comment):
+def _serialize(task, workflow, steps, user, edit, comment, studio):
     return JsonResponse({
         'ok': True,
         'workflow': {
@@ -49,13 +51,17 @@ def _serialize(task, workflow, steps, user, edit, comment):
             'viewer_id': user.pk,
             'max_items': MAX_ITEMS,
             'max_text': MAX_TEXT,
+            **({
+                'assigned_reviewers': workflow.studio_reviewers,
+                'can_assign_reviewers': edit and (task.owner_id == user.pk or core_role(user, task.workspace) in ('owner', 'admin')),
+            } if studio else {}),
         },
     })
 
 
 @require_http_methods(['GET', 'POST'])
 @transaction.atomic
-def task_workflow(request, task_id, project_id=None):
+def task_workflow(request, task_id, project_id=None, *, studio=False):
     write = request.method == 'POST'
     queryset = OperatingTask.objects.select_related('workspace', 'project')
     if write:
@@ -114,26 +120,46 @@ def task_workflow(request, task_id, project_id=None):
             return workflow_error(error)
         task.refresh_from_db(fields=['workflow_state'])
         workflow = OperatingTaskWorkflow.objects.get(task=task)
-        return _serialize(task, workflow, list(steps_for(task)), user, edit, comment)
+        return _serialize(task, workflow, list(steps_for(task)), user, edit, comment, studio)
 
     if write and payload.get('action') == 'install':
         return workflow_error(WorkflowRequestError('workflow_already_installed', 409))
     workflow = OperatingTaskWorkflow.objects.get(task=task)
     steps = list(steps_for(task))
     if not write:
-        return _serialize(task, workflow, steps, user, edit, comment)
+        return _serialize(task, workflow, steps, user, edit, comment, studio)
     try:
-        _apply(task, workflow, steps, user, edit, comment, payload)
-    except WorkflowRequestError as error:
+        _apply(task, workflow, steps, user, edit, comment, payload, studio)
+    except (WorkflowRequestError, WorkflowTaskError) as error:
         return workflow_error(error)
     workflow.revision += 1
-    workflow.save(update_fields=['revision', 'parts', 'final_approval'])
-    return _serialize(task, workflow, steps, user, edit, comment)
+    workflow.save(update_fields=['revision', 'parts', 'final_approval', 'studio_reviewers'])
+    _notify_assigned_workflow(task, workflow, user, payload)
+    return _serialize(task, workflow, steps, user, edit, comment, studio)
 
 
-def _apply(task, workflow, steps, user, edit, comment, payload):
+def _notify_assigned_workflow(task, workflow, user, payload):
     action = payload.get('action')
-    if action not in ('complete_step', 'save', 'submit', 'comment', 'request_changes', 'approve', 'finalize'):
+    if not workflow.studio_reviewers or action not in ('submit', 'request_changes', 'approve'):
+        return
+    reviewer = workflow.studio_reviewers.get(str(payload['part']))
+    if action == 'submit' and reviewer:
+        recipients, label = [reviewer], 'QA review requested'
+    elif action == 'request_changes' and reviewer:
+        part = next(row for row in workflow.parts if row['id'] == payload['part'])
+        recipients, label = [part['iterations'][-2]['submitted']['by']['id']], 'QA corrections requested'
+    elif action == 'approve' and all(row['iterations'][-1]['status'] == 'approved' for row in workflow.parts):
+        recipients, label = [workflow.studio_reviewers.get('final')], 'Final approval requested'
+    else:
+        return
+    enqueue_studio_task_notice(task, user, f'task.qa_{action}', workflow.revision, recipients, label)
+
+
+def _apply(task, workflow, steps, user, edit, comment, payload, studio):
+    action = payload.get('action')
+    if action not in ('complete_step', 'save', 'submit', 'comment', 'request_changes', 'approve', 'finalize') and not (
+        studio and action == 'assign_reviewers'
+    ):
         raise WorkflowRequestError('workflow_invalid_action')
     if not (comment if action == 'comment' else edit):
         raise WorkflowRequestError('permission_denied', 403)
@@ -143,6 +169,31 @@ def _apply(task, workflow, steps, user, edit, comment, payload):
         raise WorkflowRequestError('workflow_closed', 409)
     if canonical_id(task.pk) != task.pk:
         raise WorkflowRequestError('task_consolidated_read_only', 409)
+
+    if action == 'assign_reviewers':
+        from .models import WorkspaceMembership
+
+        if task.owner_id != user.pk and core_role(user, task.workspace) not in ('owner', 'admin'):
+            raise WorkflowRequestError('permission_denied', 403)
+        reviewers = payload.get('reviewers')
+        allowed = {'final'} | {str(part['id']) for part in workflow.parts}
+        if not isinstance(reviewers, dict) or set(reviewers) - allowed:
+            raise WorkflowRequestError('workflow_invalid_reviewers')
+        if any(type(member_id) is not int or member_id < 1 for member_id in reviewers.values()):
+            raise WorkflowRequestError('workflow_invalid_reviewers')
+        members = WorkspaceMembership.objects.filter(
+            workspace=task.workspace, user_id__in=reviewers.values(), user__is_active=True,
+        ).select_related('user')
+        eligible = {member.user_id for member in members if can_edit(member.user, task)}
+        if set(reviewers.values()) - eligible:
+            raise WorkflowRequestError('workflow_invalid_reviewers')
+        workflow.studio_reviewers = reviewers
+        return
+
+    if action in ('request_changes', 'approve', 'finalize'):
+        designated = workflow.studio_reviewers.get('final' if action == 'finalize' else str(payload.get('part')))
+        if designated and designated != user.pk:
+            raise WorkflowRequestError('workflow_assigned_reviewer_required', 403)
 
     if action == 'complete_step':
         step_id = payload.get('step')

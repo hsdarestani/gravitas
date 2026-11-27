@@ -17,6 +17,7 @@ from .models import ResearchProject
 from .models import KnowledgeResource
 from .topic_essay_sources import is_topic_essay_source
 from .platform_access import can_view, can_edit, can_manage, downloads_allowed
+from .studio_storage import StudioStoragePending, require_team_folder_ready
 
 
 def body(request):
@@ -85,6 +86,7 @@ def listing(project, user, path):
 def project_files(request, project_id):
     try:
         project = _project(request, project_id, request.method == 'POST')
+        require_team_folder_ready(project)
         if request.method == 'POST':
             data = request.POST if request.FILES else body(request)
             if data.get('action') == 'adopt':
@@ -135,6 +137,8 @@ def project_files(request, project_id):
                              'can_edit': can_edit(request.user, project), 'can_manage': can_manage(request.user, project),
                              'can_adopt': bool(getattr(settings, 'GRAVITAS_CANONICAL_ADOPTION_ENABLED', False) and can_manage(request.user, project)),
                              'items': listing(project, request.user, path), 'native_url': cloud.native_files_url(cloud.project_mountpoint(project) + ('/' + path if path else ''))})
+    except StudioStoragePending as exc:
+        return JsonResponse({'ok': False, 'error': exc.code}, status=409)
     except (CanonicalConflict, PermissionError, ValueError, cloud.CloudError, ImproperlyConfigured, ValidationError) as exc:
         return error(exc)
 

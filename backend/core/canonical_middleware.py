@@ -16,6 +16,7 @@ from .canonical_projects import CanonicalConflict, refresh_project, refresh_task
 from .canonical_models import CanonicalProject
 from .platform_access import can_view
 from .canonical_journal import write_batch, commit_witness
+from .studio_storage import StudioStoragePending
 
 
 
@@ -264,11 +265,25 @@ class CanonicalProjectMiddleware:
     def __call__(self, request):
         return self.get_response(request)
 
+    def process_exception(self, request, exception):
+        if isinstance(exception, StudioStoragePending):
+            return JsonResponse({'ok': False, 'error': exception.code}, status=409)
+        return None
+
     def process_view(self, request, view_func, view_args, view_kwargs):
         if not request.path.startswith('/api/') or not request.user.is_authenticated:
             return None
         # Do not query every project for unrelated auth/LMS/notification reads.
         relevant = any(token in request.path for token in ('projects/', 'resources/', 'mindmaps/', 'work-reports', 'notes/', 'pages/', 'tasks/', 'task-board/', 'assistant/', 'pulsar/', 'platform/share/', 'platform/folders/'))
+        if request.path.startswith('/api/workspace-v2/ideas/') and request.method == 'PATCH':
+            from .models import WorkspaceStudioIdea
+            idea_id = view_kwargs.get('idea_id')
+            project_id = WorkspaceStudioIdea.objects.filter(pk=idea_id).values_list('project_id', flat=True).first()
+            # Scope native journaling without passing an extra argument to the view.
+            project_scope = {project_id} if project_id else set()
+            relevant = True
+        else:
+            project_scope = set()
         if not relevant:
             return None
         # Workflow history lives in Django. The workflow transactions queue
@@ -338,10 +353,13 @@ class CanonicalProjectMiddleware:
         # between existing projects still uses the strict canonical boundary.
         if (request.method == 'PATCH' and
                 re.fullmatch(r'/api/(?:operating/task-board/\d+|platform/projects/\d+/tasks/\d+)/', request.path)):
-            response = deferred_task_patch(request, view_func, view_args, view_kwargs)
+            try:
+                response = deferred_task_patch(request, view_func, view_args, view_kwargs)
+            except StudioStoragePending as exc:
+                return self.process_exception(request, exc)
             if response is not None:
                 return response
-        project_ids = project_scope_for(request, view_kwargs)
+        project_ids = project_scope | project_scope_for(request, view_kwargs)
         if not project_ids and request.method in ('GET', 'HEAD', 'OPTIONS'):
             # A global list is a database snapshot, not an implicit full
             # Nextcloud crawl.
@@ -383,6 +401,8 @@ class CanonicalProjectMiddleware:
                     return response
                 finally:
                     _pending.reset(token)
+        except StudioStoragePending as exc:
+            return self.process_exception(request, exc)
         except CanonicalConflict as exc:
             return JsonResponse({'ok': False, 'error': 'canonical_file_conflict', 'conflict': exc.detail}, status=409)
         except (cloud.CloudError, ImproperlyConfigured) as exc:

@@ -1,3 +1,5 @@
+import uuid
+
 from django.conf import settings
 from django.db import models
 from django.db.models import Q
@@ -524,6 +526,142 @@ class ResearchProject(models.Model):
 
     class Meta:
         ordering = ['-updated_at']
+
+
+class WorkspaceStudioCanvas(models.Model):
+    project = models.OneToOneField(ResearchProject, on_delete=models.CASCADE, related_name='studio_layout')
+    canvas = models.JSONField(default=dict, blank=True)
+    versions = models.JSONField(default=list)
+    revision = models.PositiveIntegerField(default=0)
+
+
+class WorkspaceStudioProject(models.Model):
+    project = models.OneToOneField(ResearchProject, on_delete=models.CASCADE, related_name='studio_project')
+    process = models.ForeignKey('OperatingProcess', on_delete=models.SET_NULL, null=True, blank=True)
+    outcome = models.CharField(max_length=8, blank=True)
+    kpis = models.JSONField(default=list)
+    report = models.JSONField(default=dict)
+    completions = models.JSONField(default=list)
+    notebook = models.JSONField(default=dict)
+    updates = models.JSONField(default=list)
+    revision = models.PositiveIntegerField(default=0)
+    nextcloud_provision_at = models.DateTimeField(null=True, blank=True, db_index=True)
+
+
+class WorkspaceStudioPreferences(models.Model):
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    showroom = models.JSONField(default=dict)
+    showroom_view = models.JSONField(default=dict)
+    profile = models.JSONField(default=dict)
+
+
+class WorkspaceStudioNotebook(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    date = models.DateField()
+    blocks = models.JSONField(default=list)
+    revision = models.PositiveIntegerField(default=0)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=('user', 'date'), name='studio_notebook_user_date')]
+
+
+class WorkspaceStudioIdea(models.Model):
+    workspace = models.ForeignKey(Workspace, on_delete=models.CASCADE)
+    author = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
+    title = models.CharField(max_length=160)
+    body = models.TextField(blank=True)
+    process = models.ForeignKey('OperatingProcess', on_delete=models.SET_NULL, null=True, blank=True)
+    project = models.OneToOneField(ResearchProject, on_delete=models.SET_NULL, null=True, blank=True)
+    notes = models.JSONField(default=list)
+    referred_at = models.DateTimeField(null=True, blank=True)
+    promoted_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+
+class WorkspaceStudioCheckIn(models.Model):
+    result = models.ForeignKey('KeyResult', on_delete=models.CASCADE, related_name='studio_checkins')
+    actor = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
+    value = models.DecimalField(max_digits=16, decimal_places=4)
+    note = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+
+class WorkspaceStudioResultLink(models.Model):
+    result = models.ForeignKey('KeyResult', on_delete=models.CASCADE, related_name='studio_links')
+    project = models.ForeignKey(ResearchProject, on_delete=models.CASCADE)
+    milestone = models.ForeignKey('OperatingMilestone', on_delete=models.CASCADE, null=True, blank=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=('result', 'project'), condition=models.Q(milestone__isnull=True),
+                                    name='studio_unique_result_project'),
+            models.UniqueConstraint(fields=('result', 'milestone'), condition=models.Q(milestone__isnull=False),
+                                    name='studio_unique_result_milestone'),
+        ]
+
+
+class WorkspaceStudioCalendarNote(models.Model):
+    workspace = models.ForeignKey(Workspace, on_delete=models.CASCADE)
+    author = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    date = models.DateField()
+    text = models.CharField(max_length=2400)
+    visibility = models.CharField(max_length=8)
+    pinned = models.BooleanField(default=False)
+    updated_at = models.DateTimeField(auto_now=True)
+
+
+class WorkspaceStudioNotebookImage(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    author = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    project = models.ForeignKey(ResearchProject, on_delete=models.CASCADE, null=True, blank=True)
+    date = models.DateField(null=True, blank=True)
+    filename = models.CharField(max_length=180)
+    mime_type = models.CharField(max_length=20)
+    content = models.BinaryField()
+
+
+class WorkspaceStudioTemplate(models.Model):
+    workspace = models.ForeignKey(Workspace, on_delete=models.CASCADE)
+    author = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    name = models.CharField(max_length=120)
+    description = models.TextField(blank=True)
+    snapshot = models.JSONField()
+    revision = models.PositiveIntegerField(default=1)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=('workspace','author','name'), name='studio_unique_template_name')]
+
+
+class WorkspaceStudioTemplateRevision(models.Model):
+    template = models.ForeignKey(WorkspaceStudioTemplate, on_delete=models.CASCADE, related_name='past_revisions')
+    number = models.PositiveIntegerField()
+    description = models.TextField(blank=True)
+    snapshot = models.JSONField()
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=('template', 'number'), name='studio_unique_template_revision')]
+
+
+class WorkspaceStudioMeetingSeries(models.Model):
+    first = models.OneToOneField('OperatingMeeting', on_delete=models.CASCADE)
+    start = models.DateField()
+    end = models.DateField(null=True, blank=True)
+    defaults = models.JSONField()
+
+
+class WorkspaceStudioMeetingDetails(models.Model):
+    meeting = models.OneToOneField('OperatingMeeting', on_delete=models.CASCADE, related_name='studio_details')
+    series = models.ForeignKey(WorkspaceStudioMeetingSeries, on_delete=models.SET_NULL, null=True, blank=True)
+    slot = models.DateField(null=True, blank=True)
+    agenda = models.JSONField(default=list)
+    references = models.JSONField(default=list)
+    followups = models.JSONField(default=list)
+    pinned = models.BooleanField(default=False)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=('series','slot'), name='studio_unique_meeting_slot')]
 
 
 class ProjectMembership(models.Model):

@@ -3,13 +3,19 @@ from django.db.models.signals import post_save, pre_delete, pre_save, post_delet
 from .canonical_projects import SPECS, active, export_object, project_for, suppress, _suppressed, _pending
 from .canonical_models import CanonicalFile
 from .models import ResearchProject
+from .studio_storage import require_team_folder_ready
 from django.apps import apps
+from django.conf import settings
 
 
 def writing(sender, instance, raw=False, **kwargs):
-    if raw or _suppressed.get() or _pending.get() is not None:
+    if raw or _suppressed.get():
         return
-    if active(project_for(instance)):
+    if _pending.get() is not None and not settings.WORKSPACE_STUDIO_AUTO_TEAM_FOLDERS:
+        return
+    project = project_for(instance)
+    require_team_folder_ready(project)
+    if _pending.get() is None and active(project):
         from .canonical_journal import _batch, RecoveryRequired
         if _batch.get() is None:
             # Reject BEFORE the SQL write, rather than let a background save
@@ -32,7 +38,10 @@ def deleting(sender, instance, **kwargs):
         from django.db.models import ProtectedError
         raise ProtectedError('Generated workflow steps belong to the parent task.', [instance])
     project = project_for(instance)
-    if _suppressed.get() or not active(project):
+    if _suppressed.get():
+        return
+    require_team_folder_ready(project)
+    if not active(project):
         return
     if isinstance(instance, ResearchProject):
         # Project archival is the supported reversible operation. Hard deletion
