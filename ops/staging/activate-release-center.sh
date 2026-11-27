@@ -84,11 +84,12 @@ cleanup() {
 }
 trap cleanup EXIT
 trap 'exit 1' HUP INT TERM
+trap 'printf "Staging activation failed at line %s (exit %s).\n" "$LINENO" "$?" >&2' ERR
 
 runtime=$(sed -n 's|^ExecStart=\(/opt/gravitas-workspace-staging/releases/[0-9a-f]\{40\}/venv\)/bin/gunicorn --bind 127\.0\.0\.1:18000 .*|\1|p' "$unit")
 [[ "$runtime" =~ ^/opt/gravitas-workspace-staging/releases/[0-9a-f]{40}/venv$ ]]
 test -x "$runtime/bin/python"
-install -d -m 0755 "$source_dir"
+install -d -m 0755 "${source_dir%/source}" "$source_dir"
 git -C "$source_dir" init -q
 git -C "$source_dir" fetch --quiet --depth=1 --no-tags https://github.com/hsdarestani/gravitas.git "$candidate"
 git -C "$source_dir" checkout --detach -q FETCH_HEAD
@@ -99,6 +100,7 @@ if git -C "$source_dir" ls-tree -r HEAD | awk '$1 == 120000 || $1 == 160000 { in
 fi
 cmp "$base/releases/$held/source/backend/requirements.txt" "$source_dir/backend/requirements.txt"
 chmod -R a+rX "$source_dir"
+runuser -u "$account" -- test -x "$source_dir/backend"
 
 test "$(docker exec "$pg_container" psql -XqtA -U postgres -d postgres -v ON_ERROR_STOP=1 -c \
   "SELECT count(*) FROM pg_database d JOIN pg_roles r ON r.oid=d.datdba WHERE d.datname='$pg_database' AND r.rolname=d.datname AND NOT r.rolsuper")" = 1
