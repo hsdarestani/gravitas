@@ -2,6 +2,7 @@
 from pathlib import Path
 import re
 import sys
+from tempfile import NamedTemporaryFile
 
 PAGES = (
     'index', 'about', 'account', 'brand', 'community', 'dossiers', 'education',
@@ -29,9 +30,24 @@ FORUM_ORIGIN = re.compile(r"""https?://forum[.]graviquest[.]com(?:/[^"'\s<>]*)?"
 
 
 def staging_html(content):
+    content = re.sub(
+        r"""(?i)(\bhref=["'])(?:https?://(?:www[.])?graviquest[.]com)?/(?:index[.]html)?(?=["'])""",
+        lambda match: match[1] + '/site', content,
+    )
     content = FORUM_ORIGIN.sub('/forum.html', content)
     content = re.sub(r'(<head\b[^>]*>)', lambda match: match[0] + POLICY, content, count=1, flags=re.I)
     return re.sub(r'(<body\b[^>]*>)', lambda match: match[0] + BANNER, content, count=1, flags=re.I)
+
+
+def write_page(path, content):
+    with NamedTemporaryFile(mode='w', dir=path.parent, encoding='utf-8', delete=False) as temporary:
+        staged = Path(temporary.name)
+        temporary.write(content)
+    try:
+        staged.chmod(0o644)
+        staged.replace(path)
+    finally:
+        staged.unlink(missing_ok=True)
 
 
 def prepare(source):
@@ -47,11 +63,11 @@ def prepare(source):
         destination = public / path.name
         if destination.is_symlink():
             raise ValueError('invalid public file')
-        destination.write_text(staging_html(content))
+        write_page(destination, staging_html(content))
     robots = public / 'robots.txt'
     if robots.is_symlink():
         raise ValueError('invalid robots file')
-    robots.write_text('User-agent: *\nDisallow: /\n')
+    write_page(robots, 'User-agent: *\nDisallow: /\n')
 
 
 if __name__ == '__main__':

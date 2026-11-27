@@ -5,6 +5,7 @@ on:
     paths:
       - .github/workflows/staging-public-routes-activation.yml
       - ops/staging/expose-public-pages.sh
+      - ops/staging/public_pages.py
 permissions:
   contents: read
 concurrency:
