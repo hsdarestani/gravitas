@@ -63,7 +63,10 @@ def prepare(source):
         destination = public / path.name
         if destination.is_symlink():
             raise ValueError('invalid public file')
-        write_page(destination, staging_html(content))
+        page = staging_html(content)
+        if (source / 'assets/ws/staging-edit-page.js').is_file():
+            page = page.replace('</body>', '<script src="/assets/ws/staging-edit-page.js" defer></script></body>', 1)
+        write_page(destination, page)
     robots = public / 'robots.txt'
     if robots.is_symlink():
         raise ValueError('invalid robots file')

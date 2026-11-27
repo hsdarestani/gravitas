@@ -13,8 +13,8 @@
 document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
 }catch(e){document.documentElement.setAttribute('data-theme','dark');}})();
 </script>
-<title>GraviQuest · Science, AI and the gravity of underlying questions</title>
-<meta name="description" content="GraviQuest is a community drawn together by weighty questions in science and AI: one question at a time, with graded sources and the strongest case against our own reading.">
+<title data-visual-field="title">GraviQuest · Science, AI and the gravity of underlying questions</title>
+<meta name="description" data-visual-field="description" content="GraviQuest is a community drawn together by weighty questions in science and AI: one question at a time, with graded sources and the strongest case against our own reading.">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="GraviQuest">
 <meta property="og:url" content="https://graviquest.com/">
@@ -83,7 +83,7 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
      2026-11-05 at the owner's request: the hero read as empty without them.
      hero.js and hero.css never lost the code, so only the two elements below
      return. Both stay off on light and under reduced motion. -->
-<section class="g-hero lp-hero" id="top">
+<section data-visual-field="hero_spacing" class="g-hero lp-hero" id="top">
   <canvas class="lp-grid" id="lp-grid" aria-hidden="true"></canvas>
   <div class="g-starfield" aria-hidden="true"></div>
   <div class="lp-stars" id="lp-stars" aria-hidden="true"></div>
@@ -93,13 +93,13 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
     <div class="lp-hero__grid">
       <div class="lp-hero__col">
         <p class="g-eyebrow">Weighty Questions, Worked Through Together</p>
-        <h1 class="g-display lp-hero__title">Science, AI and the <em>Gravity</em> of <em>Questions</em></h1>
-        <p class="g-lead lp-hero__lede">A growing community of curious minds exploring science and AI one profound question at a time, and discussing each one in our forum.</p>
+        <h1 data-visual-field="heading" class="g-display lp-hero__title">Science, AI and the <em>Gravity</em> of <em>Questions</em></h1>
+        <p data-visual-field="summary" class="g-lead lp-hero__lede">A growing community of curious minds exploring science and AI one profound question at a time, and discussing each one in our forum.</p>
         <div class="g-cluster g-mt-lg">
           <a class="g-btn g-btn--primary g-btn--lg g-btn--lead" href="/signup" data-member-forum>
             <svg class="g-btn__icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><g transform="translate(0.645 0.673) scale(0.945894)" stroke-width="1.797"><path d="M2.6 20.4v-1.7a4.6 4.6 0 0 1 4.6-4.6h3.4a4.6 4.6 0 0 1 4.6 4.6v1.7"/><path d="M18.8 5.6v4.8"/><path d="M16.4 8h4.8"/><circle cx="8.9" cy="7.4" r="3.5" fill="currentColor" stroke="none"/></g></svg>
             <span>Join Us</span></a>
-          <a class="g-btn g-btn--secondary g-btn--lg" href="/topics">Explore Topics</a>
+          <a data-visual-field="cta_link" class="g-btn g-btn--secondary g-btn--lg" href="/topics"><span data-visual-field="cta_label">Explore Topics</span></a>
         </div>
         <p class="lp-hero__fine">Open to every field. Curiosity is the only requirement.</p>
       </div>

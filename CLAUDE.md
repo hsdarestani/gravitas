@@ -17,7 +17,7 @@ by SSH/rsync to a Strato VPS via `.github/workflows/deploy.yml`. Follow the
 [Development and Release Guide](docs/development-and-release-workflow.md) for
 shared staging, tracking, QA, production approval and rollback. Check the
 [staging architecture](docs/staging-architecture.md) and [feature parity matrix](docs/staging-feature-parity.md)
-before starting subsystem integration QA. Follow the exact SHA gate and the QA owner’s staging hold before switching revisions.
+before starting subsystem integration QA. See [Release Center](docs/release-center.md) and [Visual Editor](docs/visual-editor.md) for their permission, preview and publication boundaries. Follow the exact SHA gate and the QA owner’s staging hold before switching revisions.
 
 **There is no build step and no package manager.** No `package.json`, no
 bundler, no CSS preprocessor. HTML files load `assets/*.css` and `assets/*.js`

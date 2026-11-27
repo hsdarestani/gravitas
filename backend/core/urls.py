@@ -1,3 +1,4 @@
+from core.release_center_api import release_change, release_changes, release_status, visual_catalog, visual_preview
 from core.canonical_api import project_files, project_file_content, project_file_revisions
 from core.topic_essay_api import project_topic_essay_versions, project_topic_essays, public_topic_essays, topic_essay_reaction
 from core.work_reports import reports_api, report_decision_api, report_overview_api
@@ -367,6 +368,11 @@ urlpatterns = [
     path('platform/admin/labs/<int:lab_id>/revisions/', admin_lab_revisions),
     path('platform/admin/labs/<int:lab_id>/preview/', preview_lab_file),
     path('platform/admin/labs/<int:lab_id>/preview/<path:file_path>', preview_lab_file),
+    path('release-center/status/', release_status),
+    path('release-center/changes/', release_changes),
+    path('release-center/changes/<int:change_id>/', release_change),
+    path('release-center/visual/', visual_catalog),
+    path('release-center/visual/<slug:page>/preview/', visual_preview),
     path('platform/team/', core_team),
     path('platform/team/storage/', team_storage),
     path('platform/team/<int:user_id>/', core_team_member),

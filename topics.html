@@ -13,8 +13,8 @@
 document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
 }catch(e){document.documentElement.setAttribute('data-theme','dark');}})();
 </script>
-<title>Topics · GraviQuest</title>
-<meta name="description" content="Topics: one weighty question each, worked through in video, essays, sources, a timeline, simulations and discussion.">
+<title data-visual-field="title">Topics · GraviQuest</title>
+<meta name="description" data-visual-field="description" content="Topics: one weighty question each, worked through in video, essays, sources, a timeline, simulations and discussion.">
 <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
 <link rel="mask-icon" href="assets/logos/Logo_White.svg" color="#003049">
 <meta name="theme-color" content="#00263a">
@@ -73,7 +73,7 @@ document.documentElement.setAttribute('data-theme',s==='light'?'light':'dark');
     <div class="lp-hero__grid">
       <div class="lp-hero__col">
         <p class="g-eyebrow">Topics &middot; One Weighty Question at a Time</p>
-        <h1 class="g-display lp-hero__title">Pick a question. Feel its <em>pull</em>.</h1>
+        <h1 data-visual-field="heading" class="g-display lp-hero__title">Pick a question. Feel its <em>pull</em>.</h1>
         <p class="g-lead lp-hero__lede">Each Topic is one weighty question, explored through video, essays and sources, with the strongest counterpoint beside it.</p>
         <div class="g-cluster g-mt-lg">
           <a class="g-btn g-btn--primary g-btn--lg" href="#all">Browse the Topics</a>

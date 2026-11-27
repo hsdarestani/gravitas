@@ -1,3 +1,4 @@
+import { renderReleaseCenter, renderVisualEditor } from './ws-release-center.js';
 import { renderWorkReports } from './ws-work-reports.js?v=20261016-task1';
 import * as P from './ws-platform.js?v=20261016-task1&patch=20261027reliability1';
 import {
@@ -114,6 +115,9 @@ function pathKind(path = location.pathname) {
     return { kind: 'research-project', id: match[1], tab };
   }
 
+  if (/^\/workspace\/core\/(releases|visual-editor)\/?$/.test(path)) {
+    return { kind: 'release-tools', page: path.includes('visual-editor') ? 'visual' : 'center' };
+  }
   if (path === '/workspace/core/admin' || path === '/workspace/core/admin/') return { kind: 'admin', page: 'overview' };
   if (path === '/workspace/core/admin/users' || path === '/workspace/core/admin/users/') return { kind: 'admin', page: 'users' };
   match = path.match(/^\/workspace\/core\/admin\/users\/(\d+)\/?$/);
@@ -524,12 +528,26 @@ export async function renderFiveLayer(hostNode, { go: navigate, renderNotesMirro
     return true;
   }
 
+  if (route.kind === 'release-tools') {
+    setCrumbs([{label:'Core', path:'/workspace/core'}, {label:'Platform Admin', path:'/workspace/core/admin'},
+      {label:route.page === 'visual' ? 'Visual Editor' : 'Release Center'}]);
+    if (route.page === 'visual') await renderVisualEditor(host);
+    else await renderReleaseCenter(host);
+    return true;
+  }
+
   if (route.kind === 'admin') {
     if (!P.isCoreAdmin()) {
       go('/workspace/core', { replace: true });
       return true;
     }
-    renderIndex('Platform Admin', ADMIN_INDEX, 'Core owner/admin only');
+    const links = location.hostname === 'staging.graviquest.com' ? [
+      ...ADMIN_INDEX.slice(0, -1),
+      ['Release Center','/workspace/core/releases','activity','Review and track staging changes'],
+      ['Visual Editor','/workspace/core/visual-editor','topic','Prepare a page revision'],
+      ADMIN_INDEX.at(-1),
+    ] : ADMIN_INDEX;
+    renderIndex('Platform Admin', links, 'Core owner/admin only');
     if (route.page === 'nextcloud') mirrorCrumbs();
     else setCrumbs([{ label: 'Core', path: '/workspace/core' }, { label: 'Platform Admin', path: '/workspace/core/admin' }, ...(route.page === 'overview' ? [] : [{ label: adminTitle(route.page) }])]);
     if (route.page === 'overview') await renderAdminOverview(host, ctx);

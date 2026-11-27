@@ -7,3 +7,5 @@ See [CLAUDE.md](CLAUDE.md) for repository conventions, the brand system and deve
 Use the [architecture](docs/staging-architecture.md) and [staging parity matrix](docs/staging-feature-parity.md) to confirm subsystem-specific acceptance, credential scope and evidence before marking a change verified.
 
 For production, check exact-commit Platform CI, exact-commit staging acceptance and independent Final Approval. Keep the shared staging revision on hold until its QA owner releases it. Record evidence on the existing development task.
+
+Use the [Release Center](docs/release-center.md) for tracked candidate proposals and independent review. Use the [Visual Editor registry](docs/visual-editor.md) for supported fields. Preserve canonical CMS, Nextcloud, Lab and LMS records.
