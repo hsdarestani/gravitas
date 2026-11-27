@@ -15,7 +15,9 @@ The GraviQuest site (`graviquest.com`): a static public frontend, a signed-in
 workspace built as ES modules, and a Django backend under `backend/`. Deployed
 by SSH/rsync to a Strato VPS via `.github/workflows/deploy.yml`. Follow the
 [Development and Release Guide](docs/development-and-release-workflow.md) for
-shared staging, tracking, QA, production approval and rollback.
+shared staging, tracking, QA, production approval and rollback. Check the
+[staging architecture](docs/staging-architecture.md) and [feature parity matrix](docs/staging-feature-parity.md)
+before starting subsystem integration QA.
 
 **There is no build step and no package manager.** No `package.json`, no
 bundler, no CSS preprocessor. HTML files load `assets/*.css` and `assets/*.js`

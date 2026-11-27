@@ -5,8 +5,10 @@ import sys
 
 PAGES = (
     'index', 'about', 'account', 'brand', 'community', 'dossiers', 'education',
-    'education-de', 'forum', 'impressum', 'lab', 'learn', 'newsletter', 'privacy',
-    'terms', 'topic-answer-that-looked-right', 'topics', 'workspace',
+    'education-de', 'forum', 'forum-thread', 'impressum', 'lab', 'lab-prompt-bias',
+    'lab-protein-stability', 'lab-scientific-visualization', 'learn', 'newsletter',
+    'prelaunch-feedback', 'privacy', 'science-evidence', 'terms', 'topic',
+    'topic-answer-that-looked-right', 'topics', 'workspace',
 )
 BANNER = (
     '<aside aria-label="Environment" style="position:relative;z-index:1;padding:.35rem 1rem;'
@@ -41,7 +43,7 @@ def prepare(source):
         path = source / (name + '.html')
         if not path.is_file() or path.is_symlink():
             continue
-        content = FORUM_NOTICE if name == 'forum' else path.read_text()
+        content = FORUM_NOTICE if name in ('forum', 'forum-thread') else path.read_text()
         destination = public / path.name
         if destination.is_symlink():
             raise ValueError('invalid public file')

@@ -31,6 +31,30 @@ def health():
     print('Staging health and Nextcloud verified')
 
 
+def platform_routes():
+    client = build_opener(NoRedirect())
+    for path in ('/', '/site', '/lab', '/education', '/topics', '/forum', '/prelaunch-feedback'):
+        with client.open(ORIGIN + path, timeout=20) as response:
+            if response.status != 200 or 'noindex' not in response.headers.get('X-Robots-Tag', '').lower():
+                raise RuntimeError(f'{path} is unavailable or indexable')
+            page = response.read().decode()
+            if 'aria-label="Environment"' not in page:
+                raise RuntimeError(f'{path} lacks staging identification')
+            if path == '/forum' and 'https://forum.graviquest.com' in page:
+                raise RuntimeError('staging forum routes to production')
+    with client.open(ORIGIN + '/robots.txt', timeout=20) as response:
+        if b'Disallow: /' not in response.read():
+            raise RuntimeError('robots.txt does not disallow indexing')
+    for path in ('/api/staging/release/', '/api/platform/team/'):
+        try:
+            with client.open(ORIGIN + path, timeout=20):
+                raise RuntimeError(f'{path} is open without authentication')
+        except HTTPError as error:
+            if error.code != 401:
+                raise
+    print('Staging public routes, banner, noindex and authenticated access boundaries verified')
+
+
 def owner_access():
     cookies = CookieJar()
     session = build_opener(NoRedirect(), HTTPCookieProcessor(cookies))
@@ -71,6 +95,8 @@ def owner_access():
 if __name__ == '__main__':
     try:
         health()
+        if '--platform' in sys.argv:
+            platform_routes()
         if '--owner' in sys.argv:
             owner_access()
     except HTTPError as exc:

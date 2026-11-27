@@ -33,5 +33,6 @@ jobs:
           for module in assets/ws/*.js; do node --input-type=module --check < "$module"; done
           node --test tests/science-evidence.test.cjs tests/science-evidence-integration.test.cjs tests/science-universe-original.test.cjs tests/science-pulsar-scenarios.test.cjs
           bash -n ops/staging/release.sh
-          bash -n ops/staging/ssh-command
+          for script in ops/staging/*.sh ops/staging/ssh-command; do bash -n "$script"; done
+          python3 ops/staging/audit-workflows.py
           python3 -m unittest discover -s ops/staging -p 'test_*.py'

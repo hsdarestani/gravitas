@@ -9,6 +9,7 @@ from django.core.exceptions import ImproperlyConfigured
 from .settings import *  # noqa: F403
 
 
+GRAVIQUEST_STAGING = True
 STAGING_HOST = 'staging.graviquest.com'
 STAGING_ORIGIN = f'https://{STAGING_HOST}'
 STAGING_STATE = Path('/var/lib/gravitas-workspace-staging')

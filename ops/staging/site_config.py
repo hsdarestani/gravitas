@@ -23,6 +23,16 @@ def render(current, previous, release):
     routes = [
         START,
         '    location = /site { try_files /.staging-public/index.html =404; }',
+        '    location = /workspace.html { return 302 /workspace; }',
+        '    location ^~ /lab-run/ { proxy_pass http://127.0.0.1:18000; proxy_read_timeout 30s; }',
+        '    location ^~ /content/ { proxy_pass http://127.0.0.1:18000; }',
+        '    location ^~ /admin/ { proxy_pass http://127.0.0.1:18000; }',
+        '    location ^~ /assets/fonts/ {',
+        '        add_header Access-Control-Allow-Origin "*" always;',
+        '        add_header X-Content-Type-Options nosniff always;',
+        '        add_header X-Robots-Tag "noindex, nofollow" always;',
+        '        try_files $uri =404;',
+        '    }',
         '    location = /robots.txt { try_files /.staging-public/robots.txt =404; }',
     ]
     for name in PAGES:
@@ -32,9 +42,13 @@ def render(current, previous, release):
                       for route in (name, name + '.html'))
     routes.append(END)
     updated = updated.replace(FALLBACK, '\n'.join(routes) + '\n' + FALLBACK, 1)
-    return updated.replace('try_files /workspace.html =404;', 'try_files /.staging-public/workspace.html =404;').replace(
-        'try_files /account.html =404;', 'try_files /.staging-public/account.html =404;',
-    )
+    return (updated
+            .replace('location = / { return 302 /workspace-v2; }',
+                     'location = / { try_files /.staging-public/index.html =404; }')
+            .replace('location = /account.html { try_files $uri =404; }',
+                     'location = /account.html { return 302 /login; }')
+            .replace('try_files /workspace.html =404;', 'try_files /.staging-public/workspace.html =404;')
+            .replace('try_files /account.html =404;', 'try_files /.staging-public/account.html =404;'))
 
 
 if __name__ == '__main__':

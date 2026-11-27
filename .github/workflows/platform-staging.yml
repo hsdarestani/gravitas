@@ -130,7 +130,7 @@ jobs:
           STAGE_OWNER_EMAIL: ${{ secrets.WORKSPACE_STAGING_OWNER_EMAIL }}
           STAGE_OWNER_PASSWORD: ${{ secrets.WORKSPACE_STAGING_OWNER_PASSWORD }}
           STAGE_EXPECTED_REVISION: ${{ needs.select.outputs.revision }}
-        run: python3 ops/staging/smoke.py --owner
+        run: python3 ops/staging/smoke.py --owner --platform
   approve:
     if: inputs.operation == 'accept'
     needs: [select, stage]

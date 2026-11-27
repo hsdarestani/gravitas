@@ -2,6 +2,8 @@
 
 ## Environments
 
+See [Staging Architecture](staging-architecture.md) for the measured service topology and sizing, and [Staging Feature Parity](staging-feature-parity.md) for test paths and evidence.
+
 [Production](https://graviquest.com/) serves the public site and Workspace V1. [Staging](https://staging.graviquest.com/workspace-v2) is the shared QA environment. Its current release is Workspace V2 `c98c7ac358ae2869aa739751ab894f055cc56efa` for [draft PR #406](https://github.com/hsdarestani/gravitas/pull/406) and Development task #1167 in Platform Development #212. Keep that release active for the current human QA session.
 
 The workflows in this change are staged for repository review. An isolated [observation run](https://github.com/hsdarestani/gravitas/actions/runs/45966038562) verified the existing staging origin and named owner without switching revisions. Revision selection, deployment, acceptance, and the new production gate are available for manual dispatch from `main` after the workflows are approved and installed. The workflow links below show the draft source.
@@ -24,7 +26,7 @@ The authorized host audit on 2026-11-27 found 6 logical CPUs, 0.65/0.42/0.39 loa
 | Workspace V2 | Live [preview](https://staging.graviquest.com/workspace-v2). PR #406 remains on human QA. Check cross-version task edits using one synthetic task, reload both versions, and check history and role visibility. |
 | Nextcloud documents | Isolated instance and Team Folder workflows verified in [live acceptance](https://github.com/hsdarestani/gravitas/actions/runs/45875356292). Test upload, same-origin sign-on, an allowed user's download and revision history, and a denied user's access. |
 | Django APIs and migrations | Live health and anonymous access boundary verified. Run Platform CI, including migration drift; rehearse migrations against a disposable staging backup. |
-| Public frontend, Topics, Essays, Labs, Education | The current virtual host returns 404 for these pages. The candidate keeps public forms and API connections on the staging origin and adds a page allowlist at `/site`, `/topic-answer-that-looked-right.html`, `/lab.html` and `/education.html` plus related pages. When activated, verify static rendering, mobile navigation and local simulation behavior against the staging origin. |
+| Public frontend, Topics, Essays, Labs, Education | The current virtual host returns 404 for these pages. The candidate keeps public forms and API connections on the staging origin and adds a page allowlist at `/`, `/site`, `/topic-answer-that-looked-right.html`, `/lab.html` and `/education.html` plus related pages. When activated, verify static rendering, mobile navigation and local simulation behavior against the staging origin. |
 | Research, CMS, publishing, Lab Studio, learning progress | Exercise authenticated endpoints with synthetic drafts and test roles after the candidate is active. Live publishing and permissions acceptance for these surfaces is pending. |
 | Pulsar, Discourse, Open edX, payments and external notifications | Live external calls are unavailable in this staging topology. Test local behavior with CI mocks. End-to-end testing needs isolated provider credentials, quotas and test recipients, a separate forum/LMS service, or payment sandbox credentials as applicable. |
 
@@ -75,9 +77,7 @@ First configure the existing GitHub `workspace-staging` environment with a dedic
 The infrastructure owner installs the reviewed host-side commands from the candidate. Use a separate SSH user `gq-stage-deploy` with password sign-in disabled. Set the public-key entry's options to `restrict,command="/usr/local/lib/gravitas-staging/ssh-command"`. Use `visudo -f /etc/sudoers.d/gq-stage-deploy` to restrict that account to `gq-stage-deploy ALL=(root) NOPASSWD: /usr/local/lib/gravitas-staging/release.sh`. The forced command accepts only `inspect`, `deploy` and `rollback` with validated arguments. It requires the pinned staging service, database, worker and virtual host.
 
 ```sh
-sudo install -d -o root -g root -m 0755 /usr/local/lib/gravitas-staging
-sudo install -o root -g root -m 0755 ops/staging/release.sh ops/staging/ssh-command /usr/local/lib/gravitas-staging/
-sudo install -o root -g root -m 0644 ops/staging/{check_target,public_pages,site_config}.py /usr/local/lib/gravitas-staging/
+sudo ./ops/staging/install-operator.sh /secure/path/gq-stage-deploy.pub
 ```
 
 One release at a time can occupy staging. Record the QA owner, current SHA, deadline and requested next slot in the existing task. The current QA owner explicitly releases the slot. Only then does the infrastructure owner create the root-owned mode `0600` file `/etc/gravitas-workspace-staging/qa-release` containing the exact currently deployed SHA. A successful switch consumes it. If QA is in progress, queue the request and continue CI or disposable local testing.
@@ -95,7 +95,7 @@ Use `-f source=branch -f revision="$BRANCH"` to pin the current branch head, or 
 
 Use [staging login](https://staging.graviquest.com/login) and open [Core Team](https://staging.graviquest.com/workspace/core/team). The staging owner can create or add a teammate, assign a role, deactivate access and set a temporary password through the existing account service. Select the temporary-password method and share the credential through the team's secure channel. The staging mail backend captures outgoing mail in process. For the existing V2 preview, use Core Team to provision the account and then open V2 in the same session. Direct V2 onboarding requires deployment of the V2 integration and human verification.
 
-Keep named staging accounts, QA tasks and their history persistent. Use synthetic test users, projects, reports, and harmless attachment files. For repeating demo tasks, use the existing `seed_workspace_demo` command with a dedicated staging user under the staging Django settings. Its `--remove` flag targets seeded objects for that account; keep QA records in separate projects. For content QA, use a synthetic draft and test role in the relevant CMS or Studio. Use an explicitly approved, sanitized snapshot only when synthetic data cannot reproduce the issue. Refreshes are separate scheduled changes with a backup and restore review.
+Keep named staging accounts, QA tasks and their history persistent. Use synthetic test users, projects, reports, and harmless attachment files. For repeating demo tasks, use the existing `seed_workspace_demo` command with a dedicated staging user under the staging Django settings. Its `--remove` flag targets seeded objects for that account; keep QA records in separate projects. For content QA, run `python -m django staging_content_fixture qa-005 --owner "$STAGING_ADMIN_EMAIL"` under the staging systemd service environment, then use the synthetic Topic, Lab and course in their normal admin UI. Add `--remove` to remove untouched drafts only. Edited, published or enrolled records stay in normal QA history. Use an explicitly approved, sanitized snapshot only when synthetic data cannot reproduce the issue. Refreshes are separate scheduled changes with a backup and restore review.
 
 ## Human QA and approval
 
@@ -136,7 +136,7 @@ sudo systemd-run --wait --pipe --collect -p User=gq-workspace-stage \
   "$STAGING_VENV/bin/python" -m django migrate --plan
 ```
 
-Check `pg_restore --list` and rehearse restoring into a disposable staging database. For Nextcloud, coordinate a consistent staging-only DB and storage checkpoint with the infrastructure owner. An app rollback keeps the current database and files; proceed only when the targeted code is compatible with their schemas. Never restore staging backups over production. The production workflow owns its checkpoint logic in `ops/canonical_checkpoint.py` and writes production backups under `/var/backups/gravitas` and `/var/backups/gravitas-canonical`.
+Check `pg_restore --list` and rehearse restoring into a disposable staging database. The `sudo ./ops/staging/host-maintenance.sh rehearse` command validates scope, archives the stage-only databases and Nextcloud files and verifies restoration in a networkless temporary container. For Nextcloud, coordinate a consistent staging-only DB and storage checkpoint with the infrastructure owner. An app rollback keeps the current database and files; proceed only when the targeted code is compatible with their schemas. Never restore staging backups over production. The production workflow owns its checkpoint logic in `ops/canonical_checkpoint.py` and writes production backups under `/var/backups/gravitas` and `/var/backups/gravitas-canonical`.
 
 When a managed staging revision fails its origin checks, the host attempts to restore the previously working staging unit, Nginx routes and timer. After a completed deploy, a deliberate rollback selects a previously managed SHA and requires a fresh slot release.
 

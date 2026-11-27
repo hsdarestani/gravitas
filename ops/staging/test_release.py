@@ -37,6 +37,7 @@ class StagingPublicRoutes(unittest.TestCase):
     def test_switch_and_rollback_preserve_staging_api_and_nextcloud_routes(self):
         original = (
             'server {\n    server_name staging.graviquest.com;\n    root /previous;\n'
+            '    location = / { return 302 /workspace-v2; }\n'
             '    location /nextcloud/ { proxy_pass http://127.0.0.1:18081/; }\n'
             '    location /api/ { proxy_pass http://127.0.0.1:18000; }\n'
             '    location / { return 404; }\n}\n'
@@ -44,6 +45,9 @@ class StagingPublicRoutes(unittest.TestCase):
         deployed = render(original, '/previous', '/new')
         self.assertIn('root /new;', deployed)
         self.assertIn('location = /lab.html', deployed)
+        self.assertIn('location = / { try_files /.staging-public/index.html', deployed)
+        self.assertIn('location ^~ /lab-run/ { proxy_pass http://127.0.0.1:18000', deployed)
+        self.assertIn('location ^~ /admin/ { proxy_pass http://127.0.0.1:18000', deployed)
         result = render(deployed, '/new', '/previous')
         self.assertEqual(result, render(original, '/previous', '/previous'))
         self.assertIn('root /previous;', result)

@@ -6,9 +6,15 @@ from pathlib import Path
 from django.http import JsonResponse
 
 
+PAYMENT_PATH = re.compile(r'/api/lms/courses/[0-9]+/(?:checkout|payment-webhook)/')
+
+
 def staging_release_metadata(get_response):
     def middleware(request):
-        if request.path == '/api/staging/release/':
+        if PAYMENT_PATH.fullmatch(request.path):
+            response = JsonResponse({'error': 'staging_payment_sandbox_unavailable'}, status=503)
+            response['Cache-Control'] = 'private, no-store'
+        elif request.path == '/api/staging/release/':
             if request.method != 'GET':
                 response = JsonResponse({'error': 'method_not_allowed'}, status=405)
             elif not request.user.is_authenticated:
