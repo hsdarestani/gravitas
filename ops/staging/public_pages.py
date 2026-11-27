@@ -15,6 +15,23 @@ BANNER = (
 )
 
 
+POLICY = """<meta http-equiv="Content-Security-Policy" content="connect-src 'self'; form-action 'self'">"""
+FORUM_NOTICE = (
+    '<!doctype html><html lang="en"><head><meta charset="utf-8">'
+    '<meta name="viewport" content="width=device-width, initial-scale=1">'
+    '<title>Staging forum</title></head><body><main><h1>Forum</h1>'
+    '<p>An isolated Discourse instance is required to test forum accounts, posts and moderation.</p>'
+    '<p><a href="/site">Return to staging</a></p></main></body></html>'
+)
+FORUM_ORIGIN = re.compile(r"""https?://forum[.]graviquest[.]com(?:/[^"'\s<>]*)?""", re.I)
+
+
+def staging_html(content):
+    content = FORUM_ORIGIN.sub('/forum.html', content)
+    content = re.sub(r'(<head\b[^>]*>)', lambda match: match[0] + POLICY, content, count=1, flags=re.I)
+    return re.sub(r'(<body\b[^>]*>)', lambda match: match[0] + BANNER, content, count=1, flags=re.I)
+
+
 def prepare(source):
     public = source / '.staging-public'
     if public.is_symlink():
@@ -24,11 +41,11 @@ def prepare(source):
         path = source / (name + '.html')
         if not path.is_file() or path.is_symlink():
             continue
-        content = re.sub(r'(<body\b[^>]*>)', r'\1' + BANNER, path.read_text(), count=1, flags=re.I)
+        content = FORUM_NOTICE if name == 'forum' else path.read_text()
         destination = public / path.name
         if destination.is_symlink():
             raise ValueError('invalid public file')
-        destination.write_text(content)
+        destination.write_text(staging_html(content))
     robots = public / 'robots.txt'
     if robots.is_symlink():
         raise ValueError('invalid robots file')

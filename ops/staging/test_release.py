@@ -20,6 +20,20 @@ class StagingPublicRoutes(unittest.TestCase):
             self.assertIn('aria-label="Environment"', (directory / 'lab.html').read_text())
             self.assertIn('Disallow: /', (directory / 'robots.txt').read_text())
 
+    def test_staging_forum_route_cannot_redirect_to_the_production_forum(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            production = 'https://forum.graviquest.com'
+            (root / 'forum.html').write_text(f'<script>location.replace("{production}")</script>')
+            (root / 'index.html').write_text(f'<head></head><body><a href="{production}/t/1">Forum</a></body>')
+            prepare(root)
+            forum = (root / '.staging-public/forum.html').read_text()
+            homepage = (root / '.staging-public/index.html').read_text()
+            self.assertNotIn(production, forum)
+            self.assertNotIn(production, homepage)
+            self.assertIn('href="/forum.html"', homepage)
+            self.assertIn('Content-Security-Policy', homepage)
+
     def test_switch_and_rollback_preserve_staging_api_and_nextcloud_routes(self):
         original = (
             'server {\n    server_name staging.graviquest.com;\n    root /previous;\n'

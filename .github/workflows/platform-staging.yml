@@ -1,10 +1,5 @@
 name: Deploy GraviQuest to Staging
 on:
-  push:
-    branches: [ops/permanent-staging-platform]
-    paths:
-      - '.github/workflows/platform-staging.yml'
-      - 'ops/staging/smoke.py'
   workflow_dispatch:
     inputs:
       operation:
@@ -38,37 +33,8 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  observe:
-    if: github.event_name == 'push' && github.repository == 'hsdarestani/gravitas'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
-        with:
-          persist-credentials: false
-      - run: python3 ops/staging/smoke.py
-  observe-owner:
-    needs: observe
-    runs-on: ubuntu-latest
-    environment: workspace-staging
-    steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
-        with:
-          persist-credentials: false
-      - name: Verify the existing isolated staging account and Team route
-        env:
-          STAGE_OWNER_EMAIL: ${{ secrets.WORKSPACE_STAGING_OWNER_EMAIL }}
-          STAGE_OWNER_PASSWORD: ${{ secrets.WORKSPACE_STAGING_OWNER_PASSWORD }}
-          GQ_STAGING_SSH_HOST: ${{ secrets.GQ_STAGING_SSH_HOST }}
-          GQ_STAGING_SSH_KEY: ${{ secrets.GQ_STAGING_SSH_KEY }}
-          GQ_STAGING_KNOWN_HOSTS: ${{ secrets.GQ_STAGING_KNOWN_HOSTS }}
-        run: |
-          for setting in GQ_STAGING_SSH_HOST GQ_STAGING_SSH_KEY GQ_STAGING_KNOWN_HOSTS; do
-            if [ -n "${!setting}" ]; then status=configured; else status=missing; fi
-            printf '%s: %s\n' "$setting" "$status"
-          done
-          python3 ops/staging/smoke.py --owner
   select:
-    if: github.event_name == 'workflow_dispatch' && github.repository == 'hsdarestani/gravitas' && github.ref == 'refs/heads/main'
+    if: github.repository == 'hsdarestani/gravitas' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     outputs:
       revision: ${{ steps.resolve.outputs.revision }}
