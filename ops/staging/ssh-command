@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+# Install as a root-owned forced command on the dedicated staging operator key.
+set -euo pipefail
+read -r -a arguments <<< "${SSH_ORIGINAL_COMMAND:-}"
+test "${#arguments[@]}" -eq 5
+exec sudo -n /usr/local/lib/gravitas-staging/release.sh "${arguments[@]}"
