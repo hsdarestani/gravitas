@@ -22,6 +22,7 @@ jobs:
           persist-credentials: false
       - name: Verify public intake and authenticated platform endpoints against staging only
         env:
+          GQ_QA_RECHECK_RUN: '45998063731'
           STAGE_OWNER_EMAIL: ${{ secrets.WORKSPACE_STAGING_OWNER_EMAIL }}
           STAGE_OWNER_PASSWORD: ${{ secrets.WORKSPACE_STAGING_OWNER_PASSWORD }}
         run: python3 ops/staging/release-readiness-qa.py

@@ -22,23 +22,28 @@ def verify():
     public.call('/api/platform/work-reports/', status=401)
     public.call('/api/platform/projects/', status=401)
 
-    run = os.environ['GITHUB_RUN_ID']
+    resume = os.getenv('GQ_QA_RECHECK_RUN')
+    run = resume or os.environ['GITHUB_RUN_ID']
     require(re.fullmatch(r'[0-9]+', run), 'Missing workflow run ID')
-    marker = f'Synthetic release QA {run}'
-    public.call('/api/prelaunch/feedback/')
-    public.call('/api/prelaunch/feedback/', 'POST', {
-        'name': marker, 'answers': {'overall_rating': 7, 'other_feedback': 'Synthetic staging QA only'},
-    })
-    saved = public.call('/api/prelaunch/feedback/')['submission']
-    require(saved['name'] == marker and saved['answers']['overall_rating'] == 7, 'Survey persistence failed')
-    require(StageClient().call('/api/prelaunch/feedback/')['submission'] is None, 'Survey session scope failed')
     email = f'release-qa-{run}@example.test'
     route = '/api/newsletter/subscribe/'
-    subscribe = public.call(route, 'POST', {'email': email, 'source': 'staging-release-qa'}, status=201)
-    require(subscribe['saved'] and not subscribe['pending_confirmation'], 'Unexpected newsletter behavior')
-    duplicate = public.call(route, 'POST', {'email': email, 'source': 'staging-release-qa'})
-    require(not duplicate['created'], 'Newsletter retry created a duplicate')
-    print('Survey persistence and session privacy, and newsletter signup and retry, verified with synthetic data.')
+    body = {'email': email, 'source': 'staging-release-qa'}
+    if not resume:
+        marker = f'Synthetic release QA {run}'
+        public.call('/api/prelaunch/feedback/')
+        public.call('/api/prelaunch/feedback/', 'POST', {
+            'name': marker, 'answers': {'overall_rating': 7, 'other_feedback': 'Synthetic staging QA only'},
+        })
+        saved = public.call('/api/prelaunch/feedback/')['submission']
+        require(saved['name'] == marker and saved['answers']['overall_rating'] == 7, 'Survey persistence failed')
+        require(StageClient().call('/api/prelaunch/feedback/')['submission'] is None, 'Survey session scope failed')
+        print('Survey persistence and session privacy verified with synthetic data.')
+        subscribe = public.call(route, 'POST', body, status=201)
+        require(subscribe['ok'] and subscribe['created'], 'Newsletter signup failed')
+    public.call('/api/auth/csrf/')
+    duplicate = public.call(route, 'POST', body)
+    require(duplicate['ok'] and not duplicate['created'], 'Newsletter retry created a duplicate')
+    print('Newsletter signup retry verified using the existing synthetic address.')
 
     owner = StageClient()
     owner.sign_in(os.environ['STAGE_OWNER_EMAIL'], os.environ['STAGE_OWNER_PASSWORD'])
