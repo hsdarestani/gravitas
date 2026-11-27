@@ -9,7 +9,7 @@ END = '    # END MANAGED GRAVIQUEST STAGING PUBLIC'
 FALLBACK = '    location / { return 404; }'
 
 
-def render(current, previous, release):
+def render(current, previous, release, *, keep_workspace_routes=False):
     line = f'    root {previous};'
     if current.count(line) != 1 or 'server_name staging.graviquest.com;' not in current:
         raise ValueError('unexpected staging vhost')
@@ -23,7 +23,7 @@ def render(current, previous, release):
     routes = [
         START,
         '    location = /site { try_files /.staging-public/index.html =404; }',
-        '    location = /workspace.html { return 302 /workspace; }',
+        '    location ~ ^/api/lms/courses/[0-9]+/(checkout|payment-webhook)/?$ { return 503; }',
         '    location ^~ /lab-run/ { proxy_pass http://127.0.0.1:18000; proxy_read_timeout 30s; }',
         '    location ^~ /content/ { proxy_pass http://127.0.0.1:18000; }',
         '    location ^~ /admin/ { proxy_pass http://127.0.0.1:18000; }',
@@ -35,6 +35,8 @@ def render(current, previous, release):
         '    }',
         '    location = /robots.txt { try_files /.staging-public/robots.txt =404; }',
     ]
+    if not keep_workspace_routes:
+        routes.append('    location = /workspace.html { return 302 /workspace; }')
     for name in PAGES:
         if name in ('account', 'workspace'):
             continue
@@ -42,6 +44,8 @@ def render(current, previous, release):
                       for route in (name, name + '.html'))
     routes.append(END)
     updated = updated.replace(FALLBACK, '\n'.join(routes) + '\n' + FALLBACK, 1)
+    if keep_workspace_routes:
+        return updated
     return (updated
             .replace('location = / { return 302 /workspace-v2; }',
                      'location = / { try_files /.staging-public/index.html =404; }')
@@ -52,5 +56,9 @@ def render(current, previous, release):
 
 
 if __name__ == '__main__':
-    source, destination, previous_root, release_root = sys.argv[1:]
-    Path(destination).write_text(render(Path(source).read_text(), previous_root, release_root))
+    source, destination, previous_root, release_root, *options = sys.argv[1:]
+    if options not in ([], ['--keep-workspace-routes']):
+        raise SystemExit('invalid route generation options')
+    Path(destination).write_text(render(
+        Path(source).read_text(), previous_root, release_root, keep_workspace_routes=bool(options),
+    ))

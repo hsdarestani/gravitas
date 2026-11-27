@@ -106,12 +106,15 @@ jobs:
           EXPECTED: ${{ inputs.expected_current_sha }}
           REF_LABEL: ${{ needs.select.outputs.ref }}
           HOST: ${{ secrets.GQ_STAGING_SSH_HOST }}
+          SSH_PORT: ${{ vars.GQ_STAGING_SSH_PORT }}
           PRIVATE_KEY: ${{ secrets.GQ_STAGING_SSH_KEY }}
           KNOWN_HOSTS: ${{ secrets.GQ_STAGING_KNOWN_HOSTS }}
         run: |
           set -euo pipefail
           test -n "$HOST" && test -n "$PRIVATE_KEY" && test -n "$KNOWN_HOSTS"
           [[ "$HOST" =~ ^[A-Za-z0-9][A-Za-z0-9.-]*$ ]]
+          port="${SSH_PORT:-22}"
+          [[ "$port" =~ ^[1-9][0-9]{0,4}$ && "$port" -le 65535 ]]
           [[ "$REVISION" =~ ^[a-f0-9]{40}$ && "$EXPECTED" =~ ^[a-f0-9]{40}$ ]]
           [[ "$REF_LABEL" =~ ^[A-Za-z0-9][A-Za-z0-9._/-]{0,119}$ && "$GITHUB_RUN_ID" =~ ^[0-9]+$ ]]
           case "$ACTION" in accept) ACTION=inspect ;; deploy|rollback) ;; *) exit 2 ;; esac
@@ -121,7 +124,7 @@ jobs:
           printf '%s\n' "$PRIVATE_KEY" > "$keydir/key"
           printf '%s\n' "$KNOWN_HOSTS" > "$keydir/known_hosts"
           unset PRIVATE_KEY
-          ssh -i "$keydir/key" -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$keydir/known_hosts" \
+          ssh -p "$port" -i "$keydir/key" -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$keydir/known_hosts" \
             -o BatchMode=yes -o IdentitiesOnly=yes -o ConnectTimeout=10 \
             "gq-stage-deploy@$HOST" "$ACTION $REVISION $EXPECTED $GITHUB_RUN_ID $REF_LABEL" | tee staging.log
           grep -Fxq "staging_live_revision=$REVISION" staging.log

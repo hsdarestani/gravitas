@@ -25,13 +25,14 @@ class StagingPublicRoutes(unittest.TestCase):
             root = Path(folder)
             production = 'https://forum.graviquest.com'
             (root / 'forum.html').write_text(f'<script>location.replace("{production}")</script>')
-            (root / 'index.html').write_text(f'<head></head><body><a href="{production}/t/1">Forum</a></body>')
+            (root / 'index.html').write_text(f'<head></head><body><a href="{production}/t/1">Forum</a><a href="/">Home</a></body>')
             prepare(root)
             forum = (root / '.staging-public/forum.html').read_text()
             homepage = (root / '.staging-public/index.html').read_text()
             self.assertNotIn(production, forum)
             self.assertNotIn(production, homepage)
             self.assertIn('href="/forum.html"', homepage)
+            self.assertIn('href="/site">Home', homepage)
             self.assertIn('Content-Security-Policy', homepage)
 
     def test_switch_and_rollback_preserve_staging_api_and_nextcloud_routes(self):
@@ -54,6 +55,18 @@ class StagingPublicRoutes(unittest.TestCase):
         self.assertNotIn('location = /backend', result)
         self.assertIn('proxy_pass http://127.0.0.1:18081/', result)
         self.assertIn('proxy_pass http://127.0.0.1:18000;', result)
+
+    def test_public_expansion_keeps_existing_workspace_and_login_paths(self):
+        stub = ('server {\n    server_name staging.graviquest.com;\n    root /qa-release;\n'
+                '    location = / { return 302 /workspace-v2; }\n'
+                '    location = /login { try_files /account.html =404; }\n'
+                '    location / { return 404; }\n}\n')
+        expanded = render(stub, '/qa-release', '/qa-release', keep_workspace_routes=True)
+        self.assertIn('location = / { return 302 /workspace-v2; }', expanded)
+        self.assertIn('location = /login { try_files /account.html =404; }', expanded)
+        self.assertIn('location = /site', expanded)
+        self.assertIn('/(checkout|payment-webhook)/?$', expanded)
+        self.assertEqual(render(expanded, '/qa-release', '/qa-release', keep_workspace_routes=True), expanded)
 
     def test_production_and_unexpected_nginx_config_are_rejected(self):
         with self.assertRaises(ValueError):

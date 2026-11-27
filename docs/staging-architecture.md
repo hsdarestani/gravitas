@@ -2,7 +2,7 @@
 
 ## Current topology
 
-The GraviQuest production and staging origins share an existing STRATO host. The Workspace V2 QA deployment stays on `c98c7ac358ae2869aa739751ab894f055cc56efa` until the QA owner releases the staging slot. The general platform routes, managed release path and fixture commands are candidate changes in [draft PR #409](https://github.com/hsdarestani/gravitas/pull/409).
+The GraviQuest production and staging origins share an existing STRATO host. The Workspace V2 QA deployment stays on `c98c7ac358ae2869aa739751ab894f055cc56efa` until the QA owner releases the staging slot. The public frontend routes are active on the retained staging revision. The managed revision switch, authenticated release metadata and fixture command are in [draft PR #409](https://github.com/hsdarestani/gravitas/pull/409).
 
 ```mermaid
 flowchart LR
@@ -14,7 +14,7 @@ flowchart LR
 
 | Component | Production | Staging and observed difference |
 | --- | --- | --- |
-| DNS, Nginx, TLS | `graviquest.com`, `forum.graviquest.com`, `cloud.graviquest.com`, `learn.graviquest.com`, `studio.graviquest.com` | `staging.graviquest.com` has its own HTTPS vhost and valid certificate. Backends bind to loopback. The managed candidate serves the website at `/` and `/site` and explicitly allows public files. The existing QA origin returns `/workspace-v2` from `/`. |
+| DNS, Nginx, TLS | `graviquest.com`, `forum.graviquest.com`, `cloud.graviquest.com`, `learn.graviquest.com`, `studio.graviquest.com` | `staging.graviquest.com` has its own HTTPS vhost and valid certificate. Backends bind to loopback. The public website is live at `/site`. The staging root still redirects to `/workspace-v2` to preserve the existing QA launch path. The managed candidate can place the public site at `/` after the slot changes. |
 | Django and worker | `gravitas-backend.service`, loopback 8000; canonical, report, research and notification timers | `gravitas-workspace-staging.service`, loopback 18000, dedicated Linux user, 640 MiB and 75% of one CPU caps. The staging Team Folder and canonical sync worker has its own timer. The separate legacy `gravitas-backend-staging.service` on 8001 does not serve this preview. |
 | PostgreSQL | Host PostgreSQL 18.6 on loopback 5432 | Container PostgreSQL 18.7 on loopback 15432, independent databases and roles `gravitas_workspace_staging` and `workspace_staging_nextcloud`, 384 MiB cap. Match major version and test migrations against this engine. |
 | Nextcloud and caching | Nextcloud 34.0.5, loopback 8081, its own PostgreSQL 16 and Redis 7 containers | Nextcloud 34.0.5, loopback 18081, isolated database and file volume, 768 MiB cap, separately scoped SSO. No shared Redis. Django staging cache is local to its process. Redis parity for file locking and separate workers remains open. |
@@ -22,13 +22,13 @@ flowchart LR
 | Discourse | `graviquest` container, local Discourse image with its own services | No isolated instance. Candidate forum page explains how to request the test path; stage navigation stays on staging. |
 | Open edX | Tutor, Open edX 22.0.2 Indigo, Caddy, LMS and CMS with workers, MFE, MySQL, Redis, MongoDB, Meilisearch and SMTP | No isolated Tutor project. Draft native course fixtures are available separately from Tutor. |
 | External integrations | Pulsar providers, GitHub, Google OAuth, notifications and LMS payment handoff | Preexisting stage Nextcloud OIDC is scoped to the staging origin. Cash checkout and payment webhooks are blocked in the candidate pending a sandbox. Email is captured in process. Telegram, production forum, live AI providers, GitHub write integrations and production OAuth credentials are disabled or absent. |
-| Monitoring | Host health watcher, production backups, Nextcloud, forum and object-store timers | Existing stage health, Team Folder timer and PostgreSQL/Nextcloud status. Host audit captures systemd, containers, memory, disk, loopback listeners, release SHA and healthy origins. High-frequency metrics and independent off-host staging backups are pending. |
+| Monitoring | Host health watcher, production backups, Nextcloud, forum and object-store timers | Existing stage health, Team Folder timer and PostgreSQL/Nextcloud status. Host audit captures systemd, containers, memory, disk, loopback listeners, release SHA and healthy origins. The candidate adds the credential-free GitHub Staging Availability Monitor. Continuous host metrics, integration alarms and independent off-host staging backups are pending. |
 
 Production and staging do have different host manifests, PostgreSQL patch releases and Nextcloud database/cache topologies. The release workflow pins an immutable Git commit as the shared source artifact. The host prepares an installation using the current requirements lock when compatible. Packaging and promotion of the same build artifact remain future work. See the [Twelve-Factor dev/prod parity guidance](https://12factor.net/dev-prod-parity).
 
 ## Capacity and architecture decision
 
-On 2026-11-27 the host had **6 logical CPUs**, load of **0.33 / 0.44 / 0.42**, **7,855 MiB RAM** with **4,166 MiB available**, **6,144 MiB swap** with **1,631 MiB free**, and **131,163 MiB disk free out of 237,212 MiB** (45% used). Production Discourse was around **1.28 GiB** resident with a **3 GiB** cap. Staging Django, PostgreSQL and Nextcloud were approximately **78 MiB**, **56 MiB** and **239 MiB** at idle. These measurements are a point-in-time baseline. Approximately 4.4 GiB of allocated swap and existing services make startup and concurrent peak pressure relevant. [Host run](https://github.com/hsdarestani/gravitas/actions/runs/45971182346)
+On 2026-11-27 the host had **6 logical CPUs**, load of **0.43 / 0.40 / 0.40**, **7,855 MiB RAM** with **3,948 MiB available**, **6,144 MiB swap** with **1,637 MiB free**, and **131,163 MiB disk free out of 237,212 MiB** (45% used). Production Discourse was around **1.28 GiB** resident with a **3 GiB** cap. Staging Django, PostgreSQL and Nextcloud were approximately **78 MiB**, **56 MiB** and **239 MiB** at idle. These measurements are a point-in-time baseline. Approximately 4.4 GiB of allocated swap and existing services make startup and concurrent peak pressure relevant. [Host run](https://github.com/hsdarestani/gravitas/actions/runs/45972249508)
 
 | Option | Capacity and operating model | Decision |
 | --- | --- | --- |
@@ -50,6 +50,8 @@ flowchart LR
   Runner --> QA[Authenticated QA and evidence]
 ```
 
+The host operator and staging dispatcher are installed. The host verified that the staging inspect operation works and denied an unrelated command. A public key still needs enrollment. [Operator verification](https://github.com/hsdarestani/gravitas/actions/runs/45972417675)
+
 The staging operator is an independent SSH identity and is restricted to the staging host command. The protected GitHub settings store only the stage key, host and pinned known-host line. The host validates the active SHA, staging service, vhost, DB, settings, PostgreSQL socket and Nextcloud path before switching. Stage state, Nextcloud data and upload paths are mounted independently. Shared staging uses a host lock and a one-time, root-owned QA release file. See the [release guide](development-and-release-workflow.md) for the exact commands.
 
 ```sh
@@ -58,11 +60,11 @@ sudo ./ops/staging/host-maintenance.sh inventory
 sudo ./ops/staging/host-maintenance.sh rehearse
 ```
 
-The backup rehearsal caps the isolated restore container, uses the stage image with no network or published port, checks the cloud catalog against the files captured, and restores the two logical databases only to the disposable instance. The root-only backup contains staging data. Record file size, manifest verification and the active SHA. Recover the complete Nextcloud instance in an approved recovery window after validating DB, file archive and stage secrets together. Host-local checkpoints need an approved off-host staging-specific destination to withstand loss of the host.
+The backup rehearsal caps the isolated restore container, uses the stage image with no network or published port, checks the cloud catalog against the files captured, and restores the two logical databases only to the disposable instance. The [live rehearsal](https://github.com/hsdarestani/gravitas/actions/runs/45972249508) restored both database catalogs, checked the Nextcloud archive and recorded healthy staging and production apps before and after. The root-only backup contains staging data. The rehearsal preserved the recorded staging SHA and the vhost, unit and worker checkpoint. The [public routing rollout](https://github.com/hsdarestani/gravitas/actions/runs/45973767639) retained the prior staging-only vhost and verified routes after reloading Nginx. Live application revision rollback remains a separate rehearsal. Production site, forum and Nextcloud responded. The public Tutor LMS and Studio probes returned HTTP 503 through the external probe, so their public readiness remains unverified. Recover the complete Nextcloud instance in an approved recovery window after validating DB, file archive and stage secrets together. Host-local checkpoints need an approved off-host staging-specific destination to withstand loss of the host.
 
 ## Release controls and production workflow audit
 
-Run `python3 ops/staging/audit-workflows.py` to list the 72 workflows and check that the 42 paths referencing production or shared operations credentials do not silently grow. This check inventories access paths. It does not revoke capabilities already present in repository-wide secrets.
+Run `python3 ops/staging/audit-workflows.py` to list the 73 workflows and check that the 42 paths referencing production or shared operations credentials do not silently grow. This check inventories access paths. It does not revoke capabilities already present in repository-wide secrets.
 
 | Existing path | Required cutover disposition |
 | --- | --- |
