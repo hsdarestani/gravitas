@@ -1,4 +1,4 @@
-import { renderReleaseCenter, renderVisualEditor } from './ws-release-center.js';
+import { renderReleaseCenter, renderVisualEditor } from './ws-release-center.js?v=20261016-task1';
 import { renderWorkReports } from './ws-work-reports.js?v=20261016-task1';
 import * as P from './ws-platform.js?v=20261016-task1&patch=20261027reliability1';
 import {
@@ -75,6 +75,10 @@ const ADMIN_INDEX = [
   // had their colours, and they keep them.
   ['Nextcloud Mirror', '/workspace/core/admin/nextcloud', 'storage', 'Files, Notes and Deck in sync', '3'],
   ['Deck', '/workspace/core/admin/deck', 'board', 'Core tasks as Nextcloud boards'],
+  ...(location.hostname === 'staging.graviquest.com' ? [
+    ['Release Center', '/workspace/core/releases', 'activity', 'Review and track staging changes'],
+    ['Visual Editor', '/workspace/core/visual-editor', 'topic', 'Prepare a page revision'],
+  ] : []),
   ['Core', '/workspace/core', 'space-core', 'Return to the Core workspace'],
 ];
 
@@ -541,13 +545,7 @@ export async function renderFiveLayer(hostNode, { go: navigate, renderNotesMirro
       go('/workspace/core', { replace: true });
       return true;
     }
-    const links = location.hostname === 'staging.graviquest.com' ? [
-      ...ADMIN_INDEX.slice(0, -1),
-      ['Release Center','/workspace/core/releases','activity','Review and track staging changes'],
-      ['Visual Editor','/workspace/core/visual-editor','topic','Prepare a page revision'],
-      ADMIN_INDEX.at(-1),
-    ] : ADMIN_INDEX;
-    renderIndex('Platform Admin', links, 'Core owner/admin only');
+    renderIndex('Platform Admin', ADMIN_INDEX, 'Core owner/admin only');
     if (route.page === 'nextcloud') mirrorCrumbs();
     else setCrumbs([{ label: 'Core', path: '/workspace/core' }, { label: 'Platform Admin', path: '/workspace/core/admin' }, ...(route.page === 'overview' ? [] : [{ label: adminTitle(route.page) }])]);
     if (route.page === 'overview') await renderAdminOverview(host, ctx);
