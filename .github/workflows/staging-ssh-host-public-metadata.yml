@@ -11,11 +11,16 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 2
     steps:
-      - name: Compare the endpoint to the STRATO console fingerprint recorded during enrollment
+      - name: Compare the configured SSH endpoint to the recorded STRATO console fingerprint
+        env:
+          SSH_HOST: ${{ secrets.DEPLOY_HOST }}
+          SSH_PORT: ${{ secrets.DEPLOY_PORT }}
         run: |
           set -euo pipefail
-          ssh-keyscan -T 7 -t ed25519 -p 22 82.165.94.28 > host-public-key 2>/dev/null
+          port="${SSH_PORT:-22}"
+          ssh-keyscan -T 7 -t ed25519 -p "$port" "$SSH_HOST" > host-public-key 2>/dev/null
           test "$(wc -l < host-public-key)" -eq 1
           ssh-keygen -lf host-public-key | awk '{print $2}' | grep -Fxq 'SHA256:nMIMs71U9EyJylPdawERsaIKMlihd14LzsSKSXC2wms'
-          printf 'Verified public host key line: '
-          cat host-public-key
+          if [ "$SSH_HOST" = 82.165.94.28 ]; then echo documented_endpoint_matches=true; else echo documented_endpoint_matches=false; fi
+          if [ "$port" = 22 ]; then echo default_ssh_port=true; else echo default_ssh_port=false; fi
+          awk '{print "verified_public_host_key=" $2 " " $3}' host-public-key
