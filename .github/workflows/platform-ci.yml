@@ -2,7 +2,7 @@ name: GraviQuest Platform CI
 on:
   pull_request:
   push:
-    branches: [main, qa/workspace-v2-release-readiness]
+    branches: [main, qa/workspace-v2-release-readiness, qa/release-center-with-workspace-v2]
   workflow_dispatch:
 permissions:
   contents: read

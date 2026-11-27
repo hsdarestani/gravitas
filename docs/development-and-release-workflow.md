@@ -6,7 +6,7 @@ See [Staging Architecture](staging-architecture.md) for the measured service top
 
 [Production](https://graviquest.com/) serves the public site and Workspace V1. [Staging](https://staging.graviquest.com/workspace-v2) is the shared QA environment. Its current release is Workspace V2 `c98c7ac358ae2869aa739751ab894f055cc56efa` for [draft PR #406](https://github.com/hsdarestani/gravitas/pull/406) and Development task #1167 in Platform Development #212. Keep that release active for the current human QA session.
 
-The workflows in this change are staged for repository review. An isolated [observation run](https://github.com/hsdarestani/gravitas/actions/runs/45966038562) verified the existing staging origin and named owner. The additive [public site](https://staging.graviquest.com/site) is live alongside the same Workspace V2 QA deployment. [Routing deployment evidence](https://github.com/hsdarestani/gravitas/actions/runs/45973767639) Revision selection, deployment, acceptance, and the new production gate are available for manual dispatch from `main` after the workflows are approved and installed. The workflow links below show the draft source.
+An isolated [observation run](https://github.com/hsdarestani/gravitas/actions/runs/45966038562) verified the staging origin and named owner. The [public homepage](https://staging.graviquest.com/) and `/site` serve the public site alongside the same Workspace V2 QA deployment. [Routing deployment evidence](https://github.com/hsdarestani/gravitas/actions/runs/46004299281) Revision selection, deployment, acceptance, and the proposed production gate require approved workflows on `main`. The workflow links below show the draft source.
 
 ```mermaid
 flowchart LR
@@ -26,7 +26,7 @@ The authorized host audit on 2026-11-27 found 6 logical CPUs, 0.65/0.42/0.39 loa
 | Workspace V2 | Live [preview](https://staging.graviquest.com/workspace-v2). PR #406 remains on human QA. Check cross-version task edits using one synthetic task, reload both versions, and check history and role visibility. |
 | Nextcloud documents | Isolated instance and Team Folder workflows verified in [live acceptance](https://github.com/hsdarestani/gravitas/actions/runs/45875356292). Test upload, same-origin sign-on, an allowed user's download and revision history, and a denied user's access. |
 | Django APIs and migrations | Live health and anonymous access boundary verified. Run Platform CI, including migration drift; rehearse migrations against a disposable staging backup. |
-| Public frontend, Topics, Essays, Labs, Education | The staging vhost serves `/site`, `/topic-answer-that-looked-right`, `/lab` and `/education` plus related pages. The staging root preserves the Workspace V2 QA redirect. Exercise mobile navigation and local simulation behavior against the staging origin. |
+| Public frontend, Topics, Essays, Labs, Education | The staging vhost serves `/site`, `/topic-answer-that-looked-right`, `/lab` and `/education` plus related pages. The staging root serves the public homepage. The held Workspace V2 QA continues at `/workspace-v2`. [Ingress verification](https://github.com/hsdarestani/gravitas/actions/runs/46004299281) Exercise mobile navigation and local simulation behavior against the staging origin. |
 | CMS, Lab Studio and native learning | Synthetic publication and Lab revision restore verified live. Native enrollment and completed progress persisted. See the [parity matrix](staging-feature-parity.md) for the scope of the tests and the LMS archive defect. Broader Research and essay revision QA remains pending. |
 | Pulsar, Discourse, Open edX, payments and external notifications | Live external calls are unavailable in this staging topology. Test local behavior with CI mocks. End-to-end testing needs isolated provider credentials, quotas and test recipients, a separate forum/LMS service, or payment sandbox credentials as applicable. |
 
@@ -172,3 +172,7 @@ The legacy Workspace V2 preview predates this tooling. Before the first activati
 - **Developer** — Record exact scope and criteria, validate CI for the SHA, use synthetic fixtures, link the draft PR and avoid shared QA or production updates without release authorization.
 - **QA owner** — Check desktop and mobile, representative roles, persistence and relevant external boundaries. Link the numbered evidence and hold or release the staging slot.
 - **Release owner** — Verify same-SHA CI and QA, protected approval, current backups and rollback compatibility. Review and record production smoke results only after an authorized release.
+
+## Release registry and visual revisions
+
+See the [Release Center](release-center.md), [Visual Editor](visual-editor.md), and [Content Promotion and Versioning](content-promotion-and-versioning.md). Test structured content on the isolated rehearsal target. Track code and protected production approval in GitHub until the release control integration is authorized.
