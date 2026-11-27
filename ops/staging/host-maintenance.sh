@@ -56,16 +56,17 @@ runuser -u postgres -- psql -XqtA -d postgres -c 'SHOW server_version;' 2>/dev/n
   sed 's/^/production_postgresql=/' || true
 docker exec "$db" psql -XqtA -U postgres -d postgres -c 'SHOW server_version;' |
   sed 's/^/staging_postgresql=/'
-for target in 'staging.graviquest.com/nextcloud/status.php' 'graviquest.com/nextcloud/status.php'; do
+for target in 'staging.graviquest.com/nextcloud/status.php' 'cloud.graviquest.com/status.php'; do
   host=${target%%/*}
   if data=$(curl --noproxy '*' -fsS --max-time 7 --resolve "$host:443:127.0.0.1" "https://$target"); then
-    python3 -c 'import json,sys; d=json.load(sys.stdin); print(sys.argv[1], "nextcloud=" + str(d.get("versionstring")), "maintenance=" + str(d.get("maintenance")))' "$host" <<< "$data"
+    python3 -c 'import json,sys; d=json.load(sys.stdin); print(sys.argv[1], "nextcloud=" + str(d.get("versionstring")), "maintenance=" + str(d.get("maintenance")))' "$host" <<< "$data" || printf '%s status_document=unavailable\n' "$host"
   fi
 done
 systemctl show "$service" -p MemoryCurrent -p MemoryMax -p CPUQuotaPerSecUSec
 if [ "$operation" = inventory ]; then exit; fi
 
 # Fail before writing if the live staging release changes or the resources are busy.
+echo staging_backup_preflight
 exec 9>/run/lock/gravitas-workspace-staging.lock
 flock -n 9
 test "$revision" = "$(active_revision)"
@@ -81,6 +82,7 @@ proof=$(docker exec "$db" psql -XqtA -U postgres -d postgres -v ON_ERROR_STOP=1 
   WHERE (d.datname,d.datname=r.rolname,r.rolsuper) IN
       (('gravitas_workspace_staging',true,false),('workspace_staging_nextcloud',true,false));")
 test "$proof" = 2
+echo staging_mounts_and_db_roles_verified
 nextcloud_data=$(du -s -B1 "$state/nextcloud/data" | cut -f1)
 test "$nextcloud_data" -le 536870912
 
@@ -108,6 +110,7 @@ ionice -c 3 nice -n 15 tar -czf "$pending/nextcloud-files.tar.gz" --one-file-sys
 test "$start_lsn" = "$(from_wal)" || { echo 'Active staging writes overlapped the snapshot. Retry when QA is idle.' >&2; exit 1; }
 tar -tzf "$pending/nextcloud-files.tar.gz" > "$pending/nextcloud-files.contents"
 test -s "$pending/nextcloud-files.contents"
+echo stage_snapshot_and_archive_ok
 install -m 0600 "$unit" "$pending/staging.service"
 install -m 0600 "$vhost" "$pending/nginx.conf"
 for suffix in service timer; do
@@ -128,6 +131,7 @@ for try in {1..40}; do
     docker exec "$restore" psql -XqtA -U postgres -d postgres -c 'SELECT 1' | grep -Fxq 1; then break; fi
   sleep 1
 done
+echo isolated_restore_container_started
 for database in gravitas_workspace_staging workspace_staging_nextcloud; do
   docker exec "$restore" createdb -U postgres "$database"
   docker exec -i "$restore" pg_restore -U postgres --exit-on-error --no-owner --no-acl -d "$database" < "$pending/$database.dump"
