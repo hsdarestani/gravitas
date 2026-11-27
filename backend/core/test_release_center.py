@@ -1,5 +1,11 @@
+import hashlib
+import importlib.util
+from pathlib import Path
+from tempfile import TemporaryDirectory
+from threading import Thread
 from unittest.mock import patch
 
+import requests
 from django.contrib.auth import get_user_model
 from django.test import Client, TestCase, override_settings
 
@@ -141,3 +147,69 @@ class ReleaseCenterTest(TestCase):
             accepted = self.post(self.reviewer, url, data)['change']
         self.assertEqual(accepted['state'], 'ready_for_qa')
         self.assertEqual(accepted['history'][-1]['evidence']['run_id'], 15)
+
+    def test_exact_application_deploy_and_rollback_on_a_separate_live_target(self):
+        root = Path(__file__).resolve().parents[2]
+        spec = importlib.util.spec_from_file_location('isolated_release_target', root / 'ops/staging/isolated_release_target.py')
+        target = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(target)
+        baseline, candidate = 'a' * 40, 'b' * 40
+        token = 'dedicated-isolated-test-token-' + 'x' * 32
+        repository = 'hsdarestani/gravitas'
+        run = {'repository': {'full_name': repository}, 'head_repository': {'full_name': repository},
+               'head_sha': candidate, 'path': '.github/workflows/platform-ci.yml',
+               'status': 'completed', 'conclusion': 'success'}
+        with TemporaryDirectory() as directory:
+            artifacts = Path(directory)
+            (artifacts / '.isolated-release-target').write_text(target.TARGET)
+            for revision, label in ((baseline, 'Original artifact'), (candidate, 'Approved candidate artifact')):
+                bundle = artifacts / 'artifacts' / revision
+                bundle.mkdir(parents=True)
+                (bundle / 'index.html').write_text(label)
+            with target.create_server(target.Target(artifacts, baseline), token, 0) as server:
+                port = server.server_port
+                thread = Thread(target=server.serve_forever, daemon=True)
+                thread.start()
+                try:
+                    url = f'http://127.0.0.1:{port}'
+                    headers = {'Authorization': f'Bearer {token}'}
+                    self.assertEqual(requests.get(url + '/health', timeout=3).status_code, 403)
+                    with self.settings(ISOLATED_RELEASE_TOKEN=token, ISOLATED_RELEASE_PORT=port):
+                        draft = self.post(self.author, BASE, {
+                            'kind': 'development', 'title': 'Isolated application release',
+                            'sha': candidate, 'previous_sha': baseline,
+                        }, 201)['change']
+                        self.step(draft, self.manager, 'rehearse_application', 409)
+                        change = self.step(draft, self.author, 'submit')
+                        change = self.step(change, self.reviewer, 'validate')
+                        endpoint = f"{BASE}{change['id']}/"
+                        with patch('core.release_evidence.public_json', return_value=run):
+                            change = self.post(self.reviewer, endpoint, {
+                                'action': 'ready', 'sequence': change['sequence'], 'note': 'Exact CI', 'ci_run': 14,
+                            })['change']
+                        change = self.step(change, self.reviewer, 'review')
+                        change = self.step(change, self.reviewer, 'approve')
+                        self.step(change, self.author, 'rehearse_application', 403)
+                        result = self.step(change, self.manager, 'rehearse_application')
+                        self.assertEqual(result['state'], 'released')
+                        receipt = result['history'][-1]['evidence']
+                        self.assertEqual(receipt['digest'], hashlib.sha256(b'Approved candidate artifact').hexdigest())
+                        self.assertEqual(requests.get(url, headers=headers, timeout=3).text, 'Approved candidate artifact')
+                        duplicate = requests.post(url + '/release', headers=headers, timeout=3, json={
+                            'operation': 'deploy', 'key': receipt['key'], 'expected': baseline, 'revision': candidate,
+                        })
+                        self.assertEqual(duplicate.json(), receipt)
+                        stale = requests.post(url + '/release', headers=headers, timeout=3, json={
+                            'operation': 'deploy', 'key': '9000.1.deploy', 'expected': baseline, 'revision': candidate,
+                        })
+                        self.assertEqual(stale.status_code, 409)
+                        restored = self.step(result, self.manager, 'rollback_application')
+                        self.assertEqual(restored['state'], 'rolled_back')
+                        self.assertEqual(restored['history'][-1]['evidence']['revision'], baseline)
+                        self.assertEqual(requests.get(url, headers=headers, timeout=3).text, 'Original artifact')
+                        meta = self.clients[self.manager.pk].get(BASE).json()
+                        self.assertFalse(meta['production_enabled'])
+                        self.assertTrue(meta['capabilities']['isolated_application'])
+                finally:
+                    server.shutdown()
+                    thread.join(timeout=5)

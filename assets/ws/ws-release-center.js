@@ -15,8 +15,8 @@ const actions = {
   awaiting_validation: [['ready', 'Ready for QA']],
   ready_for_qa: [['review', 'Start review']],
   in_review: [['approve', 'Approve'], ['corrections', 'Request corrections'], ['reject', 'Reject']],
-  approved: [['rehearse', 'Publish to isolated preview']],
-  released: [['restore', 'Draft a restoration']],
+  approved: [['rehearse', 'Publish to isolated preview'], ['rehearse_application', 'Deploy to isolated release target']],
+  released: [['restore', 'Draft a restoration'], ['rollback_application', 'Roll back isolated release']],
 };
 
 function node(tag, value, attrs = {}) {
@@ -127,9 +127,12 @@ async function details(id, holder, capabilities, userId, refresh) {
       holder.append(field('Successful Platform CI run ID', ciRun));
     }
     for (const [action, text] of actions[change.state] || []) {
+      const isolated = action === 'rehearse_application' || action === 'rollback_application';
       const visible = action === 'submit' ? capabilities.author && actorIsAuthor :
         action === 'rehearse' ? capabilities.rehearse && change.kind === 'visual' :
         action === 'restore' ? capabilities.author && change.kind === 'visual' :
+        isolated ? capabilities.isolated_application && capabilities.rehearse && !actorIsAuthor &&
+          change.kind === 'development' && change.sha && change.previous_sha :
         capabilities.review && !actorIsAuthor;
       if (!visible) continue;
       const control = button(text, () => perform(control, message, async () => {
@@ -150,7 +153,8 @@ async function details(id, holder, capabilities, userId, refresh) {
     history.append(node('summary', 'Review history and versions'));
     const events = node('ol');
     for (const event of change.history) {
-      events.append(node('li', `${event.action.replaceAll('_', ' ')} · revision ${event.revision} · ${event.actor__username} · ${new Date(event.created_at).toLocaleString()}${event.evidence.note ? ` — ${event.evidence.note}` : ''}`));
+      const evidence = event.evidence.revision ? ` · ${event.evidence.target} · ${event.evidence.revision}` : '';
+      events.append(node('li', `${event.action.replaceAll('_', ' ')} · revision ${event.revision} · ${event.actor__username} · ${new Date(event.created_at).toLocaleString()}${evidence}${event.evidence.note ? ` — ${event.evidence.note}` : ''}`));
     }
     history.append(events);
     for (const version of change.versions) {
