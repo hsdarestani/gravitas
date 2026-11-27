@@ -6,7 +6,7 @@ See [Staging Architecture](staging-architecture.md) for the measured service top
 
 [Production](https://graviquest.com/) serves the public site and Workspace V1. [Staging](https://staging.graviquest.com/workspace-v2) is the shared QA environment. Its current release is Workspace V2 `c98c7ac358ae2869aa739751ab894f055cc56efa` for [draft PR #406](https://github.com/hsdarestani/gravitas/pull/406) and Development task #1167 in Platform Development #212. Keep that release active for the current human QA session.
 
-The workflows in this change are staged for repository review. An isolated [observation run](https://github.com/hsdarestani/gravitas/actions/runs/45966038562) verified the existing staging origin and named owner. The additive [public site](https://staging.graviquest.com/site) is live alongside the same Workspace V2 QA deployment. [Routing deployment evidence](https://github.com/hsdarestani/gravitas/actions/runs/45973767639) Revision selection, deployment, acceptance, and the new production gate are available for manual dispatch from `main` after the workflows are approved and installed. The workflow links below show the draft source.
+An isolated [observation run](https://github.com/hsdarestani/gravitas/actions/runs/45966038562) verified the staging origin and named owner. The [public homepage](https://staging.graviquest.com/) and `/site` serve the public site alongside the same Workspace V2 QA deployment. [Routing deployment evidence](https://github.com/hsdarestani/gravitas/actions/runs/46004299281) Revision selection, deployment, acceptance, and the proposed production gate require approved workflows on `main`. The workflow links below show the draft source.
 
 ```mermaid
 flowchart LR
