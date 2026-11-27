@@ -10,7 +10,6 @@ db=$service-postgres
 cloud=$service-nextcloud
 unit=/etc/systemd/system/$service.service
 vhost=/etc/nginx/sites-available/$service
-worktree=/opt/$service
 domain=staging.graviquest.com
 operation=${1:-inventory}
 case "$operation" in inventory|rehearse) ;; *) exit 2 ;; esac
@@ -58,7 +57,7 @@ docker exec "$db" psql -XqtA -U postgres -d postgres -c 'SHOW server_version;' |
   sed 's/^/staging_postgresql=/'
 for target in 'staging.graviquest.com/nextcloud/status.php' 'cloud.graviquest.com/status.php'; do
   host=${target%%/*}
-  if data=$(curl --noproxy '*' -fsS --max-time 7 --resolve "$host:443:127.0.0.1" "https://$target"); then
+  if data=$(curl --noproxy '*' -sSf --max-time 7 --resolve "$host:443:127.0.0.1" "https://$target"); then
     python3 -c 'import json,sys; d=json.load(sys.stdin); print(sys.argv[1], "nextcloud=" + str(d.get("versionstring")), "maintenance=" + str(d.get("maintenance")))' "$host" <<< "$data" || printf '%s status_document=unavailable\n' "$host"
   fi
 done
@@ -98,17 +97,24 @@ cleanup() {
   exit "$status"
 }
 trap cleanup EXIT
-from_wal() {
-  docker exec "$db" psql -XqtA -U postgres -d postgres -v ON_ERROR_STOP=1 -c 'SELECT pg_current_wal_insert_lsn()'
+cloud_catalog() {
+  docker exec "$db" psql -XqtA -U postgres -d workspace_staging_nextcloud -v ON_ERROR_STOP=1 -c "
+    SELECT md5(coalesce(string_agg(md5(row::text), '' ORDER BY fileid), '')) FROM oc_filecache row;
+    SELECT md5(coalesce(string_agg(md5(row::text), '' ORDER BY id), '')) FROM oc_share row;"
 }
-start_lsn=$(from_wal)
+start_catalog=$(cloud_catalog)
 for database in gravitas_workspace_staging workspace_staging_nextcloud; do
   docker exec "$db" nice -n 15 pg_dump --lock-wait-timeout=4000 -U postgres -Fc "$database" > "$pending/$database.dump"
   docker exec -i "$db" pg_restore --list < "$pending/$database.dump" > "$pending/$database.contents"
 done
 ionice -c 3 nice -n 15 tar -czf "$pending/nextcloud-files.tar.gz" --one-file-system   --exclude='./data/nextcloud.log*' --exclude='./data/audit.log*' --exclude='./data/updater.log*'   -C "$state/nextcloud" ./data ./config
-test "$start_lsn" = "$(from_wal)" || { echo 'Active staging writes overlapped the snapshot. Retry when QA is idle.' >&2; exit 1; }
+test "$start_catalog" = "$(cloud_catalog)" || { echo 'Nextcloud catalog changed during the snapshot. Retry when file QA is idle.' >&2; exit 1; }
 tar -tzf "$pending/nextcloud-files.tar.gz" > "$pending/nextcloud-files.contents"
+(
+  cd "$pending"
+  sha256sum -- *.dump nextcloud-files.tar.gz > SHA256SUMS
+  sha256sum --check --quiet SHA256SUMS
+)
 test -s "$pending/nextcloud-files.contents"
 echo stage_snapshot_and_archive_ok
 install -m 0600 "$unit" "$pending/staging.service"
