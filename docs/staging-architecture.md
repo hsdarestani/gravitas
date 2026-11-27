@@ -40,6 +40,15 @@ Tutor recommends 8 GiB RAM, 4 CPUs and 25 GB disk on its own. The Discourse inst
 
 For a dedicated host, once authorized, provision a Linux VM with SSH access, Docker and Compose and its own firewall. Pin the measured production versions and provision independent DB, storage, Redis and issuer secrets. Create `forum-staging.graviquest.com`, `learn-staging.graviquest.com` and, if needed by Tutor, `studio-staging.graviquest.com` DNS records pointing to that host. Issue separate TLS certificates. Give each service a separate Compose project name, network and volume prefix and configure reverse proxies through loopback. Use staging OAuth/Discourse Connect client IDs and callbacks and a captured SMTP destination. Certify isolation and test each service separately before advertising its URL. Evaluate ephemeral PR environments after shared staging usage demonstrates the need.
 
+
+### Dedicated service configuration
+
+`ops/staging/services/discourse.py` renders the pinned Discourse container configuration. On the approved separate server, check out the official `discourse_docker` at the commit printed by `python3 ops/staging/services/discourse.py --launcher-commit`. In the dedicated launcher directory, use `umask 077` and run `python3 /path/to/ops/staging/services/discourse.py < /secure/discourse-connect-secret > containers/graviquest-stage.yml`. Create the Docker network `graviquest-staging-forum`, run a stage-only SMTP catcher named `mailpit-staging` on that network at port 1025 and bootstrap `graviquest-stage` with the pinned launcher. The forum binds loopback port 18882 and stores data under `/var/lib/graviquest-staging/discourse`. Keep the catcher UI private and disable mail relay and forwarding.
+
+On that separate server, create root-owned `/etc/graviquest-staging-services` with the value `dedicated-staging-services`. Run `sudo ./ops/staging/services/tutor.sh config` to generate the pinned Tutor configuration. This guard refuses a host with an existing GraviQuest application service or under 24 GiB physical RAM. Before `launch`, provision stage-only SMTP capture so the Tutor project can resolve `mailpit-staging` on its Docker network. The local project is `graviquest_stage_openedx`, state lives under `/var/lib/graviquest-staging/tutor`, and Caddy binds loopback port 8182. Configure TLS for the integration subdomains and the Tutor MFE `apps.learn-staging.graviquest.com`, using `ops/staging/services/ingress.conf`. Tutor’s external-proxy mode requires the forwarded host and HTTPS scheme. See the [official Tutor proxy procedure](https://docs.tutor.edly.io/tutorials/proxy.html).
+
+Both configurations are prepared for a dedicated deployment. The staging Django bridge still needs service-specific SSO credentials and its own end-to-end acceptance. No provider credentials or generated secrets belong in Git.
+
 ## Credentials and access
 
 ```mermaid

@@ -109,15 +109,26 @@ class ReleaseEvidence(unittest.TestCase):
 
     def test_protection_requires_reviewers_self_review_block_and_branch_policy(self):
         review = dict(type='required_reviewers', reviewers=[{'id': 1}], prevent_self_review=True)
-        branches = dict(protected_branches=True, custom_branch_policies=False)
-        approved_environment(dict(protection_rules=[review], deployment_branch_policy=branches))
+        branches = dict(protected_branches=False, custom_branch_policies=True)
+        environment = dict(protection_rules=[review], deployment_branch_policy=branches)
+        rule = {'type': 'branch', 'name': 'main'}
+        exact = {'total_count': 1, 'branch_policies': [rule]}
+        approved_environment(environment, exact)
         for update in (
             {'protection_rules': []},
             {'protection_rules': [{**review, 'prevent_self_review': False}]},
+            {'can_admins_bypass': True},
             {'deployment_branch_policy': dict(protected_branches=False, custom_branch_policies=False)},
         ):
             with self.subTest(update=update), self.assertRaises(ValueError):
-                approved_environment({**dict(protection_rules=[review], deployment_branch_policy=branches), **update})
+                approved_environment({**environment, **update}, exact)
+        for policy in (
+            {'total_count': 2, 'branch_policies': [rule, {'type': 'branch', 'name': 'release/*'}]},
+            {'total_count': 1, 'branch_policies': [{'type': 'tag', 'name': 'main'}]},
+            {'total_count': 1, 'branch_policies': [{'type': 'branch', 'name': '*'}]},
+        ):
+            with self.subTest(policy=policy), self.assertRaises(ValueError):
+                approved_environment(environment, policy)
 
 
 if __name__ == '__main__':

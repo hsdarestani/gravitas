@@ -80,11 +80,15 @@ jobs:
           [[ "$selected" =~ ^[0-9a-f]{40}$ ]]
           gh api "repos/$GITHUB_REPOSITORY/actions/runs/$CI_RUN" > ci.json
           python3 ops/staging/release_gate.py ci ci.json "$GITHUB_REPOSITORY" "$selected"
+          gh api "repos/$GITHUB_REPOSITORY/environments/workspace-staging" > staging-protection.json
+          gh api "repos/$GITHUB_REPOSITORY/environments/workspace-staging/deployment-branch-policies" > staging-branches.json
+          python3 ops/staging/release_gate.py environment staging-protection.json staging-branches.json
           if [ "$MODE" = accept ]; then
             test "$selected" = "$EXPECTED"
             [[ "$QA" =~ ^[A-Za-z0-9][A-Za-z0-9._/-]{0,119}$ ]]
             gh api "repos/$GITHUB_REPOSITORY/environments/staging-final-approval" > approval.json
-            python3 ops/staging/release_gate.py environment approval.json
+            gh api "repos/$GITHUB_REPOSITORY/environments/staging-final-approval/deployment-branch-policies" > approval-branches.json
+            python3 ops/staging/release_gate.py environment approval.json approval-branches.json
           fi
           printf 'revision=%s\nref=%s\n' "$selected" "$ref" >> "$GITHUB_OUTPUT"
           printf 'Staging candidate %s at `%s`.\n' "$ref" "$selected" >> "$GITHUB_STEP_SUMMARY"

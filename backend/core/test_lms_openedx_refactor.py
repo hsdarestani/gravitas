@@ -209,6 +209,49 @@ class OpenEdXLmsRefactorTests(TestCase):
         self.assertEqual(LessonProgress.objects.get(pk=progress_id).lesson_id, lesson['id'])
         self.assertTrue(LessonProgress.objects.get(pk=progress_id).completed)
 
+    def test_publishing_an_archive_revision_withdraws_the_course(self):
+        course = self.create_course(slug='course-to-archive')
+        detail = f"/api/lms/courses/{course['id']}/"
+        self.assertEqual(self.client.get(detail).json()['course']['status'], 'published')
+        edit = self.patch_json(detail, {'status': 'archived'})
+        self.assertEqual(edit.status_code, 200, edit.content)
+        self.assertTrue(edit.json()['staged'])
+        self.assertEqual(self.client.get(detail).json()['course']['status'], 'published')
+
+        published = self.post_json(detail + 'revision/publish/', {'action': 'publish_now'})
+        self.assertEqual(published.status_code, 200, published.content)
+        self.assertEqual(published.json()['course']['status'], 'archived')
+        self.assertEqual(published.json()['course']['modules'][0]['id'], course['modules'][0]['id'])
+        self.client.logout()
+        self.assertEqual(self.client.get(detail).status_code, 404)
+        slugs = {row['slug'] for row in self.client.get('/api/lms/courses/').json()['courses']}
+        self.assertNotIn('course-to-archive', slugs)
+
+    def test_scheduled_archive_withdraws_the_course_at_the_requested_time(self):
+        course = self.create_course(slug='scheduled-archive')
+        detail = f"/api/lms/courses/{course['id']}/"
+        self.assertEqual(self.patch_json(detail, {'status': 'archived'}).status_code, 200)
+        due = timezone.now() + timedelta(hours=1)
+        scheduled = self.post_json(detail + 'revision/publish/', {
+            'action': 'schedule', 'scheduled_for': due.isoformat(),
+        })
+        self.assertEqual(scheduled.status_code, 200, scheduled.content)
+        self.assertEqual(publish_scheduled_course_revisions(now=due - timedelta(seconds=1)), 0)
+        self.assertEqual(publish_scheduled_course_revisions(now=due), 1)
+        self.assertEqual(publish_scheduled_course_revisions(now=due), 0)
+        self.assertEqual(self.client.get(detail).json()['course']['status'], 'archived')
+
+    def test_instructor_cannot_apply_a_pending_archive_revision(self):
+        course = self.create_course(slug='admin-archive-review')
+        detail = f"/api/lms/courses/{course['id']}/"
+        CourseInstructor.objects.create(course_id=course['id'], user=self.learner,
+                                        role=CourseInstructor.Role.INSTRUCTOR)
+        self.assertEqual(self.patch_json(detail, {'status': 'archived'}).status_code, 200)
+        self.client.force_login(self.learner)
+        denied = self.post_json(detail + 'revision/publish/', {'action': 'publish_now'})
+        self.assertEqual(denied.status_code, 403, denied.content)
+        self.assertEqual(Course.objects.get(pk=course['id']).status, Course.Status.PUBLISHED)
+
     def test_instructor_edits_stay_draft_until_scheduled_publish(self):
         course = self.create_course(
             slug='instructor-revision-course',

@@ -748,14 +748,17 @@ def _active_course_revision(course):
     )
 
 
+@transaction.atomic
 def _stage_course_revision(course, author, patch):
     if not isinstance(patch, dict):
         raise ValueError('invalid_revision_payload')
+    course = Course.objects.select_for_update().get(pk=course.pk)
     revision = _active_course_revision(course)
     payload = dict(revision.payload or {}) if revision else _course_revision_payload(course)
     patch = dict(patch)
     if not _is_core_admin(author):
         patch.pop('instructors', None)
+        patch.pop('status', None)
         if 'payment_config' in patch and isinstance(patch.get('payment_config'), dict):
             payment = dict(patch['payment_config'])
             existing_payment = dict(payload.get('payment_config') or {})
@@ -825,20 +828,30 @@ def _apply_course_payload(course, data):
     return course
 
 
-def _publish_course_revision(revision, actor=None):
+def _publish_course_revision(revision, actor=None, *, scheduled_by=None):
     with transaction.atomic():
+        course = Course.objects.select_for_update().get(pk=revision.course_id)
         revision = CourseRevision.objects.select_for_update().select_related('course', 'author').get(pk=revision.pk)
         if revision.status not in {CourseRevision.Status.DRAFT, CourseRevision.Status.SCHEDULED}:
-            return revision
-        course = Course.objects.select_for_update().get(pk=revision.course_id)
+            return None
+        if scheduled_by is not None and (
+            revision.status != CourseRevision.Status.SCHEDULED
+            or not revision.scheduled_for
+            or revision.scheduled_for > scheduled_by
+        ):
+            return None
         payload = dict(revision.payload or {})
-        payload['status'] = Course.Status.PUBLISHED
+        publisher = actor if actor and getattr(actor, 'is_authenticated', False) else revision.author
+        archives_course = payload.get('status') == Course.Status.ARCHIVED
+        if (archives_course or course.status == Course.Status.ARCHIVED) and not _is_core_admin(publisher):
+            raise ValueError('core_admin_required_for_course_archive')
+        payload['status'] = Course.Status.ARCHIVED if archives_course else Course.Status.PUBLISHED
         _apply_course_payload(course, payload)
         now = timezone.now()
         revision.status = CourseRevision.Status.PUBLISHED
         revision.published_at = now
         revision.scheduled_for = None
-        revision.published_by = actor if actor and getattr(actor, 'is_authenticated', False) else revision.author
+        revision.published_by = publisher
         revision.save(update_fields=['status', 'published_at', 'scheduled_for', 'published_by', 'updated_at'])
         CourseRevision.objects.filter(
             course=course,
@@ -846,7 +859,7 @@ def _publish_course_revision(revision, actor=None):
         ).exclude(pk=revision.pk).update(status=CourseRevision.Status.CANCELLED, scheduled_for=None)
     record_activity(
         layer=ActivityEvent.Layer.LMS,
-        action='course.revision_published',
+        action='course.archived' if archives_course else 'course.revision_published',
         actor=revision.published_by,
         object_type='course',
         object_id=revision.course_id,
@@ -867,8 +880,8 @@ def publish_scheduled_course_revisions(now=None):
     published = 0
     for revision in rows:
         try:
-            _publish_course_revision(revision, revision.author)
-            published += 1
+            if _publish_course_revision(revision, scheduled_by=now):
+                published += 1
         except (ValueError, IntegrityError):
             continue
     return published
@@ -1092,12 +1105,13 @@ def lms_course_revision(request, course_id):
 
 
 @require_http_methods(['POST'])
+@transaction.atomic
 def lms_course_revision_publish(request, course_id):
     denied = _auth_required(request)
     if denied:
         return denied
     try:
-        course = Course.objects.get(pk=course_id)
+        course = Course.objects.select_for_update().get(pk=course_id)
     except Course.DoesNotExist:
         return JsonResponse({'ok': False, 'error': 'course_not_found'}, status=404)
     if not _can_author_course(request.user, course):
@@ -1114,6 +1128,12 @@ def lms_course_revision_publish(request, course_id):
         revision.scheduled_for = None
         revision.save(update_fields=['status', 'scheduled_for', 'updated_at'])
         return JsonResponse({'ok': True, 'revision': _revision_json(revision, request.user)})
+
+    changes_archive_state = (
+        revision.payload.get('status') == Course.Status.ARCHIVED or course.status == Course.Status.ARCHIVED
+    )
+    if changes_archive_state and not _is_core_admin(request.user):
+        return JsonResponse({'ok': False, 'error': 'core_admin_required_for_course_archive'}, status=403)
 
     if action == 'schedule':
         raw = str(data.get('scheduled_for') or '').strip()
@@ -1147,6 +1167,8 @@ def lms_course_revision_publish(request, course_id):
         return JsonResponse({'ok': False, 'error': str(exc)}, status=400)
     except IntegrityError:
         return JsonResponse({'ok': False, 'error': 'course_slug_exists'}, status=409)
+    if revision is None:
+        return JsonResponse({'ok': False, 'error': 'course_revision_changed'}, status=409)
     course.refresh_from_db()
     return JsonResponse({
         'ok': True,

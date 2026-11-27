@@ -47,9 +47,10 @@ jobs:
           [[ "$RELEASE" =~ ^[a-f0-9]{40}$ && "$CI_RUN" =~ ^[0-9]+$ && "$ACCEPTANCE_RUN" =~ ^[0-9]+$ ]]
           test "$RELEASE" = "$(gh api "repos/$GITHUB_REPOSITORY/branches/main" --jq .commit.sha)"
           gh api "repos/$GITHUB_REPOSITORY/environments/production" > protection.json
+          gh api "repos/$GITHUB_REPOSITORY/environments/production/deployment-branch-policies" > production-branches.json
           gh api "repos/$GITHUB_REPOSITORY/actions/runs/$CI_RUN" > ci.json
           gh api "repos/$GITHUB_REPOSITORY/actions/runs/$ACCEPTANCE_RUN" > staging.json
-          python3 ops/staging/release_gate.py environment protection.json
+          python3 ops/staging/release_gate.py environment protection.json production-branches.json
           python3 ops/staging/release_gate.py ci ci.json "$GITHUB_REPOSITORY" "$RELEASE"
           python3 ops/staging/release_gate.py staging staging.json "$GITHUB_REPOSITORY"
           gh run download "$ACCEPTANCE_RUN" --repo "$GITHUB_REPOSITORY" --name staging-acceptance --dir staging-proof
@@ -113,48 +114,31 @@ jobs:
           done
           node --test tests/science-evidence.test.cjs tests/science-evidence-integration.test.cjs tests/science-universe-original.test.cjs tests/science-pulsar-scenarios.test.cjs
 
-      - name: Validate deployment configuration
+      - name: Authenticate the dedicated production deploy user with a pinned host key
         shell: bash
+        env:
+          HOST: ${{ secrets.PRODUCTION_DEPLOY_HOST }}
+          DEPLOY_LOGIN: ${{ secrets.PRODUCTION_DEPLOY_USER }}
+          CONFIGURED_PORT: ${{ secrets.PRODUCTION_DEPLOY_PORT }}
+          PRIVATE_KEY: ${{ secrets.PRODUCTION_DEPLOY_SSH_KEY }}
+          KNOWN_HOSTS: ${{ secrets.PRODUCTION_DEPLOY_KNOWN_HOSTS }}
         run: |
           set -euo pipefail
-          test -n "${{ secrets.PRODUCTION_DEPLOY_HOST }}" || { echo "Missing DEPLOY_HOST"; exit 1; }
-          test -n "${{ secrets.PRODUCTION_DEPLOY_SSH_KEY }}" || { echo "Missing DEPLOY_SSH_KEY"; exit 1; }
+          test -n "$PRIVATE_KEY" && test -n "$KNOWN_HOSTS"
+          [[ "$HOST" =~ ^[A-Za-z0-9][A-Za-z0-9.-]*$ ]]
+          [[ "$DEPLOY_LOGIN" =~ ^[a-z_][a-z0-9_-]*$ && "$DEPLOY_LOGIN" != root ]]
+          port="${CONFIGURED_PORT:-22}"
+          [[ "$port" =~ ^[1-9][0-9]{0,4}$ && "$port" -le 65535 ]]
 
-          CONFIGURED_USER="${{ secrets.PRODUCTION_DEPLOY_USER }}"
-          DEPLOY_PORT="${{ secrets.PRODUCTION_DEPLOY_PORT }}"
-          [ -n "$CONFIGURED_USER" ] || CONFIGURED_USER="deploy"
-          [ -n "$DEPLOY_PORT" ] || DEPLOY_PORT="22"
-
-          echo "CONFIGURED_USER=$CONFIGURED_USER" >> "$GITHUB_ENV"
-          echo "DEPLOY_PORT=$DEPLOY_PORT" >> "$GITHUB_ENV"
-
-      - name: Prepare SSH and resolve login user
-        shell: bash
-        run: |
-          set -euo pipefail
+          umask 077
           install -d -m 700 ~/.ssh
-          printf 'Host *\n  ServerAliveInterval 15\n  ServerAliveCountMax 6\n' > ~/.ssh/config
-          chmod 600 ~/.ssh/config
-          printf '%s\n' "${{ secrets.PRODUCTION_DEPLOY_SSH_KEY }}" > ~/.ssh/gravitas_deploy
-          chmod 600 ~/.ssh/gravitas_deploy
+          printf 'Host *\n  ServerAliveInterval 15\n  ServerAliveCountMax 6\n  StrictHostKeyChecking yes\n  IdentitiesOnly yes\n  BatchMode yes\n' > ~/.ssh/config
+          printf '%s\n' "$PRIVATE_KEY" > ~/.ssh/gravitas_deploy
+          printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+          unset PRIVATE_KEY
           ssh-keygen -y -f ~/.ssh/gravitas_deploy >/dev/null
-          ssh-keyscan -p "$DEPLOY_PORT" -H "${{ secrets.PRODUCTION_DEPLOY_HOST }}" >> ~/.ssh/known_hosts
-          chmod 600 ~/.ssh/known_hosts
-
-          SSH_OPTS=(-i ~/.ssh/gravitas_deploy -p "$DEPLOY_PORT" -o BatchMode=yes -o ConnectTimeout=10)
-          HOST="${{ secrets.PRODUCTION_DEPLOY_HOST }}"
-
-          if ssh "${SSH_OPTS[@]}" "$CONFIGURED_USER@$HOST" true 2>/dev/null; then
-            EFFECTIVE_USER="$CONFIGURED_USER"
-          elif [ "$CONFIGURED_USER" != "root" ] && ssh "${SSH_OPTS[@]}" "root@$HOST" true 2>/dev/null; then
-            EFFECTIVE_USER="root"
-            echo "Configured DEPLOY_USER could not authenticate; using root for bootstrap."
-          else
-            echo "SSH authentication failed."
-            exit 1
-          fi
-
-          echo "DEPLOY_USER=$EFFECTIVE_USER" >> "$GITHUB_ENV"
+          ssh -i ~/.ssh/gravitas_deploy -p "$port" -o ConnectTimeout=10 "$DEPLOY_LOGIN@$HOST" 'sudo -n true'
+          printf 'DEPLOY_USER=%s\nDEPLOY_PORT=%s\n' "$DEPLOY_LOGIN" "$port" >> "$GITHUB_ENV"
 
       - name: Select safe static-only release
         shell: bash
