@@ -1,0 +1,94 @@
+name: GraviQuest Release Center Staging Activation
+on:
+  push:
+    branches: [ops/staging-parity-host-evidence]
+    paths:
+      - .github/workflows/staging-release-center-activation.yml
+      - ops/staging/activate-release-center.sh
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: gravitas-workspace-staging
+  cancel-in-progress: false
+jobs:
+  activate:
+    if: github.repository == 'hsdarestani/gravitas' && github.actor == 'hsdarestani' && github.ref == 'refs/heads/ops/staging-parity-host-evidence'
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    environment: workspace-staging
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Verify the exact validated combined candidate
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh api repos/hsdarestani/gravitas/actions/runs/46007909630 > ci.json
+          gh api repos/hsdarestani/gravitas/git/ref/heads/qa/release-center-with-workspace-v2 > candidate.json
+          jq -e '.object.sha == "6337c23256f70480595e33fd4b3bc4d896243374"' candidate.json >/dev/null
+          jq -e '.name == "GraviQuest Platform CI" and .path == ".github/workflows/platform-ci.yml" and .head_sha == "6337c23256f70480595e33fd4b3bc4d896243374" and .status == "completed" and .conclusion == "success" and .repository.full_name == "hsdarestani/gravitas"' ci.json >/dev/null
+      - name: Back up staging, apply reviewed migrations, and switch the staging service
+        env:
+          SSH_HOST: ${{ secrets.DEPLOY_HOST }}
+          SSH_USER: ${{ secrets.DEPLOY_USER }}
+          SSH_PORT: ${{ secrets.DEPLOY_PORT }}
+          SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          STAGE_OWNER_EMAIL: ${{ secrets.WORKSPACE_STAGING_OWNER_EMAIL }}
+          STAGE_OWNER_PASSWORD: ${{ secrets.WORKSPACE_STAGING_OWNER_PASSWORD }}
+        run: |
+          set -euo pipefail
+          bash -n ops/staging/activate-release-center.sh
+          test -n "$SSH_HOST" && test -n "$SSH_KEY" && test -n "$STAGE_OWNER_EMAIL" && test -n "$STAGE_OWNER_PASSWORD"
+          unset STAGE_OWNER_PASSWORD
+          port="${SSH_PORT:-22}"
+          login="${SSH_USER:-deploy}"
+          umask 077
+          credentials=$(mktemp -d)
+          trap 'rm -rf -- "$credentials"' EXIT
+          printf '%s\n' "$SSH_KEY" > "$credentials/key"
+          ssh-keyscan -T 5 -p "$port" -H "$SSH_HOST" > "$credentials/known_hosts" 2>/dev/null
+          unset SSH_KEY
+          opts=(-i "$credentials/key" -p "$port" -o UserKnownHostsFile="$credentials/known_hosts" -o StrictHostKeyChecking=yes -o BatchMode=yes -o IdentitiesOnly=yes -o ConnectTimeout=10)
+          if ! ssh "${opts[@]}" "$login@$SSH_HOST" true 2>/dev/null; then login=root; fi
+          command='bash -s'
+          if [ "$login" != root ]; then command='sudo -n bash -s'; fi
+          {
+            printf 'STAGING_RUN_ID=%q\n' "$GITHUB_RUN_ID"
+            printf 'STAGE_OWNER_EMAIL_B64=%q\n' "$(printf '%s' "$STAGE_OWNER_EMAIL" | base64 -w0)"
+            cat ops/staging/activate-release-center.sh
+          } | ssh "${opts[@]}" "$login@$SSH_HOST" "$command"
+      - name: Verify both release tools and the staging owner session over HTTPS
+        env:
+          STAGE_OWNER_EMAIL: ${{ secrets.WORKSPACE_STAGING_OWNER_EMAIL }}
+          STAGE_OWNER_PASSWORD: ${{ secrets.WORKSPACE_STAGING_OWNER_PASSWORD }}
+          STAGE_EXPECTED_REVISION: '6337c23256f70480595e33fd4b3bc4d896243374'
+        run: |
+          set -euo pipefail
+          python3 ops/staging/smoke.py --owner --platform
+          PYTHONPATH=ops/staging python3 - <<'PY'
+          import os
+          from staging_client import StageClient
+
+          root = '/api/release-center/'
+          guest, owner = StageClient(), StageClient()
+          for path in ('changes/', 'visual/', 'visual/home/preview/'):
+              assert guest.call(root + path, status=401)['error'] == 'authentication_required'
+          owner.sign_in(os.environ['STAGE_OWNER_EMAIL'], os.environ['STAGE_OWNER_PASSWORD'])
+          try:
+              for path in ('/workspace-v2', '/workspace/core/releases', '/workspace/core/visual-editor'):
+                  assert 'GraviQuest' in owner.call(path)
+              assert 'staging-edit-page.js' in owner.call('/')
+              assert 'renderVisualEditor' in owner.call('/assets/ws/ws-release-center.js')
+              changes = owner.call(root + 'changes/')
+              assert changes['ok'] and all(changes['capabilities'].values()) and not changes['production_enabled']
+              catalog = owner.call(root + 'visual/')
+              assert {page['id'] for page in catalog['pages']} == {'home', 'topics', 'lab', 'education', 'about'}
+              assert 'data-visual-field="heading"' in owner.call(root + 'visual/home/preview/')
+              assert owner.call(root + 'status/')['staging']['revision'] == os.environ['STAGE_EXPECTED_REVISION']
+          finally:
+              owner.sign_out()
+          print('Authenticated staging Release Center and Visual Editor verified, including anonymous denials and exact revision.')
+          PY
