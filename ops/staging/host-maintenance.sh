@@ -128,15 +128,26 @@ printf '%s\n' "$revision" > "$pending/revision"
 # production mounts or persistent files. Restore solely into this container.
 image=$(docker inspect --format '{{.Image}}' "$db")
 [[ "$image" =~ ^sha256:[a-f0-9]{64}$ ]]
-install -d -m 0700 "$pending/restore"
+postgres_uid=$(docker exec "$db" id -u postgres)
+postgres_gid=$(docker exec "$db" id -g postgres)
+[[ "$postgres_uid" =~ ^[0-9]+$ && "$postgres_gid" =~ ^[0-9]+$ ]]
+install -d -m 0700 -o "$postgres_uid" -g "$postgres_gid" "$pending/restore"
 docker run --detach --name "$restore" --network none --memory 288m --cpus 0.4 --pids-limit 48   --tmpfs /run/postgresql:rw,nosuid,size=16m   --mount "type=bind,source=$pending/restore,target=/scratch"   --env PGDATA=/scratch/pg --env POSTGRES_HOST_AUTH_METHOD=trust "$image"   postgres -c listen_addresses= -c shared_buffers=24MB -c max_connections=8 >/dev/null
 started=1
+ready=0
 for try in {1..40}; do
-  if docker exec "$restore" pg_isready -q -U postgres -d postgres &&
-    test "$(docker inspect -f '{{.State.Running}}' "$restore")" = true &&
-    docker exec "$restore" psql -XqtA -U postgres -d postgres -c 'SELECT 1' | grep -Fxq 1; then break; fi
+  if [ "$(docker inspect -f '{{.State.Running}}' "$restore")" != true ]; then break; fi
+  if [ "$(docker exec "$restore" cat /proc/1/comm 2>/dev/null)" = postgres ] &&
+    docker exec "$restore" psql -XqtA -U postgres -d postgres -c 'SELECT 1' 2>/dev/null | grep -Fxq 1; then
+    ready=1
+    break
+  fi
   sleep 1
 done
+if [ "$ready" = 0 ]; then
+  docker logs --tail 12 "$restore"
+  exit 1
+fi
 echo isolated_restore_container_started
 for database in gravitas_workspace_staging workspace_staging_nextcloud; do
   docker exec "$restore" createdb -U postgres "$database"
