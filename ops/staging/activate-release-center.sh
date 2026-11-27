@@ -171,6 +171,31 @@ PY
 
 # Refresh only the stage operator and add a short-lived loopback entry.
 bash "$source_dir/ops/staging/install-operator.sh"
+python3 - /usr/local/lib/gravitas-staging/release.sh <<'PY'
+from pathlib import Path
+import sys
+
+path = Path(sys.argv[1])
+body = path.read_text()
+before = 'public /site | cmp -s - "$release/source/.staging-public/index.html"'
+assert body.count(before) == 2
+verify_site = '''verify_site() {
+  local compiled="$release/source/.staging-public/index.html"
+  local served="$backup/served-home.html" expected="$backup/expected-home.html"
+  public /site > "$served" || return
+  if cmp -s "$served" "$compiled"; then return 0; fi
+  # The existing ingress can insert the CMS stylesheet and robots metadata.
+  sed 's|</head>|<link rel="stylesheet" href="/assets/cms-public.css"><meta name="robots" content="noindex, nofollow"></head>|' "$compiled" > "$expected" &&
+    cmp -s "$served" "$expected"
+}
+'''
+anchor = 'if [ "$old_timer_active" = 1 ]; then systemctl stop'
+assert body.count(anchor) == 1
+body = body.replace(anchor, verify_site + '\n' + anchor, 1).replace(before, 'verify_site')
+body = body.replace('\nverify_site\nsystemctl enable', '\nif ! verify_site; then\n  printf "Staging /site response bytes: " >&2\n  wc -c < "$backup/served-home.html" >&2\n  echo "Staging candidate asset verification failed" >&2\n  exit 1\nfi\nsystemctl enable', 1)
+path.write_text(body)
+PY
+bash -n /usr/local/lib/gravitas-staging/release.sh
 test "$(getent passwd "$operator" | cut -d: -f6)" = "$operator_home"
 ssh-keygen -q -t ed25519 -N '' -f "$transport/key"
 printf 'from="127.0.0.1",restrict,command="/usr/local/lib/gravitas-staging/ssh-command" %s\n' \
