@@ -109,6 +109,7 @@ function refreshDerivedSchedule() {
   }
 }
 const isAdmin = () => currentActor()?.role === 'Admin';
+const stagingAccounts = () => location.hostname === 'staging.graviquest.com' && isAdmin();
 const isActiveProject = flow => flow?.state==='active';
 const canManageProject = flow => Boolean(flow?.canEdit && isActiveProject(flow));
 const canEdit = id => canManageProject(project(id));
@@ -2245,7 +2246,8 @@ function adminTasks() {
 }
 function admin() {
   const view=ui.admin;
-  const actions = view==='people' ? button('new-person','Add teammate','plus','primary') :
+  const actions = view==='people' ? (stagingAccounts()?button('manage-staging-accounts','Manage access','people','ghost'):'')+
+    button('new-person','Add teammate','plus','primary') :
     view==='areas' ? button('new-area','Add work area','plus','primary') : view==='projects'||view==='overview'?button('admin-new-project','New project','plus','primary'):
     view==='meetings'?button('edit-meeting','New meeting','plus','primary'):'';
   return `<header class="admin-hero"><div><div class="eyebrow">Workspace administration</div><h1>Admin</h1>
@@ -3033,15 +3035,70 @@ function moveTaskDialog(flow) {
     <label class="field">Horizontal position<input type="number" name="x" required min="48" max="3900" value="${selected.x}"></label>
     <label class="field">Vertical position<input type="number" name="y" required min="55" max="3900" value="${selected.y}"></label>`, 'Move task');
 }
+const temporaryPasswordField = '<label class="field">Temporary staging password<input name="password" type="password" autocomplete="new-password" required></label>';
+
+function newStagingAccountDialog() {
+  if (!stagingAccounts()) return;
+  formDialog('Create staging account','create-staging-account-form',
+    textField('name','Display name','',150)+
+    '<label class="field">Email address<input name="email" type="email" autocomplete="off" maxlength="254" required></label>'+
+    selectField('role','Access level',option('member','Member','member')+option('admin','Admin'))+
+    temporaryPasswordField+
+    '<p class="dim">Share the temporary password through the team’s secure channel.</p>', 'Create account');
+}
+
+async function manageStagingAccounts() {
+  if (!stagingAccounts()) return;
+  showDialog('Manage staging access','<p role="status" data-staging-account-loading>Loading accounts…</p>');
+  const loading = dialog.querySelector('[data-staging-account-loading]');
+  try {
+    const {members,viewer} = await workspaceApi.teamAccounts();
+    if (!dialog.open || !loading.isConnected) return;
+    formDialog('Manage staging access','choose-staging-account-form',
+      selectField('id','Core account',members.map(member=>
+        option(member.id,member.name+' · '+member.email+(member.is_active?'':' · Inactive'))).join('')), 'Open account');
+    dialog.querySelector('form').onchooseaccount = id => {
+      const member=members.find(account=>String(account.id)===id);
+      if (member) stagingAccountDialog(member,viewer);
+    };
+  } catch (error) {
+    if (dialog.open && loading.isConnected) loading.textContent=error.message;
+  }
+}
+
+function stagingAccountDialog(member,viewer) {
+  const canSetRole = member.role!=='owner' && (viewer.role==='owner'||viewer.is_superuser);
+  const title = 'Access for '+member.name;
+  formDialog(title,'staging-account-access-form',`
+    <input type="hidden" name="id" value="${Number(member.id)}">
+    <p class="dim">${esc(member.email)}</p>
+    ${canSetRole?selectField('role','Access level',option('member','Member',member.role)+option('admin','Admin',member.role)):
+      '<p class="dim">Access level · '+esc(member.role)+'</p>'}
+    <label class="field"><span><input type="checkbox" name="active" ${member.is_active?'checked':''}> Account active</span></label>
+    ${button('reset-staging-account','Set temporary password','edit','ghost',member.id)}`, 'Save access');
+}
+
+function resetStagingAccountDialog(id) {
+  if (!stagingAccounts()) return;
+  formDialog('Set temporary password','reset-staging-account-form',
+    `<input type="hidden" name="id" value="${Number(id)}">`+temporaryPasswordField, 'Set password');
+}
+
 function personDialog(member) {
-  if (!member) return formDialog('Add teammate','add-member-form',
+  if (!member && stagingAccounts()) return showDialog('Add teammate',
+    '<div class="form-actions">'+button('add-existing-staging-account','Add existing account','plus')+
+    button('create-staging-account','Create staging account','user','primary')+'</div>');
+  if (!member) return addExistingAccountDialog();
+  formDialog('Edit teammate','person-form',`<input type="hidden" name="id" value="${member.id}">
+    ${textField('name','Display name',member.name,38)}${textField('handle','Mention handle',member.handle,25)}
+    <label class="field">Role title<input type="text" name="roleTitle" maxlength="60" value="${esc(member.roleTitle)}" placeholder="e.g. Video Editor"></label>
+    ${selectField('role','Access level',option('Member','Member',member.role)+option('Admin','Admin',member.role))}
+    <label class="field">Owner color<input type="color" name="color" value="${member.color || '#d6a3b0'}"></label>`, 'Save teammate');
+}
+function addExistingAccountDialog() {
+  return formDialog('Add teammate','add-member-form',
     '<label class="field">GraviQuest account email<input name="email" type="email" autocomplete="off" required></label>'+
     selectField('role','Access level',option('member','Member','member')+option('admin','Admin')),'Add teammate');
-  formDialog(member?'Edit teammate':'Add teammate','person-form',`<input type="hidden" name="id" value="${member?.id || ''}">
-    ${textField('name','Display name',member?.name,38)}${textField('handle','Mention handle',member?.handle,25)}
-    <label class="field">Role title<input type="text" name="roleTitle" maxlength="60" value="${esc(member?.roleTitle)}" placeholder="e.g. Video Editor"></label>
-    ${selectField('role','Access level',option('Member','Member',member?.role || 'Member')+option('Admin','Admin',member?.role))}
-    <label class="field">Owner color<input type="color" name="color" value="${member?.color || '#d6a3b0'}"></label>`,member?'Save teammate':'Add teammate');
 }
 function areaDialog(group) {
   formDialog(group?'Edit work area':'Add work area','area-form',`<input type="hidden" name="id" value="${group?.id || ''}">
@@ -4617,6 +4674,10 @@ const handlers = {
   'loop-info':id=>showLoopInfo(task(ui.task)?project(task(ui.task).project):currentProject(),id),
   'move-task':()=>{if (canEdit(ui.project)) moveTaskDialog(currentProject());},
   'new-person':()=>{if (isAdmin()) personDialog(null);},
+  'add-existing-staging-account':()=>{if (stagingAccounts()) addExistingAccountDialog();},
+  'create-staging-account':newStagingAccountDialog,
+  'manage-staging-accounts':manageStagingAccounts,
+  'reset-staging-account':resetStagingAccountDialog,
   'edit-person':id=>{if (isAdmin()) personDialog(person(id));},
   'new-area':()=>{if (isAdmin()) areaDialog(null);},
   'edit-area':id=>{if (isAdmin()) areaDialog(area(id));},
@@ -5742,7 +5803,18 @@ function readInbox(ids, open) {
 
 const studioForms = new Map(Object.entries({
   'task-form': saveTask,
-  'add-member-form': (form,fields)=>runWrite(()=>workspaceApi.addMember(fields.get('email').trim(),fields.get('role')),()=>dialog.close(),form),
+  'add-member-form': (form,fields)=>runWrite(()=>workspaceApi.addMember({
+    email:fields.get('email').trim(),role:fields.get('role'),
+  }),()=>dialog.close(),form),
+  'create-staging-account-form': (form,fields)=>runWrite(()=>workspaceApi.addMember({
+    create_account:true,name:fields.get('name').trim(),email:fields.get('email').trim(),
+    role:fields.get('role'),password:fields.get('password'),
+  }),()=>dialog.close(),form),
+  'choose-staging-account-form': (form,fields)=>form.onchooseaccount?.(fields.get('id')),
+  'staging-account-access-form': (form,fields)=>runWrite(()=>workspaceApi.updateTeamAccount(fields.get('id'),{
+    ...(fields.has('role')?{role:fields.get('role')}:{}),is_active:fields.has('active'),
+  }),()=>dialog.close(),form),
+  'reset-staging-account-form': (form,fields)=>runWrite(()=>workspaceApi.resetTeamPassword(fields.get('id'),fields.get('password')),()=>dialog.close(),form),
   'area-form':saveArea,
   'task-preset-form':savePreset,
   'okr-owner-form':saveOkrOwner,

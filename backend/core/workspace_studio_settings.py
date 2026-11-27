@@ -9,6 +9,7 @@ from .models import Workspace, WorkspaceMembership
 from .operating_models import KeyResult, OperatingProcess, StrategicObjective
 from .platform_models import WorkspaceProfile
 from .platform_runtime_v3 import core_role
+from .team_api import core_team
 from .workspace_studio_api import _body, error, studio_access
 from .workspace_studio_projects import _text
 
@@ -115,6 +116,8 @@ def studio_add_member(request, workspace):
         return error('permission_denied', 403)
     if requested not in ('member', 'admin') or not _text(email, 254, True):
         return error('invalid_member', 400)
+    if data.get('create_account') is True:
+        return core_team(request)
     lookup = email.strip()
     users = list(get_user_model().objects.select_for_update().filter(
         Q(email__iexact=lookup) | Q(username__iexact=lookup), is_active=True, is_superuser=False,
