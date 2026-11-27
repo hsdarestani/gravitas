@@ -109,3 +109,14 @@ Project [212](https://graviquest.com/workspace/research/projects/212/tasks) cont
 2. Run the required CI and authenticated staging QA. Deploy with the toggle disabled and verify V1 and existing production health indicators.
 3. Enable the V2 flag through the approved runtime configuration after the team approves activation. Smoke-test authenticated access, denied access and bidirectional task changes using designated verification records.
 4. Disable the flag and reload the backend to close V2 if verification fails. Use the repository's guarded rollback to revert the deployed code if necessary. Preserve additive tables and historical V1/V2 records unless a matched database/storage restore is explicitly approved.
+
+## Staging account acceptance
+
+After the onboarding candidate is deployed, sign in as a staging Core owner
+and open **Admin → People → Add teammate**. Use **Create staging account** for
+a synthetic user with a temporary password, or **Add existing account** for an
+existing active staging user. Select **Manage access** to change access or
+reset the password through the Core Team service. Verify account activation,
+new password login, role limits and duplicate-address rejection in a separate
+browser session. The current QA 004 deployment continues to use the Core Team
+page until this candidate has a staging slot.

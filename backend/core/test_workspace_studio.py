@@ -61,6 +61,38 @@ class WorkspaceStudioTests(TestCase):
         self.assertEqual(self.state()['actor']['id'], self.member.pk)
         self.assertEqual(self.client.get(STUDIO + 'state/?workspace_id=9989999').status_code, 403)
 
+    @override_settings(PUBLIC_BASE_URL='https://staging.graviquest.com')
+    def test_create_staging_account_uses_core_membership_and_refuses_duplicate(self):
+        password = 'Synthetic-QA-Account-46!abc'
+        payload = {
+            'create_account': True, 'email': 'studio-qa-owner@example.test',
+            'name': 'Studio QA User', 'role': 'member', 'password': password,
+        }
+        self.client.force_login(self.member)
+        self.assertEqual(self.post('members/', payload).status_code, 403)
+        self.client.force_login(self.admin)
+        response = self.post('members/', payload)
+        self.assertEqual(response.status_code, 201, response.content)
+        user = get_user_model().objects.get(email=payload['email'])
+        self.assertTrue(user.check_password(password))
+        self.assertIn(user.pk, [member['id'] for member in self.state()['members']])
+        self.assertTrue(WorkspaceMembership.objects.filter(
+            workspace=self.workspace, user=user, role='member',
+        ).exists())
+        duplicate = self.post('members/', {**payload, 'name': 'Changed name'})
+        self.assertEqual(duplicate.status_code, 409, duplicate.content)
+        user.refresh_from_db()
+        self.assertEqual(user.first_name, payload['name'])
+        self.assertTrue(user.check_password(password))
+        self.assertTrue(self.client.login(username=payload['email'], password=password))
+
+    @override_settings(PUBLIC_BASE_URL='https://graviquest.com')
+    def test_create_account_mode_is_unavailable_on_production_origin(self):
+        payload = {'create_account': True, 'email': 'new-qa@example.test', 'role': 'member'}
+        response = self.post('members/', payload)
+        self.assertEqual(response.status_code, 403, response.content)
+        self.assertFalse(get_user_model().objects.filter(email=payload['email']).exists())
+
     def test_bidirectional_canonical_task_edits_and_stale_revision(self):
         created = self.post('tasks/', {
             'title':'V2 created', 'definition_of_done':'Reviewed', 'owner_id':self.admin.pk,
