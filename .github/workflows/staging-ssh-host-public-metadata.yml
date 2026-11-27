@@ -1,0 +1,21 @@
+name: GraviQuest Staging Public SSH Host Metadata
+on:
+  push:
+    branches: [ops/staging-parity-host-evidence]
+    paths: [.github/workflows/staging-ssh-host-public-metadata.yml]
+permissions:
+  contents: read
+jobs:
+  public-host-key:
+    if: github.repository == 'hsdarestani/gravitas' && github.actor == 'hsdarestani'
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Compare the endpoint to the STRATO console fingerprint recorded during enrollment
+        run: |
+          set -euo pipefail
+          ssh-keyscan -T 7 -t ed25519 -p 22 82.165.94.28 > host-public-key 2>/dev/null
+          test "$(wc -l < host-public-key)" -eq 1
+          ssh-keygen -lf host-public-key | awk '{print $2}' | grep -Fxq 'SHA256:nMIMs71U9EyJylPdawERsaIKMlihd14LzsSKSXC2wms'
+          printf 'Verified public host key line: '
+          cat host-public-key
