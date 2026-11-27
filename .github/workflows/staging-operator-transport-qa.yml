@@ -1,0 +1,45 @@
+name: GraviQuest Staging Restricted Operator Transport
+on:
+  push:
+    branches: [ops/staging-parity-host-evidence]
+    paths:
+      - .github/workflows/staging-operator-transport-qa.yml
+      - ops/staging/check-operator-transport.sh
+permissions:
+  contents: read
+concurrency:
+  group: gravitas-workspace-staging
+  cancel-in-progress: false
+jobs:
+  evidence:
+    if: github.repository == 'hsdarestani/gravitas' && github.actor == 'hsdarestani'
+    runs-on: ubuntu-latest
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Verify the restricted SSH identity with a temporary loopback-only key
+        shell: bash
+        env:
+          SSH_HOST: ${{ secrets.DEPLOY_HOST }}
+          SSH_USER: ${{ secrets.DEPLOY_USER }}
+          SSH_PORT: ${{ secrets.DEPLOY_PORT }}
+          SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          bash -n ops/staging/check-operator-transport.sh
+          test -n "$SSH_HOST" && test -n "$SSH_KEY"
+          port="${SSH_PORT:-22}"
+          login="${SSH_USER:-deploy}"
+          umask 077
+          credentials=$(mktemp -d)
+          trap 'rm -rf "$credentials"' EXIT
+          printf '%s\n' "$SSH_KEY" > "$credentials/key"
+          ssh-keyscan -T 5 -p "$port" -H "$SSH_HOST" > "$credentials/known_hosts" 2>/dev/null
+          unset SSH_KEY
+          opts=(-i "$credentials/key" -p "$port" -o UserKnownHostsFile="$credentials/known_hosts" -o StrictHostKeyChecking=yes -o BatchMode=yes -o IdentitiesOnly=yes -o ConnectTimeout=10)
+          if ! ssh "${opts[@]}" "$login@$SSH_HOST" true 2>/dev/null; then login=root; fi
+          command='bash -s'
+          if [ "$login" != root ]; then command='sudo -n bash -s'; fi
+          ssh "${opts[@]}" "$login@$SSH_HOST" "$command" < ops/staging/check-operator-transport.sh

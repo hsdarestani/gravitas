@@ -1,0 +1,27 @@
+name: GraviQuest Staging Remaining Platform Acceptance
+on:
+  push:
+    branches: [ops/staging-parity-host-evidence]
+    paths:
+      - .github/workflows/staging-release-readiness-qa.yml
+      - ops/staging/release-readiness-qa.py
+permissions:
+  contents: read
+concurrency:
+  group: gravitas-workspace-staging
+  cancel-in-progress: false
+jobs:
+  public-content:
+    if: github.repository == 'hsdarestani/gravitas' && github.actor == 'hsdarestani'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    environment: workspace-staging
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Verify public intake and authenticated platform endpoints against staging only
+        env:
+          STAGE_OWNER_EMAIL: ${{ secrets.WORKSPACE_STAGING_OWNER_EMAIL }}
+          STAGE_OWNER_PASSWORD: ${{ secrets.WORKSPACE_STAGING_OWNER_PASSWORD }}
+        run: python3 ops/staging/release-readiness-qa.py
