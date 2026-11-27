@@ -13,6 +13,7 @@ from .platform_access import can_view
 from .platform_runtime_v3 import core_access
 from .release_evidence import health, staging_metadata, verified_ci
 from .release_models import ReleaseChange, ReleaseEvent, ReleaseRevision, VisualRehearsalPage
+from . import release_target
 from .visual_registry import FIELDS, LINKS, PAGES, fields_for, preview, validate_edits, values_for
 
 
@@ -135,7 +136,8 @@ def release_changes(request):
         if not (allowed['review'] or allowed['rehearse']):
             changes = changes.filter(author=request.user)
         return reply(changes=[serialize(change) for change in changes[:100] if visible(request.user, change, allowed)],
-                     capabilities=allowed, user_id=request.user.pk, production_enabled=False)
+                     capabilities={**allowed, 'isolated_application': release_target.enabled()},
+                     user_id=request.user.pk, production_enabled=False)
     if not allowed['author']:
         return reply('release_author_required', 403)
     try:
@@ -186,6 +188,29 @@ def rehearse(change, actor):
     return None
 
 
+def rehearse_application(change, actor, action):
+    if not release_target.enabled():
+        return reply('isolated_release_target_disabled', 409)
+    approved = change.approved_revision == change.revision and change.reviewer_id not in (None, change.author_id)
+    operation = 'deploy' if action == 'rehearse_application' else 'rollback'
+    required = State.APPROVED if operation == 'deploy' else State.RELEASED
+    if change.kind != Kind.DEVELOPMENT or not approved or change.state != required:
+        return reply('approved_application_revision_required', 409)
+    version = change.revisions.get(number=change.revision).payload
+    proposed, prior = version['sha'], version['previous_sha']
+    if (not proposed or not prior or proposed == prior
+            or not change.events.filter(action='ready', revision=change.revision, evidence__sha=proposed).exists()):
+        return reply('isolated_release_requires_exact_ci_and_base', 409)
+    expected, revision = (prior, proposed) if operation == 'deploy' else (proposed, prior)
+    try:
+        receipt = release_target.execute(operation, f'{change.pk}.{change.revision}.{operation}', expected, revision)
+    except release_target.TargetError as exc:
+        return reply(str(exc), 409 if str(exc) == 'isolated_release_conflict' else 502)
+    change.state = State.RELEASED if operation == 'deploy' else State.ROLLED_BACK
+    audited(change, actor, action, receipt)
+    return None
+
+
 @never_cache
 @require_http_methods(['GET', 'PATCH', 'POST'])
 def release_change(request, change_id):
@@ -224,6 +249,11 @@ def release_change(request, change_id):
                 if not allowed['rehearse']:
                     return reply('release_manager_required', 403)
                 if result := rehearse(change, request.user):
+                    return result
+            elif action in ('rehearse_application', 'rollback_application'):
+                if not allowed['rehearse'] or own:
+                    return reply('independent_release_manager_required', 403)
+                if result := rehearse_application(change, request.user, action):
                     return result
             elif action == 'restore':
                 if not allowed['author']:

@@ -28,4 +28,6 @@ Visual revisions show a field-by-field comparison and authenticated preview. Ins
 
 The dashboard reads the two application health endpoints and the authenticated staging metadata if installed. A production commit with no verified release evidence is shown as unverified. This candidate has no production dispatch credential. Production workflow dispatch, scheduling, deployment progress, code rollback and production content readback require the separately authorized release control integration and a verified rehearsal. Existing GitHub Actions remain the guarded deployment path. See the [release guide](development-and-release-workflow.md).
 
+An opt-in [isolated application release rehearsal](isolated-release-rehearsal.md) exercises deployment and rollback with separately installed artifacts, exact CI evidence and independent approval. It uses a loopback-only target and a dedicated token. Production authority is disabled.
+
 For existing Workspace V2 QA, record evidence and the slot release in task #1167. Preserve PR #406 and use the combined Workspace V2, staging and account candidate after the owner releases QA 004.
