@@ -43,28 +43,27 @@ jobs:
           from core import cloud, nextcloud_bridge
           from core.canonical_models import CanonicalProject
           from core.platform_access import can_view, can_edit
-          projects = ResearchProject.objects.filter(archived=False, title__iexact='Funding')
-          if projects.count() != 1:
-              print('exact_matches=', projects.count())
-              print('partial_matches=', ResearchProject.objects.filter(archived=False,title__icontains='funding').count())
-              raise SystemExit('Unique exact Funding project required')
-          project = projects.get()
-          root = cloud.project_mountpoint(project)
-          print('project_id=',project.pk,'canonical=',CanonicalProject.objects.filter(project=project,enabled=True).exists())
-          body=b'<d:propfind xmlns:d="DAV:" xmlns:oc="http://owncloud.org/ns"><d:prop><d:resourcetype/><oc:permissions/></d:prop></d:propfind>'
-          group=cloud.project_group_id(project)
-          folders=cloud.list_team_folders()
-          print('team_folder_present=',any(str(v.get('mount_point',''))==root for v in (folders.values() if isinstance(folders,dict) else folders) if isinstance(v,dict)))
-          for index,user in enumerate(nextcloud_bridge.project_users(project),1):
-              identity=NextcloudIdentity.objects.filter(user=user).first()
-              print('participant',index,'owner=',user.pk==project.owner_id,'view=',can_view(user,project),'edit=',can_edit(user,project),'identity=',bool(identity))
-              if not identity: continue
-              try:
-                  groups=cloud.user_groups(identity.username)
-                  response=cloud._request('PROPFIND',cloud._dav_url(identity,root),auth=cloud._auth(identity),expected={207,401,403,404},headers={'Depth':'0','Content-Type':'application/xml'},data=body)
-                  perms=ElementTree.fromstring(response.content).findtext('.//{http://owncloud.org/ns}permissions') if response.status_code==207 else None
-                  print('participant',index,'group=',group in groups,'dav_status=',response.status_code,'native_permissions=',perms)
-              except Exception as e:
-                  print('participant',index,'probe_failed=',type(e).__name__)
+          projects = ResearchProject.objects.filter(archived=False, title__icontains='funding').order_by('pk')
+          if not 1 <= projects.count() <= 3:
+              raise SystemExit('Unexpected candidate count')
+          print('candidate_count=', projects.count())
+          for project in projects:
+              root = cloud.project_mountpoint(project)
+              print('project_id=',project.pk,'canonical=',CanonicalProject.objects.filter(project=project,enabled=True).exists())
+              body=b'<d:propfind xmlns:d="DAV:" xmlns:oc="http://owncloud.org/ns"><d:prop><d:resourcetype/><oc:permissions/></d:prop></d:propfind>'
+              group=cloud.project_group_id(project)
+              folders=cloud.list_team_folders()
+              print('team_folder_present=',any(str(v.get('mount_point',''))==root for v in (folders.values() if isinstance(folders,dict) else folders) if isinstance(v,dict)))
+              for index,user in enumerate(nextcloud_bridge.project_users(project),1):
+                  identity=NextcloudIdentity.objects.filter(user=user).first()
+                  print('participant',index,'owner=',user.pk==project.owner_id,'view=',can_view(user,project),'edit=',can_edit(user,project),'identity=',bool(identity))
+                  if not identity: continue
+                  try:
+                      groups=cloud.user_groups(identity.username)
+                      response=cloud._request('PROPFIND',cloud._dav_url(identity,root),auth=cloud._auth(identity),expected={207,401,403,404},headers={'Depth':'0','Content-Type':'application/xml'},data=body)
+                      perms=ElementTree.fromstring(response.content).findtext('.//{http://owncloud.org/ns}permissions') if response.status_code==207 else None
+                      print('participant',index,'group=',group in groups,'dav_status=',response.status_code,'native_permissions=',perms)
+                  except Exception as e:
+                      print('participant',index,'probe_failed=',type(e).__name__)
           PY
           REMOTE
